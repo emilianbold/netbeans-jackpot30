@@ -1,0 +1,227 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE filesystem PUBLIC "-//NetBeans//DTD Filesystem 1.0//EN" "http://www.netbeans.org/dtds/filesystem-1_0.dtd">
+<!--
+DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+
+Copyright 1997-2008 Sun Microsystems, Inc. All rights reserved.
+
+
+The contents of this file are subject to the terms of either the GNU
+General Public License Version 2 only ("GPL") or the Common
+Development and Distribution License("CDDL") (collectively, the
+"License"). You may not use this file except in compliance with the
+License. You can obtain a copy of the License at
+http://www.netbeans.org/cddl-gplv2.html
+or nbbuild/licenses/CDDL-GPL-2-CP. See the License for the
+specific language governing permissions and limitations under the
+License.  When distributing the software, include this License Header
+Notice in each file and include the License file at
+nbbuild/licenses/CDDL-GPL-2-CP.  Sun designates this
+particular file as subject to the "Classpath" exception as provided
+by Sun in the GPL Version 2 section of the License file that
+accompanied this code. If applicable, add the following below the
+License Header, with the fields enclosed by brackets [] replaced by
+your own identifying information:
+"Portions Copyrighted [year] [name of copyright owner]"
+
+Contributor(s):
+
+The Original Software is NetBeans. The Initial Developer of the Original
+Software is Sun Microsystems, Inc. Portions Copyright 1997-2008 Sun
+Microsystems, Inc. All Rights Reserved.
+
+If you wish your version of this file to be governed by only the CDDL
+or only the GPL Version 2, indicate your decision by adding
+"[Contributor] elects to include this software in this distribution
+under the [CDDL or GPL Version 2] license." If you do not indicate a
+single choice of license, a recipient has the option to distribute
+your version of this file under either the CDDL, the GPL Version 2 or
+to extend the choice of license to its licensees as provided above.
+However, if you add GPL Version 2 code and therefore, elected the GPL
+Version 2 license, then the option applies only if the new code is
+made subject to such option by the copyright holder.
+-->
+<filesystem>
+
+    <folder name="Actions">
+        <folder name="Refactoring">
+            <file name="org-netbeans-modules-javahints-batch-BatchApplyAction.instance"/>
+            <file name="org-netbeans-modules-javahints-OrganizeImports.instance">
+                <attr name="instanceCreate" methodvalue="org.netbeans.modules.javahints.batch.BatchApplyAction.createBatchHintAction"/>
+                <attr name="displayName" bundlevalue="org.netbeans.modules.javahints.Bundle#CTL_OrganizeImportsAction"/>
+                <attr name="hint" stringvalue="org.netbeans.modules.javahints.OrganizeImports"/>
+            </file>
+        </folder>
+    </folder>
+
+    <folder name="Loaders">
+        <folder name="text">
+            <folder name="x-javahints">
+                <folder name="Actions">
+                    <file name="org-openide-actions-CopyAction.instance">
+                        <attr name="position" intvalue="400"/>
+                    </file>
+                    <file name="org-openide-actions-CutAction.instance">
+                        <attr name="position" intvalue="300"/>
+                    </file>
+                    <file name="org-openide-actions-DeleteAction.instance">
+                        <attr name="position" intvalue="600"/>
+                    </file>
+                    <file name="org-openide-actions-FileSystemAction.instance">
+                        <attr name="position" intvalue="1100"/>
+                    </file>
+                    <file name="org-openide-actions-OpenAction.instance">
+                        <attr name="position" intvalue="100"/>
+                    </file>
+                    <file name="org-openide-actions-PropertiesAction.instance">
+                        <attr name="position" intvalue="1400"/>
+                    </file>
+                    <file name="org-openide-actions-RenameAction.instance">
+                        <attr name="position" intvalue="700"/>
+                    </file>
+                    <file name="org-openide-actions-SaveAsTemplateAction.instance">
+                        <attr name="position" intvalue="900"/>
+                    </file>
+                    <file name="org-openide-actions-ToolsAction.instance">
+                        <attr name="position" intvalue="1300"/>
+                    </file>
+                    <file name="sep-1.instance">
+                        <attr name="instanceClass" stringvalue="javax.swing.JSeparator"/>
+                        <attr name="position" intvalue="200"/>
+                    </file>
+                    <file name="sep-2.instance">
+                        <attr name="instanceClass" stringvalue="javax.swing.JSeparator"/>
+                        <attr name="position" intvalue="500"/>
+                    </file>
+                    <file name="sep-3.instance">
+                        <attr name="instanceClass" stringvalue="javax.swing.JSeparator"/>
+                        <attr name="position" intvalue="800"/>
+                    </file>
+                    <file name="sep-4.instance">
+                        <attr name="instanceClass" stringvalue="javax.swing.JSeparator"/>
+                        <attr name="position" intvalue="1000"/>
+                    </file>
+                    <file name="sep-5.instance">
+                        <attr name="instanceClass" stringvalue="javax.swing.JSeparator"/>
+                        <attr name="position" intvalue="1200"/>
+                    </file>
+                </folder>
+                <folder name="Factories">
+                    <file name="HintDataLoader.instance">
+                        <attr name="dataObjectClass" stringvalue="org.netbeans.modules.javahints.file.HintDataObject"/>
+                        <attr name="instanceCreate" methodvalue="org.openide.loaders.DataLoaderPool.factory"/>
+                        <attr name="mimeType" stringvalue="text/x-javahints"/>
+                    </file>
+                </folder>
+            </folder>
+        </folder>
+    </folder>
+    <folder name="Menu">
+        <folder name="Refactoring">
+            <file name="HintsSeparator.instance">
+                <attr name="instanceClass" stringvalue="javax.swing.JSeparator"/>
+                <attr name="position" intvalue="1871"/>
+            </file>
+            <file name="org-netbeans-modules-javahints-OrganizeImports.shadow">
+                <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-javahints-OrganizeImports.instance"/>
+                <attr name="position" intvalue="1872"/>
+            </file>
+        </folder>
+    </folder>
+    
+    <folder name="Services">
+        <folder name="MIMEResolver">
+            <file name="HintResolver.xml" url="HintResolver.xml">
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.resources.Bundle"/>
+            </file>
+        </folder>
+    </folder>
+    <folder name="Templates">
+        <folder name="Other">
+            <file name="HintTemplate.hint" url="HintTemplate.hint">
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.resources.Bundle"/>
+                <attr name="template" boolvalue="true"/>
+            </file>
+        </folder>
+    </folder>
+    <folder name="org-netbeans-modules-java-hints">
+        <folder name="rules">
+            <folder name="errors">
+<!--                <file name="org-netbeans-modules-javahints-DeclarationFixer.instance" />-->
+                <file name="org-netbeans-modules-javahints-TypoDetector.instance"/>
+            </folder>
+
+            <folder name="hints">
+<!--                <file name="org-netbeans-modules-javahints-DeclarationFixer.instance" />-->
+                <folder name="experimental">
+                    <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.resources.Bundle"/>
+                    <file name="org-netbeans-modules-javahints-ImageUtilitiesDeprecation.instance"/>
+                    <file name="org-netbeans-modules-javahints-NPECheck.instance"/>
+                    <file name="org-netbeans-modules-javahints-NoFileToURL.instance"/>
+                    <file name="org-netbeans-modules-javahints-OrganizeImports.instance"/>
+                    <file name="org-netbeans-modules-javahints-NoDOGetCookie.instance"/>
+                    <file name="org-netbeans-modules-javahints-file-DeclarativeHintsRunner.instance"/>
+                    <file name="org-netbeans-modules-javahints-pm-AnnotationBasedHintsRunner.instance"/>
+                </folder>
+            </folder>
+            
+            <folder name="suggestions">
+                <file name="org-netbeans-modules-javahints-NegateCondition.instance"/>
+            </folder>
+        </folder>
+        <folder name="declarative">
+            <file name="test.hint" url="test.hint"/>
+        </folder>
+    </folder>
+
+<!--    <folder name="Templates">
+        <folder name="NetBeansModuleDevelopment">
+            <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.apisupport.project.ui.wizard.Bundle"/>
+            <attr name="position" intvalue="200"/>
+            <file name="newHint">
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.wizard.Bundle"/>
+                <attr name="instantiatingIterator" newvalue="org.netbeans.modules.javahints.wizard.NewHintWizardIterator"/>
+                <attr name="template" boolvalue="true"/>
+                <attr name="templateCategory" stringvalue="nbm-specific"/>
+            </file>
+        </folder>
+    </folder>-->
+
+<!--    <folder name="TaskList">
+        <folder name="Scanners">
+            <file name="HintsTaskScanner.instance">
+                <attr name="instanceOf" stringvalue="org.netbeans.spi.tasklist.FileTaskScanner"/>
+                <attr name="instanceClass" stringvalue="org.netbeans.modules.javahints.tasklist.HintsTaskScanner"/>
+            </file>
+        </folder>
+    </folder>-->
+    
+    <folder name="org.netbeans.modules.java.source">
+        <folder name="options">
+            <file name="Snippets.instance">
+                <attr name="instanceClass" stringvalue="org.netbeans.modules.javahints.options.CodeStyleAdvancedOption"/>
+            </file>
+        </folder>
+    </folder>
+    
+    <folder name="Editors">
+        <folder name="text">
+            <folder name="x-javahints">
+                <file name="language.instance">
+                    <attr name="instanceCreate" methodvalue="org.netbeans.modules.javahints.file.DeclarativeHintTokenId.language"/>
+                    <attr name="instanceOf" stringvalue="org.netbeans.api.lexer.Language"/>
+                </file>
+                <folder name="FontsColors">
+                    <folder name="NetBeans">
+                        <folder name="Defaults">
+                            <file name="org-netbeans-modules-javahints-file-token-colorings.xml" url="fontsColors.xml">
+<!--                                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.java.editor.resources.Bundle"/>-->
+                            </file>
+                        </folder>
+                    </folder>
+                </folder>
+            </folder>
+        </folder>
+    </folder>
+    
+</filesystem>
