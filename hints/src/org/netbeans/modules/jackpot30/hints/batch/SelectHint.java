@@ -43,7 +43,7 @@
  * Created on Sep 24, 2008, 4:53:47 PM
  */
 
-package org.netbeans.modules.javahints.batch;
+package org.netbeans.modules.jackpot30.hints.batch;
 
 import javax.swing.DefaultComboBoxModel;
 import org.netbeans.modules.java.hints.spi.TreeRule;

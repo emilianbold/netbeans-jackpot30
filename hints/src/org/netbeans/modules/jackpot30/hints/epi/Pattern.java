@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,10 +34,10 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.javahints.epi;
+package org.netbeans.modules.jackpot30.hints.epi;
 
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.CompilationUnitTree;
@@ -62,7 +62,7 @@ import javax.tools.JavaFileObject;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.parsing.FileObjects;
-import org.netbeans.modules.javahints.pm.CopyFinder;
+import org.netbeans.modules.jackpot30.hints.pm.CopyFinder;
 import org.openide.util.Exceptions;
 
 /**

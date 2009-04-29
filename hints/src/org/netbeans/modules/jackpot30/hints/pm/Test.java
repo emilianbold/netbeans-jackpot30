@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,19 +34,19 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.javahints.pm;
+package org.netbeans.modules.jackpot30.hints.pm;
 
 import com.sun.source.tree.Tree.Kind;
-import org.netbeans.modules.javahints.epi.ErrorDescriptionFactory;
-import org.netbeans.modules.javahints.epi.Hint;
-import org.netbeans.modules.javahints.epi.HintContext;
-import org.netbeans.modules.javahints.epi.TestCase;
-import org.netbeans.modules.javahints.epi.TestSuite;
-import org.netbeans.modules.javahints.epi.TriggerCompileTime;
-import org.netbeans.modules.javahints.epi.TriggerTreeKind;
+import org.netbeans.modules.jackpot30.hints.epi.ErrorDescriptionFactory;
+import org.netbeans.modules.jackpot30.hints.epi.Hint;
+import org.netbeans.modules.jackpot30.hints.epi.HintContext;
+import org.netbeans.modules.jackpot30.hints.epi.TestCase;
+import org.netbeans.modules.jackpot30.hints.epi.TestSuite;
+import org.netbeans.modules.jackpot30.hints.epi.TriggerCompileTime;
+import org.netbeans.modules.jackpot30.hints.epi.TriggerTreeKind;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Severity;
 
@@ -56,7 +56,7 @@ import org.netbeans.spi.editor.hints.Severity;
  */
 public class Test {
 
-    @Hint("org.netbeans.modules.javahints.pm.Test.computeHint")
+    @Hint("org.netbeans.modules.jackpot30.hints.pm.Test.computeHint")
     @TriggerTreeKind(Kind.METHOD_INVOCATION)
     @TriggerCompileTime
 //    @TestSuite({

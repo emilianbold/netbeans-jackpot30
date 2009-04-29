@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,10 +34,10 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.javahints.pm;
+package org.netbeans.modules.jackpot30.hints.pm;
 
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -108,9 +108,9 @@ import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.JavaSource.Priority;
 import org.netbeans.api.java.source.support.EditorAwareJavaSourceTaskFactory;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
-import org.netbeans.modules.javahints.epi.Hint;
-import org.netbeans.modules.javahints.epi.HintContext;
-import org.netbeans.modules.javahints.epi.TriggerTreeKind;
+import org.netbeans.modules.jackpot30.hints.epi.Hint;
+import org.netbeans.modules.jackpot30.hints.epi.HintContext;
+import org.netbeans.modules.jackpot30.hints.epi.TriggerTreeKind;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;

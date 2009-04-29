@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,10 +34,10 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.javahints.batch;
+package org.netbeans.modules.jackpot30.hints.batch;
 
 import java.awt.Dialog;
 import java.awt.event.ActionEvent;
@@ -86,7 +86,7 @@ import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 import org.netbeans.modules.java.hints.spi.TreeRule;
-import org.netbeans.modules.javahints.epi.JavaFix;
+import org.netbeans.modules.jackpot30.hints.epi.JavaFix;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.DialogDescriptor;

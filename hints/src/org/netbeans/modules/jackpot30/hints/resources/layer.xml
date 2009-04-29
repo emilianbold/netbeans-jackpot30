@@ -3,7 +3,7 @@
 <!--
 DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-Copyright 1997-2008 Sun Microsystems, Inc. All rights reserved.
+Copyright 1997-2009 Sun Microsystems, Inc. All rights reserved.
 
 
 The contents of this file are subject to the terms of either the GNU
@@ -27,7 +27,7 @@ your own identifying information:
 Contributor(s):
 
 The Original Software is NetBeans. The Initial Developer of the Original
-Software is Sun Microsystems, Inc. Portions Copyright 1997-2008 Sun
+Software is Sun Microsystems, Inc. Portions Copyright 1997-2009 Sun
 Microsystems, Inc. All Rights Reserved.
 
 If you wish your version of this file to be governed by only the CDDL
@@ -45,11 +45,11 @@ made subject to such option by the copyright holder.
 
     <folder name="Actions">
         <folder name="Refactoring">
-            <file name="org-netbeans-modules-javahints-batch-BatchApplyAction.instance"/>
-            <file name="org-netbeans-modules-javahints-OrganizeImports.instance">
-                <attr name="instanceCreate" methodvalue="org.netbeans.modules.javahints.batch.BatchApplyAction.createBatchHintAction"/>
-                <attr name="displayName" bundlevalue="org.netbeans.modules.javahints.Bundle#CTL_OrganizeImportsAction"/>
-                <attr name="hint" stringvalue="org.netbeans.modules.javahints.OrganizeImports"/>
+            <file name="org-netbeans-modules-jackpot30-hints-batch-BatchApplyAction.instance"/>
+            <file name="org-netbeans-modules-jackpot30-hints-OrganizeImports.instance">
+                <attr name="instanceCreate" methodvalue="org.netbeans.modules.jackpot30.hints.batch.BatchApplyAction.createBatchHintAction"/>
+                <attr name="displayName" bundlevalue="org.netbeans.modules.jackpot30.hints.Bundle#CTL_OrganizeImportsAction"/>
+                <attr name="hint" stringvalue="org.netbeans.modules.jackpot30.hints.OrganizeImports"/>
             </file>
         </folder>
     </folder>
@@ -108,7 +108,7 @@ made subject to such option by the copyright holder.
                 </folder>
                 <folder name="Factories">
                     <file name="HintDataLoader.instance">
-                        <attr name="dataObjectClass" stringvalue="org.netbeans.modules.javahints.file.HintDataObject"/>
+                        <attr name="dataObjectClass" stringvalue="org.netbeans.modules.jackpot30.hints.file.HintDataObject"/>
                         <attr name="instanceCreate" methodvalue="org.openide.loaders.DataLoaderPool.factory"/>
                         <attr name="mimeType" stringvalue="text/x-javahints"/>
                     </file>
@@ -132,14 +132,14 @@ made subject to such option by the copyright holder.
     <folder name="Services">
         <folder name="MIMEResolver">
             <file name="HintResolver.xml" url="HintResolver.xml">
-                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.resources.Bundle"/>
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.hints.resources.Bundle"/>
             </file>
         </folder>
     </folder>
     <folder name="Templates">
         <folder name="Other">
             <file name="HintTemplate.hint" url="HintTemplate.hint">
-                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.resources.Bundle"/>
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.hints.resources.Bundle"/>
                 <attr name="template" boolvalue="true"/>
             </file>
         </folder>
@@ -154,7 +154,7 @@ made subject to such option by the copyright holder.
             <folder name="hints">
 <!--                <file name="org-netbeans-modules-javahints-DeclarationFixer.instance" />-->
                 <folder name="experimental">
-                    <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.resources.Bundle"/>
+                    <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.hints.resources.Bundle"/>
                     <file name="org-netbeans-modules-javahints-ImageUtilitiesDeprecation.instance"/>
                     <file name="org-netbeans-modules-javahints-NPECheck.instance"/>
                     <file name="org-netbeans-modules-javahints-NoFileToURL.instance"/>
@@ -179,8 +179,8 @@ made subject to such option by the copyright holder.
             <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.apisupport.project.ui.wizard.Bundle"/>
             <attr name="position" intvalue="200"/>
             <file name="newHint">
-                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.javahints.wizard.Bundle"/>
-                <attr name="instantiatingIterator" newvalue="org.netbeans.modules.javahints.wizard.NewHintWizardIterator"/>
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.hints.wizard.Bundle"/>
+                <attr name="instantiatingIterator" newvalue="org.netbeans.modules.jackpot30.hints.wizard.NewHintWizardIterator"/>
                 <attr name="template" boolvalue="true"/>
                 <attr name="templateCategory" stringvalue="nbm-specific"/>
             </file>
@@ -191,7 +191,7 @@ made subject to such option by the copyright holder.
         <folder name="Scanners">
             <file name="HintsTaskScanner.instance">
                 <attr name="instanceOf" stringvalue="org.netbeans.spi.tasklist.FileTaskScanner"/>
-                <attr name="instanceClass" stringvalue="org.netbeans.modules.javahints.tasklist.HintsTaskScanner"/>
+                <attr name="instanceClass" stringvalue="org.netbeans.modules.jackpot30.hints.tasklist.HintsTaskScanner"/>
             </file>
         </folder>
     </folder>-->
@@ -199,7 +199,7 @@ made subject to such option by the copyright holder.
     <folder name="org.netbeans.modules.java.source">
         <folder name="options">
             <file name="Snippets.instance">
-                <attr name="instanceClass" stringvalue="org.netbeans.modules.javahints.options.CodeStyleAdvancedOption"/>
+                <attr name="instanceClass" stringvalue="org.netbeans.modules.jackpot30.hints.options.CodeStyleAdvancedOption"/>
             </file>
         </folder>
     </folder>
@@ -208,7 +208,7 @@ made subject to such option by the copyright holder.
         <folder name="text">
             <folder name="x-javahints">
                 <file name="language.instance">
-                    <attr name="instanceCreate" methodvalue="org.netbeans.modules.javahints.file.DeclarativeHintTokenId.language"/>
+                    <attr name="instanceCreate" methodvalue="org.netbeans.modules.jackpot30.hints.file.DeclarativeHintTokenId.language"/>
                     <attr name="instanceOf" stringvalue="org.netbeans.api.lexer.Language"/>
                 </file>
                 <folder name="FontsColors">
