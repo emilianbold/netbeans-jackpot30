@@ -106,6 +106,7 @@ import javax.tools.Diagnostic;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.JavaSource.Priority;
+import org.netbeans.api.java.source.JavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.EditorAwareJavaSourceTaskFactory;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.jackpot30.hints.epi.Hint;
@@ -116,6 +117,7 @@ import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
+import org.openide.util.lookup.ServiceProvider;
 
 /**
  *
@@ -204,37 +206,37 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
     }
     
     private static List<ErrorDescription> runHint(CompilationInfo info, FileObject file, ProcessingEnvironment env, Method m, TreePath treePath) {
-//        HintContext c = info != null ? new HintContext(info, treePath) : new HintContext(file, env, treePath);
-//
-//        try {
-//            Object result = m.invoke(null, c);
-//
-//            if (result == null) {
-//                return null;
-//            }
-//
-//            if (result instanceof Iterable) {
-//                List<ErrorDescription> out = new LinkedList<ErrorDescription>();
-//
-//                for (ErrorDescription ed : NbCollections.iterable(NbCollections.checkedIteratorByFilter(((Iterable) result).iterator(), ErrorDescription.class, false))) {
-//                    out.add(ed);
-//                }
-//
-//                return out;
-//            }
-//
-//            if (result instanceof ErrorDescription) {
-//                return Collections.singletonList((ErrorDescription) result);
-//            }
-//
-//            //XXX: log if result was ignored...
-//        } catch (IllegalAccessException ex) {
-//            Exceptions.printStackTrace(ex);
-//        } catch (IllegalArgumentException ex) {
-//            Exceptions.printStackTrace(ex);
-//        } catch (InvocationTargetException ex) {
-//            Exceptions.printStackTrace(ex);
-//        }
+        HintContext c = /*info != null ? */new HintContext(info, AbstractHint.HintSeverity.WARNING, treePath);// : new HintContext(file, env, treePath);
+
+        try {
+            Object result = m.invoke(null, c);
+
+            if (result == null) {
+                return null;
+            }
+
+            if (result instanceof Iterable) {
+                List<ErrorDescription> out = new LinkedList<ErrorDescription>();
+
+                for (ErrorDescription ed : NbCollections.iterable(NbCollections.checkedIteratorByFilter(((Iterable) result).iterator(), ErrorDescription.class, false))) {
+                    out.add(ed);
+                }
+
+                return out;
+            }
+
+            if (result instanceof ErrorDescription) {
+                return Collections.singletonList((ErrorDescription) result);
+            }
+
+            //XXX: log if result was ignored...
+        } catch (IllegalAccessException ex) {
+            Exceptions.printStackTrace(ex);
+        } catch (IllegalArgumentException ex) {
+            Exceptions.printStackTrace(ex);
+        } catch (InvocationTargetException ex) {
+            Exceptions.printStackTrace(ex);
+        }
 
         return null;
     }
@@ -414,6 +416,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
         return false;
     }
 
+    @ServiceProvider(service=JavaSourceTaskFactory.class)
     public static final class FactoryImpl extends EditorAwareJavaSourceTaskFactory {
 
         public FactoryImpl() {

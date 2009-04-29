@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,44 +34,14 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009 Sun Microsystems, Inc.
  */
-
-package org.netbeans.modules.jackpot30.hints.epi;
-
-import com.sun.source.util.TreePath;
-import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
+package org.netbeans.modules.jackpot30.hintsimpl;
 
 /**
  *
  * @author Jan Lahoda
  */
-public class HintContext {
+public class CollectionRemove {
 
-    private final CompilationInfo info;
-    private final HintSeverity severity;
-    private final TreePath path;
-
-    public HintContext(CompilationInfo info, HintSeverity severity, TreePath path) {
-        this.info = info;
-        this.severity = severity;
-        this.path = path;
-    }
-
-    public CompilationInfo getInfo() {
-        return info;
-    }
-
-    public HintSeverity getSeverity() {
-        return severity;
-    }
-
-    public TreePath getPath() {
-        return path;
-    }
-    
-    public static HintContext create(CompilationInfo info, HintSeverity severity, TreePath path) {
-        return new HintContext(info, severity, path);
-    }
 }

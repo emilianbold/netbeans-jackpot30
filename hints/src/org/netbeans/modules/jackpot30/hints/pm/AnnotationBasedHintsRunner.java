@@ -171,7 +171,7 @@ public class AnnotationBasedHintsRunner extends AbstractHint {
             fixes.add(JavaFix.rewriteFix(compilationInfo, dn, treePath, to, variables));
         }
 
-        return ErrorDescriptionFactory.forName(HintContext.create(compilationInfo, this), treePath, displayName, fixes.toArray(new Fix[0]));
+        return ErrorDescriptionFactory.forName(HintContext.create(compilationInfo, getSeverity(), treePath), treePath, displayName, fixes.toArray(new Fix[0]));
     }
 
     private <T> T findValue(AnnotationMirror m, String name, Class<T> clazz) {

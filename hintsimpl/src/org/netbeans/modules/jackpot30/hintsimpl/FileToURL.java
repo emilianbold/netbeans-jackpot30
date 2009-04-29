@@ -37,83 +37,49 @@
  * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.hints.file;
+package org.netbeans.modules.jackpot30.hintsimpl;
 
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
-import java.util.EnumSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.jackpot30.hints.epi.ErrorDescriptionFactory;
+import org.netbeans.modules.jackpot30.hints.epi.Hint;
 import org.netbeans.modules.jackpot30.hints.epi.HintContext;
-import org.netbeans.modules.jackpot30.hints.epi.JavaFix;
-import org.netbeans.modules.jackpot30.hints.epi.Pattern;
+import org.netbeans.modules.jackpot30.hints.epi.TriggerTreeKind;
 import org.netbeans.spi.editor.hints.ErrorDescription;
-import org.netbeans.spi.editor.hints.Fix;
 
 /**
  *
  * @author Jan Lahoda
  */
-public class DeclarativeHintsRunner extends AbstractHint {
+public class FileToURL {
 
-    private final AtomicBoolean cancel = new AtomicBoolean();
-    
-    public DeclarativeHintsRunner() {
-        super(true, false, HintSeverity.WARNING);
-    }
+    @Hint("org.netbeans.modules.jackpot30.hintsimpl.FileToURL.computeTreeKind")
+    @TriggerTreeKind(Kind.METHOD_INVOCATION)
+    public static ErrorDescription computeTreeKind(HintContext ctx) {
+        MethodInvocationTree mit = (MethodInvocationTree) ctx.getPath().getLeaf();
 
-    @Override
-    public String getDescription() {
-        return "Declarative Hints Runner";
-    }
-
-    public Set<Kind> getTreeKinds() {
-//        return EnumSet.allOf(Kind.class);
-        return EnumSet.of(Kind.METHOD_INVOCATION);
-    }
-
-    public List<ErrorDescription> run(CompilationInfo compilationInfo, TreePath treePath) {
-        //XXX: very, very bad performance:
-        List<ErrorDescription> result = new LinkedList<ErrorDescription>();
-        
-        for (DeclarativeHint h : DeclarativeHintRegistry.getAllHints()) {
-            Map<String, TreePath> vars = Pattern.matchesPattern(compilationInfo, h.getPattern(), treePath, cancel);
-
-            if (vars == null)
-                continue;
-
-            Fix[] fixes = new Fix[h.getFixes().size()];
-
-            for (int cntr = 0; cntr < h.getFixes().size(); cntr++) {
-                fixes[cntr] = JavaFix.rewriteFix(compilationInfo, h.getFixes().get(cntr).getDisplayName(), treePath, h.getFixes().get(cntr).getPattern(), vars);
-            }
-
-            ErrorDescription ed = ErrorDescriptionFactory.forName(HintContext.create(compilationInfo, getSeverity(), treePath), treePath, h.getDisplayName(), fixes);
-
-            if (ed == null) {
-                continue;
-            }
-
-            result.add(ed);
+        if (!mit.getArguments().isEmpty() || !mit.getTypeArguments().isEmpty()) {
+            return null;
         }
 
-        return result;
+        CompilationInfo info = ctx.getInfo();
+        Element e = info.getTrees().getElement(new TreePath(ctx.getPath(), mit.getMethodSelect()));
+
+        if (e == null || e.getKind() != ElementKind.METHOD) {
+            return null;
+        }
+
+        if (e.getSimpleName().contentEquals("toURL") && info.getElementUtilities().enclosingTypeElement(e).getQualifiedName().contentEquals("java.io.File")) {
+            ErrorDescription w = ErrorDescriptionFactory.forName(ctx, mit, "Use of java.io.File.toURL()");
+
+            return w;
+        }
+
+        return null;
     }
-
-    public String getId() {
-        return DeclarativeHintsRunner.class.getName();
-    }
-
-    public String getDisplayName() {
-        return "Declarative Hints Runner";
-    }
-
-    public void cancel() {}
-
+    
 }

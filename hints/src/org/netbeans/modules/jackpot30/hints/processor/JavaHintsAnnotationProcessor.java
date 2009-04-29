@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.hints.processor;
@@ -64,6 +64,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
@@ -75,19 +76,21 @@ import javax.tools.FileObject;
 import javax.tools.StandardLocation;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.util.Exceptions;
+import org.openide.util.lookup.ServiceProvider;
 
 /**
  *
  * @author lahvac
  */
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
-@SupportedAnnotationTypes("org.netbeans.modules.javahints.epi.*")
+@SupportedAnnotationTypes("org.netbeans.modules.jackpot30.hints.epi.*")
+@ServiceProvider(service=Processor.class)
 public class JavaHintsAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        generateTypeList("org.netbeans.modules.javahints.epi.Hint", roundEnv, "hints");
-        generateTypeList("org.netbeans.modules.javahints.epi.TriggerCompileTime", roundEnv, "compile-time");
+        generateTypeList("org.netbeans.modules.jackpot30.hints.epi.Hint", roundEnv, "hints");
+        generateTypeList("org.netbeans.modules.jackpot30.hints.epi.TriggerCompileTime", roundEnv, "compile-time");
 
         if (true) return false;
         
@@ -107,7 +110,7 @@ public class JavaHintsAnnotationProcessor extends AbstractProcessor {
                 CompilationUnitTree cut = tp.getCompilationUnit();
 
                 if (cuts.add(cut)) {
-//                    processingEnv.getMessager().printMessage(Kind.NOTE, cut.toString());
+                    processingEnv.getMessager().printMessage(Kind.NOTE, cut.toString());
                     computeHints.invoke(null, cut.getSourceFile().toUri(), processingEnv, cut, rm);
                 }
             }
