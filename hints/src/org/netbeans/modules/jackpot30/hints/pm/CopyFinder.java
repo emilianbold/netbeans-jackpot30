@@ -28,11 +28,16 @@
 package org.netbeans.modules.jackpot30.hints.pm;
 
 import com.sun.source.tree.ArrayAccessTree;
+import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.EnhancedForLoopTree;
+import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.IfTree;
 import com.sun.source.tree.InstanceOfTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
@@ -42,6 +47,8 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.PrimitiveTypeTree;
+import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.TypeCastTree;
@@ -55,10 +62,12 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.hints.Utilities;
 
 /**
  *
@@ -74,7 +83,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     private AtomicBoolean cancel;
 
 
-    private Map<String, String> designedTypeHack;
+    private Map<String, TypeMirror> designedTypeHack;
 
     private CopyFinder(TreePath searchingFor, CompilationInfo info, AtomicBoolean cancel) {
         this.searchingFor = searchingFor;
@@ -90,8 +99,8 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return f.result;
     }
 
-    public static Map<String, TreePath> computeVariables(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, String> designedTypeHack) {
-        if (searchingFor.getLeaf().getKind() != scope.getLeaf().getKind()) {
+    public static Map<String, TreePath> computeVariables(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
+        if (!sameKind(searchingFor.getLeaf(), scope.getLeaf())) {
             return null;
         }
 
@@ -121,10 +130,20 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return f.scan(second, one);
     }
 
-    private boolean sameKind(Kind k1, Kind k2) {
-        return    k1 == k2
-               || (k1 == Kind.MEMBER_SELECT && k2 == Kind.IDENTIFIER)
-               || (k1 == Kind.IDENTIFIER && k2 == Kind.MEMBER_SELECT);
+    private static boolean sameKind(Tree t1, Tree t2) {
+        Kind k1 = t1.getKind();
+        Kind k2 = t2.getKind();
+        
+        if (k1 == k2) {
+            return true;
+        }
+        
+        if (    (k1 != Kind.MEMBER_SELECT && k1 != Kind.IDENTIFIER)
+             || (k2 != Kind.MEMBER_SELECT && k2 != Kind.IDENTIFIER)) {
+            return false;
+        }
+
+        return Utilities.isPureMemberSelect(t1, true) && Utilities.isPureMemberSelect(t2, true);
     }
     
     @Override
@@ -141,8 +160,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
             if (ident.startsWith("$")) {
                 TreePath currentPath = new TreePath(getCurrentPath(), node);
-                String dTypeHack = designedTypeHack.get(ident);
-                TypeMirror designed = dTypeHack != null ? info.getTreeUtilities().parseType(dTypeHack,info.getTrees().getScope(currentPath).getEnclosingClass()) : null;//info.getTrees().getTypeMirror(p);
+                TypeMirror designed = designedTypeHack != null ? designedTypeHack.get(ident) : null;//info.getTrees().getTypeMirror(p);
 
                 boolean bind = true;
 
@@ -161,7 +179,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             }
         }
 
-        if (p != null && sameKind(node.getKind(), p.getLeaf().getKind())) {
+        if (p != null && sameKind(node, p.getLeaf())) {
             //maybe equivalent:
             boolean result = super.scan(node, p) == Boolean.TRUE;
 
@@ -178,7 +196,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         if (!allowGoDeeper)
             return false;
         
-        if ((p != null && p.getLeaf() == searchingFor.getLeaf()) || !sameKind(node.getKind(), searchingFor.getLeaf().getKind())) {
+        if ((p != null && p.getLeaf() == searchingFor.getLeaf()) || !sameKind(node, searchingFor.getLeaf())) {
             super.scan(node, null);
             return false;
         } else {
@@ -245,9 +263,20 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return true;
     }
 
-//    public Boolean visitAssert(AssertTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitAssert(AssertTree node, TreePath p) {
+        if (p == null) {
+            super.visitAssert(node, p);
+            return false;
+        }
+
+        AssertTree at = (AssertTree) p.getLeaf();
+
+        if (!scan(node.getCondition(), at.getCondition(), p)) {
+            return false;
+        }
+
+        return scan(node.getDetail(), at.getDetail(), p);
+    }
 
     public Boolean visitAssignment(AssignmentTree node, TreePath p) {
         if (p == null)
@@ -284,10 +313,21 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return result && scan(node.getRightOperand(), bt.getRightOperand(), p);
     }
 
-//    public Boolean visitBlock(BlockTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
-//
+    public Boolean visitBlock(BlockTree node, TreePath p) {
+        if (p == null) {
+            super.visitBlock(node, p);
+            return false;
+        }
+
+        BlockTree at = (BlockTree) p.getLeaf();
+
+        if (node.isStatic() != at.isStatic()) {
+            return false;
+        }
+
+        return checkLists(node.getStatements(), at.getStatements(), p);
+    }
+
 //    public Boolean visitBreak(BreakTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
@@ -333,12 +373,32 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
 
-//    public Boolean visitExpressionStatement(ExpressionStatementTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitExpressionStatement(ExpressionStatementTree node, TreePath p) {
+        if (p == null) {
+            super.visitExpressionStatement(node, p);
+            return false;
+        }
+
+        ExpressionStatementTree et = (ExpressionStatementTree) p.getLeaf();
+
+        return scan(node.getExpression(), et.getExpression(), p);
+    }
 
 //    public Boolean visitEnhancedForLoop(EnhancedForLoopTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
+//        if (p == null) {
+//            super.visitEnhancedForLoop(node, p);
+//            return false;
+//        }
+//
+//        EnhancedForLoopTree ef = (EnhancedForLoopTree) p.getLeaf();
+//
+//        if (!scan(node.getVariable(), ef.getVariable(), p))
+//            return false;
+//
+//        if (!scan(node.getExpression(), ef.getExpression(), p))
+//            return false;
+//
+//        return scan(node.getStatement(), ef.getStatement(), p);
 //    }
 //
 //    public Boolean visitForLoop(ForLoopTree node, TreePath p) {
@@ -358,14 +418,31 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         
         if (nodeEl == null || pEl == null)
             return false;
+
+        if (nodeEl.getKind() == pEl.getKind() && nodeEl.getKind() == ElementKind.METHOD) {
+            if (info.getElements().overrides((ExecutableElement) nodeEl, (ExecutableElement) pEl, (TypeElement) nodeEl.getEnclosingElement())) {
+                return true;
+            }
+        }
         
         return nodeEl.equals(pEl);
     }
 
-//    public Boolean visitIf(IfTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
-//
+    public Boolean visitIf(IfTree node, TreePath p) {
+        if (p == null)
+            return super.visitIf(node, p);
+
+        IfTree t = (IfTree) p.getLeaf();
+
+        if (!scan(node.getCondition(), t.getCondition(), p))
+            return false;
+
+        if (!scan(node.getThenStatement(), t.getThenStatement(), p))
+            return false;
+
+        return scan(node.getElseStatement(), t.getElseStatement(), p);
+    }
+
 //    public Boolean visitImport(ImportTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
@@ -455,25 +532,47 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return scan(node.getExpression(), t.getExpression(), p);
     }
 
-//    public Boolean visitReturn(ReturnTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitReturn(ReturnTree node, TreePath p) {
+        if (p == null) {
+            super.visitReturn(node, p);
+            return false;
+        }
+
+        ReturnTree at = (ReturnTree) p.getLeaf();
+
+        return scan(node.getExpression(), at.getExpression(), p);
+    }
 
     public Boolean visitMemberSelect(MemberSelectTree node, TreePath p) {
         if (p == null)
             return super.visitMemberSelect(node, p);
 
-        Element nodeEl = info.getTrees().getElement(getCurrentPath());
-        Element pEl    = info.getTrees().getElement(p);
+        if (Utilities.isPureMemberSelect(node, true) && Utilities.isPureMemberSelect(p.getLeaf(), true)) {
+            Element nodeEl = info.getTrees().getElement(getCurrentPath());
+            Element pEl    = info.getTrees().getElement(p);
 
-        if (nodeEl == pEl) { //covers null == null
-            if (node.getKind() == p.getLeaf().getKind()) {
-                //to bind any free variables inside:
-                MemberSelectTree t = (MemberSelectTree) p.getLeaf();
+            boolean ret = false;
 
-                scan(node.getExpression(), t.getExpression(), p);
+            if (nodeEl == pEl) { //covers null == null
+                ret = true;
             }
-            return true;
+
+            if (nodeEl != null && pEl != null && nodeEl.getKind() == pEl.getKind() && nodeEl.getKind() == ElementKind.METHOD) {
+                if (info.getElements().overrides((ExecutableElement) nodeEl, (ExecutableElement) pEl, (TypeElement) nodeEl.getEnclosingElement())) {
+                    ret = true;
+                }
+            }
+
+            if (ret) {
+                if (node.getKind() == p.getLeaf().getKind()) {
+                    //to bind any free variables inside:
+                    MemberSelectTree t = (MemberSelectTree) p.getLeaf();
+
+                    scan(node.getExpression(), t.getExpression(), p);
+                }
+                
+                return ret;
+            }
         }
         
         MemberSelectTree t = (MemberSelectTree) p.getLeaf();
@@ -492,9 +591,20 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
 //
-//    public Boolean visitSynchronized(SynchronizedTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitSynchronized(SynchronizedTree node, TreePath p) {
+        if (p == null) {
+            super.visitSynchronized(node, p);
+            return false;
+        }
+
+        SynchronizedTree at = (SynchronizedTree) p.getLeaf();
+
+        if (!scan(node.getExpression(), at.getExpression(), p)) {
+            return false;
+        }
+
+        return scan(node.getBlock(), at.getBlock(), p);
+    }
 //
 //    public Boolean visitThrow(ThrowTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");

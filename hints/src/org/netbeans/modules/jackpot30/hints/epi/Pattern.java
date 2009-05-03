@@ -41,58 +41,110 @@ package org.netbeans.modules.jackpot30.hints.epi;
 
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import com.sun.tools.javac.api.JavacScope;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.comp.AttrContext;
+import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.JavaFileObject;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.hints.Utilities;
+import org.netbeans.modules.jackpot30.hints.pm.CopyFinder;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.parsing.FileObjects;
-import org.netbeans.modules.jackpot30.hints.pm.CopyFinder;
 import org.openide.util.Exceptions;
 
-/**
+/**XXX: cancelability!
  *
  * @author Jan Lahoda
  */
 public class Pattern {
 
-    private Pattern() {}
+    private final CompilationInfo info;
+    private final Tree patternTree;
+    private final Iterable<Tree> antipatterns;
 
-    public static Map<String, TreePath> matchesPattern(CompilationInfo info, String pattern, TreePath toCheck, AtomicBoolean cancel) {
-        Map<String, String> designedTypeHack = new HashMap<String, String>();
-        pattern = parseOutTypesFromPattern(pattern, designedTypeHack);
-        Tree patternTree = parseExpressionPattern(info, pattern, designedTypeHack);
+    private final Map<String, TypeMirror> constraintsHack;
 
-        return CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), toCheck, cancel, designedTypeHack);
+    public Pattern(CompilationInfo info, Tree patternTree, Iterable<Tree> antipatterns, Map<String, TypeMirror> constraintsHack) {
+        this.info = info;
+        this.patternTree = patternTree;
+        this.antipatterns = antipatterns;
+        this.constraintsHack = constraintsHack;
     }
 
-    public static Map<String, TreePath> matchesPattern(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints, TreePath toCheck, AtomicBoolean cancel) {
-        Map<String, String> designedTypeHack = new HashMap<String, String>();
-        for (Entry<String, TypeMirror> e : constraints.entrySet()) {
-            designedTypeHack.put(e.getKey(), e.getValue().toString());
-        }
-        pattern = parseOutTypesFromPattern(pattern, designedTypeHack);
-        Tree patternTree = parseExpressionPattern(info, pattern, designedTypeHack);
+    public static Pattern compile(CompilationInfo info, String pattern) {
+        Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
+        pattern = parseOutTypesFromPattern(info, pattern, constraints);
 
-        return CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), toCheck, cancel, designedTypeHack);
+        return compile(info, pattern, constraints);
+    }
+
+    public static Pattern compile(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints) {
+        return compile(info, pattern, Collections.<String>emptyList(), constraints);
+    }
+
+    public static Pattern compile(CompilationInfo info, String pattern, Iterable<String> antipatterns, Map<String, TypeMirror> constraints) {
+        Scope[] scope = new Scope[1];
+        Tree patternTree = parseAndAttribute(info, pattern, constraints, scope);
+
+        List<Tree> antipatternsTrees = new LinkedList<Tree>();
+
+        for (String ap : antipatterns) {
+            Tree p = info.getTreeUtilities().parseExpression(ap, new SourcePositions[1]);
+
+            info.getTreeUtilities().attributeTree(p, scope[0]);
+
+            antipatternsTrees.add(p);
+        }
+        
+        return new Pattern(info, patternTree, antipatternsTrees, constraints);
+    }
+
+    public Map<String, TreePath> match(TreePath toCheck) {
+        return CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), toCheck, new AtomicBoolean(), constraintsHack);
+    }
+
+    public boolean checkAntipatterns(TreePath tp) {
+        for (Tree ap : antipatterns) {
+            if (CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), ap), tp, new AtomicBoolean(), constraintsHack) != null) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public Map<String, TypeMirror> getConstraints() {
+        return constraintsHack;
     }
     
-    private static String parseOutTypesFromPattern(String pattern, Map<String, String> variablesToTypes) {
+    private static String parseOutTypesFromPattern(CompilationInfo info, String pattern, Map<String, TypeMirror> variablesToTypes) {
+        //XXX:
+        TypeElement scope = (TypeElement) info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), info.getCompilationUnit().getTypeDecls().get(0)));
         java.util.regex.Pattern p = java.util.regex.Pattern.compile("(\\$.)(\\{([^}]*)\\})?");
         StringBuffer filtered = new StringBuffer();
         Matcher m = p.matcher(pattern);
@@ -106,7 +158,7 @@ public class Pattern {
             String type = m.group(3);
 
             filtered.append(var);
-            variablesToTypes.put(var, type);
+            variablesToTypes.put(var, type != null ? info.getTreeUtilities().parseType(type, scope) : null);
         }
 
         filtered.append(pattern.substring(i));
@@ -116,15 +168,15 @@ public class Pattern {
 
     private static long inc;
 
-    private static Tree parseExpressionPattern(CompilationInfo info, String pattern, Map<String, String> designedTypeHack) {
+    private static Scope constructScope(CompilationInfo info, Map<String, TypeMirror> constraints) {
         StringBuilder clazz = new StringBuilder();
 
         clazz.append("package $; public class $" + (inc++) + "{");
 
-        for (Entry<String, String> e : designedTypeHack.entrySet()) {
+        for (Entry<String, TypeMirror> e : constraints.entrySet()) {
             if (e.getValue() != null) {
                 clazz.append("private ");
-                clazz.append(e.getValue());
+                clazz.append(e.getValue().toString()); //XXX
                 clazz.append(" ");
                 clazz.append(e.getKey());
                 clazz.append(";\n");
@@ -139,28 +191,67 @@ public class Pattern {
         Context context = jti.getContext();
 
         Log.instance(context).nerrors = 0;
-        
+
         JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/t.java").toURI(), System.currentTimeMillis(), clazz.toString());
 
         try {
             Iterable<? extends CompilationUnitTree> parsed = jti.parse(jfo);
             CompilationUnitTree cut = parsed.iterator().next();
-            
+
             jti.analyze(jti.enter(parsed));
 
-            Scope scope = new ScannerImpl().scan(cut, info);
-
-            Tree patternTree = info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]);
-
-            info.getTreeUtilities().attributeTree(patternTree, scope);
-
-            return patternTree;
+            return new ScannerImpl().scan(cut, info);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
             return null;
         }
     }
+    
+//    private static Scope constructScope2(CompilationInfo info, Map<String, TypeMirror> constraints) {
+//        JavacScope s = (JavacScope) info.getTrees().getScope(new TreePath(info.getCompilationUnit()));
+//        Env<AttrContext> env = s.getEnv();
+//
+//        env = env.dup(env.tree);
+//
+//        env.info.
+//    }
+    
+    public static Tree parseAndAttribute(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints, Scope[] scope) {
+        scope[0] = constructScope(info, constraints);
 
+        if (scope == null) {
+            return null;
+        }
+
+        Tree patternTree = info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]);
+        TypeMirror type = info.getTreeUtilities().attributeTree(patternTree, scope[0]);
+
+        if (isError(type)) {
+            //maybe type?
+            if (Utilities.isPureMemberSelect(patternTree, false) && info.getElements().getTypeElement(pattern) != null) {
+                Tree var = info.getTreeUtilities().parseExpression(pattern + ".class;", new SourcePositions[1]);
+
+                info.getTreeUtilities().attributeTree(var, scope[0]);
+
+                Tree typeTree = ((MemberSelectTree) var).getExpression();
+
+                if (!isError(info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), typeTree)))) {
+                    patternTree = typeTree;
+                }
+            }
+        }
+
+        return patternTree;
+    }
+
+    private static boolean isError(Element el) {
+        return (el == null || (el.getKind() == ElementKind.CLASS) && isError(((TypeElement) el).asType()));
+    }
+    
+    private static boolean isError(TypeMirror type) {
+        return type == null || type.getKind() == TypeKind.ERROR;
+    }
+    
     private static final class ScannerImpl extends TreePathScanner<Scope, CompilationInfo> {
 
         @Override

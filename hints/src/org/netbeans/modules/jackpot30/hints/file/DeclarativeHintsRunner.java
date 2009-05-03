@@ -41,12 +41,14 @@ package org.netbeans.modules.jackpot30.hints.file;
 
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.jackpot30.hints.epi.ErrorDescriptionFactory;
@@ -83,7 +85,7 @@ public class DeclarativeHintsRunner extends AbstractHint {
         List<ErrorDescription> result = new LinkedList<ErrorDescription>();
         
         for (DeclarativeHint h : DeclarativeHintRegistry.getAllHints()) {
-            Map<String, TreePath> vars = Pattern.matchesPattern(compilationInfo, h.getPattern(), treePath, cancel);
+            Map<String, TreePath> vars = Pattern.compile(compilationInfo, h.getPattern()).match(treePath); //XXX: cancellability
 
             if (vars == null)
                 continue;
@@ -91,7 +93,7 @@ public class DeclarativeHintsRunner extends AbstractHint {
             Fix[] fixes = new Fix[h.getFixes().size()];
 
             for (int cntr = 0; cntr < h.getFixes().size(); cntr++) {
-                fixes[cntr] = JavaFix.rewriteFix(compilationInfo, h.getFixes().get(cntr).getDisplayName(), treePath, h.getFixes().get(cntr).getPattern(), vars);
+                fixes[cntr] = JavaFix.rewriteFix(compilationInfo, h.getFixes().get(cntr).getDisplayName(), treePath, h.getFixes().get(cntr).getPattern(), vars, Collections.<String, TypeMirror>emptyMap()/*XXX*/);
             }
 
             ErrorDescription ed = ErrorDescriptionFactory.forName(HintContext.create(compilationInfo, getSeverity(), treePath), treePath, h.getDisplayName(), fixes);

@@ -39,6 +39,9 @@
 
 package org.netbeans.modules.jackpot30.hints.batch;
 
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ImportTree;
+import com.sun.source.util.TreePath;
 import java.awt.Dialog;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -63,6 +66,7 @@ import java.util.logging.Logger;
 import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
+import java.util.regex.Pattern;
 import javax.swing.SwingUtilities;
 import javax.swing.text.Document;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -72,6 +76,7 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.WorkingCopy;
 import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.api.progress.ProgressHandleFactory;
@@ -79,6 +84,9 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
+import org.netbeans.modules.jackpot30.hints.epi.JavaFix;
+import org.netbeans.modules.jackpot30.hints.pm.AnnotationBasedHintsRunner;
+import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.modules.java.hints.errors.SuppressWarningsFixer;
 import org.netbeans.modules.java.hints.infrastructure.HintsTask;
 import org.netbeans.modules.java.hints.infrastructure.RulesManager;
@@ -86,11 +94,11 @@ import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 import org.netbeans.modules.java.hints.spi.TreeRule;
-import org.netbeans.modules.jackpot30.hints.epi.JavaFix;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
+import org.openide.LifecycleManager;
 import org.openide.cookies.EditorCookie;
 import org.openide.cookies.SaveCookie;
 import org.openide.filesystems.FileObject;
@@ -109,7 +117,7 @@ public class BatchApply {
 
     private static final RequestProcessor WORKER = new RequestProcessor("Batch Hint Apply");
     
-    public static String applyFixes(final Lookup context, final Set<String> enabledHints, boolean progress) {
+    public static String applyFixes(final Lookup context, final String enabledHints, boolean progress) {
         assert !progress || SwingUtilities.isEventDispatchThread();
 
         if (progress) {
@@ -164,10 +172,10 @@ public class BatchApply {
         }
     }
 
-    private static String applyFixesImpl(Lookup context, Set<String> enabledHints, ProgressHandle h, AtomicBoolean cancel) {
+    private static String applyFixesImpl(Lookup context, String enabledHints, ProgressHandle h, AtomicBoolean cancel) {
         ProgressHandleWrapper handle = new ProgressHandleWrapper(h, new int[] {20, 40, 40});
-        
-        Map<String, Preferences> overlay = prepareOverlay(enabledHints);
+
+        Pattern hints = Pattern.compile(enabledHints);
         List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
         Collection<FileObject> toProcess = toProcess(context);
 
@@ -181,7 +189,7 @@ public class BatchApply {
         for (Entry<ClasspathInfo, Collection<FileObject>> e: sortedFiles.entrySet()) {
             if (cancel.get()) return null;
             
-            eds.addAll(processFiles(e.getKey(), e.getValue(), overlay, handle, cancel));
+            eds.addAll(processFiles(e.getKey(), e.getValue(), hints, handle, cancel));
         }
 
         Map<ErrorDescription, Fix> fixes = new IdentityHashMap<ErrorDescription, Fix>();
@@ -240,9 +248,20 @@ public class BatchApply {
 
             if (cancel.get()) return null;
 
+            List<FileObject> fastFiles = new LinkedList<FileObject>();
+
             for (ModificationResult r : results) {
                 r.commit();
+                fastFiles.addAll(r.getModifiedFileObjects());
             }
+
+            Map<ClasspathInfo, Collection<FileObject>> sortedFastFiles = sortFiles(fastFiles);
+
+            for (Entry<ClasspathInfo, Collection<FileObject>> e : sortedFastFiles.entrySet()) {
+                JavaSource.create(e.getKey(), e.getValue()).runModificationTask(new RemoveUnusedImports()).commit();
+            }
+
+            LifecycleManager.getDefault().saveAll();
         } catch (Exception ex) {
             Exceptions.printStackTrace(ex);
             return ex.getLocalizedMessage();
@@ -251,54 +270,32 @@ public class BatchApply {
         return null;
     }
 
-    public static List<TreeRule> listHints() {
-        List<TreeRule> hints = new LinkedList<TreeRule>();
-
-        for (List<TreeRule> rules : RulesManager.getInstance().getHints().values()) {
-            for (TreeRule r : rules) {
-                if (r instanceof AbstractHint) {
-                    try {
-                        r.getId();
-                        r.getDisplayName();
-                        
-                        hints.add(r);
-                    } catch (Exception e) {
-                        Logger.getLogger(BatchApply.class.getName()).log(Level.FINE, null, e);
-                    }
-                }
-            }
-        }
-
-        Collections.sort(hints, new Comparator<TreeRule>() {
-            public int compare(TreeRule o1, TreeRule o2) {
-                return o1.getDisplayName().compareTo(o2.getDisplayName());
-            }
-        });
-        
-        return hints;
-    }
-
-    private static List<ErrorDescription> processFiles(ClasspathInfo cpInfo, Collection<FileObject> toProcess, final Map<String, Preferences> preferencesOverlay, final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
+    private static List<ErrorDescription> processFiles(ClasspathInfo cpInfo, Collection<FileObject> toProcess, final Pattern hints, final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
         final List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
-        JavaSource js = JavaSource.create(cpInfo, toProcess);
-
+        //XXX: workarounding NB issues #154252 and #152534:
+        for (FileObject file : toProcess) {
+//        JavaSource js = JavaSource.create(cpInfo, toProcess);
         try {
+            DataObject d = DataObject.find(file);
+            EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
+            Document doc = ec.openDocument();
+            JavaSource js = JavaSource.create(cpInfo, file);
+
             js.runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController cc) throws Exception {
                     if (cancel.get()) return ;
                     
-                    HintsSettings.setPreferencesOverride(preferencesOverlay);
-
-                    DataObject d = DataObject.find(cc.getFileObject());
-                    EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
-                    Document doc = ec.openDocument();
+//                    DataObject d = DataObject.find(cc.getFileObject());
+//                    EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
+//                    Document doc = ec.openDocument();
 
                     try {
                         if (cc.toPhase(JavaSource.Phase.RESOLVED).compareTo(JavaSource.Phase.RESOLVED) < 0) {
                             return;
                         }
 
-                        eds.addAll(new HintsTask().computeHints(cc));
+                        //XXX:
+//                        eds.addAll(new AnnotationBasedHintsRunner().findWarnings(cc, hints));
                     } finally {
                         HintsSettings.setPreferencesOverride(null);
                     }
@@ -308,6 +305,7 @@ public class BatchApply {
             }, true);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
+        }
         }
 
         return eds;
@@ -322,6 +320,8 @@ public class BatchApply {
 
                 fixes.get(ed).implement();
 
+                JavaSource.forFileObject(ed.getFile()).runModificationTask(new RemoveUnusedImports()).commit();
+                
                 SaveCookie sc = d.getLookup().lookup(SaveCookie.class);
 
                 if (sc != null) {
@@ -336,6 +336,29 @@ public class BatchApply {
             handle.tick();
         }
         return null;
+    }
+
+    private static final class RemoveUnusedImports implements Task<WorkingCopy> {
+        public void run(WorkingCopy wc) throws IOException {
+            if (wc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0) {
+                return;
+            }
+
+            //compute imports to remove:
+            List<TreePathHandle> unusedImports = SemanticHighlighter.computeUnusedImports(wc);
+            CompilationUnitTree cut = wc.getCompilationUnit();
+            // make the changes to the source
+            for (TreePathHandle handle : unusedImports) {
+                TreePath path = handle.resolve(wc);
+                assert path != null;
+                cut = wc.getTreeMaker().removeCompUnitImport(cut,
+                        (ImportTree) path.getLeaf());
+            }
+
+            if (!unusedImports.isEmpty()) {
+                wc.rewrite(wc.getCompilationUnit(), cut);
+            }
+        }
     }
 
     private static List<ModificationResult> performFastFixes(Map<FileObject, List<JavaFix>> fastFixes, ProgressHandleWrapper handle, AtomicBoolean cancel) {
@@ -375,7 +398,11 @@ public class BatchApply {
                     for (JavaFix f : toProcess.get(wc.getFileObject())) {
                         if (cancel.get()) return ;
                         
-                        JavaFixImpl.Accessor.INSTANCE.process(f, wc);
+                        JavaFixImpl.Accessor.INSTANCE.process(f, wc, new JavaFix.UpgradeUICallback() {
+                            public boolean shouldUpgrade(String comment) {
+                                return true;
+                            }
+                        });
                     }
 
                     handle.tick();

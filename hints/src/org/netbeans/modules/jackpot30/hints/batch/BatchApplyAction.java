@@ -78,7 +78,7 @@ public final class BatchApplyAction extends AbstractAction implements ContextAwa
         this(prepareDefaultMap());
     }
 
-    public BatchApplyAction(Map attributes) {
+    private BatchApplyAction(Map attributes) {
         this(Utilities.actionsGlobalContext(), attributes);
     }
 
@@ -97,17 +97,16 @@ public final class BatchApplyAction extends AbstractAction implements ContextAwa
         String hintToExecute = (String) getValue(HINT);
 
         if (hintToExecute == null) {
-            SelectHint p = new SelectHint();
-            DialogDescriptor dd = new DialogDescriptor(p, "Select Hint", true, DialogDescriptor.OK_CANCEL_OPTION, DialogDescriptor.OK_OPTION, null);
+            NotifyDescriptor.InputLine nd = new NotifyDescriptor.InputLine("Select Hint (regexp)", "Select Hint");
 
-            if (DialogDisplayer.getDefault().notify(dd) != DialogDescriptor.OK_OPTION) {
+            if (DialogDisplayer.getDefault().notify(nd) != DialogDescriptor.OK_OPTION) {
                 return ;
             }
             
-            hintToExecute = p.getSelectedHint().getId();
+            hintToExecute = nd.getInputText();
         }
 
-        String error = BatchApply.applyFixes(context, Collections.singleton(hintToExecute), true);
+        String error = BatchApply.applyFixes(context, hintToExecute, true);
 
         if (error != null) {
             DialogDisplayer.getDefault().notifyLater(new NotifyDescriptor.Message(error, NotifyDescriptor.ERROR_MESSAGE));
@@ -129,7 +128,7 @@ public final class BatchApplyAction extends AbstractAction implements ContextAwa
     private static Map prepareDefaultMap() {
         Map<String, Object> m = new HashMap<String, Object>();
 
-        m.put(NAME, NbBundle.getMessage(BatchApplyAction.class, "CTL_BatchApplyAction"));
+        m.put("displayName", NbBundle.getMessage(BatchApplyAction.class, "CTL_BatchApplyAction"));
         m.put("noIconInMenu", Boolean.TRUE);
 
         return m;

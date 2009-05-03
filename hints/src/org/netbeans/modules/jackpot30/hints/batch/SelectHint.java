@@ -58,9 +58,10 @@ public class SelectHint extends javax.swing.JPanel {
     public SelectHint() {
         initComponents();
         DefaultComboBoxModel model = new DefaultComboBoxModel();
-        for (TreeRule r : BatchApply.listHints()) {
-            model.addElement(new HintDescriptor(r.getId(), r.getDisplayName()));
-        }
+        //XXX:
+//        for (TreeRule r : BatchApply.listHints()) {
+//            model.addElement(new HintDescriptor(r.getId(), r.getDisplayName()));
+//        }
         jComboBox1.setModel(model);
     }
 

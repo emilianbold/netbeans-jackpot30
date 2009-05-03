@@ -42,33 +42,19 @@ package org.netbeans.modules.jackpot30.hints.epi;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
-import java.io.File;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.swing.text.Document;
-import org.netbeans.api.java.lexer.JavaTokenId;
-import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.api.java.source.JavaSource;
-import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
-import org.netbeans.api.java.source.TestUtilities;
-import org.netbeans.api.lexer.Language;
-import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.java.hints.infrastructure.Pair;
 import org.netbeans.modules.java.source.TreeLoader;
-import org.openide.cookies.EditorCookie;
-import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
-import org.openide.loaders.DataObject;
 
 /**
  *
  * @author Jan Lahoda
  */
-public class PatternTest extends NbTestCase {
+public class PatternTest extends TestBase {
 
     public PatternTest(String name) {
         super(name);
@@ -108,50 +94,40 @@ public class PatternTest extends NbTestCase {
                              (Pair[]) null);
     }
 
-    private void prepareTest(String fileName, String code) throws Exception {
-        clearWorkDir();
-
-        FileUtil.refreshFor(File.listRoots());
-
-        FileObject workFO = FileUtil.toFileObject(getWorkDir());
-
-        assertNotNull(workFO);
-
-        workFO.refresh();
-
-        sourceRoot = workFO.createFolder("src");
-        FileObject buildRoot  = workFO.createFolder("build");
-        FileObject cache = workFO.createFolder("cache");
-
-        FileObject data = FileUtil.createData(sourceRoot, fileName);
-        File dataFile = FileUtil.toFile(data);
-
-        assertNotNull(dataFile);
-
-        TestUtilities.copyStringToFile(dataFile, code);
-
-        SourceUtilsTestUtil.prepareTest(sourceRoot, buildRoot, cache);
-
-        DataObject od = DataObject.find(data);
-        EditorCookie ec = od.getLookup().lookup(EditorCookie.class);
-
-        assertNotNull(ec);
-
-        doc = ec.openDocument();
-        doc.putProperty(Language.class, JavaTokenId.language());
-
-        JavaSource js = JavaSource.forFileObject(data);
-
-        assertNotNull(js);
-
-        info = SourceUtilsTestUtil.getCompilationInfo(js, Phase.RESOLVED);
-
-        assertNotNull(info);
+    public void testTypedPrimitiveType() throws Exception {
+        performVariablesTest("package test; public class Test {public void test(int i) {|test(1)|;}}", "$0{test.Test}.test($1{int})",
+                             new Pair<String, String>("$1", "1"));
     }
 
-    private FileObject sourceRoot;
-    private CompilationInfo info;
-    private Document doc;
+    public void testMemberSelectVSIdentifier() throws Exception {
+        performVariablesTest("package test; public class Test {void test1() {} void test2() {|test1()|;}}", "$1{test.Test}.test1()",
+                             new Pair[0]);
+    }
+
+    public void testSubClass() throws Exception {
+        performVariablesTest("package test; public class Test {void test() {String s = null; |s.toString()|;}}", "$1{java.lang.CharSequence}.toString()",
+                             new Pair<String, String>("$1", "s"));
+    }
+
+    public void testEquality1() throws Exception {
+        performVariablesTest("package test; public class Test {void test() {|test()|;}}", "$1{test.Test}.test()",
+                             new Pair[0]);
+    }
+
+    public void testEquality2() throws Exception {
+        performVariablesTest("package test; public class Test {void test() {String s = null; |String.valueOf(1).charAt(0)|;}}", "$1{java.lang.String}.charAt(0)",
+                             new Pair<String, String>("$1", "String.valueOf(1)"));
+    }
+
+    public void testEquality3() throws Exception {
+        performVariablesTest("package test; public class Test {void test() {String s = null; |s.charAt(0)|;}}", "java.lang.String.valueOf(1).charAt(0)",
+                             (Pair[]) null);
+    }
+    
+    public void testType1() throws Exception {
+        performVariablesTest("package test; public class Test {void test() {|String| s;}}", "java.lang.String",
+                             new Pair[0]);
+    }
 
     protected void performVariablesTest(String code, String pattern, Pair<String, String>... duplicates) throws Exception {
         String[] split = code.split("\\|");
@@ -181,7 +157,7 @@ public class PatternTest extends NbTestCase {
 
         assertNotNull(tp);
         
-        Map<String, TreePath> vars = Pattern.matchesPattern(info, pattern, tp, new AtomicBoolean());
+        Map<String, TreePath> vars = Pattern.compile(info, pattern).match(tp);
 
         if (duplicates == null) {
             assertNull(String.valueOf(vars), vars);

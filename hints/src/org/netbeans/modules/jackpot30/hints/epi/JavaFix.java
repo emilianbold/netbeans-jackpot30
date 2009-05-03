@@ -39,12 +39,14 @@
 
 package org.netbeans.modules.jackpot30.hints.epi;
 
+import com.sun.javadoc.Tag;
+import java.io.IOException;
+import java.util.regex.Matcher;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
-import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.HashMap;
@@ -56,13 +58,28 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.TreePathHandle;
+import org.netbeans.api.java.source.TypeMirrorHandle;
 import org.netbeans.api.java.source.WorkingCopy;
+import org.netbeans.api.project.FileOwnerQuery;
+import org.netbeans.api.project.Project;
+import org.netbeans.api.project.ProjectManager;
+import org.netbeans.api.project.ProjectUtils;
+import org.netbeans.modules.apisupport.project.NbModuleProject;
+import org.netbeans.modules.apisupport.project.ProjectXMLManager;
+import org.netbeans.modules.apisupport.project.spi.NbModuleProvider;
+import org.netbeans.modules.apisupport.project.ui.customizer.ModuleDependency;
+import org.netbeans.modules.jackpot30.hints.Utilities;
 import org.netbeans.modules.jackpot30.hints.batch.JavaFixImpl;
 import org.netbeans.spi.editor.hints.ChangeInfo;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileObject;
+import org.openide.modules.SpecificationVersion;
+import org.openide.util.Exceptions;
+import org.openide.util.NbBundle;
 
 /**
  *
@@ -78,9 +95,9 @@ public abstract class JavaFix {
 
     protected abstract String getText();
 
-    protected abstract void performRewrite(WorkingCopy wc, TreePath tp);
+    protected abstract void performRewrite(WorkingCopy wc, TreePath tp, UpgradeUICallback callback);
 
-    final ChangeInfo process(WorkingCopy wc) throws Exception {
+    final ChangeInfo process(WorkingCopy wc, UpgradeUICallback callback) throws Exception {
         TreePath tp = handle.resolve(wc);
 
         if (tp == null) {
@@ -88,7 +105,7 @@ public abstract class JavaFix {
             return null;
         }
 
-        performRewrite(wc, tp);
+        performRewrite(wc, tp, callback);
 
         return null;
     }
@@ -97,23 +114,17 @@ public abstract class JavaFix {
         return handle.getFileObject();
     }
 
-    public static Fix rewriteFix(CompilationInfo info, final String displayName, TreePath what, final String to, TreePath... parameters) {
-        Map<String, TreePath> params = new HashMap<String, TreePath>();
-        int c = 1;
-
-        for (TreePath t : parameters) {
-            params.put("$" + c, t);
-            c++;
-        }
-
-        return rewriteFix(info, displayName, what, to, params);
-    }
-
-    public static Fix rewriteFix(CompilationInfo info, final String displayName, TreePath what, final String to, Map<String, TreePath> parameters) {
+    public static Fix rewriteFix(CompilationInfo info, final String displayName, TreePath what, final String to, Map<String, TreePath> parameters, Map<String, TypeMirror> constraints) {
         final Map<String, TreePathHandle> params = new HashMap<String, TreePathHandle>();
 
         for (Entry<String, TreePath> e : parameters.entrySet()) {
             params.put(e.getKey(), TreePathHandle.create(e.getValue(), info));
+        }
+
+        final Map<String, TypeMirrorHandle> constraintsHandles = new HashMap<String, TypeMirrorHandle>();
+
+        for (Entry<String, TypeMirror> c : constraints.entrySet()) {
+            constraintsHandles.put(c.getKey(), TypeMirrorHandle.create(c.getValue()));
         }
 
         return toEditorFix(new JavaFix(info, what) {
@@ -122,7 +133,7 @@ public abstract class JavaFix {
                 return displayName;
             }
             @Override
-            protected void performRewrite(final WorkingCopy wc, TreePath tp) {
+            protected void performRewrite(final WorkingCopy wc, TreePath tp, final UpgradeUICallback callback) {
                 final Map<String, TreePath> parameters = new HashMap<String, TreePath>();
 
                 for (Entry<String, TreePathHandle> e : params.entrySet()) {
@@ -135,10 +146,13 @@ public abstract class JavaFix {
                     parameters.put(e.getKey(), p);
                 }
 
-                Tree parsed = wc.getTreeUtilities().parseExpression(to, new SourcePositions[1]);
-                Scope s = wc.getTrees().getScope(tp);
-                
-                wc.getTreeUtilities().attributeTree(parsed, s);
+                Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
+
+                for (Entry<String, TypeMirrorHandle> c : constraintsHandles.entrySet()) {
+                    constraints.put(c.getKey(), c.getValue().resolve(wc));
+                }
+
+                Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1]);
 
                 new TreePathScanner<Void, Void>() {
                     @Override
@@ -170,19 +184,142 @@ public abstract class JavaFix {
                             return super.visitMemberSelect(node, p);
                         }
 
-                        wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
+                        //check correct dependency:
+                        checkDependency(wc, e, callback);
+                        
+                        if (Utilities.isPureMemberSelect(node, false)) {
+                            wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
 
-                        return null;
+                            return null;
+                        } else {
+                            return super.visitMemberSelect(node, p);
+                        }
                     }
+
                 }.scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
 
                 wc.rewrite(tp.getLeaf(), parsed);
             }
         });
     }
+
+    private static void checkDependency(WorkingCopy copy, Element e, UpgradeUICallback callback) {
+        SpecificationVersion sv = computeSpecVersion(copy, e);
+
+        if (sv == null) {
+            return ;
+        }
+
+        Project currentProject = FileOwnerQuery.getOwner(copy.getFileObject());
+
+        if (currentProject == null) {
+            return ;
+        }
+
+        FileObject file = getFile(copy, e);
+
+        if (file == null) {
+            return ;
+        }
+
+        Project referedProject = FileOwnerQuery.getOwner(file);
+
+        if (referedProject == null || currentProject.getProjectDirectory().equals(referedProject.getProjectDirectory())) {
+            return ;
+        }
+
+        resolveNbModuleDependencies(currentProject, referedProject, sv, callback);
+    }
+
+    private static java.util.regex.Pattern SPEC_VERSION = java.util.regex.Pattern.compile("[0-9]+(\\.[0-9]+)+");
+    
+    static SpecificationVersion computeSpecVersion(CompilationInfo info, Element el) {
+        for (Tag since : info.getElementUtilities().javaDocFor(el).tags("@since")) {
+            String text = since.text();
+
+            Matcher m = SPEC_VERSION.matcher(text);
+
+            if (!m.find()) {
+                continue;
+            }
+
+            return new SpecificationVersion(m.group()/*ver.toString()*/);
+        }
+
+        return null;
+    }
     
     public static Fix toEditorFix(final JavaFix jf) {
         return new JavaFixImpl(jf);
+    }
+
+    private static void resolveNbModuleDependencies(Project currentProject, Project referedProject, SpecificationVersion sv, UpgradeUICallback callback) throws IllegalArgumentException {
+        NbModuleProvider currentNbModule = currentProject.getLookup().lookup(NbModuleProvider.class);
+
+        if (currentNbModule == null) {
+            return ;
+        }
+
+        NbModuleProvider referedNbModule = referedProject.getLookup().lookup(NbModuleProvider.class);
+
+        if (referedNbModule == null) {
+            return ;
+        }
+
+        try {
+            NbModuleProject currentNbModuleProject = currentProject.getLookup().lookup(NbModuleProject.class);
+
+            if (currentNbModuleProject == null) {
+                return ;
+            }
+            
+            ProjectXMLManager m = new ProjectXMLManager(currentNbModuleProject);
+            ModuleDependency dep = null;
+
+            for (ModuleDependency md : m.getDirectDependencies()) {
+                if (referedNbModule.getCodeNameBase().equals(md.getModuleEntry().getCodeNameBase())) {
+                    dep = md;
+                    break;
+                }
+            }
+
+            if (dep == null) {
+                return ;
+            }
+
+            SpecificationVersion currentDep = new SpecificationVersion(dep.getSpecificationVersion());
+
+            if (currentDep == null || currentDep.compareTo(sv) < 0) {
+                String upgradeText = NbBundle.getMessage(JavaFix.class,
+                                                         "LBL_UpdateDependencyQuestion",
+                                                         new Object[] {
+                                                            ProjectUtils.getInformation(referedProject).getDisplayName(),
+                                                            currentDep.toString()
+                                                         });
+
+                if (callback.shouldUpgrade(upgradeText)) {
+                    ModuleDependency nue = new ModuleDependency(dep.getModuleEntry(),
+                                                                dep.getReleaseVersion(),
+                                                                sv.toString(),
+                                                                dep.hasCompileDependency(),
+                                                                dep.hasImplementationDepedendency());
+                    
+                    m.editDependency(dep, nue);
+                    ProjectManager.getDefault().saveProject(currentProject);
+                }
+            }
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        }
+    }
+
+    @SuppressWarnings("deprecation")
+    private static FileObject getFile(WorkingCopy copy, Element e) {
+        return SourceUtils.getFile(e, copy.getClasspathInfo());
+    }
+
+    public interface UpgradeUICallback {
+        public boolean shouldUpgrade(String comment);
     }
 
     static {
@@ -192,8 +329,8 @@ public abstract class JavaFix {
                 return jf.getText();
             }
             @Override
-            public ChangeInfo process(JavaFix jf, WorkingCopy wc) throws Exception {
-                return jf.process(wc);
+            public ChangeInfo process(JavaFix jf, WorkingCopy wc, UpgradeUICallback callback) throws Exception {
+                return jf.process(wc, callback);
             }
             @Override
             public FileObject getFile(JavaFix jf) {

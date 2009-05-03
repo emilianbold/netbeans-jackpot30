@@ -37,65 +37,76 @@
  * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.hints.batch;
+package org.netbeans.modules.jackpot30.hints.epi;
 
+import java.io.File;
+import javax.swing.text.Document;
+import org.netbeans.api.java.lexer.JavaTokenId;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
-import org.netbeans.api.java.source.Task;
-import org.netbeans.api.java.source.WorkingCopy;
-import org.netbeans.modules.jackpot30.hints.epi.JavaFix;
-import org.netbeans.modules.jackpot30.hints.epi.JavaFix.UpgradeUICallback;
-import org.netbeans.spi.editor.hints.ChangeInfo;
-import org.netbeans.spi.editor.hints.Fix;
-import org.openide.DialogDisplayer;
-import org.openide.NotifyDescriptor;
+import org.netbeans.api.java.source.SourceUtilsTestUtil;
+import org.netbeans.api.java.source.TestUtilities;
+import org.netbeans.api.lexer.Language;
+import org.netbeans.junit.NbTestCase;
+import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
+import org.openide.loaders.DataObject;
 
-/**TODO: move to better package
+/**
  *
  * @author Jan Lahoda
  */
-public final class JavaFixImpl implements Fix {
+public class TestBase extends NbTestCase {
 
-    final JavaFix jf;
-
-    public JavaFixImpl(JavaFix jf) {
-        this.jf = jf;
+    public TestBase(String name) {
+        super(name);
     }
 
-    public String getText() {
-        return Accessor.INSTANCE.getText(jf);
+    protected void prepareTest(String fileName, String code) throws Exception {
+        clearWorkDir();
+
+        FileUtil.refreshFor(File.listRoots());
+
+        FileObject workFO = FileUtil.toFileObject(getWorkDir());
+
+        assertNotNull(workFO);
+
+        workFO.refresh();
+
+        sourceRoot = workFO.createFolder("src");
+        FileObject buildRoot  = workFO.createFolder("build");
+        FileObject cache = workFO.createFolder("cache");
+
+        FileObject data = FileUtil.createData(sourceRoot, fileName);
+        File dataFile = FileUtil.toFile(data);
+
+        assertNotNull(dataFile);
+
+        TestUtilities.copyStringToFile(dataFile, code);
+
+        SourceUtilsTestUtil.prepareTest(sourceRoot, buildRoot, cache);
+
+        DataObject od = DataObject.find(data);
+        EditorCookie ec = od.getLookup().lookup(EditorCookie.class);
+
+        assertNotNull(ec);
+
+        doc = ec.openDocument();
+        doc.putProperty(Language.class, JavaTokenId.language());
+
+        JavaSource js = JavaSource.forFileObject(data);
+
+        assertNotNull(js);
+
+        info = SourceUtilsTestUtil.getCompilationInfo(js, Phase.RESOLVED);
+
+        assertNotNull(info);
     }
 
-    public ChangeInfo implement() throws Exception {
-        JavaSource js = JavaSource.forFileObject(Accessor.INSTANCE.getFile(jf));
+    protected FileObject sourceRoot;
+    protected CompilationInfo info;
+    protected Document doc;
 
-        js.runModificationTask(new Task<WorkingCopy>() {
-            public void run(WorkingCopy wc) throws Exception {
-                if (wc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0) {
-                    return;
-                }
-
-                Accessor.INSTANCE.process(jf, wc, new JavaFix.UpgradeUICallback() {
-                    public boolean shouldUpgrade(String comment) {
-                        NotifyDescriptor nd = new NotifyDescriptor.Confirmation(comment, "Update spec version.", NotifyDescriptor.YES_NO_OPTION);
-
-                        return DialogDisplayer.getDefault().notify(nd) == NotifyDescriptor.YES_OPTION;
-                    }
-                });
-            }
-        }).commit();
-
-        return null;
-    }
-
-    public static abstract class Accessor {
-
-        public static Accessor INSTANCE;
-
-        public abstract String getText(JavaFix jf);
-        public abstract ChangeInfo process(JavaFix jf, WorkingCopy wc, UpgradeUICallback callback) throws Exception;
-        public abstract FileObject getFile(JavaFix jf);
-        
-    }
 }

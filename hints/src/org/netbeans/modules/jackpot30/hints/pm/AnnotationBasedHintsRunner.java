@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.hints.pm;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -152,7 +153,7 @@ public class AnnotationBasedHintsRunner extends AbstractHint {
             variableTypes.put(var, tm);
         }
 
-        Map<String, TreePath> variables = Pattern.matchesPattern(compilationInfo, patternString, variableTypes, treePath, cancel);
+        Map<String, TreePath> variables = Pattern.compile(compilationInfo, patternString, Collections.<String, TypeMirror>emptyMap()/*XXX*/).match(treePath);
 
         if (variables == null) {
             return null;
@@ -168,7 +169,7 @@ public class AnnotationBasedHintsRunner extends AbstractHint {
                 dn = "Rewrite to " + to;
             }
             
-            fixes.add(JavaFix.rewriteFix(compilationInfo, dn, treePath, to, variables));
+            fixes.add(JavaFix.rewriteFix(compilationInfo, dn, treePath, to, variables, Collections.<String, TypeMirror>emptyMap()/*XXX*/));
         }
 
         return ErrorDescriptionFactory.forName(HintContext.create(compilationInfo, getSeverity(), treePath), treePath, displayName, fixes.toArray(new Fix[0]));

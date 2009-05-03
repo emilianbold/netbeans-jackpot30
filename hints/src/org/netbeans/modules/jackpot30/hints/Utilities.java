@@ -39,8 +39,24 @@
 
 package org.netbeans.modules.jackpot30.hints;
 
+import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.Tree.Kind;
+import java.util.Arrays;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.api.java.source.WorkingCopy;
-import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
+import org.openide.util.NbCollections;
 
 /**
  *
@@ -48,10 +64,75 @@ import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
  */
 public class Utilities {
 
-    /**
-     * single-class imports only!
-     */
-    public static void removeImportsIfNotUsed(WorkingCopy wc, String... fqns) {
-//        new SemanticHighlighter()
+    private Utilities() {}
+
+    public static <E> Iterable<E> checkedIterableByFilter(final Iterable raw, final Class<E> type, final boolean strict) {
+        return new Iterable<E>() {
+            public Iterator<E> iterator() {
+                return NbCollections.checkedIteratorByFilter(raw.iterator(), type, strict);
+            }
+        };
     }
+    
+//    public static AnnotationTree constructConstraint(WorkingCopy wc, String name, TypeMirror tm) {
+//        TreeMaker make = wc.getTreeMaker();
+//        ExpressionTree variable = prepareAssignment(make, "variable", make.Literal(name));
+//        ExpressionTree type     = prepareAssignment(make, "type", make.MemberSelect((ExpressionTree) make.Type(wc.getTypes().erasure(tm)), "class"));
+//        TypeElement constraint  = wc.getElements().getTypeElement(Annotations.CONSTRAINT.toFQN());
+//
+//        return make.Annotation(make.QualIdent(constraint), Arrays.asList(variable, type));
+//    }
+
+    public static ExpressionTree prepareAssignment(TreeMaker make, String name, ExpressionTree value) {
+        return make.Assignment(make.Identifier(name), value);
+    }
+
+    public static ExpressionTree findValue(AnnotationTree m, String name) {
+        for (ExpressionTree et : m.getArguments()) {
+            if (et.getKind() == Kind.ASSIGNMENT) {
+                AssignmentTree at = (AssignmentTree) et;
+                String varName = ((IdentifierTree) at.getVariable()).getName().toString();
+
+                if (varName.equals(name)) {
+                    return at.getExpression();
+                }
+            }
+
+            if (et instanceof LiteralTree/*XXX*/ && "value".equals(name)) {
+                return et;
+            }
+        }
+
+        return null;
+    }
+
+    public static List<AnnotationTree> findArrayValue(AnnotationTree at, String name) {
+        ExpressionTree fixesArray = findValue(at, name);
+        List<AnnotationTree> fixes = new LinkedList<AnnotationTree>();
+
+        if (fixesArray != null && fixesArray.getKind() == Kind.NEW_ARRAY) {
+            NewArrayTree trees = (NewArrayTree) fixesArray;
+
+            for (ExpressionTree fix : trees.getInitializers()) {
+                if (fix.getKind() == Kind.ANNOTATION) {
+                    fixes.add((AnnotationTree) fix);
+                }
+            }
+        }
+
+        if (fixesArray != null && fixesArray.getKind() == Kind.ANNOTATION) {
+            fixes.add((AnnotationTree) fixesArray);
+        }
+        
+        return fixes;
+    }
+
+    public static boolean isPureMemberSelect(Tree mst, boolean allowVariables) {
+        switch (mst.getKind()) {
+            case IDENTIFIER: return allowVariables || ((IdentifierTree) mst).getName().charAt(0) != '$';
+            case MEMBER_SELECT: return isPureMemberSelect(((MemberSelectTree) mst).getExpression(), allowVariables);
+            default: return false;
+        }
+    }
+
 }
