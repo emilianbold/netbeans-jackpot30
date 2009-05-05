@@ -105,8 +105,8 @@ public class RunOnceFactoryTest extends NbTestCase {
         RunOnceFactory.add(file1, new TaskImpl(task1));
         RunOnceFactory.add(file1, new TaskImpl(task2));
         
-        assertTrue(task1.await(10, TimeUnit.SECONDS));
-        assertTrue(task2.await(10, TimeUnit.SECONDS));
+        assertTrue(task1.await(20, TimeUnit.SECONDS));
+        assertTrue(task2.await(20, TimeUnit.SECONDS));
     }
     
     private static class TaskImpl implements CancellableTask<CompilationInfo> {
