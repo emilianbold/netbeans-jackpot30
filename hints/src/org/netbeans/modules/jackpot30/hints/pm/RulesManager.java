@@ -57,9 +57,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.hints.epi.Constraint;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.jackpot30.hints.epi.Hint;
 import org.netbeans.modules.jackpot30.hints.epi.HintContext;
+import org.netbeans.modules.jackpot30.hints.epi.Pattern;
+import org.netbeans.modules.jackpot30.hints.epi.TriggerPattern;
 import org.netbeans.modules.jackpot30.hints.epi.TriggerTreeKind;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.util.Exceptions;
@@ -72,8 +75,8 @@ import org.openide.util.NbCollections;
  */
 public class RulesManager {
 
-    private final Map<Kind, List<Method>> hints = new HashMap<Kind, List<Method>>();
-    private final Map<String, List<Method>> pattern2Hint = new HashMap<String, List<Method>>();
+    private final Map<Kind, List<Method>> kind2Hints = new HashMap<Kind, List<Method>>();
+    private final Map<PatternDescription, List<Method>> pattern2Hint = new HashMap<PatternDescription, List<Method>>();
 
     private static final RulesManager INSTANCE = new RulesManager();
 
@@ -114,21 +117,7 @@ public class RulesManager {
 
                     for (Method m : clazz.getDeclaredMethods()) {
                         if (m.getAnnotation(Hint.class) != null) {
-                            TriggerTreeKind kindTrigger = m.getAnnotation(TriggerTreeKind.class);
-
-                            if (kindTrigger == null) {
-                                continue;
-                            }
-
-                            for (Kind k : new HashSet<Kind>(Arrays.asList(kindTrigger.value()))) {
-                                List<Method> methods = this.hints.get(k);
-
-                                if (methods == null) {
-                                    this.hints.put(k, methods = new LinkedList<Method>());
-                                }
-
-                                methods.add(m);
-                            }
+                            processMethod(this.kind2Hints, this.pattern2Hint, m);
                         }
                     }
                 } catch (ClassNotFoundException ex) {
@@ -151,11 +140,102 @@ public class RulesManager {
     }
 
     public Map<Kind, List<Method>> getKindBasedHints() {
-        return hints;
+        return kind2Hints;
     }
 
-    public Map<String, List<Method>> getPatternBasedHints() {
+    public Map<PatternDescription, List<Method>> getPatternBasedHints() {
         return pattern2Hint;
     }
+
+    static void processMethod(Map<Kind, List<Method>> kind2Hints, Map<PatternDescription, List<Method>> pattern2Hint, Method m) {
+        //XXX: combinations of TriggerTreeKind and TriggerPattern?
+        processTreeKindHint(kind2Hints, m);
+        processPatternHint(pattern2Hint, m);
+    }
     
+    private static void processTreeKindHint(Map<Kind, List<Method>> kind2Hints, Method m) {
+        TriggerTreeKind kindTrigger = m.getAnnotation(TriggerTreeKind.class);
+
+        if (kindTrigger == null) {
+            return ;
+        }
+        
+        for (Kind k : new HashSet<Kind>(Arrays.asList(kindTrigger.value()))) {
+            List<Method> methods = kind2Hints.get(k);
+            if (methods == null) {
+                kind2Hints.put(k, methods = new LinkedList<Method>());
+            }
+            methods.add(m);
+        }
+    }
+    
+    private static void processPatternHint(Map<PatternDescription, List<Method>> pattern2Hint, Method m) {
+        TriggerPattern patternTrigger = m.getAnnotation(TriggerPattern.class);
+
+        if (patternTrigger == null) {
+            return ;
+        }
+
+        String pattern = patternTrigger.value();
+        Map<String, String> constraints = new HashMap<String, String>();
+
+        for (Constraint c : patternTrigger.constraints()) {
+            constraints.put(c.variable(), c.type());
+        }
+
+        PatternDescription pd = new PatternDescription(pattern, constraints);
+
+        List<Method> methods = pattern2Hint.get(pd);
+        
+        if (methods == null) {
+            pattern2Hint.put(pd, methods = new LinkedList<Method>());
+        }
+        
+        methods.add(m);
+    }
+
+    public static final class PatternDescription {
+        private final String pattern;
+        private final Map<String, String> constraints;
+
+        public PatternDescription(String pattern, Map<String, String> constraints) {
+            this.pattern = pattern;
+            this.constraints = constraints;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            final PatternDescription other = (PatternDescription) obj;
+            if ((this.pattern == null) ? (other.pattern != null) : !this.pattern.equals(other.pattern)) {
+                return false;
+            }
+            if (this.constraints != other.constraints && (this.constraints == null || !this.constraints.equals(other.constraints))) {
+                return false;
+            }
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 7;
+            hash = 71 * hash + (this.pattern != null ? this.pattern.hashCode() : 0);
+            hash = 71 * hash + (this.constraints != null ? this.constraints.hashCode() : 0);
+            return hash;
+        }
+
+        public String getPattern() {
+            return pattern;
+        }
+
+        public Map<String, String> getConstraints() {
+            return constraints;
+        }
+
+    }
 }

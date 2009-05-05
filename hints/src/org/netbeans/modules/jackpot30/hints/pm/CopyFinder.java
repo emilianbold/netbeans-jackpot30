@@ -90,7 +90,8 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         this.info = info;
         this.cancel = cancel;
     }
-    
+
+    //XXX: should probably also include designedTypeHack:
     public static Map<TreePath, Map<String, TreePath>> computeDuplicates(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel) {
         CopyFinder f = new CopyFinder(searchingFor, info, cancel);
         

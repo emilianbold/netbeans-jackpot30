@@ -45,9 +45,11 @@ import com.sun.source.util.TreePath;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.hints.epi.Constraint;
 import org.netbeans.modules.jackpot30.hints.epi.ErrorDescriptionFactory;
 import org.netbeans.modules.jackpot30.hints.epi.Hint;
 import org.netbeans.modules.jackpot30.hints.epi.HintContext;
+import org.netbeans.modules.jackpot30.hints.epi.TriggerPattern;
 import org.netbeans.modules.jackpot30.hints.epi.TriggerTreeKind;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 
@@ -82,4 +84,12 @@ public class FileToURL {
         return null;
     }
     
+    @Hint("org.netbeans.modules.jackpot30.hintsimpl.FileToURL.computeTreeKind")
+    @TriggerPattern(value="$1.toURL()", constraints=@Constraint(variable="$1", type="java.io.File"))
+    public static ErrorDescription computePattern(HintContext ctx) {
+        ErrorDescription w = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "Use of java.io.File.toURL()");
+
+        return w;
+    }
+
 }

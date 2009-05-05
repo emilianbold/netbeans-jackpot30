@@ -92,6 +92,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -102,6 +103,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource.Phase;
@@ -111,7 +113,10 @@ import org.netbeans.api.java.source.support.EditorAwareJavaSourceTaskFactory;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.jackpot30.hints.epi.Hint;
 import org.netbeans.modules.jackpot30.hints.epi.HintContext;
+import org.netbeans.modules.jackpot30.hints.epi.Pattern;
 import org.netbeans.modules.jackpot30.hints.epi.TriggerTreeKind;
+import org.netbeans.modules.jackpot30.hints.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.jackpot30.hints.pm.RulesManager.PatternDescription;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
@@ -154,23 +159,56 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
     }
 
     private List<ErrorDescription> computeHints(CompilationInfo info, TreePath startAt) {
-        Map<Kind, List<Method>> hints = RulesManager.getInstance().getKindBasedHints();
+        Map<Kind, List<Method>> kindHints = RulesManager.getInstance().getKindBasedHints();
+        Map<PatternDescription, List<Method>> patternHints = RulesManager.getInstance().getPatternBasedHints();
+        return computeHints(info, startAt, kindHints, patternHints);
+    }
 
-        if (hints.isEmpty()) {
-            return Collections.<ErrorDescription>emptyList();
-        }
-
+    List<ErrorDescription> computeHints(CompilationInfo info,
+                                        TreePath startAt,
+                                        Map<Kind, List<Method>> hints,
+                                        Map<PatternDescription, List<Method>> patternHints) {
         List<ErrorDescription> errors = new  LinkedList<ErrorDescription>();
 
-        new ScannerImpl(info, cancel, hints).scan(startAt, errors);
+        if (!hints.isEmpty()) {
+            new ScannerImpl(info, cancel, hints).scan(startAt, errors);
+        }
         
-        Map<String, List<Method>> patternBasedHints = RulesManager.getInstance().getPatternBasedHints();
+        Map<String, List<PatternDescription>> patternTests = new HashMap<String, List<PatternDescription>>();
+        
+        for (Entry<PatternDescription, List<Method>> e : patternHints.entrySet()) {
+            String p = e.getKey().getPattern();
+            List<PatternDescription> descs = patternTests.get(p);
 
-//        for (Entry<String, )
-//        for (Entry<TreePath, Map<String, TreePath>> e : CopyFinder.computeDuplicates(info, startAt, startAt, cancel).entrySet()) {
-//            for (Method m : )
-//            runHint(info, null, null, , startAt)
-//        }
+            if (descs == null) {
+                patternTests.put(p, descs = new LinkedList<PatternDescription>());
+            }
+
+            descs.add(e.getKey());
+        }
+        
+        BulkPattern bulkPattern = BulkSearch.create(info, patternTests.keySet());
+        Set<String> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern);
+
+        for (String occ : occurringPatterns) {
+            for (PatternDescription d : patternTests.get(occ)) {
+                Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
+
+                for (Entry<String, String> e : d.getConstraints().entrySet()) {
+                    constraints.put(e.getKey(), info.getTreeUtilities().parseType(e.getValue(), info.getTopLevelElements().get(0))); //XXX
+                }
+
+                Pattern p = Pattern.compile(info, occ, constraints);
+                TreePath toplevel = new TreePath(info.getCompilationUnit());
+                TreePath patt = new TreePath(toplevel, p.getPattern());
+
+                for (Entry<TreePath, Map<String, TreePath>> e : CopyFinder.computeDuplicates(info, patt, startAt, cancel).entrySet()) {
+                    for (Method m : patternHints.get(d)) {
+                        errors.addAll(runHint(info, info.getFileObject(), null, m, e.getKey()));
+                    }
+                }
+            }
+        }
 
         return errors;
     }

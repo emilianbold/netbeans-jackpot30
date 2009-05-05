@@ -141,6 +141,10 @@ public class Pattern {
     public Map<String, TypeMirror> getConstraints() {
         return constraintsHack;
     }
+
+    public Tree getPattern() {
+        return patternTree;
+    }
     
     private static String parseOutTypesFromPattern(CompilationInfo info, String pattern, Map<String, TypeMirror> variablesToTypes) {
         //XXX:

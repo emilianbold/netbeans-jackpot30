@@ -39,17 +39,23 @@
 
 package org.netbeans.modules.jackpot30.hints.epi;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-/**
+/**Specifies a type of a variable. During the matching process, only those
+ * sections of the source code that have the given type are considered.
  *
- * @author lahvac
+ * @author Jan Lahoda
  */
-@Retention(RetentionPolicy.RUNTIME)
-public @interface TriggerPattern {
+@Target({})
+public @interface Constraint {
 
-    public String value();
-    public Constraint[] constraints() default {};
+    /**Variable name, must start with the dollar sign (<code>$</code>).
+     * Variable<code>$this</code> is automatically bound to the current class.
+     */
+    public String variable();
 
+    /**The required type of the section of source code.
+     */
+    public String type();
+    
 }

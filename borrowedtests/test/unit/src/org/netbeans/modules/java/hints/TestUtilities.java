@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 1997-2007 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -21,35 +21,40 @@
  * your own identifying information:
  * "Portions Copyrighted [year] [name of copyright owner]"
  *
- * If you wish your version of this file to be governed by only the CDDL
- * or only the GPL Version 2, indicate your decision by adding
- * "[Contributor] elects to include this software in this distribution
- * under the [CDDL or GPL Version 2] license." If you do not indicate a
- * single choice of license, a recipient has the option to distribute
- * your version of this file under either the CDDL, the GPL Version 2 or
- * to extend the choice of license to its licensees as provided above.
- * However, if you add GPL Version 2 code and therefore, elected the GPL
- * Version 2 license, then the option applies only if the new code is
- * made subject to such option by the copyright holder.
- *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2007 Sun Microsystems, Inc.
  */
+package org.netbeans.modules.java.hints;
 
-package org.netbeans.modules.jackpot30.hints.epi;
-
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
+import junit.framework.Assert;
 
 /**
  *
- * @author lahvac
+ * @author Jan Lahoda
  */
-@Retention(RetentionPolicy.RUNTIME)
-public @interface TriggerPattern {
+public class TestUtilities {
 
-    public String value();
-    public Constraint[] constraints() default {};
+    private TestUtilities() {
+    }
+
+    public static String detectOffsets(String source, int[] positionOrSpan) {
+        //for now, the position/span delimiter is '|', without possibility of escaping:
+        String[] split = source.split("\\|");
+        
+        Assert.assertTrue("incorrect number of position markers (|)", positionOrSpan.length == split.length - 1);
+        
+        StringBuilder sb = new StringBuilder();
+        int index = 0;
+        int offset = 0;
+        
+        for (String s : split) {
+            sb.append(s);
+            if (index < positionOrSpan.length)
+                positionOrSpan[index++] = (offset += s.length());
+        }
+        
+        return sb.toString();
+    }
 
 }
