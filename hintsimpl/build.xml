@@ -5,4 +5,6 @@
 <project name="org.netbeans.modules.jackpot30.hintsimpl" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.hintsimpl.</description>
     <import file="nbproject/build-impl.xml"/>
+    <target name="test-coverage" />
+    <target name="coverage-report" />
 </project>
