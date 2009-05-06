@@ -7,4 +7,6 @@
     <import file="nbproject/build-impl.xml"/>
 
     <target name="test" />
+    <target name="test-coverage" />
+    <target name="coverage-report" />
 </project>
