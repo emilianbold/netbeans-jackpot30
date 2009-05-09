@@ -82,12 +82,12 @@ public class DeclarativeHint {
             fixes.add(DeclarativeFix.parse(s));
         }
 
-        String[] s = splitNameAndPatter(split.get(0));
+        String[] s = splitNameAndPattern(split.get(0));
 
         return new DeclarativeHint(s[1], s[0], fixes);
     }
 
-    private static String[] splitNameAndPatter(String spec) {
+    private static String[] splitNameAndPattern(String spec) {
         spec = spec.trim();
 
         String[] s = spec.split("\"");
@@ -117,7 +117,7 @@ public class DeclarativeHint {
         }
 
         public static DeclarativeFix parse(String spec) {
-            String[] s = splitNameAndPatter(spec);
+            String[] s = splitNameAndPattern(spec);
 
             return new DeclarativeFix(s[1], s[0]);
         }
