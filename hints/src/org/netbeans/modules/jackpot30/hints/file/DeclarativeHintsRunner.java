@@ -76,8 +76,7 @@ public class DeclarativeHintsRunner extends AbstractHint {
     }
 
     public Set<Kind> getTreeKinds() {
-//        return EnumSet.allOf(Kind.class);
-        return EnumSet.of(Kind.METHOD_INVOCATION);
+        return EnumSet.allOf(Kind.class);
     }
 
     public List<ErrorDescription> run(CompilationInfo compilationInfo, TreePath treePath) {

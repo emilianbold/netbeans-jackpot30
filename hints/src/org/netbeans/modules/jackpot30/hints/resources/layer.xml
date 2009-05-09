@@ -187,4 +187,14 @@ made subject to such option by the copyright holder.
         </folder>
     </folder>
     
+    <folder name="org-netbeans-modules-java-hints">
+        <folder name="rules">
+            <folder name="hints">
+                <folder name="general">
+                    <file name="org-netbeans-modules-jackpot30-hints-file-DeclarativeHintsRunner.instance"/>
+                </folder>
+            </folder>
+        </folder>
+    </folder>
+    
 </filesystem>
