@@ -105,7 +105,7 @@ public class DeclarativeHintRegistry {
     }
 
     private static List<DeclarativeHint> parseHints(String spec) {
-        String[] split = spec.split(";");
+        String[] split = spec.split(";;");
         List<DeclarativeHint> result = new LinkedList<DeclarativeHint>();
 
         for (String s : split) {
