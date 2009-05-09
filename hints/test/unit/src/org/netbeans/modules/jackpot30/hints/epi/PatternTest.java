@@ -129,6 +129,11 @@ public class PatternTest extends TestBase {
                              new Pair[0]);
     }
 
+    public void testStatements1() throws Exception {
+        performVariablesTest("package test; public class Test {void test() {|assert true : \"\";|}}", "assert $1{boolean} : $2{java.lang.Object};",
+                             new Pair[0]);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, String>... duplicates) throws Exception {
         String[] split = code.split("\\|");
 

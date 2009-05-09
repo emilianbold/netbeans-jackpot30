@@ -235,7 +235,7 @@ public class Pattern {
             if (Utilities.isPureMemberSelect(patternTree, false) && info.getElements().getTypeElement(pattern) != null) {
                 Tree var = info.getTreeUtilities().parseExpression(pattern + ".class;", new SourcePositions[1]);
 
-                info.getTreeUtilities().attributeTree(var, scope[0]);
+                type = info.getTreeUtilities().attributeTree(var, scope[0]);
 
                 Tree typeTree = ((MemberSelectTree) var).getExpression();
 
@@ -243,6 +243,13 @@ public class Pattern {
                     patternTree = typeTree;
                 }
             }
+        }
+
+        if (isError(type)) {
+            //or statement?
+            //XXX: how to verify?
+            patternTree = info.getTreeUtilities().parseStatement(pattern, new SourcePositions[1]);
+            type = info.getTreeUtilities().attributeTree(patternTree, scope[0]);
         }
 
         return patternTree;
