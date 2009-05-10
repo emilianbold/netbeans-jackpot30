@@ -1,0 +1,1 @@
+"Use of assert" assert $1{boolean} : $2{java.lang.Object}; => "Replace with if statement" if (!$1) throw new IllegalStateException($2); ;;
