@@ -174,17 +174,18 @@ public class CodeHintProviderImpl implements HintProvider {
         hints.add(HintDescription.create(pd, new WorkerImpl(m)));
     }
 
-    private static final class WorkerImpl implements Worker {
+    //accessed by tests:
+    static final class WorkerImpl implements Worker {
 
-        private final Method m;
+        private final Method method;
 
         public WorkerImpl(Method m) {
-            this.m = m;
+            this.method = m;
         }
         
         public Collection<? extends ErrorDescription> createErrors(org.netbeans.modules.jackpot30.spi.HintContext ctx) {
             try {
-                Object result = m.invoke(null, ctx);
+                Object result = method.invoke(null, ctx);
 
                 if (result == null) {
                     return null;
@@ -215,7 +216,12 @@ public class CodeHintProviderImpl implements HintProvider {
 
             return null;
         }
-        
+
+        //used by tests:
+        Method getMethod() {
+            return method;
+        }
+
     }
 
 }
