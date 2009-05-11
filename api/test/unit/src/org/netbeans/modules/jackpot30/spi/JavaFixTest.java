@@ -43,7 +43,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.util.ElementFilter;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
-import org.netbeans.modules.jackpot30.hints.impl.TestBase;
+import org.netbeans.modules.jackpot30.impl.TestBase;
 import org.netbeans.modules.java.source.TreeLoader;
 import org.openide.modules.SpecificationVersion;
 

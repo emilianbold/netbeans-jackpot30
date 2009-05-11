@@ -37,7 +37,7 @@
  * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.hints.impl;
+package org.netbeans.modules.jackpot30.impl;
 
 import java.io.File;
 import javax.swing.text.Document;

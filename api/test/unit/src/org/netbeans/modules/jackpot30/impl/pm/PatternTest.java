@@ -47,7 +47,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
-import org.netbeans.modules.jackpot30.hints.impl.TestBase;
+import org.netbeans.modules.jackpot30.impl.TestBase;
 import org.netbeans.modules.java.hints.infrastructure.Pair;
 import org.netbeans.modules.java.source.TreeLoader;
 
