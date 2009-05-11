@@ -79,14 +79,14 @@ import org.openide.util.lookup.ServiceProvider;
  * @author lahvac
  */
 @SupportedSourceVersion(SourceVersion.RELEASE_6)
-@SupportedAnnotationTypes("org.netbeans.modules.jackpot30.hints.epi.*")
+@SupportedAnnotationTypes("org.netbeans.modules.jackpot30.code.spi.*")
 @ServiceProvider(service=Processor.class)
 public class JavaHintsAnnotationProcessor extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        generateTypeList("org.netbeans.modules.jackpot30.hints.epi.Hint", roundEnv, "hints");
-        generateTypeList("org.netbeans.modules.jackpot30.hints.epi.TriggerCompileTime", roundEnv, "compile-time");
+        generateTypeList("org.netbeans.modules.jackpot30.code.spi.Hint", roundEnv, "hints");
+        generateTypeList("org.netbeans.modules.jackpot30.code.spi.TriggerCompileTime", roundEnv, "compile-time");
 
         if (true) return false;
         
