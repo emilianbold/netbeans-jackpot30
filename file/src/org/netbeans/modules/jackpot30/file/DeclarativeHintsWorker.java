@@ -37,59 +37,58 @@
  * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.hintsimpl;
+package org.netbeans.modules.jackpot30.file;
 
-import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.jackpot30.code.spi.Constraint;
-import org.netbeans.modules.jackpot30.code.spi.Hint;
-import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;
-import org.netbeans.modules.jackpot30.code.spi.TriggerTreeKind;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import javax.lang.model.type.TypeMirror;
 import org.netbeans.modules.jackpot30.spi.HintContext;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
+import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.Fix;
 
 /**
  *
  * @author Jan Lahoda
  */
-public class FileToURL {
+class DeclarativeHintsWorker implements Worker {
 
-    @Hint("org.netbeans.modules.jackpot30.hintsimpl.FileToURL.computeTreeKind")
-    @TriggerTreeKind(Kind.METHOD_INVOCATION)
-    public static ErrorDescription computeTreeKind(HintContext ctx) {
-        MethodInvocationTree mit = (MethodInvocationTree) ctx.getPath().getLeaf();
+    private final String displayName;
+    private final List<DeclarativeFix> fixes;
 
-        if (!mit.getArguments().isEmpty() || !mit.getTypeArguments().isEmpty()) {
-            return null;
-        }
-
-        CompilationInfo info = ctx.getInfo();
-        Element e = info.getTrees().getElement(new TreePath(ctx.getPath(), mit.getMethodSelect()));
-
-        if (e == null || e.getKind() != ElementKind.METHOD) {
-            return null;
-        }
-
-        if (e.getSimpleName().contentEquals("toURL") && info.getElementUtilities().enclosingTypeElement(e).getQualifiedName().contentEquals("java.io.File")) {
-            ErrorDescription w = ErrorDescriptionFactory.forName(ctx, mit, "Use of java.io.File.toURL()");
-
-            return w;
-        }
-
-        return null;
+    public DeclarativeHintsWorker(String displayName, List<DeclarativeFix> fixes) {
+        this.displayName = displayName;
+        this.fixes = fixes;
     }
-    
-    @Hint("org.netbeans.modules.jackpot30.hintsimpl.FileToURL.computeTreeKind")
-    @TriggerPattern(value="$1.toURL()", constraints=@Constraint(variable="$1", type="java.io.File"))
-    public static ErrorDescription computePattern(HintContext ctx) {
-        ErrorDescription w = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "Use of java.io.File.toURL()");
 
-        return w;
+    //for tests:
+    String getDisplayName() {
+        return displayName;
+    }
+
+    //for tests:
+    List<DeclarativeFix> getFixes() {
+        return fixes;
+    }
+
+    public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
+        Fix[] editorFixes = new Fix[fixes.size()];
+
+        for (int cntr = 0; cntr < fixes.size(); cntr++) {
+            editorFixes[cntr] = JavaFix.rewriteFix(ctx.getInfo(), fixes.get(cntr).getDisplayName(), ctx.getPath(), fixes.get(cntr).getPattern(), ctx.getVariables(), Collections.<String, TypeMirror>emptyMap()/*XXX*/);
+        }
+
+        ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, editorFixes);
+
+        if (ed == null) {
+            return null;
+        }
+
+        return Collections.singletonList(ed);
     }
 
 }

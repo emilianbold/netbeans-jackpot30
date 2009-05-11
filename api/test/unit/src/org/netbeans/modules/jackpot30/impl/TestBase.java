@@ -37,59 +37,76 @@
  * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.hintsimpl;
+package org.netbeans.modules.jackpot30.hints.impl;
 
-import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.Tree.Kind;
-import com.sun.source.util.TreePath;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
+import java.io.File;
+import javax.swing.text.Document;
+import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.jackpot30.code.spi.Constraint;
-import org.netbeans.modules.jackpot30.code.spi.Hint;
-import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;
-import org.netbeans.modules.jackpot30.code.spi.TriggerTreeKind;
-import org.netbeans.modules.jackpot30.spi.HintContext;
-import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
-import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.JavaSource.Phase;
+import org.netbeans.api.java.source.SourceUtilsTestUtil;
+import org.netbeans.api.java.source.TestUtilities;
+import org.netbeans.api.lexer.Language;
+import org.netbeans.junit.NbTestCase;
+import org.openide.cookies.EditorCookie;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
+import org.openide.loaders.DataObject;
 
 /**
  *
  * @author Jan Lahoda
  */
-public class FileToURL {
+public class TestBase extends NbTestCase {
 
-    @Hint("org.netbeans.modules.jackpot30.hintsimpl.FileToURL.computeTreeKind")
-    @TriggerTreeKind(Kind.METHOD_INVOCATION)
-    public static ErrorDescription computeTreeKind(HintContext ctx) {
-        MethodInvocationTree mit = (MethodInvocationTree) ctx.getPath().getLeaf();
-
-        if (!mit.getArguments().isEmpty() || !mit.getTypeArguments().isEmpty()) {
-            return null;
-        }
-
-        CompilationInfo info = ctx.getInfo();
-        Element e = info.getTrees().getElement(new TreePath(ctx.getPath(), mit.getMethodSelect()));
-
-        if (e == null || e.getKind() != ElementKind.METHOD) {
-            return null;
-        }
-
-        if (e.getSimpleName().contentEquals("toURL") && info.getElementUtilities().enclosingTypeElement(e).getQualifiedName().contentEquals("java.io.File")) {
-            ErrorDescription w = ErrorDescriptionFactory.forName(ctx, mit, "Use of java.io.File.toURL()");
-
-            return w;
-        }
-
-        return null;
+    public TestBase(String name) {
+        super(name);
     }
-    
-    @Hint("org.netbeans.modules.jackpot30.hintsimpl.FileToURL.computeTreeKind")
-    @TriggerPattern(value="$1.toURL()", constraints=@Constraint(variable="$1", type="java.io.File"))
-    public static ErrorDescription computePattern(HintContext ctx) {
-        ErrorDescription w = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "Use of java.io.File.toURL()");
 
-        return w;
+    protected void prepareTest(String fileName, String code) throws Exception {
+        clearWorkDir();
+
+        FileUtil.refreshFor(File.listRoots());
+
+        FileObject workFO = FileUtil.toFileObject(getWorkDir());
+
+        assertNotNull(workFO);
+
+        workFO.refresh();
+
+        sourceRoot = workFO.createFolder("src");
+        FileObject buildRoot  = workFO.createFolder("build");
+        FileObject cache = workFO.createFolder("cache");
+
+        FileObject data = FileUtil.createData(sourceRoot, fileName);
+        File dataFile = FileUtil.toFile(data);
+
+        assertNotNull(dataFile);
+
+        TestUtilities.copyStringToFile(dataFile, code);
+
+        SourceUtilsTestUtil.prepareTest(sourceRoot, buildRoot, cache);
+
+        DataObject od = DataObject.find(data);
+        EditorCookie ec = od.getLookup().lookup(EditorCookie.class);
+
+        assertNotNull(ec);
+
+        doc = ec.openDocument();
+        doc.putProperty(Language.class, JavaTokenId.language());
+
+        JavaSource js = JavaSource.forFileObject(data);
+
+        assertNotNull(js);
+
+        info = SourceUtilsTestUtil.getCompilationInfo(js, Phase.RESOLVED);
+
+        assertNotNull(info);
     }
+
+    protected FileObject sourceRoot;
+    protected CompilationInfo info;
+    protected Document doc;
 
 }
