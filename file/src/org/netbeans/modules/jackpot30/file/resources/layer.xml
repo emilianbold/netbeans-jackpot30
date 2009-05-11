@@ -97,7 +97,7 @@ made subject to such option by the copyright holder.
                 </folder>
                 <folder name="Factories">
                     <file name="HintDataLoader.instance">
-                        <attr name="dataObjectClass" stringvalue="org.netbeans.modules.jackpot30.hints.file.HintDataObject"/>
+                        <attr name="dataObjectClass" stringvalue="org.netbeans.modules.jackpot30.file.HintDataObject"/>
                         <attr name="instanceCreate" methodvalue="org.openide.loaders.DataLoaderPool.factory"/>
                         <attr name="mimeType" stringvalue="text/x-javahints"/>
                     </file>
@@ -109,14 +109,14 @@ made subject to such option by the copyright holder.
     <folder name="Services">
         <folder name="MIMEResolver">
             <file name="HintResolver.xml" url="HintResolver.xml">
-                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.hints.resources.Bundle"/>
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.file.resources.Bundle"/>
             </file>
         </folder>
     </folder>
     <folder name="Templates">
         <folder name="Other">
             <file name="HintTemplate.hint" url="HintTemplate.hint">
-                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.hints.resources.Bundle"/>
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.file.resources.Bundle"/>
                 <attr name="template" boolvalue="true"/>
             </file>
         </folder>
@@ -126,7 +126,7 @@ made subject to such option by the copyright holder.
         <folder name="text">
             <folder name="x-javahints">
                 <file name="language.instance">
-                    <attr name="instanceCreate" methodvalue="org.netbeans.modules.jackpot30.hints.file.DeclarativeHintTokenId.language"/>
+                    <attr name="instanceCreate" methodvalue="org.netbeans.modules.jackpot30.file.DeclarativeHintTokenId.language"/>
                     <attr name="instanceOf" stringvalue="org.netbeans.api.lexer.Language"/>
                 </file>
                 <folder name="FontsColors">
