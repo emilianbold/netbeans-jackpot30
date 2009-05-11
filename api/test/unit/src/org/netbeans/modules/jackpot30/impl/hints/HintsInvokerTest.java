@@ -109,16 +109,6 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testPattern2", test2Hint.get("testPattern1"));
     }
 
-//    @TriggerPattern(value="$1.toURL()", constraints=@Constraint(variable="$1", type="java.io.File"))
-//    public static ErrorDescription hintPattern1(HintContext ctx) {
-//        return ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "Use of java.io.File.toURL()");
-//    }
-//
-//    @TriggerPattern(value="$1.toURL()", constraints=@Constraint(variable="$1", type="java.io.File"))
-//    public static ErrorDescription hintPattern2(HintContext ctx) {
-//        return ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "Use of java.io.File.toURL()");
-//    }
-
     @Override
     protected List<ErrorDescription> computeErrors(CompilationInfo info, TreePath path) {
         HintDescription hd = test2Hint.get(getName());
