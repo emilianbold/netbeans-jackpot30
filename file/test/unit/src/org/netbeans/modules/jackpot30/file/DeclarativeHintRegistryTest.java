@@ -47,9 +47,9 @@ import static org.junit.Assert.*;
  *
  * @author Jan Lahoda
  */
-public class DeclarativeHintTest {
+public class DeclarativeHintRegistryTest {
 
-    public DeclarativeHintTest() {
+    public DeclarativeHintRegistryTest() {
     }
 
     @Test
