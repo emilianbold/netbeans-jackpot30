@@ -57,6 +57,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
@@ -101,12 +102,25 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                             "4:11-4:16:verifier:HINT");
     }
 
+    public void testKind1() throws Exception {
+        performAnalysisTest("test/Test.java",
+                            "|package test;\n" +
+                            "\n" +
+                            "public class Test {\n" +
+                            "     private void test(java.io.File f) {\n" +
+                            "         f.toURL();\n" +
+                            "     }\n" +
+                            "}\n",
+                            "4:11-4:16:verifier:HINT");
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
         test2Hint = new HashMap<String, HintDescription>();
         test2Hint.put("testPattern1", HintDescription.create(HintDescription.PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File")), new WorkerImpl()));
         test2Hint.put("testPattern2", test2Hint.get("testPattern1"));
+        test2Hint.put("testKind1", HintDescription.create(Kind.METHOD_INVOCATION, new WorkerImpl()));
     }
 
     @Override
@@ -117,8 +131,8 @@ public class HintsInvokerTest extends TreeRuleTestBase {
 
         Map<Kind, List<HintDescription>> kind2Hints = new HashMap<Kind, List<HintDescription>>();
         Map<PatternDescription, List<HintDescription>> pattern2Hint = new HashMap<PatternDescription, List<HintDescription>>();
+        RulesManager.sortOut(Collections.singletonList(hd), kind2Hints, pattern2Hint);
 
-        pattern2Hint.put(hd.getTriggerPattern(), Collections.singletonList(hd));
         return new HintsInvoker().computeHints(info, new TreePath(info.getCompilationUnit()), kind2Hints, pattern2Hint);
     }
 
@@ -136,6 +150,10 @@ public class HintsInvokerTest extends TreeRuleTestBase {
 
     private static final class WorkerImpl implements Worker {
         public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
+            if (ctx.getInfo().getTreeUtilities().isSynthetic(ctx.getPath())) {
+                return null;
+            }
+            
             return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "HINT"));
         }
     }
