@@ -575,6 +575,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                 return ret;
             }
         }
+
+        if (node.getKind() != p.getLeaf().getKind()) {
+            return false;
+        }
         
         MemberSelectTree t = (MemberSelectTree) p.getLeaf();
 

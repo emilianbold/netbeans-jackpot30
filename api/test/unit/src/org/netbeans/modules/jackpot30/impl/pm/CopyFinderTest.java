@@ -132,6 +132,12 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
         doPerformTest("package test; public class Test {public static class T extends Test { public void test() { Test t = null; t.test(); test(); } } public void test() { } }", 130 - 24, 138 - 24, -1, 140 - 24, 146 - 24);
     }
 
+    public void testMemberSelectCCE() throws Exception {
+        //should not throw a CCE
+        //(selected regions are not duplicates)
+        performTest("package test; public class Test {public static class T extends Test { public void test() { |Test.test|(); |System.err.println|(); } } }", false);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>... duplicates) throws Exception {
         prepareTest(code, -1);
 
@@ -169,6 +175,10 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
     }
 
     private void performTest(String code) throws Exception {
+        performTest(code, true);
+    }
+
+    private void performTest(String code, boolean verify) throws Exception {
         List<int[]> result = new LinkedList<int[]>();
 
         code = findRegions(code, result);
@@ -187,11 +197,15 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                 duplicates[cntr++] = span[1];
             }
 
-            doPerformTest(code, i[0], i[1], testIndex++, duplicates);
+            doPerformTest(code, i[0], i[1], testIndex++, verify, duplicates);
         }
     }
 
     private void doPerformTest(String code, int start, int end, int testIndex, int... duplicates) throws Exception {
+        doPerformTest(code, start, end, testIndex, true, duplicates);
+    }
+
+    private void doPerformTest(String code, int start, int end, int testIndex, boolean verify, int... duplicates) throws Exception {
         prepareTest(code, testIndex);
 
         TreePath path = info.getTreeUtilities().pathFor((start + end) / 2);
@@ -214,15 +228,17 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
 
         //        assertEquals(f.result.toString(), duplicates.length / 2, f.result.size());
 
-        int[] dupes = new int[result.size() * 2];
-        int   index = 0;
+        if (verify) {
+            int[] dupes = new int[result.size() * 2];
+            int   index = 0;
 
-        for (TreePath tp : result) {
-            dupes[index++] = (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), tp.getLeaf());
-            dupes[index++] = (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), tp.getLeaf());
+            for (TreePath tp : result) {
+                dupes[index++] = (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), tp.getLeaf());
+                dupes[index++] = (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), tp.getLeaf());
+            }
+
+            assertTrue("Was: " + Arrays.toString(dupes) + " should have been: " + Arrays.toString(duplicates), Arrays.equals(duplicates, dupes));
         }
-
-        assertTrue("Was: " + Arrays.toString(dupes) + " should have been: " + Arrays.toString(duplicates), Arrays.equals(duplicates, dupes));
     }
 
     private static String findRegions(String code, List<int[]> regions) {
