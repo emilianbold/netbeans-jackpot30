@@ -5,11 +5,4 @@
 <project name="org.netbeans.modules.jackpot30.transformers" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.transformers.</description>
     <import file="nbproject/build-impl.xml"/>
-    
-    <target name="-download">
-        <mkdir dir="release/libs" />
-        <get src="https://lang.dev.java.net/files/documents/9560/133823/annotations.jar" dest="release/libs/annotations.jar" usetimestamp="true"/>
-    </target>
-    
-    <target name="init" depends="-download,harness.init" />
 </project>
