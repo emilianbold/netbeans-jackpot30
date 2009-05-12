@@ -39,11 +39,22 @@
 
 package org.netbeans.modules.jackpot30.impl;
 
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.util.TreePath;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.PackageElement;
+import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.support.CancellableTreePathScanner;
+import org.netbeans.modules.jackpot30.spi.ElementBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
@@ -66,26 +77,7 @@ public class RulesManager {
 
     private RulesManager() {
         for (HintProvider p : Lookup.getDefault().lookupAll(HintProvider.class)) {
-            for (HintDescription d : p.computeHints()) {
-                if (d.getTriggerKind() != null) {
-                    List<HintDescription> l = kind2Hints.get(d.getTriggerKind());
-
-                    if (l == null) {
-                        kind2Hints.put(d.getTriggerKind(), l = new LinkedList<HintDescription>());
-                    }
-
-                    l.add(d);
-                }
-                if (d.getTriggerPattern() != null) {
-                    List<HintDescription> l = pattern2Hint.get(d.getTriggerPattern());
-
-                    if (l == null) {
-                        pattern2Hint.put(d.getTriggerPattern(), l = new LinkedList<HintDescription>());
-                    }
-                    
-                    l.add(d);
-                }
-            }
+            sortOut(p.computeHints(), kind2Hints, pattern2Hint);
         }
     }
 
@@ -95,6 +87,67 @@ public class RulesManager {
 
     public Map<PatternDescription, List<HintDescription>> getPatternBasedHints() {
         return pattern2Hint;
+    }
+
+    public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {
+        computeElementBasedHintsXXX(info, cancel, Lookup.getDefault().lookupAll(ElementBasedHintProvider.class), kind2Hints, pattern2Hint);
+    }
+
+    public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Collection<? extends ElementBasedHintProvider> providers, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {
+        new CancellableTreePathScanner(cancel) {
+            private Set<Element> handledElements = new HashSet<Element>();
+            private void handleElementImpl(Element el) {
+                if (!handledElements.add(el)) return ;
+                
+                for (ElementBasedHintProvider provider : providers) {
+                    sortOut(provider.computeHints(info, el), kind2Hints, pattern2Hint);
+                }
+            }
+            
+            private void handleElement(Element el) {
+                PackageElement p = info.getElements().getPackageOf(el);
+
+                while (p != el) {
+                    handleElementImpl(el);
+                    el = el.getEnclosingElement();
+                }
+                
+                handleElementImpl(p);
+            }
+
+            @Override
+            public Object scan(Tree tree, Object p) {
+                if (tree == null) return null;
+
+                TreePath tp = new TreePath(getCurrentPath(), tree);
+                Element el = info.getTrees().getElement(tp);
+
+                if (el != null) {
+                    handleElement(el);
+                }
+                
+                return super.scan(tree, p);
+            }
+        }.scan(info.getCompilationUnit(), null);
+    }
+
+    private static void sortOut(Collection<? extends HintDescription> hints, Map<Kind, List<HintDescription>> kind2Hints, Map<PatternDescription, List<HintDescription>> pattern2Hint) {
+        for (HintDescription d : hints) {
+            if (d.getTriggerKind() != null) {
+                List<HintDescription> l = kind2Hints.get(d.getTriggerKind());
+                if (l == null) {
+                    kind2Hints.put(d.getTriggerKind(), l = new LinkedList<HintDescription>());
+                }
+                l.add(d);
+            }
+            if (d.getTriggerPattern() != null) {
+                List<HintDescription> l = pattern2Hint.get(d.getTriggerPattern());
+                if (l == null) {
+                    pattern2Hint.put(d.getTriggerPattern(), l = new LinkedList<HintDescription>());
+                }
+                l.add(d);
+            }
+        }
     }
 
 }

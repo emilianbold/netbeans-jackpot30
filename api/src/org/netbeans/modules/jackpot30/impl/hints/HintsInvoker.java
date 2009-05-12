@@ -129,9 +129,19 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
     }
 
     private List<ErrorDescription> computeHints(CompilationInfo info, TreePath startAt) {
-        Map<Kind, List<HintDescription>> kindHints = RulesManager.getInstance().getKindBasedHints();
-        Map<PatternDescription, List<HintDescription>> patternHints = RulesManager.getInstance().getPatternBasedHints();
+        Map<Kind, List<HintDescription>> kindHints = new HashMap<Kind, List<HintDescription>>(RulesManager.getInstance().getKindBasedHints());
+        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>(RulesManager.getInstance().getPatternBasedHints());
+
+        RulesManager.computeElementBasedHintsXXX(info, cancel, kindHints, patternHints);
+        
         return computeHints(info, startAt, kindHints, patternHints);
+    }
+
+    //XXX: used by tests (in other modules too):
+    public List<ErrorDescription> computeHints(CompilationInfo info,
+                                        Map<Kind, List<HintDescription>> hints,
+                                        Map<PatternDescription, List<HintDescription>> patternHints) {
+        return computeHints(info, new TreePath(info.getCompilationUnit()), hints, patternHints);
     }
 
     List<ErrorDescription> computeHints(CompilationInfo info,
