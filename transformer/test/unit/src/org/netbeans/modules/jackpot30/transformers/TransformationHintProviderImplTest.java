@@ -380,7 +380,7 @@ public class TransformationHintProviderImplTest extends NbTestCase {
 
         File ann = InstalledFileLocator.getDefault().locate("libs/annotations.jar", null, false);
 
-        assertNotNull(ann);
+        assertNotNull(System.getProperty("netbeans.home"), ann);
 
         FileObject annFO = FileUtil.toFileObject(ann);
 
