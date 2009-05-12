@@ -93,6 +93,30 @@ public class BulkSearchTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testMemberSelectAndIdentifier() throws Exception {
+        performTest("package test; public class Test { private static void test() { test();}}",
+                    Arrays.asList("test.Test.test()"),
+                    Collections.<String>emptyList());
+    }
+
+    public void testUnpureMemberSelect() throws Exception {
+        performTest("package test; public class Test { private static void test() { new StringBuilder().append('');}}",
+                    Collections.<String>emptyList(),
+                    Arrays.asList("test.append('')"));
+    }
+
+    public void testMemberSelectWithVariables1() throws Exception {
+        performTest("package test; public class Test { private static void test() { new StringBuilder().append('');}}",
+                    Arrays.asList("$0.append('')"),
+                    Collections.<String>emptyList());
+    }
+
+    public void testMemberSelectWithVariables2() throws Exception {
+        performTest("package test; public class Test { private void append(char c) { append('');}}",
+                    Arrays.asList("$0.append('')"),
+                    Collections.<String>emptyList());
+    }
+    
     public void XtestMeasureTime() throws Exception {
         String code = TestUtilities.copyFileToString(new File("/usr/local/home/lahvac/src/nb//outgoing/java.editor/src/org/netbeans/modules/editor/java/JavaCompletionProvider.java"));
         List<String> patterns = new LinkedList<String>();

@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.impl.pm;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
@@ -52,6 +53,7 @@ import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 
 /**
  *
@@ -81,6 +83,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
     private int depth;
     private int group;
+    private boolean method;
 
     private TreeSerializer(boolean pattern) {
         this.depth = !pattern ? 0 : -1;
@@ -106,8 +109,38 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             append(p, "[0-9a-f]+");
         }
         append(p, ">");
-        append(p, kindToShortName.get(tree.getKind()));
-        super.scan(tree, p);
+
+        boolean m = method;
+
+        method = false;
+
+        if (tree.getKind() != Kind.IDENTIFIER && (tree.getKind() != Kind.MEMBER_SELECT || !Utilities.isPureMemberSelect(tree, true))) {
+            append(p, kindToShortName.get(tree.getKind()));
+            super.scan(tree, p);
+        } else {
+            boolean memberSelectWithVariables = tree.getKind() == Kind.MEMBER_SELECT && !Utilities.isPureMemberSelect(tree, false);
+
+            if (memberSelectWithVariables) {
+                append(p, "(?:");
+                append(p, kindToShortName.get(tree.getKind()));
+                super.scan(tree, p);
+                append(p, ")|(?:");
+            }
+
+            append(p, "ID");
+
+            //XXX: is this correct??
+            if (m && (tree.getKind() == Kind.IDENTIFIER)) {
+                append(p, ((IdentifierTree) tree).getName());
+            }
+            if (m && (tree.getKind() == Kind.MEMBER_SELECT)) {
+                append(p, ((MemberSelectTree) tree).getIdentifier());
+            }
+
+            if (memberSelectWithVariables) {
+                append(p, ")");
+            }
+        }
         append(p, "</");
         if (depth != (-1)) {
             append(p, Integer.toHexString(--depth));
@@ -147,6 +180,12 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
     public Void visitMethod(MethodTree node, Appendable p) {
         append(p, node.getName());
         return super.visitMethod(node, p);
+    }
+
+    @Override
+    public Void visitMethodInvocation(MethodInvocationTree node, Appendable p) {
+        method = true;
+        return super.visitMethodInvocation(node, p);
     }
 
     private static void append(Appendable a, CharSequence what) {

@@ -87,6 +87,19 @@ public class TreeSerializerTest extends NbTestCase {
         }
     }
 
+    public void testNamesForMethods() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test { private static void test() { test(); System.err.println(); } }");
+
+        StringBuilder sb = new StringBuilder();
+
+        TreeSerializer.serializeText(info.getCompilationUnit(), sb);
+
+        String serialized = sb.toString();
+
+        assertEquals(3, serialized.split("test").length);
+        assertEquals(2, serialized.split("println").length);
+    }
+
     private void prepareTest(String fileName, String code) throws Exception {
         clearWorkDir();
 
