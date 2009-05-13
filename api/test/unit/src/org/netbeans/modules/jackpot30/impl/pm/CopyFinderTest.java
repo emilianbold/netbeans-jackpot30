@@ -148,6 +148,20 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              new Pair[] {new Pair<String, String>("$1", "y")});
     }
 
+    public void testStatementAndSingleBlockStatementAreSame1() throws Exception {
+        performVariablesTest("package test; public class Test {public void test1() { { int x; { x = 1; } } } }",
+                             "{ int $1; $1 = 1; }",
+                             new Pair[0],
+                             new Pair[] {new Pair<String, String>("$1", "x")});
+    }
+
+    public void testStatementAndSingleBlockStatementAreSame2() throws Exception {
+        performVariablesTest("package test; public class Test {public void test1() { { int x; x = 1; } } }",
+                             "{ int $1; { $1 = 1; } }",
+                             new Pair[0],
+                             new Pair[] {new Pair<String, String>("$1", "x")});
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         prepareTest(code, -1);
 

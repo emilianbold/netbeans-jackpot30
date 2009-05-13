@@ -152,6 +152,20 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                             "4:9-4:26:verifier:HINT");
     }
 
+    public void testPatternStatementAndSingleStatementBlockAreSame() throws Exception {
+        performAnalysisTest("test/Test.java",
+                            "|package test;\n" +
+                            "\n" +
+                            "public class Test {\n" +
+                            "     private int test() {\n" +
+                            "         if (true) {\n" +
+                            "             return 0;\n" +
+                            "         }\n" +
+                            "     }\n" +
+                            "}\n",
+                            "4:9-6:10:verifier:HINT");
+    }
+    
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -166,6 +180,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         constraints.put("$2", "java.lang.Object");
 
         test2Hint.put("testPatternAssert1", HintDescription.create(HintDescription.PatternDescription.create("assert $1 : $2;", constraints), new WorkerImpl()));
+        test2Hint.put("testPatternStatementAndSingleStatementBlockAreSame", HintDescription.create(HintDescription.PatternDescription.create("if ($1) return $2;", Collections.<String, String>emptyMap()), new WorkerImpl()));
     }
 
     @Override

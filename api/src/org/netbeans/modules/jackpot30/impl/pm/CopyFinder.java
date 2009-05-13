@@ -49,6 +49,7 @@ import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.PrimitiveTypeTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
@@ -57,6 +58,7 @@ import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -141,13 +143,28 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         if (k1 == k2) {
             return true;
         }
-        
+
+        if (isSingleStatemenBlockAndStatement(t1, t2) || isSingleStatemenBlockAndStatement(t2, t1)) {
+            return true;
+        }
+
         if (    (k1 != Kind.MEMBER_SELECT && k1 != Kind.IDENTIFIER)
              || (k2 != Kind.MEMBER_SELECT && k2 != Kind.IDENTIFIER)) {
             return false;
         }
 
         return Utilities.isPureMemberSelect(t1, true) && Utilities.isPureMemberSelect(t2, true);
+    }
+
+    private static boolean isSingleStatemenBlockAndStatement(Tree t1, Tree t2) {
+        Kind k1 = t1.getKind();
+        Kind k2 = t2.getKind();
+        
+        if (k1 == Kind.BLOCK && ((BlockTree) t1).getStatements().size() == 1 && !((BlockTree) t1).isStatic()) {
+            return StatementTree.class.isAssignableFrom(k2.asInterface());
+        }
+
+        return false;
     }
     
     @Override
@@ -189,7 +206,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
         if (p != null && sameKind(node, p.getLeaf())) {
             //maybe equivalent:
-            boolean result = super.scan(node, p) == Boolean.TRUE;
+            boolean result = superScan(node, p) == Boolean.TRUE;
 
             if (result) {
                 if (p == searchingFor && node != searchingFor) {
@@ -206,13 +223,13 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             return false;
         
         if ((p != null && p.getLeaf() == searchingFor.getLeaf()) || !sameKind(node, searchingFor.getLeaf())) {
-            super.scan(node, null);
+            superScan(node, null);
             return false;
         } else {
             //maybe equivalent:
             allowGoDeeper = false;
             
-            boolean result = super.scan(node, searchingFor) == Boolean.TRUE;
+            boolean result = superScan(node, searchingFor) == Boolean.TRUE;
             
             allowGoDeeper = true;
             
@@ -226,9 +243,30 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                 return true;
             }
             
-            super.scan(node, null);
+            superScan(node, null);
             return false;
         }
+    }
+
+    private Boolean superScan(Tree node, TreePath p) {
+        if (p == null) {
+            return super.scan(node, p);
+        }
+        
+        if (p.getLeaf().getKind() == Kind.BLOCK && node.getKind() != Kind.BLOCK /*&& p.getLeaf() != searchingFor.getLeaf()*/) {
+            BlockTree bt = (BlockTree) p.getLeaf();
+
+            assert bt.getStatements().size() == 1;
+            assert !bt.isStatic();
+            
+            p = new TreePath(p, bt.getStatements().get(0));
+        }
+
+        if (!sameKind(node, p.getLeaf())) {
+            return false;
+        }
+
+        return super.scan(node, p);
     }
 
     private Boolean scan(Tree node, Tree p, TreePath pOrigin) {
@@ -329,6 +367,18 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             return false;
         }
 
+        if (p.getLeaf().getKind() != Kind.BLOCK) {
+            //single-statement blocks are considered to be equivalent to statements
+            //TODO: some parents may need to be more strict, esp. synchronized and do-while
+            assert node.getStatements().size() == 1;
+            assert !node.isStatic();
+
+            if (p.getLeaf() == searchingFor.getLeaf())
+                return false;
+            
+            return checkLists(node.getStatements(), Collections.singletonList(p.getLeaf()), p.getParentPath());
+        }
+        
         BlockTree at = (BlockTree) p.getLeaf();
 
         if (node.isStatic() != at.isStatic()) {
@@ -388,7 +438,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             super.visitExpressionStatement(node, p);
             return false;
         }
-
+        
         ExpressionStatementTree et = (ExpressionStatementTree) p.getLeaf();
 
         return scan(node.getExpression(), et.getExpression(), p);

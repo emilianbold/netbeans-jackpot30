@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
@@ -101,6 +102,14 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             && ((IdentifierTree) tree).getName().toString().startsWith("$")) {
             append(p, "<([0-9a-z]+)>.*?</\\" + (group++) + ">");
             return null;
+        }
+
+        if (tree.getKind() == Kind.BLOCK) {
+            BlockTree bt = (BlockTree) tree;
+
+            if (!bt.isStatic() && bt.getStatements().size() == 1) {
+                tree = bt.getStatements().get(0);
+            }
         }
 
         append(p, "<");

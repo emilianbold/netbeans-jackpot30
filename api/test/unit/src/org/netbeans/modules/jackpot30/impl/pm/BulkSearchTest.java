@@ -129,6 +129,18 @@ public class BulkSearchTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testStatementAndSingleBlockStatementAreSame1() throws Exception {
+        performTest("package test; public class Test { private void test() { { int y; { y = 1; } } }}",
+                    Arrays.asList("{ int $1; $1 = 1; }"),
+                    Collections.<String>emptyList());
+    }
+
+    public void testStatementAndSingleBlockStatementAreSame2() throws Exception {
+        performTest("package test; public class Test { private void test() { { int y; y = 1; } }}",
+                    Arrays.asList("{ int $1; { $1 = 1; } }"),
+                    Collections.<String>emptyList());
+    }
+
     public void XtestMeasureTime() throws Exception {
         String code = TestUtilities.copyFileToString(new File("/usr/local/home/lahvac/src/nb//outgoing/java.editor/src/org/netbeans/modules/editor/java/JavaCompletionProvider.java"));
         List<String> patterns = new LinkedList<String>();
