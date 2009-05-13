@@ -154,6 +154,12 @@ public class DeclarativeHintRegistry implements HintProvider {
 
         String[] s = spec.split("\"");
 
+        if (s.length == 1) {
+            return new String[] {
+                "TODO: No display name",
+                spec
+            };
+        }
         return new String[] {
             s[1],
             s[2].substring(1)
