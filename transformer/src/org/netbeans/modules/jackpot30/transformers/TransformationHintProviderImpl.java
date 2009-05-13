@@ -177,7 +177,7 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
                     dn = defaultFixDisplayName(ctx.getInfo(), ctx.getVariables(), d);
                 }
 
-                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), dn, ctx.getPath(), d.getPattern(), ctx.getVariables(), Collections.<String, TypeMirror>emptyMap()/*XXX: pd.pattern.getConstraints()*/));
+                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), dn, ctx.getPath(), d.getPattern(), ctx.getVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX: pd.pattern.getConstraints()*/));
             }
 
             return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, fixes.toArray(new Fix[0])));

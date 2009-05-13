@@ -86,6 +86,7 @@ import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
+import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.Pair;
 import org.netbeans.modules.jackpot30.impl.pm.Pattern;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
@@ -182,8 +183,8 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                 TreePath toplevel = new TreePath(info.getCompilationUnit());
                 TreePath patt = new TreePath(toplevel, p.getPattern());
 
-                for (Entry<TreePath, Map<String, TreePath>> e : CopyFinder.computeDuplicates(info, patt, startAt, cancel).entrySet()) {
-                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, e.getKey(), e.getValue());
+                for (Entry<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> e : CopyFinder.computeDuplicates(info, patt, startAt, cancel).entrySet()) {
+                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, e.getKey(), e.getValue().getA(), e.getValue().getB());
                     
                     for (HintDescription hd : patternHints.get(d)) {
                         Collection<? extends ErrorDescription> workerErrors = hd.getWorker().createErrors(c);
@@ -277,7 +278,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                     }
 
                     if (enabled) {
-                        HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, path, Collections.<String, TreePath>emptyMap());
+                        HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, path, Collections.<String, TreePath>emptyMap(), Collections.<String, String>emptyMap());
                         Collection<? extends ErrorDescription> errors = hd.getWorker().createErrors(c);
 
                         if (errors != null) {

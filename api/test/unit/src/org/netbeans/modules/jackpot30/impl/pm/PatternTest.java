@@ -162,7 +162,8 @@ public class PatternTest extends TestBase {
         }
 
         assertNotNull(tp);
-        
+
+        //XXX:
         Map<String, TreePath> vars = Pattern.compile(info, pattern).match(tp);
 
         if (duplicates == null) {

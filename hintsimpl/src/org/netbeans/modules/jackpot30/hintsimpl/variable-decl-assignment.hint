@@ -1,0 +1,1 @@
+"Separated variable declaration and assignment" { $1 $2; $2 = $3; } => "Add initialization to the declaration" { $1 $2 = $3; } ;;

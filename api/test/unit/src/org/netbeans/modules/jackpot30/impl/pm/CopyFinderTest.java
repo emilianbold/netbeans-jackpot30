@@ -46,12 +46,14 @@ import com.sun.source.util.TreePath;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.lang.model.type.TypeMirror;
 import javax.swing.text.Document;
 import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -61,7 +63,7 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.java.hints.infrastructure.Pair;
+import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.Pair;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -89,7 +91,8 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
     public void testVariables1() throws Exception {
         performVariablesTest("package test; import static java.lang.String.*; public class Test {public void test1() {String.valueOf(2+4);} }",
                              "java.lang.String.valueOf($1)",
-                             new Pair<String, int[]>("$1", new int[] {134 - 31, 137 - 31}));
+                             new Pair[] {new Pair<String, int[]>("$1", new int[] {134 - 31, 137 - 31})},
+                             new Pair[0]);
     }
 
     public void testAssert1() throws Exception {
@@ -138,19 +141,24 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
         performTest("package test; public class Test {public static class T extends Test { public void test() { |Test.test|(); |System.err.println|(); } } }", false);
     }
 
-    protected void performVariablesTest(String code, String pattern, Pair<String, int[]>... duplicates) throws Exception {
+    public void testLocalVariable() throws Exception {
+        performVariablesTest("package test; public class Test {public void test1() { { int y; y = 1; } int z; { int y; z = 1; } } }",
+                             "{ int $1; $1 = 1; }",
+                             new Pair[0],
+                             new Pair[] {new Pair<String, String>("$1", "y")});
+    }
+
+    protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         prepareTest(code, -1);
 
-        Tree patternTree = info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]);
-        Scope scope = info.getTrees().getScope(new TreePath(info.getCompilationUnit()));
-        info.getTreeUtilities().attributeTree(patternTree, scope);
-        Map<TreePath, Map<String, TreePath>> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean());
+        Tree patternTree = Pattern.parseAndAttribute(info, pattern, Collections.<String, TypeMirror>emptyMap(), new Scope[1]);
+        Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean());
 
         assertSame(1, result.size());
 
         Map<String, int[]> actual = new HashMap<String, int[]>();
 
-        for (Entry<String, TreePath> e : result.values().iterator().next().entrySet()) {
+        for (Entry<String, TreePath> e : result.values().iterator().next().getA().entrySet()) {
             int[] span = new int[] {
                 (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), e.getValue().getLeaf()),
                 (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), e.getValue().getLeaf())
@@ -159,7 +167,7 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
             actual.put(e.getKey(), span);
         }
 
-        for (Pair<String, int[]> dup : duplicates) {
+        for (Pair<String, int[]> dup : duplicatesPos) {
             int[] span = actual.remove(dup.getA());
 
             if (span == null) {
@@ -167,6 +175,14 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
             }
             assertTrue(dup.getA() + ":" + Arrays.toString(span), Arrays.equals(span, dup.getB()));
         }
+
+        Map<String, String> golden = new HashMap<String, String>();
+
+        for ( Pair<String, String> e : duplicatesNames) {
+            golden.put(e.getA(), e.getB());
+        }
+
+        assertEquals(golden, result.values().iterator().next().getB());
     }
 
 //    @Override

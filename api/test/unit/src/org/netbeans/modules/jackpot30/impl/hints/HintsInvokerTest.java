@@ -47,9 +47,11 @@ import java.net.URI;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.type.TypeMirror;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -63,9 +65,11 @@ import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
+import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.modules.java.hints.infrastructure.TreeRuleTestBase;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.Fix;
 import org.openide.util.Exceptions;
 
 /**
@@ -114,6 +118,40 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                             "4:11-4:16:verifier:HINT");
     }
 
+    public void testPatternVariable1() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         {\n" +
+                       "             int y;\n" +
+                       "             y = 1;\n" +
+                       "         }\n" +
+                       "         int z;\n" +
+                       "         {\n" +
+                       "             int y;\n" +
+                       "             z = 1;\n" +
+                       "         }\n" +
+                       "     }\n" +
+                       "}\n",
+                       "4:9-7:10:verifier:HINT",
+                       "FixImpl",
+                       "package test; public class Test { private void test() { { int y = 1; } int z; { int y; z = 1; } } } ");
+    }
+
+    public void testPatternAssert1() throws Exception {
+        performAnalysisTest("test/Test.java",
+                            "|package test;\n" +
+                            "\n" +
+                            "public class Test {\n" +
+                            "     private void test() {\n" +
+                            "         assert true : \"\";\n" +
+                            "     }\n" +
+                            "}\n",
+                            "4:9-4:26:verifier:HINT");
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -121,6 +159,13 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testPattern1", HintDescription.create(HintDescription.PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File")), new WorkerImpl()));
         test2Hint.put("testPattern2", test2Hint.get("testPattern1"));
         test2Hint.put("testKind1", HintDescription.create(Kind.METHOD_INVOCATION, new WorkerImpl()));
+        test2Hint.put("testPatternVariable1", HintDescription.create(HintDescription.PatternDescription.create("{ $1 $2; $2 = $3; }", Collections.<String, String>emptyMap()), new WorkerImpl("{ $1 $2 = $3; }")));
+        Map<String, String> constraints = new HashMap<String, String>();
+
+        constraints.put("$1", "boolean");
+        constraints.put("$2", "java.lang.Object");
+
+        test2Hint.put("testPatternAssert1", HintDescription.create(HintDescription.PatternDescription.create("assert $1 : $2;", constraints), new WorkerImpl()));
     }
 
     @Override
@@ -137,6 +182,11 @@ public class HintsInvokerTest extends TreeRuleTestBase {
     }
 
     @Override
+    protected String toDebugString(CompilationInfo info, Fix f) {
+        return "FixImpl";
+    }
+
+    @Override
     public void testIssue105979() throws Exception {}
 
     @Override
@@ -149,12 +199,29 @@ public class HintsInvokerTest extends TreeRuleTestBase {
     public void testNoHintsForSimpleInitialize() throws Exception {}
 
     private static final class WorkerImpl implements Worker {
+
+        private final String fix;
+
+        public WorkerImpl() {
+            this(null);
+        }
+
+        public WorkerImpl(String fix) {
+            this.fix = fix;
+        }
+
         public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
             if (ctx.getInfo().getTreeUtilities().isSynthetic(ctx.getPath())) {
                 return null;
             }
+
+            List<Fix> fixes = new LinkedList<Fix>();
+
+            if (fix != null) {
+                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), "Rewrite", ctx.getPath(), fix, ctx.getVariables(), ctx.getVariableNames(), /*XXX*/Collections.<String, TypeMirror>emptyMap()));
+            }
             
-            return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "HINT"));
+            return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "HINT", fixes.toArray(new Fix[0])));
         }
     }
 

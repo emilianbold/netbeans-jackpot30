@@ -39,7 +39,9 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
 import java.util.Arrays;
 import java.util.Collection;
@@ -94,11 +96,17 @@ public class BulkSearch {
         int i = 0;
 
         for (String c : code) {
-            patterns[i++] = info.getTreeUtilities().parseExpression(c, new SourcePositions[1]);
+            Tree t = info.getTreeUtilities().parseExpression(c, new SourcePositions[1]);
+
+            if (t.getKind() == Kind.ERRONEOUS || (t.getKind() == Kind.IDENTIFIER && ((IdentifierTree) t).getName().contentEquals("<error>"))) { //TODO: <error>...
+                t = info.getTreeUtilities().parseStatement(c, new SourcePositions[1]);
+            }
+
+            patterns[i++] = t;
         }
 
         int[] groups = TreeSerializer.serializePatterns(ser, patterns);
-        
+
         return BulkPattern.create(new LinkedList<String>(code), ser.toString(), groups);
     }
 

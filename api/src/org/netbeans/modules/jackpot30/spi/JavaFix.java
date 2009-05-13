@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.javadoc.Tag;
+import com.sun.source.tree.VariableTree;
 import java.io.IOException;
 import java.util.regex.Matcher;
 import com.sun.source.tree.IdentifierTree;
@@ -115,7 +116,7 @@ public abstract class JavaFix {
         return handle.getFileObject();
     }
 
-    public static Fix rewriteFix(CompilationInfo info, final String displayName, TreePath what, final String to, Map<String, TreePath> parameters, Map<String, TypeMirror> constraints) {
+    public static Fix rewriteFix(CompilationInfo info, final String displayName, TreePath what, final String to, Map<String, TreePath> parameters, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints) {
         final Map<String, TreePathHandle> params = new HashMap<String, TreePathHandle>();
 
         for (Entry<String, TreePath> e : parameters.entrySet()) {
@@ -158,10 +159,18 @@ public abstract class JavaFix {
                 new TreePathScanner<Void, Void>() {
                     @Override
                     public Void visitIdentifier(IdentifierTree node, Void p) {
-                        TreePath tp = parameters.get(node.getName().toString());
+                        String name = node.getName().toString();
+                        TreePath tp = parameters.get(name);
 
                         if (tp != null) {
                             wc.rewrite(node, tp.getLeaf());
+                            return null;
+                        }
+
+                        String variableName = parameterNames.get(name);
+
+                        if (variableName != null) {
+                            wc.rewrite(node, wc.getTreeMaker().Identifier(variableName));
                             return null;
                         }
 
@@ -195,6 +204,25 @@ public abstract class JavaFix {
                         } else {
                             return super.visitMemberSelect(node, p);
                         }
+                    }
+
+                    @Override
+                    public Void visitVariable(VariableTree node, Void p) {
+                        String name = node.getName().toString();
+
+                        if (name.startsWith("$")) {
+                            String nueName = parameterNames.get(name);
+
+                            if (nueName != null) {
+                                VariableTree nue = wc.getTreeMaker().Variable(node.getModifiers(), nueName, node.getType(), node.getInitializer());
+
+                                wc.rewrite(node, nue);
+
+                                return super.visitVariable(nue, p);
+                            }
+                        }
+
+                        return super.visitVariable(node, p);
                     }
 
                 }.scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);

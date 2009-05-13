@@ -96,6 +96,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             return null;
         }
 
+        //shouldn't this be handled by visitIdentifier???
         if (   tree.getKind() == Kind.IDENTIFIER
             && ((IdentifierTree) tree).getName().toString().startsWith("$")) {
             append(p, "<([0-9a-z]+)>.*?</\\" + (group++) + ">");
@@ -130,11 +131,11 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             append(p, "ID");
 
             //XXX: is this correct??
-            if (m && (tree.getKind() == Kind.IDENTIFIER)) {
-                append(p, ((IdentifierTree) tree).getName());
+            if (/*m && */(tree.getKind() == Kind.IDENTIFIER)) {
+                printName(p, ((IdentifierTree) tree).getName());
             }
-            if (m && (tree.getKind() == Kind.MEMBER_SELECT)) {
-                append(p, ((MemberSelectTree) tree).getIdentifier());
+            if (/*m && */(tree.getKind() == Kind.MEMBER_SELECT)) {
+                printName(p, ((MemberSelectTree) tree).getIdentifier());
             }
 
             if (memberSelectWithVariables) {
@@ -152,33 +153,41 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         return null;
     }
 
-//    @Override
-//    public Void visitIdentifier(IdentifierTree node, Appendable p) {
-//        append(p, node.getName());
-//        return super.visitIdentifier(node, p);
-//    }
+    private static void printName(Appendable p, CharSequence name) {
+        if (name.length() == 0 || name.charAt(0) != '$') {
+            append(p, name);
+        } else {
+            append(p, "[^<>]+?");
+        }
+    }
+
+    @Override
+    public Void visitIdentifier(IdentifierTree node, Appendable p) {
+        printName(p, node.getName());
+        return super.visitIdentifier(node, p);
+    }
 
     @Override
     public Void visitMemberSelect(MemberSelectTree node, Appendable p) {
-        append(p, node.getIdentifier());
+        printName(p, node.getIdentifier());
         return super.visitMemberSelect(node, p);
     }
 
     @Override
     public Void visitClass(ClassTree node, Appendable p) {
-        append(p, node.getSimpleName());
+        printName(p, node.getSimpleName());
         return super.visitClass(node, p);
     }
 
     @Override
     public Void visitVariable(VariableTree node, Appendable p) {
-        append(p, node.getName());
+        printName(p, node.getName());
         return super.visitVariable(node, p);
     }
 
     @Override
     public Void visitMethod(MethodTree node, Appendable p) {
-        append(p, node.getName());
+        printName(p, node.getName());
         return super.visitMethod(node, p);
     }
 

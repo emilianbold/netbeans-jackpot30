@@ -72,6 +72,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.JavaFileObject;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.Pair;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.openide.util.Exceptions;
@@ -124,7 +125,13 @@ public class Pattern {
     }
 
     public Map<String, TreePath> match(TreePath toCheck) {
-        return CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), toCheck, new AtomicBoolean(), constraintsHack);
+        Pair<Map<String, TreePath>, Map<String, String>> variables = CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), toCheck, new AtomicBoolean(), constraintsHack);
+
+        if (variables == null) {
+            return null;
+        }
+
+        return variables.getA();
     }
 
     public boolean checkAntipatterns(TreePath tp) {
@@ -222,7 +229,7 @@ public class Pattern {
     public static Tree parseAndAttribute(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints, Scope[] scope) {
         scope[0] = constructScope(info, constraints);
 
-        if (scope == null) {
+        if (scope[0] == null) {
             return null;
         }
 

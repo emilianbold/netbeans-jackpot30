@@ -116,7 +116,19 @@ public class BulkSearchTest extends NbTestCase {
                     Arrays.asList("$0.append('')"),
                     Collections.<String>emptyList());
     }
-    
+
+    public void testLocalVariables() throws Exception {
+        performTest("package test; public class Test { private void test() { { int y; y = 1; } }}",
+                    Arrays.asList("{ int $1; $1 = 1; }"),
+                    Collections.<String>emptyList());
+    }
+
+    public void testAssert() throws Exception {
+        performTest("package test; public class Test { private void test() { assert true : \"\"; }}",
+                    Arrays.asList("assert $1 : $2;"),
+                    Collections.<String>emptyList());
+    }
+
     public void XtestMeasureTime() throws Exception {
         String code = TestUtilities.copyFileToString(new File("/usr/local/home/lahvac/src/nb//outgoing/java.editor/src/org/netbeans/modules/editor/java/JavaCompletionProvider.java"));
         List<String> patterns = new LinkedList<String>();
@@ -150,7 +162,7 @@ public class BulkSearchTest extends NbTestCase {
 
 //        System.err.println("match: " + (e2 - s2));
 
-        assertTrue(result.containsAll(containedPatterns));
+        assertTrue(result.toString(), result.containsAll(containedPatterns));
 
         Set<String> none = new HashSet<String>(result);
 

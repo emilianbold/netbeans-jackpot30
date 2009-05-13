@@ -54,12 +54,14 @@ public class HintContext {
     private final HintSeverity severity;
     private final TreePath path;
     private final Map<String, TreePath> variables;
+    private final Map<String, String> variableNames;
 
-    public HintContext(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables) {
+    public HintContext(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables, Map<String, String> variableNames) {
         this.info = info;
         this.severity = severity;
         this.path = path;
         this.variables = variables;
+        this.variableNames = variableNames;
     }
 
     public CompilationInfo getInfo() {
@@ -77,9 +79,13 @@ public class HintContext {
     public Map<String, TreePath> getVariables() {
         return variables;
     }
-    
+
+    public Map<String, String> getVariableNames() {
+        return variableNames;
+    }
+
     //XXX: probably should not be visible to clients:
-    public static HintContext create(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables) {
-        return new HintContext(info, severity, path, variables);
+    public static HintContext create(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables, Map<String, String> variableNames) {
+        return new HintContext(info, severity, path, variables, variableNames);
     }
 }

@@ -175,7 +175,10 @@ public class DeclarativeHintRegistry implements HintProvider {
             String type = m.group(3);
 
             filtered.append(var);
-            constraints.put(var, type); //XXX: set non-null at most once
+
+            if (type != null) {
+                constraints.put(var, type); //XXX: set non-null at most once
+            }
         }
 
         filtered.append(pattern.substring(i));

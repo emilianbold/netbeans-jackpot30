@@ -96,7 +96,7 @@ public class TreeSerializerTest extends NbTestCase {
 
         String serialized = sb.toString();
 
-        assertEquals(3, serialized.split("test").length);
+        assertEquals(4, serialized.split("test").length);
         assertEquals(2, serialized.split("println").length);
     }
 

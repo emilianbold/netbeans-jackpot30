@@ -42,6 +42,7 @@ import com.sun.source.tree.InstanceOfTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
@@ -53,6 +54,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.HashMap;
@@ -77,9 +79,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
     private final TreePath searchingFor;
     private final CompilationInfo info;
-    private final Map<TreePath, Map<String, TreePath>> result = new LinkedHashMap<TreePath, Map<String, TreePath>>();
+    private final Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> result = new LinkedHashMap<TreePath, Pair<Map<String, TreePath>, Map<String, String>>>();
     private boolean allowGoDeeper = true;
     private Map<String, TreePath> variables = new HashMap<String, TreePath>(); //XXX
+    private Map<String, String> variables2Names = new HashMap<String, String>(); //XXX
     private AtomicBoolean cancel;
 
 
@@ -92,7 +95,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     }
 
     //XXX: should probably also include designedTypeHack:
-    public static Map<TreePath, Map<String, TreePath>> computeDuplicates(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel) {
+    public static Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> computeDuplicates(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel) {
         CopyFinder f = new CopyFinder(searchingFor, info, cancel);
         
         f.scan(scope, null);
@@ -100,7 +103,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return f.result;
     }
 
-    public static Map<String, TreePath> computeVariables(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
+    public static Pair<Map<String, TreePath>, Map<String, String>> computeVariables(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
         if (!sameKind(searchingFor.getLeaf(), scope.getLeaf())) {
             return null;
         }
@@ -113,7 +116,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         f.designedTypeHack = designedTypeHack;
 
         if (f.scan(scope, searchingFor)) {
-            return f.variables;
+            return new Pair(f.variables, f.variables2Names);
         }
 
         return null;
@@ -160,6 +163,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             String ident = ((IdentifierTree) p.getLeaf()).getName().toString();
 
             if (ident.startsWith("$")) {
+                if (variables2Names.containsKey(ident)) {
+                    return ((IdentifierTree) node).getName().toString().equals(variables2Names.get(ident));
+                }
+                
                 TreePath currentPath = new TreePath(getCurrentPath(), node);
                 TypeMirror designed = designedTypeHack != null ? designedTypeHack.get(ident) : null;//info.getTrees().getTypeMirror(p);
 
@@ -186,8 +193,9 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
             if (result) {
                 if (p == searchingFor && node != searchingFor) {
-                    this.result.put(new TreePath(getCurrentPath(), node), variables);
+                    this.result.put(new TreePath(getCurrentPath(), node), new Pair(variables, variables2Names));
                     variables = new HashMap<String, TreePath>();
+                    variables2Names = new HashMap<String, String>();
                 }
                 
                 return true;
@@ -210,8 +218,9 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             
             if (result) {
                 if (node != searchingFor.getLeaf()) {
-                    this.result.put(new TreePath(getCurrentPath(), node), variables);
+                    this.result.put(new TreePath(getCurrentPath(), node), new Pair(variables, variables2Names));
                     variables = new HashMap<String, TreePath>();
+                    variables2Names = new HashMap<String, String>();
                 }
                 
                 return true;
@@ -484,9 +493,17 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
 
-//    public Boolean visitModifiers(ModifiersTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitModifiers(ModifiersTree node, TreePath p) {
+        if (p == null)
+            return super.visitModifiers(node, p);
+
+        ModifiersTree t = (ModifiersTree) p.getLeaf();
+
+        if (!checkLists(node.getAnnotations(), t.getAnnotations(), p))
+            return false;
+
+        return node.getFlags().equals(t.getFlags());
+    }
 
     public Boolean visitNewArray(NewArrayTree node, TreePath p) {
         if (p == null)
@@ -685,9 +702,36 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return scan(node.getExpression(), t.getExpression(), p);
     }
 
-//    public Boolean visitVariable(VariableTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitVariable(VariableTree node, TreePath p) {
+        if (p == null) {
+            return super.visitVariable(node, p);
+        }
+
+        VariableTree t = (VariableTree) p.getLeaf();
+
+        if (!scan(node.getModifiers(), t.getModifiers(), p))
+            return false;
+
+        if (!scan(node.getType(), t.getType(), p))
+            return false;
+
+        String name = t.getName().toString();
+
+        if (name.startsWith("$")) { //XXX: there should be a utility method for this check
+            String existingName = variables2Names.get(name);
+            String currentName = node.getName().toString();
+
+            if (existingName != null) {
+                if (!existingName.equals(name)) {
+                    return false;
+                }
+            } else {
+                variables2Names.put(name, currentName);
+            }
+        }
+
+        return scan(node.getInitializer(), t.getInitializer(), p);
+    }
 
 //    public Boolean visitWhileLoop(WhileLoopTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");
@@ -702,4 +746,22 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //    }
     
 
+    public static final class Pair<A, B> {
+        private final A a;
+        private final B b;
+
+        public Pair(A a, B b) {
+            this.a = a;
+            this.b = b;
+        }
+
+        public A getA() {
+            return a;
+        }
+
+        public B getB() {
+            return b;
+        }
+
+    }
 }
