@@ -166,6 +166,17 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                             "4:9-6:10:verifier:HINT");
     }
     
+    public void testPatternFalseOccurrence() throws Exception {
+        performAnalysisTest("test/Test.java",
+                            "|package test;\n" +
+                            "\n" +
+                            "public class Test {\n" +
+                            "     private int test(java.io.File f) {\n" +
+                            "         f.toURI().toURL();\n" +
+                            "     }\n" +
+                            "}\n");
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -181,6 +192,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
 
         test2Hint.put("testPatternAssert1", HintDescription.create(HintDescription.PatternDescription.create("assert $1 : $2;", constraints), new WorkerImpl()));
         test2Hint.put("testPatternStatementAndSingleStatementBlockAreSame", HintDescription.create(HintDescription.PatternDescription.create("if ($1) return $2;", Collections.<String, String>emptyMap()), new WorkerImpl()));
+        test2Hint.put("testPatternFalseOccurrence", HintDescription.create(HintDescription.PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File")), new WorkerImpl()));
     }
 
     @Override

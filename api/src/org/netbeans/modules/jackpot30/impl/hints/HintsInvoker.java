@@ -183,7 +183,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                 TreePath toplevel = new TreePath(info.getCompilationUnit());
                 TreePath patt = new TreePath(toplevel, p.getPattern());
 
-                for (Entry<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> e : CopyFinder.computeDuplicates(info, patt, startAt, cancel).entrySet()) {
+                for (Entry<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> e : CopyFinder.computeDuplicates(info, patt, startAt, cancel, p.getConstraints()).entrySet()) {
                     HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, e.getKey(), e.getValue().getA(), e.getValue().getB());
                     
                     for (HintDescription hd : patternHints.get(d)) {

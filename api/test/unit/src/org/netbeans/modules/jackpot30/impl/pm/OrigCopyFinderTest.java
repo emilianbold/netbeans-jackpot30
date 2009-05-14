@@ -41,7 +41,9 @@ package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.util.TreePath;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.lang.model.type.TypeMirror;
 
 /**
  *
@@ -55,7 +57,7 @@ public class OrigCopyFinderTest extends org.netbeans.modules.java.hints.introduc
 
     @Override
     protected Collection<TreePath> computeDuplicates(TreePath path) {
-        return CopyFinder.computeDuplicates(info, path, new TreePath(info.getCompilationUnit()), new AtomicBoolean()).keySet();
+        return CopyFinder.computeDuplicates(info, path, new TreePath(info.getCompilationUnit()), new AtomicBoolean(), Collections.<String, TypeMirror>emptyMap()).keySet();
     }
 
 }

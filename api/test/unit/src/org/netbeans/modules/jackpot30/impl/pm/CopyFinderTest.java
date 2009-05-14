@@ -166,7 +166,7 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
         prepareTest(code, -1);
 
         Tree patternTree = Pattern.parseAndAttribute(info, pattern, Collections.<String, TypeMirror>emptyMap(), new Scope[1]);
-        Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean());
+        Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean(), Collections.<String, TypeMirror>emptyMap());
 
         assertSame(1, result.size());
 
@@ -201,7 +201,7 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
 
 //    @Override
     protected Collection<TreePath> computeDuplicates(TreePath path) {
-        return CopyFinder.computeDuplicates(info, path, new TreePath(info.getCompilationUnit()), new AtomicBoolean()).keySet();
+        return CopyFinder.computeDuplicates(info, path, new TreePath(info.getCompilationUnit()), new AtomicBoolean(), Collections.<String, TypeMirror>emptyMap()).keySet();
     }
 
     private void performTest(String code) throws Exception {
