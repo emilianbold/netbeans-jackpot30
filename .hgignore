@@ -4,3 +4,5 @@
 .*/nbproject/private
 ^nbproject/private$
 ^nbbuild$
+^.ditz-config$
+
