@@ -55,7 +55,7 @@ import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.Repository;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 
@@ -67,7 +67,7 @@ import org.openide.util.lookup.ServiceProvider;
 public class DeclarativeHintRegistry implements HintProvider {
 
     public Collection<? extends HintDescription> computeHints() {
-        FileObject folder = Repository.getDefault().getDefaultFileSystem().getRoot().getFileObject("org-netbeans-modules-java-hints/declarative");
+        FileObject folder = FileUtil.getConfigFile("org-netbeans-modules-java-hints/declarative");
 
         if (folder == null) {
             return Collections.emptyList();
