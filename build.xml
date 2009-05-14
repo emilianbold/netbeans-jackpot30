@@ -5,4 +5,9 @@
 <project name="jackpot30" basedir=".">
     <description>Builds the module suite jackpot30.</description>
     <import file="nbproject/build-impl.xml"/>
+    
+    <target name="findbugs" depends="-init">
+        <subant target="findbugs" buildpath="${modules}" inheritall="false"/>
+    </target>
+    
 </project>

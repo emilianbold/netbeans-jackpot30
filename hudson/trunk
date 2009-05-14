@@ -35,5 +35,7 @@ cp nbbuild/download/*.nbm build/updates
 ant -Ddist.base=$DIST_BASE -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans nbms || exit
 gzip <build/updates/updates.xml >build/updates/updates.xml.gz
 
+ant -Ddist.base=$DIST_BASE -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans findbugs || exit
+
 echo -e '--- !ditz.rubyforge.org,2008-03-06/config\nissue_dir: issues' >.ditz-config
 ditz html build/issues
