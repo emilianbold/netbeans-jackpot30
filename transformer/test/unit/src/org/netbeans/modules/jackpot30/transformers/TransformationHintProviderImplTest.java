@@ -60,6 +60,7 @@ import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
+import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.java.source.TreeLoader;
@@ -345,7 +346,7 @@ public class TransformationHintProviderImplTest extends NbTestCase {
         Map<Kind, List<HintDescription>> hints = new HashMap<Kind, List<HintDescription>>();
         Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>();
 
-        RulesManager.computeElementBasedHintsXXX(info, new AtomicBoolean(), Collections.singletonList(new TransformationHintProviderImpl()), hints, patternHints);
+        RulesManager.computeElementBasedHintsXXX(info, new AtomicBoolean(), Collections.singletonList(new TransformationHintProviderImpl()), Collections.<ClassPathBasedHintProvider>emptyList(), hints, patternHints);
 
         List<ErrorDescription> warnings = new HintsInvoker().computeHints(info, hints, patternHints);
 
