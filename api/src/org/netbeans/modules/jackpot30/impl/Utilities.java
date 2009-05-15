@@ -49,13 +49,16 @@ import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.api.java.source.WorkingCopy;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.openide.util.NbCollections;
 
 /**
@@ -133,6 +136,20 @@ public class Utilities {
             case MEMBER_SELECT: return isPureMemberSelect(((MemberSelectTree) mst).getExpression(), allowVariables);
             default: return false;
         }
+    }
+
+    public static Map<String, Collection<HintDescription>> sortOutHints(Iterable<? extends HintDescription> hints, Map<String, Collection<HintDescription>> output) {
+        for (HintDescription d : hints) {
+            Collection<HintDescription> h = output.get(d.getDisplayName());
+
+            if (h == null) {
+                output.put(d.getDisplayName(), h = new LinkedList<HintDescription>());
+            }
+
+            h.add(d);
+        }
+
+        return output;
     }
 
 }

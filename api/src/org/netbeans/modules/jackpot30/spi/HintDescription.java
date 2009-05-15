@@ -41,6 +41,11 @@ public final class HintDescription {
 
     //XXX: should not be public
     public String getDisplayName() {
+        if (displayName == null) {
+            //XXX:
+            return "No Display Name";
+        }
+        
         return displayName;
     }
 

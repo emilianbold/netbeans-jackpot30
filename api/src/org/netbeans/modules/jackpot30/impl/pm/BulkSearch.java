@@ -90,7 +90,7 @@ public class BulkSearch {
         return create(info, Arrays.asList(code));
     }
 
-    public static BulkPattern create(CompilationInfo info, Collection<String> code) {
+    public static BulkPattern create(CompilationInfo info, Collection<? extends String> code) {
         StringBuilder ser = new StringBuilder();
         Tree[] patterns = new Tree[code.size()];
         int i = 0;

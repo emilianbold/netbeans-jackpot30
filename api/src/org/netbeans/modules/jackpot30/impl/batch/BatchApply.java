@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.impl.batch;
 
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ImportTree;
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.awt.Dialog;
 import java.awt.event.ActionEvent;
@@ -70,6 +71,8 @@ import java.util.regex.Pattern;
 import javax.swing.SwingUtilities;
 import javax.swing.text.Document;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.platform.JavaPlatform;
+import org.netbeans.api.java.platform.JavaPlatformManager;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
@@ -85,17 +88,23 @@ import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
 //import org.netbeans.modules.jackpot30.hints.pm.AnnotationBasedHintsRunner;
+import org.netbeans.modules.jackpot30.impl.RulesManager;
+import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.modules.java.hints.errors.SuppressWarningsFixer;
 import org.netbeans.modules.java.hints.infrastructure.HintsTask;
-import org.netbeans.modules.java.hints.infrastructure.RulesManager;
 import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 import org.netbeans.modules.java.hints.spi.TreeRule;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
+import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
 import org.openide.LifecycleManager;
@@ -117,7 +126,7 @@ public class BatchApply {
 
     private static final RequestProcessor WORKER = new RequestProcessor("Batch Hint Apply");
     
-    public static String applyFixes(final Lookup context, final String enabledHints, boolean progress) {
+    public static String applyFixes(final Lookup context, final List<HintDescription> hints, boolean progress) {
         assert !progress || SwingUtilities.isEventDispatchThread();
 
         if (progress) {
@@ -149,7 +158,7 @@ public class BatchApply {
                 Runnable exec = new Runnable() {
 
                     public void run() {
-                        result[0] = applyFixesImpl(context, enabledHints, handle, cancel);
+                        result[0] = applyFixesImpl(context, hints, handle, cancel);
 
                         SwingUtilities.invokeLater(new Runnable() {
                             public void run() {
@@ -168,14 +177,48 @@ public class BatchApply {
                 handle.finish();
             }
         } else {
-            return applyFixesImpl(context, enabledHints, null, new AtomicBoolean());
+            return applyFixesImpl(context, hints, null, new AtomicBoolean());
         }
     }
 
-    private static String applyFixesImpl(Lookup context, String enabledHints, ProgressHandle h, AtomicBoolean cancel) {
+    private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
+    
+    private static BulkPattern prepareBulkPattern(final Collection<? extends String> patterns) {
+        JavaPlatform select = JavaPlatform.getDefault();
+
+        for (JavaPlatform p : JavaPlatformManager.getDefault().getInstalledPlatforms()) {
+            if (p.getSpecification().getVersion().compareTo(select.getSpecification().getVersion()) > 0) {
+                select = p;
+            }
+        }
+
+        ClasspathInfo cpInfo = ClasspathInfo.create(select.getBootstrapLibraries(), EMPTY, EMPTY);
+        JavaSource js = JavaSource.create(cpInfo);
+        final BulkPattern[] bp = new BulkPattern[1];
+
+        try {
+            js.runUserActionTask(new Task<CompilationController>() {
+                public void run(CompilationController cc) throws Exception {
+                    bp[0] = BulkSearch.create(cc, patterns);
+                }
+            }, true);
+        } catch (IOException ex) {
+            throw new IllegalStateException(ex);
+        }
+
+        return bp[0];
+    }
+
+    private static String applyFixesImpl(Lookup context, List<HintDescription> hints, ProgressHandle h, AtomicBoolean cancel) {
         ProgressHandleWrapper handle = new ProgressHandleWrapper(h, new int[] {20, 40, 40});
 
-        Pattern hints = Pattern.compile(enabledHints);
+        final Map<PatternDescription, List<HintDescription>> patterns = new HashMap<PatternDescription, List<HintDescription>>();
+
+        RulesManager.sortOut(hints, new HashMap<Kind, List<HintDescription>>(), patterns);
+        
+        final Map<String, List<PatternDescription>> patternTests = HintsInvoker.computePatternTests(patterns);
+
+        BulkPattern bp = prepareBulkPattern(patternTests.keySet());
         List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
         Collection<FileObject> toProcess = toProcess(context);
 
@@ -189,7 +232,7 @@ public class BatchApply {
         for (Entry<ClasspathInfo, Collection<FileObject>> e: sortedFiles.entrySet()) {
             if (cancel.get()) return null;
             
-            eds.addAll(processFiles(e.getKey(), e.getValue(), hints, handle, cancel));
+            eds.addAll(processFiles(e.getKey(), e.getValue(), bp, patterns, patternTests, handle, cancel));
         }
 
         Map<ErrorDescription, Fix> fixes = new IdentityHashMap<ErrorDescription, Fix>();
@@ -270,7 +313,7 @@ public class BatchApply {
         return null;
     }
 
-    private static List<ErrorDescription> processFiles(ClasspathInfo cpInfo, Collection<FileObject> toProcess, final Pattern hints, final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
+    private static List<ErrorDescription> processFiles(ClasspathInfo cpInfo, Collection<FileObject> toProcess, final BulkPattern bulkPattern, final Map<PatternDescription, List<HintDescription>> patterns, final Map<String, List<PatternDescription>> patternTests, final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
         final List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
         //XXX: workarounding NB issues #154252 and #152534:
         for (FileObject file : toProcess) {
@@ -290,12 +333,21 @@ public class BatchApply {
 //                    Document doc = ec.openDocument();
 
                     try {
+                        if (cc.toPhase(JavaSource.Phase.PARSED).compareTo(JavaSource.Phase.PARSED) < 0) {
+                            return;
+                        }
+
+                        Set<String> matchingPatterns = BulkSearch.match(cc, cc.getCompilationUnit(), bulkPattern);
+
+                        if (matchingPatterns.isEmpty()) {
+                            return ;
+                        }
+
                         if (cc.toPhase(JavaSource.Phase.RESOLVED).compareTo(JavaSource.Phase.RESOLVED) < 0) {
                             return;
                         }
 
-                        //XXX:
-//                        eds.addAll(new AnnotationBasedHintsRunner().findWarnings(cc, hints));
+                        eds.addAll(new HintsInvoker().doComputeHints(cc, matchingPatterns, patternTests, patterns));
                     } finally {
                         HintsSettings.setPreferencesOverride(null);
                     }
@@ -411,88 +463,6 @@ public class BatchApply {
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
             return null;
-        }
-    }
-
-    private static Map<String, Preferences> prepareOverlay(Set<String> enabledHints) {
-        Map<String, Preferences> preferencesOverlay = new HashMap<String, Preferences>();
-        for (List<TreeRule> rules : RulesManager.getInstance().getHints().values()) {
-            for (TreeRule r : rules) {
-                String id = r.getId();
-
-                if (r instanceof AbstractHint && !preferencesOverlay.containsKey(id)) {
-                    OverridePreferences prefs = new OverridePreferences(((AbstractHint) r).getPreferences(null));
-
-                    preferencesOverlay.put(r.getId(), prefs);
-                    HintsSettings.setEnabled(prefs, enabledHints.contains(id));
-                    HintsSettings.setSeverity(prefs, HintSeverity.WARNING);
-                }
-            }
-        }
-
-        return preferencesOverlay;
-    }
-
-    private static class OverridePreferences extends AbstractPreferences {
-
-        private Preferences delegateTo;
-        private Map<String, String> data;
-        private Set<String> removed;
-
-        public OverridePreferences(Preferences delegateTo) {
-            super(null, "");
-            this.data = new HashMap<String, String>();
-            this.removed = new HashSet<String>();
-        }
-
-        protected void putSpi(String key, String value) {
-            data.put(key, value);
-            removed.remove(key);
-        }
-
-        protected String getSpi(String key) {
-            if (data.containsKey(key)) {
-                return data.get(key);
-            } else {
-                if (removed.contains(key)) {
-                    return null;
-                } else {
-                    return delegateTo.get(key, null);
-                }
-            }
-        }
-
-        protected void removeSpi(String key) {
-            removed.add(key);
-        }
-
-        protected void removeNodeSpi() throws BackingStoreException {
-            throw new UnsupportedOperationException("Not supported yet.");
-        }
-
-        protected String[] keysSpi() throws BackingStoreException {
-            Set<String> keys = new HashSet<String>(Arrays.asList(delegateTo.keys()));
-
-            keys.removeAll(removed);
-            keys.addAll(data.keySet());
-
-            return keys.toArray(new String[0]);
-        }
-
-        protected String[] childrenNamesSpi() throws BackingStoreException {
-            throw new UnsupportedOperationException("Not supported yet.");
-        }
-
-        protected AbstractPreferences childSpi(String name) {
-            throw new UnsupportedOperationException("Not supported yet.");
-        }
-
-        protected void syncSpi() throws BackingStoreException {
-            throw new UnsupportedOperationException("Not supported yet.");
-        }
-
-        protected void flushSpi() throws BackingStoreException {
-            throw new UnsupportedOperationException("Not supported yet.");
         }
     }
 

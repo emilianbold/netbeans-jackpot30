@@ -44,16 +44,27 @@ import java.awt.event.ActionEvent;
 import java.net.URL;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.Icon;
 import javax.swing.KeyStroke;
 import javax.swing.text.Keymap;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintProvider;
+import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
+import org.openide.NotifyDescriptor.Confirmation;
 import org.openide.awt.Mnemonics;
+import org.openide.filesystems.FileObject;
 import org.openide.util.ContextAwareAction;
 import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
@@ -93,20 +104,53 @@ public final class BatchApplyAction extends AbstractAction implements ContextAwa
         this.attributes = attributes;
     }
 
-    public void actionPerformed(ActionEvent e) {
-        String hintToExecute = (String) getValue(HINT);
+    private List<HintDescription> listAllHints() {
+        List<HintDescription> result = new LinkedList<HintDescription>();
+        
+        for (HintProvider p : Lookup.getDefault().lookupAll(HintProvider.class)) {
+            for (HintDescription hd : p.computeHints()) {
+                if (hd.getTriggerPattern() == null) continue; //TODO: only pattern based hints are currently supported
+                result.add(hd);
+            }
+        }
 
-        if (hintToExecute == null) {
-            NotifyDescriptor.InputLine nd = new NotifyDescriptor.InputLine("Select Hint (regexp)", "Select Hint");
+        Set<ClassPath> cps = new HashSet<ClassPath>();
+
+        for (FileObject file : BatchApply.toProcess(context)) {
+            //TODO: no bootstrap:
+            cps.add(ClassPath.getClassPath(file, ClassPath.COMPILE));
+            cps.add(ClassPath.getClassPath(file, ClassPath.SOURCE));
+        }
+
+        cps.remove(null);
+
+        ClassPath cp = ClassPathSupport.createProxyClassPath(cps.toArray(new ClassPath[cps.size()]));
+
+        for (ClassPathBasedHintProvider p : Lookup.getDefault().lookupAll(ClassPathBasedHintProvider.class)) {
+            result.addAll(p.computeHints(cp));
+        }
+
+        return result;
+    }
+
+    public void actionPerformed(ActionEvent e) {
+        //XXX:
+//        String hintToExecute = (String) getValue(HINT);
+
+        List<HintDescription> hintsToExecute;
+
+//        if (hintToExecute == null) {
+            SelectHint sh = new SelectHint(listAllHints());
+            Confirmation nd = new Confirmation(sh, "Select Hint", NotifyDescriptor.OK_CANCEL_OPTION);
 
             if (DialogDisplayer.getDefault().notify(nd) != DialogDescriptor.OK_OPTION) {
                 return ;
             }
             
-            hintToExecute = nd.getInputText();
-        }
+            hintsToExecute = sh.getSelectedHints();
+//        }
 
-        String error = BatchApply.applyFixes(context, hintToExecute, true);
+        String error = BatchApply.applyFixes(context, hintsToExecute, true);
 
         if (error != null) {
             DialogDisplayer.getDefault().notifyLater(new NotifyDescriptor.Message(error, NotifyDescriptor.ERROR_MESSAGE));

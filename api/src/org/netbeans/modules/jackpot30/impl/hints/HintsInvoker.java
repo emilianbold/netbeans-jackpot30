@@ -163,24 +163,38 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
             new ScannerImpl(info, cancel, hints).scan(startAt, errors);
         }
         
-        Map<String, List<PatternDescription>> patternTests = new HashMap<String, List<PatternDescription>>();
-        
-        for (Entry<PatternDescription, List<HintDescription>> e : patternHints.entrySet()) {
-            String p = e.getKey().getPattern();
-            List<PatternDescription> descs = patternTests.get(p);
-
-            if (descs == null) {
-                patternTests.put(p, descs = new LinkedList<PatternDescription>());
-            }
-
-            descs.add(e.getKey());
-        }
+        Map<String, List<PatternDescription>> patternTests = computePatternTests(patternHints);
 
         BulkPattern bulkPattern = BulkSearch.create(info, patternTests.keySet());
         Set<String> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern);
+        
+        errors.addAll(doComputeHints(info, occurringPatterns, patternTests, startAt, patternHints));
 
+        return errors;
+    }
+
+    public List<ErrorDescription> doComputeHints(CompilationInfo info, Set<String> occurringPatterns, Map<String, List<PatternDescription>> patterns, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
+        return doComputeHints(info, occurringPatterns, patterns, new TreePath(info.getCompilationUnit()), patternHints);
+    }
+
+    public static Map<String, List<PatternDescription>> computePatternTests(Map<PatternDescription, List<HintDescription>> patternHints) {
+        Map<String, List<PatternDescription>> patternTests = new HashMap<String, List<PatternDescription>>();
+        for (Entry<PatternDescription, List<HintDescription>> e : patternHints.entrySet()) {
+            String p = e.getKey().getPattern();
+            List<PatternDescription> descs = patternTests.get(p);
+            if (descs == null) {
+                patternTests.put(p, descs = new LinkedList<PatternDescription>());
+            }
+            descs.add(e.getKey());
+        }
+        return patternTests;
+    }
+    
+    private List<ErrorDescription> doComputeHints(CompilationInfo info, Set<String> occurringPatterns, Map<String, List<PatternDescription>> patterns, TreePath startAt, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
+        List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
+        
         for (String occ : occurringPatterns) {
-            for (PatternDescription d : patternTests.get(occ)) {
+            for (PatternDescription d : patterns.get(occ)) {
                 Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
 
                 for (Entry<String, String> e : d.getConstraints().entrySet()) {
@@ -193,7 +207,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
 
                 for (Entry<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> e : CopyFinder.computeDuplicates(info, patt, startAt, cancel, p.getConstraints()).entrySet()) {
                     HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, e.getKey(), e.getValue().getA(), e.getValue().getB());
-                    
+
                     for (HintDescription hd : patternHints.get(d)) {
                         Collection<? extends ErrorDescription> workerErrors = hd.getWorker().createErrors(c);
 
@@ -207,7 +221,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
 
         return errors;
     }
-
+    
 //    public static void computeHints(URI file, ProcessingEnvironment env, CompilationUnitTree cut, RulesManager m) {
 //        Map<Kind, HintDescription> hints = m.getKindBasedHints();
 //

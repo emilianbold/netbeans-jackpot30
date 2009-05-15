@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
  */
 
 /*
@@ -45,8 +45,14 @@
 
 package org.netbeans.modules.jackpot30.impl.batch;
 
-import javax.swing.DefaultComboBoxModel;
-import org.netbeans.modules.java.hints.spi.TreeRule;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.TreeMap;
+import javax.swing.DefaultListModel;
+import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
 
 /**
  *
@@ -54,15 +60,22 @@ import org.netbeans.modules.java.hints.spi.TreeRule;
  */
 public class SelectHint extends javax.swing.JPanel {
 
-    /** Creates new form SelectHint */
-    public SelectHint() {
+    private Map<String, Collection<HintDescription>> displayName2Hints;
+    
+    public SelectHint(Collection<? extends HintDescription> hints) {
+        displayName2Hints = Utilities.sortOutHints(hints, new TreeMap<String, Collection<HintDescription>>());
+        
         initComponents();
-        DefaultComboBoxModel model = new DefaultComboBoxModel();
-        //XXX:
-//        for (TreeRule r : BatchApply.listHints()) {
-//            model.addElement(new HintDescriptor(r.getId(), r.getDisplayName()));
-//        }
-        jComboBox1.setModel(model);
+
+        DefaultListModel all = new DefaultListModel();
+        DefaultListModel selected = new DefaultListModel();
+
+        for (String dn : displayName2Hints.keySet()) {
+            all.addElement(dn);
+        }
+
+        allHints.setModel(all);
+        selectedHints.setModel(selected);
     }
 
     /** This method is called from within the constructor to
@@ -73,65 +86,181 @@ public class SelectHint extends javax.swing.JPanel {
     @SuppressWarnings("unchecked")
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
+        java.awt.GridBagConstraints gridBagConstraints;
 
-        jLabel1 = new javax.swing.JLabel();
-        jComboBox1 = new javax.swing.JComboBox();
+        allHintsLabel = new javax.swing.JLabel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        allHints = new javax.swing.JList();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        selectedHints = new javax.swing.JList();
+        selectedHintsLabel = new javax.swing.JLabel();
+        jPanel1 = new javax.swing.JPanel();
+        addHint = new javax.swing.JButton();
+        addAllHints = new javax.swing.JButton();
+        removeHint = new javax.swing.JButton();
+        removeAllHints = new javax.swing.JButton();
 
-        jLabel1.setText(org.openide.util.NbBundle.getBundle(SelectHint.class).getString("SelectHint.jLabel1.text")); // NOI18N
+        setLayout(new java.awt.GridBagLayout());
 
-        jComboBox1.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        allHintsLabel.setText(org.openide.util.NbBundle.getMessage(SelectHint.class, "SelectHint.allHintsLabel.text_1")); // NOI18N
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 0, 0, 6);
+        add(allHintsLabel, gridBagConstraints);
 
-        org.jdesktop.layout.GroupLayout layout = new org.jdesktop.layout.GroupLayout(this);
-        this.setLayout(layout);
-        layout.setHorizontalGroup(
-            layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
-            .add(layout.createSequentialGroup()
-                .addContainerGap()
-                .add(jLabel1)
-                .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
-                .add(jComboBox1, 0, 295, Short.MAX_VALUE)
-                .addContainerGap())
-        );
-        layout.setVerticalGroup(
-            layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
-            .add(layout.createSequentialGroup()
-                .addContainerGap()
-                .add(layout.createParallelGroup(org.jdesktop.layout.GroupLayout.BASELINE)
-                    .add(jLabel1)
-                    .add(jComboBox1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
-                .addContainerGap(264, Short.MAX_VALUE))
-        );
+        allHints.setModel(new javax.swing.AbstractListModel() {
+            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
+            public int getSize() { return strings.length; }
+            public Object getElementAt(int i) { return strings[i]; }
+        });
+        jScrollPane1.setViewportView(allHints);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 0.5;
+        gridBagConstraints.weighty = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(6, 0, 0, 6);
+        add(jScrollPane1, gridBagConstraints);
+
+        selectedHints.setModel(new javax.swing.AbstractListModel() {
+            String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
+            public int getSize() { return strings.length; }
+            public Object getElementAt(int i) { return strings[i]; }
+        });
+        jScrollPane2.setViewportView(selectedHints);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 0.5;
+        gridBagConstraints.weighty = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(6, 6, 0, 0);
+        add(jScrollPane2, gridBagConstraints);
+
+        selectedHintsLabel.setText(org.openide.util.NbBundle.getMessage(SelectHint.class, "SelectHint.selectedHintsLabel.text")); // NOI18N
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 0);
+        add(selectedHintsLabel, gridBagConstraints);
+
+        jPanel1.setLayout(new java.awt.GridBagLayout());
+
+        addHint.setText(org.openide.util.NbBundle.getMessage(SelectHint.class, "SelectHint.addHint.text")); // NOI18N
+        addHint.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addHintActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(0, 0, 6, 0);
+        jPanel1.add(addHint, gridBagConstraints);
+
+        addAllHints.setText(org.openide.util.NbBundle.getMessage(SelectHint.class, "SelectHint.addAllHints.text")); // NOI18N
+        addAllHints.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                addAllHintsActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(6, 0, 6, 0);
+        jPanel1.add(addAllHints, gridBagConstraints);
+
+        removeHint.setText(org.openide.util.NbBundle.getMessage(SelectHint.class, "SelectHint.removeHint.text")); // NOI18N
+        removeHint.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                removeHintActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(6, 0, 6, 0);
+        jPanel1.add(removeHint, gridBagConstraints);
+
+        removeAllHints.setText(org.openide.util.NbBundle.getMessage(SelectHint.class, "SelectHint.removeAllHints.text")); // NOI18N
+        removeAllHints.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                removeAllHintsActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 3;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.insets = new java.awt.Insets(6, 0, 0, 0);
+        jPanel1.add(removeAllHints, gridBagConstraints);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.weighty = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 5);
+        add(jPanel1, gridBagConstraints);
     }// </editor-fold>//GEN-END:initComponents
 
+    private void addHintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addHintActionPerformed
+        for (Object selected : allHints.getSelectedValues()) {
+            ((DefaultListModel) selectedHints.getModel()).addElement(selected);
+            ((DefaultListModel) allHints.getModel()).removeElement(selected);
+        }
+    }//GEN-LAST:event_addHintActionPerformed
 
+    private void addAllHintsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addAllHintsActionPerformed
+        for (Object o : ((DefaultListModel) allHints.getModel()).toArray()) {
+            ((DefaultListModel) selectedHints.getModel()).addElement(o);
+        }
+        ((DefaultListModel) allHints.getModel()).removeAllElements();
+    }//GEN-LAST:event_addAllHintsActionPerformed
+
+    private void removeHintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeHintActionPerformed
+        for (Object selected : selectedHints.getSelectedValues()) {
+            ((DefaultListModel) allHints.getModel()).addElement(selected);
+            ((DefaultListModel) selectedHints.getModel()).removeElement(selected);
+        }
+    }//GEN-LAST:event_removeHintActionPerformed
+
+    private void removeAllHintsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeAllHintsActionPerformed
+        for (Object o : ((DefaultListModel) selectedHints.getModel()).toArray()) {
+            ((DefaultListModel) allHints.getModel()).addElement(o);
+        }
+        ((DefaultListModel) selectedHints.getModel()).removeAllElements();
+    }//GEN-LAST:event_removeAllHintsActionPerformed
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JComboBox jComboBox1;
-    private javax.swing.JLabel jLabel1;
+    private javax.swing.JButton addAllHints;
+    private javax.swing.JButton addHint;
+    private javax.swing.JList allHints;
+    private javax.swing.JLabel allHintsLabel;
+    private javax.swing.JPanel jPanel1;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
+    private javax.swing.JButton removeAllHints;
+    private javax.swing.JButton removeHint;
+    private javax.swing.JList selectedHints;
+    private javax.swing.JLabel selectedHintsLabel;
     // End of variables declaration//GEN-END:variables
 
-    public HintDescriptor getSelectedHint() {
-        return (HintDescriptor) jComboBox1.getSelectedItem();
+    public List<HintDescription> getSelectedHints() {
+        List<HintDescription> hints = new LinkedList<HintDescription>();
+
+        for (Object dn : ((DefaultListModel) selectedHints.getModel()).toArray()) {
+            hints.addAll(displayName2Hints.get((String) dn));
+        }
+
+        return hints;
     }
     
-    public static final class HintDescriptor {
-
-        private final String id;
-        private final String displayName;
-
-        public HintDescriptor(String id, String displayName) {
-            this.id = id;
-            this.displayName = displayName;
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        @Override
-        public String toString() {
-            return displayName;
-        }
-
-    }
 }

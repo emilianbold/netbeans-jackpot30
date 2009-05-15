@@ -186,11 +186,11 @@ public class OptionProcessorImpl extends OptionProcessor {
 //            String[] hints = hintsArg.split(":");
 
             Lookup context = Lookups.fixed((Object[]) projects.toArray(new Project[0]));
-            String error = BatchApply.applyFixes(context, hintsArg, false);
-
-            if (error != null) {
-                env.getErrorStream().println("Cannot apply hints because of: " + error);
-            }
+//            String error = BatchApply.applyFixes(context, hintsArg, false);
+//
+//            if (error != null) {
+//                env.getErrorStream().println("Cannot apply hints because of: " + error);
+//            }
         }
 
         for (Entry<String, List<ClassPath>> cps : classPaths.entrySet()) {
