@@ -55,6 +55,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -161,7 +162,11 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         Map<String, String> constraints = new HashMap<String, String>();
         String pattern = parseOutTypesFromPattern(s[1], constraints);
 
-        return HintDescription.create(PatternDescription.create(pattern, constraints), new DeclarativeHintsWorker(s[0], fixes));
+        return HintDescriptionFactory.create()
+                                     .setDisplayName(s[0])
+                                     .setTriggerPattern(PatternDescription.create(pattern, constraints))
+                                     .setWorker(new DeclarativeHintsWorker(s[0], fixes))
+                                     .produce();
     }
 
     static String[] splitNameAndPattern(String spec) {

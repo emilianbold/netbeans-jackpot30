@@ -12,11 +12,13 @@ import org.openide.util.Parameters;
  */
 public final class HintDescription {
 
+    private final String displayName;
     private final Kind triggerKind;
     private final PatternDescription triggerPattern;
     private final Worker worker;
 
-    private HintDescription(Kind triggerKind, PatternDescription triggerPattern, Worker worker) {
+    private HintDescription(String displayName, Kind triggerKind, PatternDescription triggerPattern, Worker worker) {
+        this.displayName = displayName;
         this.triggerKind = triggerKind;
         this.triggerPattern = triggerPattern;
         this.worker = worker;
@@ -37,12 +39,17 @@ public final class HintDescription {
         return worker;
     }
 
-    public static HintDescription create(PatternDescription triggerPattern, Worker worker) {
-        return new HintDescription(null, triggerPattern, worker);
+    //XXX: should not be public
+    public String getDisplayName() {
+        return displayName;
     }
 
-    public static HintDescription create(Kind triggerKind, Worker worker) {
-        return new HintDescription(triggerKind, null, worker);
+    static HintDescription create(String displayName, PatternDescription triggerPattern, Worker worker) {
+        return new HintDescription(displayName, null, triggerPattern, worker);
+    }
+
+    static HintDescription create(String displayName, Kind triggerKind, Worker worker) {
+        return new HintDescription(displayName, triggerKind, null, worker);
     }
     
     public static final class PatternDescription {

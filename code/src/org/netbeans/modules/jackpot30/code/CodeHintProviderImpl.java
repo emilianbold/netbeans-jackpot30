@@ -62,6 +62,7 @@ import org.netbeans.modules.jackpot30.code.spi.TriggerTreeKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
+import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.util.Exceptions;
@@ -110,8 +111,10 @@ public class CodeHintProviderImpl implements HintProvider {
                     Class clazz = l.loadClass(c);
 
                     for (Method m : clazz.getDeclaredMethods()) {
-                        if (m.getAnnotation(Hint.class) != null) {
-                            processMethod(result, m);
+                        Hint hint = m.getAnnotation(Hint.class);
+
+                        if (hint != null) {
+                            processMethod(result, hint, m);
                         }
                     }
                 } catch (ClassNotFoundException ex) {
@@ -135,13 +138,13 @@ public class CodeHintProviderImpl implements HintProvider {
         return l;
     }
 
-    static void processMethod(List<HintDescription> hints, Method m) {
+    static void processMethod(List<HintDescription> hints, Hint hint, Method m) {
         //XXX: combinations of TriggerTreeKind and TriggerPattern?
-        processTreeKindHint(hints, m);
-        processPatternHint(hints, m);
+        processTreeKindHint(hints, hint, m);
+        processPatternHint(hints, hint, m);
     }
     
-    private static void processTreeKindHint(List<HintDescription> hints, Method m) {
+    private static void processTreeKindHint(List<HintDescription> hints, Hint hint, Method m) {
         TriggerTreeKind kindTrigger = m.getAnnotation(TriggerTreeKind.class);
 
         if (kindTrigger == null) {
@@ -151,11 +154,14 @@ public class CodeHintProviderImpl implements HintProvider {
         Worker w = new WorkerImpl(m);
 
         for (Kind k : new HashSet<Kind>(Arrays.asList(kindTrigger.value()))) {
-            hints.add(HintDescription.create(k, w));
+            hints.add(HintDescriptionFactory.create()
+                                            .setTriggerKind(k)
+                                            .setWorker(w)
+                                            .produce());
         }
     }
     
-    private static void processPatternHint(List<HintDescription> hints, Method m) {
+    private static void processPatternHint(List<HintDescription> hints, Hint hint, Method m) {
         TriggerPattern patternTrigger = m.getAnnotation(TriggerPattern.class);
 
         if (patternTrigger == null) {
@@ -171,7 +177,10 @@ public class CodeHintProviderImpl implements HintProvider {
 
         PatternDescription pd = PatternDescription.create(pattern, constraints);
 
-        hints.add(HintDescription.create(pd, new WorkerImpl(m)));
+        hints.add(HintDescriptionFactory.create()
+                                        .setTriggerPattern(pd)
+                                        .setWorker(new WorkerImpl(m))
+                                        .produce());
     }
 
     //accessed by tests:

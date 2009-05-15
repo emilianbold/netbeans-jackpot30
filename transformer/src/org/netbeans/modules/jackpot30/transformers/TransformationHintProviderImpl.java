@@ -77,7 +77,9 @@ import org.netbeans.api.java.source.TypeMirrorHandle;
 import org.netbeans.modules.jackpot30.spi.ElementBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
+import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -276,7 +278,11 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
             return null;//XXX
         }
 
-        return HintDescription.create(HintDescription.PatternDescription.create(patternString, variableTypes), new WorkerImpl(displayName, fixes));
+        return HintDescriptionFactory.create()
+                                     .setDisplayName(displayName)
+                                     .setTriggerPattern(PatternDescription.create(patternString, variableTypes))
+                                     .setWorker(new WorkerImpl(displayName, fixes))
+                                     .produce();
     }
 
 

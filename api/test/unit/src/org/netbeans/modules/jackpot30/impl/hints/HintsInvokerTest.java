@@ -65,6 +65,7 @@ import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
+import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.modules.java.hints.infrastructure.TreeRuleTestBase;
@@ -181,18 +182,18 @@ public class HintsInvokerTest extends TreeRuleTestBase {
 
     static {
         test2Hint = new HashMap<String, HintDescription>();
-        test2Hint.put("testPattern1", HintDescription.create(HintDescription.PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File")), new WorkerImpl()));
+        test2Hint.put("testPattern1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File"))).setWorker(new WorkerImpl()).produce());
         test2Hint.put("testPattern2", test2Hint.get("testPattern1"));
-        test2Hint.put("testKind1", HintDescription.create(Kind.METHOD_INVOCATION, new WorkerImpl()));
-        test2Hint.put("testPatternVariable1", HintDescription.create(HintDescription.PatternDescription.create("{ $1 $2; $2 = $3; }", Collections.<String, String>emptyMap()), new WorkerImpl("{ $1 $2 = $3; }")));
+        test2Hint.put("testKind1", HintDescriptionFactory.create().setTriggerKind(Kind.METHOD_INVOCATION).setWorker(new WorkerImpl()).produce());
+        test2Hint.put("testPatternVariable1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("{ $1 $2; $2 = $3; }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("{ $1 $2 = $3; }")).produce());
         Map<String, String> constraints = new HashMap<String, String>();
 
         constraints.put("$1", "boolean");
         constraints.put("$2", "java.lang.Object");
 
-        test2Hint.put("testPatternAssert1", HintDescription.create(HintDescription.PatternDescription.create("assert $1 : $2;", constraints), new WorkerImpl()));
-        test2Hint.put("testPatternStatementAndSingleStatementBlockAreSame", HintDescription.create(HintDescription.PatternDescription.create("if ($1) return $2;", Collections.<String, String>emptyMap()), new WorkerImpl()));
-        test2Hint.put("testPatternFalseOccurrence", HintDescription.create(HintDescription.PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File")), new WorkerImpl()));
+        test2Hint.put("testPatternAssert1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("assert $1 : $2;", constraints)).setWorker(new WorkerImpl()).produce());
+        test2Hint.put("testPatternStatementAndSingleStatementBlockAreSame", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("if ($1) return $2;", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl()).produce());
+        test2Hint.put("testPatternFalseOccurrence", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File"))).setWorker(new WorkerImpl()).produce());
     }
 
     @Override
