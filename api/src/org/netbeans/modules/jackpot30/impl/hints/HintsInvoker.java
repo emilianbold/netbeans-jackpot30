@@ -130,8 +130,16 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
     }
 
     private List<ErrorDescription> computeHints(CompilationInfo info, TreePath startAt) {
-        Map<Kind, List<HintDescription>> kindHints = new HashMap<Kind, List<HintDescription>>(RulesManager.getInstance().getKindBasedHints());
-        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>(RulesManager.getInstance().getPatternBasedHints());
+        Map<Kind, List<HintDescription>> kindHints = new HashMap<Kind, List<HintDescription>>();
+        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>();
+        
+        for (Entry<Kind, List<HintDescription>> e : RulesManager.getInstance().getKindBasedHints().entrySet()) {
+            kindHints.put(e.getKey(), new LinkedList<HintDescription>(e.getValue()));
+        }
+
+        for (Entry<PatternDescription, List<HintDescription>> e : RulesManager.getInstance().getPatternBasedHints().entrySet()) {
+            patternHints.put(e.getKey(), new LinkedList<HintDescription>(e.getValue()));
+        }
 
         RulesManager.computeElementBasedHintsXXX(info, cancel, kindHints, patternHints);
         
@@ -167,7 +175,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
 
             descs.add(e.getKey());
         }
-        
+
         BulkPattern bulkPattern = BulkSearch.create(info, patternTests.keySet());
         Set<String> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern);
 

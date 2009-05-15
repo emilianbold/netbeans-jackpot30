@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
@@ -64,7 +66,7 @@ import org.openide.util.lookup.ServiceProvider;
  * @author Jan Lahoda
  */
 @ServiceProvider(service=HintProvider.class)
-public class DeclarativeHintRegistry implements HintProvider {
+public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHintProvider {
 
     public Collection<? extends HintDescription> computeHints() {
         FileObject folder = FileUtil.getConfigFile("org-netbeans-modules-java-hints/declarative");
@@ -74,18 +76,31 @@ public class DeclarativeHintRegistry implements HintProvider {
         }
 
         List<HintDescription> result = new LinkedList<HintDescription>();
+        
+        readHintsFromFolder(folder, result);
 
-        for (FileObject f : folder.getChildren()) {
-            if (!"hint".equals(f.getExt())) {
-                continue;
-            }
+        return result;
+    }
 
-            result.addAll(parseHintFile(f));
+    public Collection<? extends HintDescription> computeHints(ClassPath cp) {
+        List<HintDescription> result = new LinkedList<HintDescription>();
+        
+        for (FileObject folder : cp.findAllResources("META-INF/upgrade")) {
+            readHintsFromFolder(folder, result);
         }
 
         return result;
     }
 
+    private void readHintsFromFolder(FileObject folder, List<HintDescription> result) {
+        for (FileObject f : folder.getChildren()) {
+            if (!"hint".equals(f.getExt())) {
+                continue;
+            }
+            result.addAll(parseHintFile(f));
+        }
+    }
+    
     private static List<HintDescription> parseHintFile(FileObject file) {
         StringBuilder sb = new StringBuilder();
 

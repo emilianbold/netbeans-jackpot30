@@ -52,12 +52,17 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.PackageElement;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.source.ClasspathInfo;
+import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.support.CancellableTreePathScanner;
+import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.ElementBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
+import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.util.Lookup;
 
 /**
@@ -90,11 +95,11 @@ public class RulesManager {
     }
 
     public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {
-        computeElementBasedHintsXXX(info, cancel, Lookup.getDefault().lookupAll(ElementBasedHintProvider.class), kind2Hints, pattern2Hint);
+        computeElementBasedHintsXXX(info, cancel, Lookup.getDefault().lookupAll(ElementBasedHintProvider.class), Lookup.getDefault().lookupAll(ClassPathBasedHintProvider.class), kind2Hints, pattern2Hint);
     }
 
-    public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Collection<? extends ElementBasedHintProvider> providers, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {
-        new CancellableTreePathScanner(cancel) {
+    public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Collection<? extends ElementBasedHintProvider> providers, final Collection<? extends ClassPathBasedHintProvider> cpBasedProviders, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {
+        new CancellableTreePathScanner<Void, Void>(cancel) {
             private Set<Element> handledElements = new HashSet<Element>();
             private void handleElementImpl(Element el) {
                 if (!handledElements.add(el)) return ;
@@ -116,7 +121,7 @@ public class RulesManager {
             }
 
             @Override
-            public Object scan(Tree tree, Object p) {
+            public Void scan(Tree tree, Void p) {
                 if (tree == null) return null;
 
                 TreePath tp = new TreePath(getCurrentPath(), tree);
@@ -129,6 +134,20 @@ public class RulesManager {
                 return super.scan(tree, p);
             }
         }.scan(info.getCompilationUnit(), null);
+
+        ClasspathInfo cpInfo = info.getClasspathInfo();
+        List<ClassPath> cps = new LinkedList<ClassPath>();
+        
+        //ignoring bootclasspath for now
+        cps.add(cpInfo.getClassPath(PathKind.COMPILE));
+        cps.add(cpInfo.getClassPath(PathKind.SOURCE));
+
+        ClassPath compound = ClassPathSupport.createProxyClassPath(cps.toArray(new ClassPath[0]));
+
+        for (ClassPathBasedHintProvider p : cpBasedProviders) {
+            sortOut(p.computeHints(compound), kind2Hints, pattern2Hint);
+        }
+
     }
 
     //used by tests:
