@@ -60,10 +60,11 @@ public enum DeclarativeHintTokenId implements TokenId {
 
     DISPLAY_NAME("string"),
     COLON("operator"),
+    TYPE("pattern"),
     PATTERN("pattern"),
     LEADS_TO("operator"),
     WHITESPACE("whitespace"),
-    SEMICOLON("operator"),
+    DOUBLE_SEMICOLON("operator"),
     ERROR("error");
 
     private final String cat;
@@ -102,6 +103,8 @@ public enum DeclarativeHintTokenId implements TokenId {
             switch (token.id()) {
                 case PATTERN:
                     return LanguageEmbedding.create(Language.find("text/x-java"), 0, 0);
+                case TYPE:
+                    return LanguageEmbedding.create(Language.find("text/x-java"), 1, 1);
                 default:
                     return null;
             }

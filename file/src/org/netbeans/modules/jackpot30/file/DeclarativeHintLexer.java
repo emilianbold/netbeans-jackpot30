@@ -39,6 +39,9 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import org.netbeans.api.lexer.PartType;
 import org.netbeans.api.lexer.Token;
 import org.netbeans.spi.lexer.Lexer;
 import org.netbeans.spi.lexer.LexerInput;
@@ -55,13 +58,17 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
     private final TokenFactory<DeclarativeHintTokenId> fact;
 
     private int state;
+    private boolean wasSnippetPart;
 
     public DeclarativeHintLexer(LexerRestartInfo<DeclarativeHintTokenId> info) {
         input = info.input();
         fact  = info.tokenFactory();
 
         if (info.state() != null) {
-            state = (Integer) info.state();
+            State s = (State) info.state();
+            
+            state = s.state;
+            wasSnippetPart = s.wasSnippetPart;
         }
     }
 
@@ -72,10 +79,12 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
         input.backup(1);
 
-        Token<DeclarativeHintTokenId> readWhiteSpace = readWhiteSpace();
+        if (state == 0 || state == 2) {
+            Token<DeclarativeHintTokenId> readWhiteSpace = readWhiteSpace();
 
-        if (readWhiteSpace != null) {
-            return readWhiteSpace;
+            if (readWhiteSpace != null) {
+                return readWhiteSpace;
+            }
         }
 
         int read;
@@ -94,12 +103,16 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                 if (read == ':') {
                     state = 1;
                     return fact.createToken(DeclarativeHintTokenId.COLON);
-                } else {
-                    return fact.createToken(DeclarativeHintTokenId.ERROR);
                 }
             case 1:
-                state = 2;
-                return readSnippet();
+                s = readSnippet();
+
+                if (wasSnippetPart) {
+                    state = 4;
+                } else {
+                    state = 2;
+                }
+                return s;
             case 2:
                 read = input.read();
 
@@ -119,8 +132,18 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                 }
 
                 if (read == ';') {
-                    state = 0;
-                    return fact.createToken(DeclarativeHintTokenId.SEMICOLON);
+                    int next = input.read();
+
+                    if (next == ';') {
+                        state = 0;
+                        return fact.createToken(DeclarativeHintTokenId.DOUBLE_SEMICOLON);
+                    }
+
+                    if (next != LexerInput.EOF) {
+                        input.backup(1);
+                    }
+
+                    return fact.createToken(DeclarativeHintTokenId.ERROR);
                 }
 
                 if (read == '"') {
@@ -132,22 +155,27 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                         return s;
                     }
                 }
-
-                return fact.createToken(DeclarativeHintTokenId.ERROR);
             case 3:
+                s = readSnippet();
+                if (wasSnippetPart) {
+                    state = 4;
+                } else {
+                    state = 2;
+                }
+                return s;
+            case 4:
                 state = 2;
-                return readSnippet();
+                return readType();
         }
 
         throw new IllegalStateException("" + state);
     }
 
     public Object state() {
-        return state;
+        return new State(state, wasSnippetPart);
     }
 
-    public void release() {
-    }
+    public void release() {}
 
     private Token<DeclarativeHintTokenId> readWhiteSpace() {
         int read = input.read();
@@ -158,8 +186,15 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
             create = true;
         }
 
-        input.backup(1);
-        
+        if (read != LexerInput.EOF) {
+            input.backup(1);
+        }
+
+        if (read != '"' && read != ':' && read != LexerInput.EOF) {
+            input.backup(input.readLength());
+            return null;
+        }
+
         if (create) {
             return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
         }
@@ -186,22 +221,61 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
     }
 
     private Token<DeclarativeHintTokenId> readSnippet() {
+        boolean wasSnippetPartCopy = this.wasSnippetPart;
+        
         while (input.read() != LexerInput.EOF) {
-            if (input.readText().toString().endsWith("=>") || input.readText().toString().endsWith(";")) {
-                input.backup(input.readText().toString().endsWith("=>") ? 2 : 1);
+            if (input.readText().toString().endsWith("=>") || input.readText().toString().endsWith(";;")) {
+                input.backup(2);
 
-                while (Character.isWhitespace(input.readText().charAt(input.readText().length() - 1))) {
-                    input.backup(1);
-                }
+//                while (Character.isWhitespace(input.readText().charAt(input.readText().length() - 1))) {
+//                    input.backup(1);
+//                }
 
-                return fact.createToken(DeclarativeHintTokenId.PATTERN);
+                this.wasSnippetPart = false;
+
+                return fact.createToken(DeclarativeHintTokenId.PATTERN, input.readLength(), wasSnippetPartCopy ? PartType.END : PartType.COMPLETE);
+            }
+
+            Matcher m = VARIABLE_WITH_TYPE_RE.matcher(input.readText());
+
+            if (m.find() && m.end() == input.readLength()) {
+                input.backup(1);
+                this.wasSnippetPart = true;
+                
+                return fact.createToken(DeclarativeHintTokenId.PATTERN, input.readLength(), wasSnippetPartCopy ? PartType.MIDDLE : PartType.START);
             }
         }
 
         if (input.read() != LexerInput.EOF) {
-            return fact.createToken(DeclarativeHintTokenId.PATTERN);
+            this.wasSnippetPart = false;
+            return fact.createToken(DeclarativeHintTokenId.PATTERN, input.readLength(), wasSnippetPartCopy ? PartType.END : PartType.COMPLETE);
         }
 
         return null;
+    }
+
+    private Token<DeclarativeHintTokenId> readType() {
+        int read = input.read();
+
+        assert read == '{';
+
+        while ((read != LexerInput.EOF) && read != '}') {
+            read = input.read();
+        }
+
+        return fact.createToken(DeclarativeHintTokenId.TYPE);
+    }
+
+    private static final Pattern VARIABLE_WITH_TYPE_RE = Pattern.compile("\\$[A-Za-z0-9_]\\{");
+
+    private static final class State {
+        private final int state;
+        private final boolean wasSnippetPart;
+
+        public State(int state, boolean wasSnippetPart) {
+            this.state = state;
+            this.wasSnippetPart = wasSnippetPart;
+        }
+
     }
 }
