@@ -1,0 +1,17 @@
+diff --git a/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint b/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint
+new file mode 100644
+--- /dev/null
++++ b/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint
+@@ -0,0 +1,12 @@
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TRY_SHOW, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.NONE, org.openide.text.Line.ShowVisibilityType.NONE, $1) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_SHOW, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.NONE, $1) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_GOTO, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TOFRONT, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FRONT, $1) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.REUSE, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE_NEW, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.REUSE_NEW, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TRY_SHOW) => $this.show(org.openide.text.Line.ShowOpenType.NONE, org.openide.text.Line.ShowVisibilityType.NONE) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_SHOW) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.NONE) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_GOTO) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TOFRONT) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FRONT) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE) => $this.show(org.openide.text.Line.ShowOpenType.REUSE, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
++"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE_NEW) => $this.show(org.openide.text.Line.ShowOpenType.REUSE_NEW, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
