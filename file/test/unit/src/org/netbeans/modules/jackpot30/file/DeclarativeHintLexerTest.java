@@ -82,6 +82,24 @@ public class DeclarativeHintLexerTest {
         assertFalse(ts.moveNext());
     }
 
+    @Test
+    public void testLongVariables() {
+        String text = " $this{int} + $that{int} => 1 + 1;; ";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, PATTERN, PartType.START, " $this");
+        assertNextTokenEquals(ts, TYPE,  "{int}");
+        assertNextTokenEquals(ts, PATTERN, PartType.MIDDLE, " + $that");
+        assertNextTokenEquals(ts, TYPE,  "{int}");
+        assertNextTokenEquals(ts, PATTERN, PartType.END, " ");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, PATTERN, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+        assertNextTokenEquals(ts, WHITESPACE, " ");
+
+        assertFalse(ts.moveNext());
+    }
+
     public static void assertNextTokenEquals(TokenSequence<?> ts, DeclarativeHintTokenId id, String text) {
         assertNextTokenEquals(ts, id, PartType.COMPLETE, text);
     }

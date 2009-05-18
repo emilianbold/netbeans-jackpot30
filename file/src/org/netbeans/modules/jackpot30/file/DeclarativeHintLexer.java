@@ -266,7 +266,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         return fact.createToken(DeclarativeHintTokenId.TYPE);
     }
 
-    private static final Pattern VARIABLE_WITH_TYPE_RE = Pattern.compile("\\$[A-Za-z0-9_]\\{");
+    private static final Pattern VARIABLE_WITH_TYPE_RE = Pattern.compile("\\$[A-Za-z0-9_]+\\{");
 
     private static final class State {
         private final int state;
