@@ -157,7 +157,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             fixes.add(DeclarativeFix.parse(s));
         }
 
-        String[] s = splitNameAndPattern(split.get(0));
+        String[] s = splitNameAndPattern(split.get(0), "TODO: No display name");
 
         Map<String, String> constraints = new HashMap<String, String>();
         String pattern = parseOutTypesFromPattern(s[1], constraints);
@@ -169,26 +169,28 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                                      .produce();
     }
 
-    static String[] splitNameAndPattern(String spec) {
+    static String[] splitNameAndPattern(String spec, String defaultDisplayName) {
         spec = spec.trim();
 
-        String[] s = spec.split("\"");
+        String[] s = spec.split("\":");
 
         if (s.length == 1) {
             return new String[] {
-                "TODO: No display name",
+                defaultDisplayName,
                 spec
             };
         }
+
+        String[] captionAndWS = s[0].split("\"");
+
         return new String[] {
-            s[1],
-            s[2].substring(1)
+            captionAndWS[1],
+            s[1]
         };
     }
 
     private static String parseOutTypesFromPattern(String pattern, Map<String, String> constraints) {
-        //XXX:
-        Pattern p = Pattern.compile("(\\$.)(\\{([^}]*)\\})?");
+        Pattern p = Pattern.compile("(\\$[A-Za-z0-9_]+)(\\{([^}]*)\\})?");
         StringBuffer filtered = new StringBuffer();
         Matcher m = p.matcher(pattern);
         int i = 0;

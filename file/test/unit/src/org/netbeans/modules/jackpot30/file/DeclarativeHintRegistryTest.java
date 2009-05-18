@@ -54,8 +54,21 @@ public class DeclarativeHintRegistryTest {
 
     @Test
     public void testParse() {
-        HintDescription h = DeclarativeHintRegistry.parse("\"test\":$1:java.io.File:.toURL()=>\"fix\":$1.toURI().toURL()");
+        HintDescription h = DeclarativeHintRegistry.parse("\"test\":$1A{java.io.File}.toURL()=>\"fix\":$1B.toURI().toURL()");
+        String textRepr = dumpDescription(h);
         
+        assertEquals("{$1A.toURL()}{test}=>{$1B.toURI().toURL()}{fix};", textRepr);
+    }
+
+    @Test
+    public void testParseNoFixName() {
+        HintDescription h = DeclarativeHintRegistry.parse("\"test\":$1A{java.io.File}.toURL()=>$1B.toURI().toURL()");
+        String textRepr = dumpDescription(h);
+
+        assertEquals("{$1A.toURL()}{test}=>{$1B.toURI().toURL()};", textRepr);
+    }
+
+    private static String dumpDescription(HintDescription h) {
         StringBuilder dump = new StringBuilder();
 
         dump.append("{");
@@ -65,7 +78,7 @@ public class DeclarativeHintRegistryTest {
         dump.append("{");
 
         DeclarativeHintsWorker w = (DeclarativeHintsWorker) h.getWorker();
-        
+
         dump.append(w.getDisplayName());
         dump.append("}");
 
@@ -73,14 +86,16 @@ public class DeclarativeHintRegistryTest {
             dump.append("=>{");
             dump.append(f.getPattern());
             dump.append("}");
-            dump.append("{");
-            dump.append(f.getDisplayName());
-            dump.append("}");
+            if (f.getDisplayName() != null) {
+                dump.append("{");
+                dump.append(f.getDisplayName());
+                dump.append("}");
+            }
         }
 
         dump.append(";");
 
-        assertEquals("{$1:java.io.File:.toURL()}{test}=>{$1.toURI().toURL()}{fix};", dump.toString());
+        return dump.toString();
     }
 
 }

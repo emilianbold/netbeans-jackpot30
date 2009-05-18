@@ -62,7 +62,7 @@ public final class DeclarativeFix {
     }
 
     public static DeclarativeFix parse(String spec) {
-        String[] s = DeclarativeHintRegistry.splitNameAndPattern(spec);
+        String[] s = DeclarativeHintRegistry.splitNameAndPattern(spec, null);
 
         return new DeclarativeFix(s[1], s[0]);
     }
