@@ -56,7 +56,12 @@ public final class HintDescription {
     static HintDescription create(String displayName, Kind triggerKind, Worker worker) {
         return new HintDescription(displayName, triggerKind, null, worker);
     }
-    
+
+    @Override
+    public String toString() {
+        return "[HintDescription:" + getTriggerPattern().getPattern()+ "]";
+    }
+
     public static final class PatternDescription {
         
         private final String pattern;
