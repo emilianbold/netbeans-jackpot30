@@ -48,6 +48,7 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.HashMap;
@@ -116,7 +117,7 @@ public abstract class JavaFix {
         return handle.getFileObject();
     }
 
-    public static Fix rewriteFix(CompilationInfo info, final String displayName, TreePath what, final String to, Map<String, TreePath> parameters, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints) {
+    public static Fix rewriteFix(CompilationInfo info, String displayName, TreePath what, final String to, Map<String, TreePath> parameters, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints) {
         final Map<String, TreePathHandle> params = new HashMap<String, TreePathHandle>();
 
         for (Entry<String, TreePath> e : parameters.entrySet()) {
@@ -129,10 +130,15 @@ public abstract class JavaFix {
             constraintsHandles.put(c.getKey(), TypeMirrorHandle.create(c.getValue()));
         }
 
+        if (displayName == null) {
+            displayName = defaultFixDisplayName(info, parameters, to);
+        }
+
+        final String displayNameFin = displayName;
         return toEditorFix(new JavaFix(info, what) {
             @Override
             protected String getText() {
-                return displayName;
+                return displayNameFin;
             }
             @Override
             protected void performRewrite(final WorkingCopy wc, TreePath tp, final UpgradeUICallback callback) {
@@ -230,6 +236,32 @@ public abstract class JavaFix {
                 wc.rewrite(tp.getLeaf(), parsed);
             }
         });
+    }
+
+    private static String defaultFixDisplayName(CompilationInfo info, Map<String, TreePath> variables, String replaceTarget) {
+        Map<String, String> stringsForVariables = new HashMap<String, String>();
+
+        for (Entry<String, TreePath> e : variables.entrySet()) {
+            Tree t = e.getValue().getLeaf();
+            SourcePositions sp = info.getTrees().getSourcePositions();
+            int startPos = (int) sp.getStartPosition(info.getCompilationUnit(), t);
+            int endPos = (int) sp.getEndPosition(info.getCompilationUnit(), t);
+
+            stringsForVariables.put(e.getKey(), info.getText().substring(startPos, endPos));
+        }
+
+        if (!stringsForVariables.containsKey("$this")) {
+            //XXX: is this correct?
+            stringsForVariables.put("$this", "this");
+        }
+
+        for (Entry<String, String> e : stringsForVariables.entrySet()) {
+            String quotedVariable = java.util.regex.Pattern.quote(e.getKey());
+            String quotedTarget = Matcher.quoteReplacement(e.getValue());
+            replaceTarget = replaceTarget.replaceAll(quotedVariable, quotedTarget);
+        }
+
+        return "Rewrite to " + replaceTarget;
     }
 
     private static void checkDependency(WorkingCopy copy, Element e, UpgradeUICallback callback) {
