@@ -1,3 +1,15 @@
+diff --git a/openide.loaders/src/META-INF/upgrade/org.openide.loaders.DataObject.hint b/openide.loaders/src/META-INF/upgrade/org.openide.loaders.DataObject.hint
+new file mode 100644
+--- /dev/null
++++ b/openide.loaders/src/META-INF/upgrade/org.openide.loaders.DataObject.hint
+@@ -0,0 +1,1 @@
++"DataObject.getCookie is obsolette": $this{org.openide.loaders.DataObject}.getCookie($1{java.lang.Class}) => $this.getLookup().lookup($1) ;;
+diff --git a/openide.nodes/src/META-INF/upgrade/org.openide.nodes.Node.hint b/openide.nodes/src/META-INF/upgrade/org.openide.nodes.Node.hint
+new file mode 100644
+--- /dev/null
++++ b/openide.nodes/src/META-INF/upgrade/org.openide.nodes.Node.hint
+@@ -0,0 +1,1 @@
++"Node.getCookie is obsolette": $this{org.openide.nodes.Node}.getCookie($1{java.lang.Class}) => $this.getLookup().lookup($1) ;;
 diff --git a/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint b/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint
 new file mode 100644
 --- /dev/null
