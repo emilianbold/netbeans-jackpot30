@@ -41,24 +41,38 @@ package org.netbeans.modules.jackpot30.impl;
 
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ErroneousTree;
+import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
+import org.netbeans.modules.java.source.JavaSourceAccessor;
+import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
@@ -173,4 +187,86 @@ public class Utilities {
         return result;
     }
     
+    public static Tree parseAndAttribute(CompilationInfo info, String pattern, Scope scope) {
+        Tree patternTree = info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]);
+        boolean expression = true;
+
+        if (patternTree.getKind() == Kind.ERRONEOUS || (patternTree.getKind() == Kind.IDENTIFIER && ((IdentifierTree) patternTree).getName().contentEquals("<error>"))) { //TODO: <error>...
+            patternTree = info.getTreeUtilities().parseStatement(pattern, new SourcePositions[1]);
+            expression = false;
+        }
+
+        FixTree fixTree = new FixTree();
+
+        fixTree.attach(JavaSourceAccessor.getINSTANCE().getJavacTask(info).getContext());
+        
+        patternTree = fixTree.translate(patternTree);
+
+        if (scope == null) {
+            return patternTree;
+        }
+
+        TypeMirror type = info.getTreeUtilities().attributeTree(patternTree, scope);
+
+        if (isError(type) && expression) {
+            //maybe type?
+            if (Utilities.isPureMemberSelect(patternTree, false) && info.getElements().getTypeElement(pattern) != null) {
+                Tree var = info.getTreeUtilities().parseExpression(pattern + ".class;", new SourcePositions[1]);
+
+                type = info.getTreeUtilities().attributeTree(var, scope);
+
+                Tree typeTree = ((MemberSelectTree) var).getExpression();
+
+                if (!isError(info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), typeTree)))) {
+                    patternTree = typeTree;
+                }
+            }
+        }
+
+        return patternTree;
+    }
+    
+    private static boolean isError(Element el) {
+        return (el == null || (el.getKind() == ElementKind.CLASS) && isError(((TypeElement) el).asType()));
+    }
+
+    private static boolean isError(TypeMirror type) {
+        return type == null || type.getKind() == TypeKind.ERROR;
+    }
+
+    private static final class FixTree extends ImmutableTreeTranslator {
+
+        @Override
+        public Tree translate(Tree tree) {
+            if (tree != null && tree.getKind() == Kind.EXPRESSION_STATEMENT) {
+                ExpressionStatementTree et = (ExpressionStatementTree) tree;
+
+                if (et.getExpression().getKind() == Kind.ERRONEOUS) {
+                    ErroneousTree err = (ErroneousTree) et.getExpression();
+
+                    if (err.getErrorTrees().size() == 1 && err.getErrorTrees().get(0).getKind() == Kind.IDENTIFIER) {
+                        IdentifierTree idTree = (IdentifierTree) err.getErrorTrees().get(0);
+                        CharSequence id = idTree.getName().toString();
+
+                        if (id.length() > 0 && id.charAt(0) == '$') {
+                            return make.ExpressionStatement(idTree);
+                        }
+                    }
+                }
+            }
+            return super.translate(tree);
+        }
+
+    }
+
+    public static CharSequence getWildcardTreeName(@NonNull Tree t) {
+        if (t.getKind() == Kind.EXPRESSION_STATEMENT && ((ExpressionStatementTree) t).getExpression().getKind() == Kind.IDENTIFIER) {
+            IdentifierTree identTree = (IdentifierTree) ((ExpressionStatementTree) t).getExpression();
+            
+            return identTree.getName().toString();
+        }
+
+        return null;
+    }
+
 }

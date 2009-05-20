@@ -206,6 +206,16 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             }
         }
 
+        if (p != null && Utilities.getWildcardTreeName(p.getLeaf()) != null) {
+            String ident = Utilities.getWildcardTreeName(p.getLeaf()).toString();
+
+            if (ident.startsWith("$") && StatementTree.class.isAssignableFrom(node.getKind().asInterface())) {
+                TreePath currentPath = new TreePath(getCurrentPath(), node);
+                variables.put(ident, currentPath);
+                return true;
+            }
+        }
+
         if (p != null && sameKind(node, p.getLeaf())) {
             //maybe equivalent:
             boolean result = superScan(node, p) == Boolean.TRUE;

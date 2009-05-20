@@ -162,6 +162,17 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              new Pair[] {new Pair<String, String>("$1", "x")});
     }
 
+    public void testStatementVariables() throws Exception {
+        performVariablesTest("package test; public class Test {public int test1() { if (true) return 1; else return 2; } }",
+                             "if ($1) $2; else $3;",
+                             new Pair[] {
+                                  new Pair<String, int[]>("$1", new int[] {89 - 31, 93 - 31}),
+                                  new Pair<String, int[]>("$2", new int[] {95 - 31, 104 - 31}),
+                                  new Pair<String, int[]>("$3", new int[] {110 - 31, 119 - 31})
+                             },
+                             new Pair[0]);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         prepareTest(code, -1);
 

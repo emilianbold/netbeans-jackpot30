@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.javadoc.Tag;
+import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.VariableTree;
 import java.io.IOException;
 import java.util.regex.Matcher;
@@ -229,6 +230,22 @@ public abstract class JavaFix {
                         }
 
                         return super.visitVariable(node, p);
+                    }
+
+                    @Override
+                    public Void visitExpressionStatement(ExpressionStatementTree node, Void p) {
+                        String name = Utilities.getWildcardTreeName(node).toString();
+
+                        if (name != null) {
+                            TreePath tp = parameters.get(name);
+
+                            if (tp != null) {
+                                wc.rewrite(node, tp.getLeaf());
+                                return null;
+                            }
+                        }
+                        
+                        return super.visitExpressionStatement(node, p);
                     }
 
                 }.scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);

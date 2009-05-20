@@ -166,7 +166,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                             "}\n",
                             "4:9-6:10:verifier:HINT");
     }
-    
+
     public void testPatternFalseOccurrence() throws Exception {
         performAnalysisTest("test/Test.java",
                             "|package test;\n" +
@@ -176,6 +176,32 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                             "         f.toURI().toURL();\n" +
                             "     }\n" +
                             "}\n");
+    }
+
+    public void testStatementVariables() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test(java.io.File f) {\n" +
+                       "         if (true)\n" +
+                       "             System.err.println(1);\n" +
+                       "         else\n" +
+                       "             System.err.println(2);\n" +
+                       "     }\n" +
+                       "}\n",
+                       "4:9-7:35:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test(java.io.File f) {\n" +
+                       "         if (!true)\n" +
+                       "             System.err.println(2);\n" +
+                       "         else\n" +
+                       "             System.err.println(1);\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
     }
 
     private static final Map<String, HintDescription> test2Hint;
@@ -194,6 +220,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testPatternAssert1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("assert $1 : $2;", constraints)).setWorker(new WorkerImpl()).produce());
         test2Hint.put("testPatternStatementAndSingleStatementBlockAreSame", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("if ($1) return $2;", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl()).produce());
         test2Hint.put("testPatternFalseOccurrence", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File"))).setWorker(new WorkerImpl()).produce());
+        test2Hint.put("testStatementVariables", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("if ($1) $2; else $3;", constraints)).setWorker(new WorkerImpl("if (!$1) $3 else $2")).produce());
     }
 
     @Override

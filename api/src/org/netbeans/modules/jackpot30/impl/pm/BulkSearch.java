@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 
 /**
  *
@@ -96,13 +97,7 @@ public class BulkSearch {
         int i = 0;
 
         for (String c : code) {
-            Tree t = info.getTreeUtilities().parseExpression(c, new SourcePositions[1]);
-
-            if (t.getKind() == Kind.ERRONEOUS || (t.getKind() == Kind.IDENTIFIER && ((IdentifierTree) t).getName().contentEquals("<error>"))) { //TODO: <error>...
-                t = info.getTreeUtilities().parseStatement(c, new SourcePositions[1]);
-            }
-
-            patterns[i++] = t;
+            patterns[i++] = Utilities.parseAndAttribute(info, c, null);
         }
 
         int[] groups = TreeSerializer.serializePatterns(ser, patterns);

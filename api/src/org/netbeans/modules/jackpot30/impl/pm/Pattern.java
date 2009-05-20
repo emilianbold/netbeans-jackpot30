@@ -233,42 +233,9 @@ public class Pattern {
             return null;
         }
 
-        Tree patternTree = info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]);
-        TypeMirror type = info.getTreeUtilities().attributeTree(patternTree, scope[0]);
-
-        if (isError(type)) {
-            //maybe type?
-            if (Utilities.isPureMemberSelect(patternTree, false) && info.getElements().getTypeElement(pattern) != null) {
-                Tree var = info.getTreeUtilities().parseExpression(pattern + ".class;", new SourcePositions[1]);
-
-                type = info.getTreeUtilities().attributeTree(var, scope[0]);
-
-                Tree typeTree = ((MemberSelectTree) var).getExpression();
-
-                if (!isError(info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), typeTree)))) {
-                    patternTree = typeTree;
-                }
-            }
-        }
-
-        if (isError(type)) {
-            //or statement?
-            //XXX: how to verify?
-            patternTree = info.getTreeUtilities().parseStatement(pattern, new SourcePositions[1]);
-            type = info.getTreeUtilities().attributeTree(patternTree, scope[0]);
-        }
-
-        return patternTree;
+        return Utilities.parseAndAttribute(info, pattern, scope[0]);
     }
 
-    private static boolean isError(Element el) {
-        return (el == null || (el.getKind() == ElementKind.CLASS) && isError(((TypeElement) el).asType()));
-    }
-    
-    private static boolean isError(TypeMirror type) {
-        return type == null || type.getKind() == TypeKind.ERROR;
-    }
-    
     private static final class ScannerImpl extends TreePathScanner<Scope, CompilationInfo> {
 
         @Override
