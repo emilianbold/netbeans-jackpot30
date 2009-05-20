@@ -53,6 +53,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.util.Context;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -72,6 +73,7 @@ import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
+import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.util.Lookup;
@@ -197,8 +199,9 @@ public class Utilities {
         }
 
         FixTree fixTree = new FixTree();
+        Context c = JavaSourceAccessor.getINSTANCE().getJavacTask(info).getContext();
 
-        fixTree.attach(JavaSourceAccessor.getINSTANCE().getJavacTask(info).getContext());
+        fixTree.attach(c, new ImportAnalysis2(c), info.getCompilationUnit(), null);
         
         patternTree = fixTree.translate(patternTree);
 
