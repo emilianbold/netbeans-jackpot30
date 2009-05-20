@@ -104,6 +104,11 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             return null;
         }
 
+        if (Utilities.getWildcardTreeName(tree) != null) {
+            append(p, "<([0-9a-z]+)>.*?</\\" + (group++) + ">");
+            return null;
+        }
+
         if (tree.getKind() == Kind.BLOCK) {
             BlockTree bt = (BlockTree) tree;
 

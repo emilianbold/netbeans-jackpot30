@@ -141,6 +141,12 @@ public class BulkSearchTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testStatementVariables1() throws Exception {
+        performTest("package test; public class Test { public int test1() { if (true) return 1; else return 2; } }",
+                    Arrays.asList("if ($1) $2; else $3;"),
+                    Collections.<String>emptyList());
+    }
+
     public void XtestMeasureTime() throws Exception {
         String code = TestUtilities.copyFileToString(new File("/usr/local/home/lahvac/src/nb//outgoing/java.editor/src/org/netbeans/modules/editor/java/JavaCompletionProvider.java"));
         List<String> patterns = new LinkedList<String>();
