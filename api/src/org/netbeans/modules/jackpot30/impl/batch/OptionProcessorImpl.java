@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.impl.batch;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -49,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -60,6 +62,8 @@ import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
+import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.sendopts.Env;
 import org.netbeans.spi.sendopts.Option;
@@ -82,7 +86,7 @@ public class OptionProcessorImpl extends OptionProcessor {
     
     private static final String APPLY_TRANSFORMATIONS_PROJECT_OPTION = "apply-transformations-project";
 
-//    private static final Option LIST = Option.withoutArgument(Option.NO_SHORT_NAME, "list-hints-transformation");
+    private static final Option LIST = Option.withoutArgument(Option.NO_SHORT_NAME, "list-hints-transformation");
     private static final Option APPLY_TRANSFORMATIONS = Option.shortDescription(
                                                             Option.requiredArgument(Option.NO_SHORT_NAME, "apply-transformations"),
                                                             "org.netbeans.modules.jackpot30.hints.batch.Bundle",
@@ -92,7 +96,7 @@ public class OptionProcessorImpl extends OptionProcessor {
                                                             "org.netbeans.modules.jackpot30.hints.batch.Bundle",
                                                             "SD_ApplyTransformationsProject");
 
-    private static final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(/*LIST, */APPLY_TRANSFORMATIONS, APPLY_TRANSFORMATIONS_PROJECT));
+    private static final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(LIST, APPLY_TRANSFORMATIONS, APPLY_TRANSFORMATIONS_PROJECT));
     
     @Override
     protected Set<Option> getOptions() {
@@ -101,13 +105,6 @@ public class OptionProcessorImpl extends OptionProcessor {
 
     @Override
     protected void process(Env env, Map<Option, String[]> optionValues) throws CommandException {
-//        if (optionValues.containsKey(LIST)) {
-//            env.getOutputStream().println("Supported Hints:");
-//            for (TreeRule r : BatchApply.listHints()) {
-//                env.getOutputStream().println(r.getDisplayName() + " - " + r.getId());
-//            }
-//        }
-
         List<Project> projects = new LinkedList<Project>();
         Map<String, List<ClassPath>> classPaths = new HashMap<String, List<ClassPath>>();
         
@@ -119,9 +116,14 @@ public class OptionProcessorImpl extends OptionProcessor {
                 throw new CommandException(1);
             }
 
+            FileObject currentDirectory = FileUtil.toFileObject(env.getCurrentDirectory());
+            
             OUTER: for (String p : projectNames) {
-                File loc = new File(env.getCurrentDirectory(), p);
-                FileObject projectFile = FileUtil.toFileObject(loc);
+                FileObject projectFile = currentDirectory.getFileObject(p);
+
+                if (projectFile == null) {
+                    projectFile = FileUtil.toFileObject(new File(p));
+                }
 
                 if (projectFile == null) {
                     env.getErrorStream().println("Ignoring file " + p + " - cannot be found.");
@@ -166,22 +168,38 @@ public class OptionProcessorImpl extends OptionProcessor {
 
                 projects.add(project);
             }
-
-            for (Entry<String, List<ClassPath>> cps : classPaths.entrySet()) {
-                LOG.log(Level.INFO, "registering classpaths: type={0}, classpaths={1}", new Object[] {cps.getKey(), cps.getValue()});
-                GlobalPathRegistry.getDefault().register(cps.getKey(), cps.getValue().toArray(new ClassPath[0]));
-            }
         } else {
             projects.addAll(Arrays.asList(OpenProjects.getDefault().getOpenProjects()));
         }
         
-        try {
-            waitScanFinished();
-        } catch (InterruptedException ex) {
-            Exceptions.printStackTrace(ex);
+        if (optionValues.containsKey(LIST)) {
+            env.getOutputStream().println("Supported Hints:");
+
+            Set<ClassPath> cps = new HashSet<ClassPath>();
+
+            for (List<ClassPath> c : classPaths.values()) {
+                cps.addAll(c);
+            }
+
+            Set<String> displayNames = Utilities.sortOutHints(Utilities.listAllHints(cps), new TreeMap<String, Collection<HintDescription>>()).keySet();
+
+            for (String displayName : displayNames) {
+                env.getOutputStream().println(displayName);
+            }
         }
-        
+
         if (optionValues.containsKey(APPLY_TRANSFORMATIONS)) {
+            for (Entry<String, List<ClassPath>> cps : classPaths.entrySet()) {
+                LOG.log(Level.INFO, "registering classpaths: type={0}, classpaths={1}", new Object[]{cps.getKey(), cps.getValue()});
+                GlobalPathRegistry.getDefault().register(cps.getKey(), cps.getValue().toArray(new ClassPath[0]));
+            }
+
+            try {
+                waitScanFinished();
+            } catch (InterruptedException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+
             String hintsArg = optionValues.get(APPLY_TRANSFORMATIONS)[0];
 //            String[] hints = hintsArg.split(":");
 
@@ -191,11 +209,12 @@ public class OptionProcessorImpl extends OptionProcessor {
 //            if (error != null) {
 //                env.getErrorStream().println("Cannot apply hints because of: " + error);
 //            }
+
+            for (Entry<String, List<ClassPath>> cps : classPaths.entrySet()) {
+                GlobalPathRegistry.getDefault().unregister(cps.toString(), cps.getValue().toArray(new ClassPath[0]));
+            }
         }
 
-        for (Entry<String, List<ClassPath>> cps : classPaths.entrySet()) {
-            GlobalPathRegistry.getDefault().unregister(cps.toString(), cps.getValue().toArray(new ClassPath[0]));
-        }
     }
 
     private boolean handleClassPath(FileObject root, String type, Env env, String p, Map<String, List<ClassPath>> classPaths) {

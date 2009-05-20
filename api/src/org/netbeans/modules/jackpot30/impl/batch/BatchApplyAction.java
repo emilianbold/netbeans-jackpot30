@@ -105,15 +105,6 @@ public final class BatchApplyAction extends AbstractAction implements ContextAwa
     }
 
     private List<HintDescription> listAllHints() {
-        List<HintDescription> result = new LinkedList<HintDescription>();
-        
-        for (HintProvider p : Lookup.getDefault().lookupAll(HintProvider.class)) {
-            for (HintDescription hd : p.computeHints()) {
-                if (hd.getTriggerPattern() == null) continue; //TODO: only pattern based hints are currently supported
-                result.add(hd);
-            }
-        }
-
         Set<ClassPath> cps = new HashSet<ClassPath>();
 
         for (FileObject file : BatchApply.toProcess(context)) {
@@ -124,13 +115,7 @@ public final class BatchApplyAction extends AbstractAction implements ContextAwa
 
         cps.remove(null);
 
-        ClassPath cp = ClassPathSupport.createProxyClassPath(cps.toArray(new ClassPath[cps.size()]));
-
-        for (ClassPathBasedHintProvider p : Lookup.getDefault().lookupAll(ClassPathBasedHintProvider.class)) {
-            result.addAll(p.computeHints(cp));
-        }
-
-        return result;
+        return org.netbeans.modules.jackpot30.impl.Utilities.listAllHints(cps);
     }
 
     public void actionPerformed(ActionEvent e) {

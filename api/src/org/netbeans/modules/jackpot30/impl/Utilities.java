@@ -48,17 +48,19 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeMirror;
+import java.util.Set;
+import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.TreeMaker;
-import org.netbeans.api.java.source.WorkingCopy;
+import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintProvider;
+import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
 
 /**
@@ -152,4 +154,23 @@ public class Utilities {
         return output;
     }
 
+    public static List<HintDescription> listAllHints(Set<ClassPath> cps) {
+        List<HintDescription> result = new LinkedList<HintDescription>();
+
+        for (HintProvider p : Lookup.getDefault().lookupAll(HintProvider.class)) {
+            for (HintDescription hd : p.computeHints()) {
+                if (hd.getTriggerPattern() == null) continue; //TODO: only pattern based hints are currently supported
+                result.add(hd);
+            }
+        }
+
+        ClassPath cp = ClassPathSupport.createProxyClassPath(cps.toArray(new ClassPath[cps.size()]));
+
+        for (ClassPathBasedHintProvider p : Lookup.getDefault().lookupAll(ClassPathBasedHintProvider.class)) {
+            result.addAll(p.computeHints(cp));
+        }
+
+        return result;
+    }
+    
 }
