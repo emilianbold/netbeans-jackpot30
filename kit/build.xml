@@ -9,4 +9,5 @@
     <target name="test" />
     <target name="test-coverage" />
     <target name="coverage-report" />
+    <target name="findbugs" />
 </project>
