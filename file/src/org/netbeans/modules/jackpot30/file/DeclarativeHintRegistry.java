@@ -102,7 +102,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         }
     }
     
-    private static List<HintDescription> parseHintFile(FileObject file) {
+    public static List<HintDescription> parseHintFile(FileObject file) {
         StringBuilder sb = new StringBuilder();
 
         Reader r = null;

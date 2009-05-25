@@ -3,11 +3,11 @@ package org.netbeans.modules.jackpot30.file;
 import org.junit.Test;
 import org.netbeans.api.lexer.PartType;
 import static org.junit.Assert.*;
-import org.netbeans.api.lexer.Token;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
 
 import static org.netbeans.modules.jackpot30.file.DeclarativeHintTokenId.*;
+import static org.netbeans.modules.jackpot30.file.TestUtils.*;
 
 /**
  *
@@ -98,21 +98,6 @@ public class DeclarativeHintLexerTest {
         assertNextTokenEquals(ts, WHITESPACE, " ");
 
         assertFalse(ts.moveNext());
-    }
-
-    public static void assertNextTokenEquals(TokenSequence<?> ts, DeclarativeHintTokenId id, String text) {
-        assertNextTokenEquals(ts, id, PartType.COMPLETE, text);
-    }
-
-    public static void assertNextTokenEquals(TokenSequence<?> ts, DeclarativeHintTokenId id, PartType pt, String text) {
-        assertTrue(ts.moveNext());
-
-        Token t = ts.token();
-
-        assertNotNull(t);
-        assertEquals(id, t.id());
-        assertEquals(pt, t.partType());
-        assertEquals(text, t.text().toString());
     }
 
 }
