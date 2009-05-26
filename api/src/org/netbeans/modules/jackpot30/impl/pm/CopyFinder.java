@@ -51,6 +51,7 @@ import com.sun.source.tree.PrimitiveTypeTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.SynchronizedTree;
+import com.sun.source.tree.ThrowTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.TypeCastTree;
@@ -689,10 +690,17 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
         return scan(node.getBlock(), at.getBlock(), p);
     }
-//
-//    public Boolean visitThrow(ThrowTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+
+    public Boolean visitThrow(ThrowTree node, TreePath p) {
+        if (p == null) {
+            super.visitThrow(node, p);
+            return false;
+        }
+
+        ThrowTree at = (ThrowTree) p.getLeaf();
+
+        return scan(node.getExpression(), at.getExpression(), p);
+    }
 
 //    public Boolean visitCompilationUnit(CompilationUnitTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");

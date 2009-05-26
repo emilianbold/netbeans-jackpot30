@@ -173,6 +173,13 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              new Pair[0]);
     }
 
+    public void testThrowStatement() throws Exception {
+        performVariablesTest("package test; public class Test {public void test() { throw new NullPointerException(); throw new IllegalStateException();} }",
+                             "throw new NullPointerException()",
+                             new Pair[0],
+                             new Pair[0]);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         prepareTest(code, -1);
 
