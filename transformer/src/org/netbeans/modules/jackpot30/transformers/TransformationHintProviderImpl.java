@@ -54,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.regex.Matcher;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -99,9 +100,18 @@ import static org.netbeans.modules.jackpot30.transformers.Annotations.*;
 @ServiceProvider(service=ElementBasedHintProvider.class)
 public class TransformationHintProviderImpl implements ElementBasedHintProvider {
 
-    public Collection<? extends HintDescription> computeHints(final CompilationInfo info, final Element el) {
-        final List<HintDescription> hints = new LinkedList<HintDescription>();
+    private final Map<CompilationInfo, JavaSource> cachedJavaSources = new WeakHashMap<CompilationInfo, JavaSource>();
 
+    private JavaSource prepareJavaSource(CompilationInfo info) {
+        //XXX: the caching is a hack (to improve performance by not creating new and new JavaSources).
+        //expects that the CompilationInfo will be the same for all elements from the one editor, but that is not guaranteed
+        //ideally, should go away eventually:
+        JavaSource js = cachedJavaSources.get(info);
+
+        if (js != null) {
+            return js;
+        }
+        
         ClasspathInfo currentCP = info.getClasspathInfo();
         ClassPath overlayCompileCP = prepareOverlayCompileCP();
         ClassPath extendedCompileCP = ClassPathSupport.createProxyClassPath(overlayCompileCP, currentCP.getClassPath(PathKind.COMPILE));
@@ -109,8 +119,16 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
         ClassPath extendedBootCP = ClassPathSupport.createProxyClassPath(overlayBootCP, currentCP.getClassPath(PathKind.BOOT));
         ClasspathInfo extendedCPInfo = ClasspathInfo.create(extendedBootCP, extendedCompileCP, currentCP.getClassPath(PathKind.SOURCE));
 
+        cachedJavaSources.put(info, js = JavaSource.create(extendedCPInfo));
+
+        return js;
+    }
+    
+    public Collection<? extends HintDescription> computeHints(final CompilationInfo info, final Element el) {
+        final List<HintDescription> hints = new LinkedList<HintDescription>();
+
         try {
-        JavaSource.create(extendedCPInfo).runUserActionTask(new Task<CompilationController>() {
+        prepareJavaSource(info).runUserActionTask(new Task<CompilationController>() {
             public void run(final CompilationController overlayInfo) throws Exception {
                 List<HintDescription> w = doComputeHints(info, overlayInfo, el);
 
