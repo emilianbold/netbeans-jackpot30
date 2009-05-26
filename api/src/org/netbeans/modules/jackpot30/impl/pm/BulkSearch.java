@@ -43,11 +43,14 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -60,12 +63,10 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
  */
 public class BulkSearch {
 
-    public static Set<String> match(CompilationInfo info, Tree tree, BulkPattern pattern) {
-        Set<String> occurringPatterns = new HashSet<String>();
+    public static Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern) {
+        Map<String, Collection<TreePath>> occurringPatterns = new HashMap<String, Collection<TreePath>>();
         StringBuilder ser = new StringBuilder();
-
-        TreeSerializer.serializeText(tree, ser);
-
+        Map<Integer, List<TreePath>> serializedEnd2Tree = TreeSerializer.serializeText(tree, ser);
         String serialized = ser.toString();
 
         long s2 = System.currentTimeMillis();
@@ -76,7 +77,14 @@ public class BulkSearch {
         while (m.find()) {
             for (int cntr = 0; cntr < pattern.groups.length; cntr++) {
                 if (m.group(pattern.groups[cntr]) != null) {
-                    occurringPatterns.add(pattern.original.get(cntr));
+                    String patt = pattern.original.get(cntr);
+                    Collection<TreePath> occurrences = occurringPatterns.get(patt);
+
+                    if (occurrences == null) {
+                        occurringPatterns.put(patt, occurrences = new LinkedList<TreePath>());
+                    }
+
+                    occurrences.addAll(serializedEnd2Tree.get(m.end()));
                 }
             }
         }

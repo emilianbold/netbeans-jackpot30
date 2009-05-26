@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
+import com.sun.source.util.TreePath;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
@@ -46,6 +47,8 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import javax.swing.text.Document;
 import org.netbeans.api.java.lexer.JavaTokenId;
@@ -54,6 +57,7 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
+import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
@@ -82,68 +86,68 @@ public class BulkSearchTest extends NbTestCase {
     }
 
     public void testSimple1() throws Exception {
-        performTest("package test; public class Test { private void test() { System.err.println(\"\");}}",
-                    Arrays.asList("System.err.println(\"\")"),
+        performTest("package test; public class Test { private void test() { System.err./**/println(\"\");}}",
+                    Collections.singletonMap("System.err.println(\"\")", Arrays.asList("System.err./**/println(\"\")")),
                     Arrays.asList("System.err.println(\"\" + \"\")"));
     }
 
     public void testDontCare() throws Exception {
-        performTest("package test; public class Test { private void test() { System.err.println(\"\" + \"\");}}",
-                    Arrays.asList("System.err.println($1)"),
+        performTest("package test; public class Test { private void test() { System.err./**/println(\"\" + \"\");}}",
+                    Collections.singletonMap("System.err.println($1)", Arrays.asList("System.err./**/println(\"\" + \"\")")),
                     Collections.<String>emptyList());
     }
 
     public void testMemberSelectAndIdentifier() throws Exception {
         performTest("package test; public class Test { private static void test() { test();}}",
-                    Arrays.asList("test.Test.test()"),
+                    Collections.singletonMap("test.Test.test()", Arrays.asList("test()")),
                     Collections.<String>emptyList());
     }
 
     public void testUnpureMemberSelect() throws Exception {
-        performTest("package test; public class Test { private static void test() { new StringBuilder().append('');}}",
-                    Collections.<String>emptyList(),
-                    Arrays.asList("test.append('')"));
+        performTest("package test; public class Test { private static void test() { new StringBuilder().append(\"\");}}",
+                    Collections.<String, List<String>>emptyMap(),
+                    Arrays.asList("test.append(\"\")"));
     }
 
     public void testMemberSelectWithVariables1() throws Exception {
-        performTest("package test; public class Test { private static void test() { new StringBuilder().append('');}}",
-                    Arrays.asList("$0.append('')"),
+        performTest("package test; public class Test { private static void test() { new StringBuilder().append(\"\");}}",
+                    Collections.singletonMap("$0.append(\"\")", Arrays.asList("new StringBuilder().append(\"\")")),
                     Collections.<String>emptyList());
     }
 
     public void testMemberSelectWithVariables2() throws Exception {
-        performTest("package test; public class Test { private void append(char c) { append('');}}",
-                    Arrays.asList("$0.append('')"),
+        performTest("package test; public class Test { private void append(char c) { append(\"\");}}",
+                    Collections.singletonMap("$0.append(\"\")", Arrays.asList("append(\"\")")),
                     Collections.<String>emptyList());
     }
 
     public void testLocalVariables() throws Exception {
         performTest("package test; public class Test { private void test() { { int y; y = 1; } }}",
-                    Arrays.asList("{ int $1; $1 = 1; }"),
+                    Collections.singletonMap("{ int $1; $1 = 1; }", Arrays.asList("{ int y; y = 1; }")),
                     Collections.<String>emptyList());
     }
 
     public void testAssert() throws Exception {
         performTest("package test; public class Test { private void test() { assert true : \"\"; }}",
-                    Arrays.asList("assert $1 : $2;"),
+                    Collections.singletonMap("assert $1 : $2;", Arrays.asList("assert true : \"\";")),
                     Collections.<String>emptyList());
     }
 
     public void testStatementAndSingleBlockStatementAreSame1() throws Exception {
         performTest("package test; public class Test { private void test() { { int y; { y = 1; } } }}",
-                    Arrays.asList("{ int $1; $1 = 1; }"),
+                    Collections.singletonMap("{ int $1; $1 = 1; }", Arrays.asList("{ int y; { y = 1; } }")),
                     Collections.<String>emptyList());
     }
 
     public void testStatementAndSingleBlockStatementAreSame2() throws Exception {
         performTest("package test; public class Test { private void test() { { int y; y = 1; } }}",
-                    Arrays.asList("{ int $1; { $1 = 1; } }"),
+                    Collections.singletonMap("{ int $1; { $1 = 1; } }", Arrays.asList("{ int y; y = 1; }")),
                     Collections.<String>emptyList());
     }
 
     public void testStatementVariables1() throws Exception {
         performTest("package test; public class Test { public int test1() { if (true) return 1; else return 2; } }",
-                    Arrays.asList("if ($1) $2; else $3;"),
+                    Collections.singletonMap("if ($1) $2; else $3;", Arrays.asList("if (true) return 1; else return 2;")),
                     Collections.<String>emptyList());
     }
 
@@ -154,18 +158,18 @@ public class BulkSearchTest extends NbTestCase {
         for (int cntr = 0; cntr < 1000; cntr++) {
             patterns.add("System.err.println($1)");
         }
-        
+
         performTest(code,
-                    Collections.<String>emptyList(),
+                    Collections.<String, List<String>>emptyMap(),
                     patterns);
     }
 
-    private void performTest(String text, Collection<String> containedPatterns, Collection<String> notContainedPatterns) throws Exception {
+    private void performTest(String text, Map<String, List<String>> containedPatterns, Collection<String> notContainedPatterns) throws Exception {
         prepareTest("test/Test.java", text);
 
         List<String> patterns = new LinkedList<String>();
 
-        patterns.addAll(containedPatterns);
+        patterns.addAll(containedPatterns.keySet());
         patterns.addAll(notContainedPatterns);
 
         long s1 = System.currentTimeMillis();
@@ -175,14 +179,30 @@ public class BulkSearchTest extends NbTestCase {
 //        System.err.println("create: " + (e1 - s1));
 
         long s2 = System.currentTimeMillis();
-        Set<String> result = BulkSearch.match(info, info.getCompilationUnit(), p);
+        Map<String, Collection<TreePath>> result = BulkSearch.match(info, info.getCompilationUnit(), p);
         long e2 = System.currentTimeMillis();
 
 //        System.err.println("match: " + (e2 - s2));
 
-        assertTrue(result.toString(), result.containsAll(containedPatterns));
+        assertTrue(result.toString(), result.keySet().containsAll(containedPatterns.keySet()));
 
-        Set<String> none = new HashSet<String>(result);
+        for (Entry<String, Collection<TreePath>> e : result.entrySet()) {
+            List<String> actual = new LinkedList<String>();
+
+            for (TreePath tp : e.getValue()) {
+                assertNotNull(TreePathHandle.create(tp, info).resolve(info));
+                
+                int start = (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), tp.getLeaf());
+                int end   = (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), tp.getLeaf());
+
+                actual.add(info.getText().substring(start, end));
+            }
+
+            assertEquals(e.getKey(), containedPatterns.get(e.getKey()), actual);
+        }
+
+
+        Set<String> none = new HashSet<String>(result.keySet());
 
         none.retainAll(notContainedPatterns);
 

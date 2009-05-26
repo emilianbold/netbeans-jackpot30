@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -48,10 +49,14 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
 import java.io.IOException;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.netbeans.modules.jackpot30.impl.Utilities;
@@ -62,8 +67,12 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
  */
 public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
-    public static void serializeText(Tree tree, Appendable p) {
-        new TreeSerializer(false).scan(tree, p);
+    public static Map<Integer, List<TreePath>> serializeText(Tree tree, Appendable p) {
+        TreeSerializer serializer = new TreeSerializer(false);
+
+        serializer.scan(tree, p);
+
+        return serializer.serializedStart2Tree;
     }
 
     public static int[] serializePatterns(Appendable p, Tree... patterns) {
@@ -73,9 +82,9 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
         for (Tree tree : patterns) {
             groups[i] = ts.group++;
-            append(p, i > 0 ? "|(" : "(");
+            ts.append(p, i > 0 ? "|(" : "(");
             ts.scan(tree, p);
-            append(p, ")");
+            ts.append(p, ")");
             i++;
         }
 
@@ -85,10 +94,15 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
     private int depth;
     private int group;
     private boolean method;
+    private Map<Integer, List<TreePath>> serializedStart2Tree;
+    private int length;
+    private TreePath currentPath;
 
     private TreeSerializer(boolean pattern) {
         this.depth = !pattern ? 0 : -1;
         this.group = 1;
+        this.serializedStart2Tree = pattern ? null : new HashMap<Integer, List<TreePath>>();
+        this.length = 0;
     }
     
     @Override
@@ -97,6 +111,18 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             return null;
         }
 
+        TreePath originalTreePath = currentPath;
+
+        if (this.serializedStart2Tree != null) {
+            if (currentPath != null) {
+                currentPath = new TreePath(currentPath, tree);
+            } else {
+                assert tree.getKind() == Kind.COMPILATION_UNIT;
+                currentPath = new TreePath((CompilationUnitTree) tree);
+            }
+        }
+
+        try {
         //shouldn't this be handled by visitIdentifier???
         if (   tree.getKind() == Kind.IDENTIFIER
             && ((IdentifierTree) tree).getName().toString().startsWith("$")) {
@@ -114,6 +140,9 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
             if (!bt.isStatic() && bt.getStatements().size() == 1) {
                 tree = bt.getStatements().get(0);
+                if (currentPath != null) {
+                    currentPath = new TreePath(currentPath, tree);
+                }
             }
         }
 
@@ -137,6 +166,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
             if (memberSelectWithVariables) {
                 append(p, "(?:");
+                append(p, "(?:");
                 append(p, kindToShortName.get(tree.getKind()));
                 super.scan(tree, p);
                 append(p, ")|(?:");
@@ -154,6 +184,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
             if (memberSelectWithVariables) {
                 append(p, ")");
+                append(p, ")");
             }
         }
         append(p, "</");
@@ -164,10 +195,23 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         }
         append(p, ">");
 
+        } finally {
+        if (this.serializedStart2Tree != null) {
+            List<TreePath> paths = this.serializedStart2Tree.get(length);
+
+            if (paths == null) {
+                this.serializedStart2Tree.put(length, paths = new LinkedList<TreePath>());
+            }
+
+            paths.add(currentPath);
+            currentPath = originalTreePath;
+        }
+        }
+        
         return null;
     }
 
-    private static void printName(Appendable p, CharSequence name) {
+    private void printName(Appendable p, CharSequence name) {
         if (name.length() == 0 || name.charAt(0) != '$') {
             append(p, name);
         } else {
@@ -211,9 +255,10 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         return super.visitMethodInvocation(node, p);
     }
 
-    private static void append(Appendable a, CharSequence what) {
+    private void append(Appendable a, CharSequence what) {
         try {
             a.append(what);
+            length += what.length();
         } catch (IOException ex) {
             throw new IllegalStateException(ex);
         }

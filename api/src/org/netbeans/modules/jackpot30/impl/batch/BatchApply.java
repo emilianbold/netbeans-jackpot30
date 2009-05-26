@@ -337,7 +337,7 @@ public class BatchApply {
                             return;
                         }
 
-                        Set<String> matchingPatterns = BulkSearch.match(cc, cc.getCompilationUnit(), bulkPattern);
+                        Map<String, Collection<TreePath>> matchingPatterns = BulkSearch.match(cc, cc.getCompilationUnit(), bulkPattern);
 
                         if (matchingPatterns.isEmpty()) {
                             return ;

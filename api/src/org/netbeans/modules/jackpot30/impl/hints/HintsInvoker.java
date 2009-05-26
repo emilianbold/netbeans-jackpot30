@@ -166,14 +166,14 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
         Map<String, List<PatternDescription>> patternTests = computePatternTests(patternHints);
 
         BulkPattern bulkPattern = BulkSearch.create(info, patternTests.keySet());
-        Set<String> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern);
+        Map<String, Collection<TreePath>> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern);
         
         errors.addAll(doComputeHints(info, occurringPatterns, patternTests, startAt, patternHints));
 
         return errors;
     }
 
-    public List<ErrorDescription> doComputeHints(CompilationInfo info, Set<String> occurringPatterns, Map<String, List<PatternDescription>> patterns, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
+    public List<ErrorDescription> doComputeHints(CompilationInfo info, Map<String, Collection<TreePath>> occurringPatterns, Map<String, List<PatternDescription>> patterns, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
         return doComputeHints(info, occurringPatterns, patterns, new TreePath(info.getCompilationUnit()), patternHints);
     }
 
@@ -190,23 +190,29 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
         return patternTests;
     }
     
-    private List<ErrorDescription> doComputeHints(CompilationInfo info, Set<String> occurringPatterns, Map<String, List<PatternDescription>> patterns, TreePath startAt, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
+    private List<ErrorDescription> doComputeHints(CompilationInfo info, Map<String, Collection<TreePath>> occurringPatterns, Map<String, List<PatternDescription>> patterns, TreePath startAt, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
         List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
         
-        for (String occ : occurringPatterns) {
-            for (PatternDescription d : patterns.get(occ)) {
+        for (Entry<String, Collection<TreePath>> occ : occurringPatterns.entrySet()) {
+            for (PatternDescription d : patterns.get(occ.getKey())) {
                 Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
 
                 for (Entry<String, String> e : d.getConstraints().entrySet()) {
                     constraints.put(e.getKey(), info.getTreeUtilities().parseType(e.getValue(), info.getTopLevelElements().get(0))); //XXX
                 }
 
-                Pattern p = Pattern.compile(info, occ, constraints);
+                Pattern p = Pattern.compile(info, occ.getKey(), constraints);
                 TreePath toplevel = new TreePath(info.getCompilationUnit());
                 TreePath patt = new TreePath(toplevel, p.getPattern());
 
-                for (Entry<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> e : CopyFinder.computeDuplicates(info, patt, startAt, cancel, p.getConstraints()).entrySet()) {
-                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, e.getKey(), e.getValue().getA(), e.getValue().getB());
+                for (TreePath candidate : occ.getValue()) {
+                    Pair<Map<String, TreePath>, Map<String, String>> verified = CopyFinder.computeVariables(info, patt, candidate, cancel, p.getConstraints());
+
+                    if (verified == null) {
+                        continue;
+                    }
+                    
+                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, candidate, verified.getA(), verified.getB());
 
                     for (HintDescription hd : patternHints.get(d)) {
                         Collection<? extends ErrorDescription> workerErrors = hd.getWorker().createErrors(c);
