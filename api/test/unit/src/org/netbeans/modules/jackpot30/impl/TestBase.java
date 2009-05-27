@@ -49,6 +49,7 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.modules.java.source.TreeLoader;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -62,6 +63,13 @@ public class TestBase extends NbTestCase {
 
     public TestBase(String name) {
         super(name);
+    }
+
+    @Override
+    protected void setUp() throws Exception {
+        super.setUp();
+        SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
+        TreeLoader.DISABLE_CONFINEMENT_TEST = true;
     }
 
     protected void prepareTest(String fileName, String code) throws Exception {

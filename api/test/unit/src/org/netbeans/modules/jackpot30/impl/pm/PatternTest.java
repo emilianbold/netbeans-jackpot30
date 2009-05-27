@@ -46,10 +46,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
-import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.modules.jackpot30.impl.TestBase;
 import org.netbeans.modules.java.hints.infrastructure.Pair;
-import org.netbeans.modules.java.source.TreeLoader;
 
 /**
  *
@@ -59,13 +57,6 @@ public class PatternTest extends TestBase {
 
     public PatternTest(String name) {
         super(name);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        SourceUtilsTestUtil.prepareTest(new String[] {"org/netbeans/modules/java/editor/resources/layer.xml"}, new Object[0]);
-        TreeLoader.DISABLE_CONFINEMENT_TEST = true;
     }
 
     public void testSimple1() throws Exception {

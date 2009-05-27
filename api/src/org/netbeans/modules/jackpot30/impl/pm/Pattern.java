@@ -39,43 +39,22 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
-import com.sun.source.tree.BlockTree;
-import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreePathScanner;
-import com.sun.tools.javac.api.JavacScope;
-import com.sun.tools.javac.api.JavacTaskImpl;
-import com.sun.tools.javac.comp.AttrContext;
-import com.sun.tools.javac.comp.Env;
-import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Log;
-import java.io.File;
-import java.io.IOException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import javax.tools.JavaFileObject;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.Pair;
-import org.netbeans.modules.java.source.JavaSourceAccessor;
-import org.netbeans.modules.java.source.parsing.FileObjects;
-import org.openide.util.Exceptions;
 
 /**XXX: cancelability!
  *
@@ -176,58 +155,8 @@ public class Pattern {
         return filtered.toString();
     }
 
-    private static long inc;
-
-    private static Scope constructScope(CompilationInfo info, Map<String, TypeMirror> constraints) {
-        StringBuilder clazz = new StringBuilder();
-
-        clazz.append("package $; public class $" + (inc++) + "{");
-
-        for (Entry<String, TypeMirror> e : constraints.entrySet()) {
-            if (e.getValue() != null) {
-                clazz.append("private ");
-                clazz.append(e.getValue().toString()); //XXX
-                clazz.append(" ");
-                clazz.append(e.getKey());
-                clazz.append(";\n");
-            }
-        }
-
-        clazz.append("private void test() {\n");
-        clazz.append("}\n");
-        clazz.append("}\n");
-
-        JavacTaskImpl jti = JavaSourceAccessor.getINSTANCE().getJavacTask(info);
-        Context context = jti.getContext();
-
-        Log.instance(context).nerrors = 0;
-
-        JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/t.java").toURI(), System.currentTimeMillis(), clazz.toString());
-
-        try {
-            Iterable<? extends CompilationUnitTree> parsed = jti.parse(jfo);
-            CompilationUnitTree cut = parsed.iterator().next();
-
-            jti.analyze(jti.enter(parsed));
-
-            return new ScannerImpl().scan(cut, info);
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-            return null;
-        }
-    }
-    
-//    private static Scope constructScope2(CompilationInfo info, Map<String, TypeMirror> constraints) {
-//        JavacScope s = (JavacScope) info.getTrees().getScope(new TreePath(info.getCompilationUnit()));
-//        Env<AttrContext> env = s.getEnv();
-//
-//        env = env.dup(env.tree);
-//
-//        env.info.
-//    }
-    
     public static Tree parseAndAttribute(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints, Scope[] scope) {
-        scope[0] = constructScope(info, constraints);
+        scope[0] = Utilities.constructScope(info, constraints);
 
         if (scope[0] == null) {
             return null;
@@ -236,26 +165,4 @@ public class Pattern {
         return Utilities.parseAndAttribute(info, pattern, scope[0]);
     }
 
-    private static final class ScannerImpl extends TreePathScanner<Scope, CompilationInfo> {
-
-        @Override
-        public Scope visitBlock(BlockTree node, CompilationInfo p) {
-            return p.getTrees().getScope(getCurrentPath());
-        }
-
-        @Override
-        public Scope visitMethod(MethodTree node, CompilationInfo p) {
-            if (node.getReturnType() == null) {
-                return null;
-            }
-            return super.visitMethod(node, p);
-        }
-
-        @Override
-        public Scope reduce(Scope r1, Scope r2) {
-            return r1 != null ? r1 : r2;
-        }
-
-    }
-    
 }

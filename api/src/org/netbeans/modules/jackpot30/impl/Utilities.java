@@ -41,30 +41,41 @@ package org.netbeans.modules.jackpot30.impl;
 
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ErroneousTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
+import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Log;
+import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.JavaFileObject;
+import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -73,9 +84,11 @@ import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
+import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
 
@@ -190,10 +203,10 @@ public class Utilities {
     }
     
     public static Tree parseAndAttribute(CompilationInfo info, String pattern, Scope scope) {
-        Tree patternTree = info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]);
+        Tree patternTree = !isStatement(pattern) ? info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]) : null;
         boolean expression = true;
 
-        if (patternTree.getKind() == Kind.ERRONEOUS || (patternTree.getKind() == Kind.IDENTIFIER && ((IdentifierTree) patternTree).getName().contentEquals("<error>"))) { //TODO: <error>...
+        if (patternTree == null || patternTree.getKind() == Kind.ERRONEOUS || (patternTree.getKind() == Kind.IDENTIFIER && ((IdentifierTree) patternTree).getName().contentEquals("<error>"))) { //TODO: <error>...
             patternTree = info.getTreeUtilities().parseStatement(pattern, new SourcePositions[1]);
             expression = false;
         }
@@ -237,6 +250,10 @@ public class Utilities {
         return type == null || type.getKind() == TypeKind.ERROR;
     }
 
+    private static boolean isStatement(String pattern) {
+        return pattern.trim().endsWith(";");
+    }
+    
     private static final class FixTree extends ImmutableTreeTranslator {
 
         @Override
@@ -262,7 +279,7 @@ public class Utilities {
 
     }
 
-    public static CharSequence getWildcardTreeName(@NonNull Tree t) {
+    public static @CheckForNull CharSequence getWildcardTreeName(@NonNull Tree t) {
         if (t.getKind() == Kind.EXPRESSION_STATEMENT && ((ExpressionStatementTree) t).getExpression().getKind() == Kind.IDENTIFIER) {
             IdentifierTree identTree = (IdentifierTree) ((ExpressionStatementTree) t).getExpression();
             
@@ -271,5 +288,77 @@ public class Utilities {
 
         return null;
     }
+
+    private static long inc;
+
+    public static Scope constructScope(CompilationInfo info, Map<String, TypeMirror> constraints) {
+        StringBuilder clazz = new StringBuilder();
+
+        clazz.append("package $; public class $" + (inc++) + "{");
+
+        for (Entry<String, TypeMirror> e : constraints.entrySet()) {
+            if (e.getValue() != null) {
+                clazz.append("private ");
+                clazz.append(e.getValue().toString()); //XXX
+                clazz.append(" ");
+                clazz.append(e.getKey());
+                clazz.append(";\n");
+            }
+        }
+
+        clazz.append("private void test() {\n");
+        clazz.append("}\n");
+        clazz.append("}\n");
+
+        JavacTaskImpl jti = JavaSourceAccessor.getINSTANCE().getJavacTask(info);
+        Context context = jti.getContext();
+
+        Log.instance(context).nerrors = 0;
+
+        JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/t.java").toURI(), System.currentTimeMillis(), clazz.toString());
+
+        try {
+            Iterable<? extends CompilationUnitTree> parsed = jti.parse(jfo);
+            CompilationUnitTree cut = parsed.iterator().next();
+
+            jti.analyze(jti.enter(parsed));
+
+            return new ScannerImpl().scan(cut, info);
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+            return null;
+        }
+    }
+
+    private static final class ScannerImpl extends TreePathScanner<Scope, CompilationInfo> {
+
+        @Override
+        public Scope visitBlock(BlockTree node, CompilationInfo p) {
+            return p.getTrees().getScope(getCurrentPath());
+        }
+
+        @Override
+        public Scope visitMethod(MethodTree node, CompilationInfo p) {
+            if (node.getReturnType() == null) {
+                return null;
+            }
+            return super.visitMethod(node, p);
+        }
+
+        @Override
+        public Scope reduce(Scope r1, Scope r2) {
+            return r1 != null ? r1 : r2;
+        }
+
+    }
+
+//    private static Scope constructScope2(CompilationInfo info, Map<String, TypeMirror> constraints) {
+//        JavacScope s = (JavacScope) info.getTrees().getScope(new TreePath(info.getCompilationUnit()));
+//        Env<AttrContext> env = s.getEnv();
+//
+//        env = env.dup(env.tree);
+//
+//        env.info.
+//    }
 
 }
