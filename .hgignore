@@ -6,3 +6,4 @@
 ^nbbuild$
 ^.ditz-config$
 ^external$
+.old$
