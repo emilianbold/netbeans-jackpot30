@@ -50,7 +50,7 @@ done;
 
 for properties in `find . -type f -name "project.properties"`; do
     mv $properties $properties.old
-    sed -e "s/spec.version.base: .*$/spec.version.base: $NEW_VERSION.0/" <$properties.old >$properties
+    sed -e "s/spec.version.base=.*$/spec.version.base=$NEW_VERSION.0/" <$properties.old >$properties
 done;
 
 mv kit/nbproject/project.xml kit/nbproject/project.xml.old
