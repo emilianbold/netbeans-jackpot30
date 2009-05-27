@@ -234,10 +234,10 @@ public abstract class JavaFix {
 
                     @Override
                     public Void visitExpressionStatement(ExpressionStatementTree node, Void p) {
-                        String name = Utilities.getWildcardTreeName(node).toString();
+                        CharSequence name = Utilities.getWildcardTreeName(node);
 
                         if (name != null) {
-                            TreePath tp = parameters.get(name);
+                            TreePath tp = parameters.get(name.toString());
 
                             if (tp != null) {
                                 wc.rewrite(node, tp.getLeaf());
