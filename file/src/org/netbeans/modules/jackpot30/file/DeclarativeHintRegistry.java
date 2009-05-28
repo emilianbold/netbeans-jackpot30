@@ -42,16 +42,17 @@ package org.netbeans.modules.jackpot30.file;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.Map.Entry;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.lexer.TokenHierarchy;
+import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
@@ -132,85 +133,41 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
     }
 
     private static List<HintDescription> parseHints(String spec) {
-        String[] split = spec.split(";;");
+        TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
+        TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
         List<HintDescription> result = new LinkedList<HintDescription>();
 
-        for (String s : split) {
-            s = s.trim();
+        for (HintTextDescription hint : new DeclarativeHintsParser().parse(ts).hints) {
+            HintDescriptionFactory f = HintDescriptionFactory.create();
+            String displayName;
 
-            if (s.length() > 0) {
-                result.add(parse(s));
+            if (hint.displayName != null) {
+                displayName = hint.displayName;
+            } else {
+                displayName = "TODO: No display name";
             }
+
+            Map<String, String> constraints = new HashMap<String, String>();
+            
+            for (Entry<String, int[]> e : hint.variables2Constraints.entrySet()) {
+                constraints.put(e.getKey(), spec.substring(e.getValue()[0], e.getValue()[1]));
+            }
+
+            f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints));
+
+            List<DeclarativeFix> fixes = new LinkedList<DeclarativeFix>();
+
+            for (int[] fixRange : hint.fixes) {
+                fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1])));
+            }
+
+            f = f.setWorker(new DeclarativeHintsWorker(displayName, fixes));
+            f = f.setDisplayName(displayName);
+
+            result.add(f.produce());
         }
 
         return result;
     }
 
-    static HintDescription parse(String spec) {
-        List<String> split = Arrays.asList(spec.split("=>"));
-
-        assert split.size() >= 1;
-
-        List<DeclarativeFix> fixes = new LinkedList<DeclarativeFix>();
-
-        for (String s : split.subList(1, split.size())) {
-            fixes.add(DeclarativeFix.parse(s));
-        }
-
-        String[] s = splitNameAndPattern(split.get(0), "TODO: No display name");
-
-        Map<String, String> constraints = new HashMap<String, String>();
-        String pattern = parseOutTypesFromPattern(s[1], constraints);
-
-        return HintDescriptionFactory.create()
-                                     .setDisplayName(s[0])
-                                     .setTriggerPattern(PatternDescription.create(pattern, constraints))
-                                     .setWorker(new DeclarativeHintsWorker(s[0], fixes))
-                                     .produce();
-    }
-
-    static String[] splitNameAndPattern(String spec, String defaultDisplayName) {
-        spec = spec.trim();
-
-        String[] s = spec.split("\":");
-
-        if (s.length == 1) {
-            return new String[] {
-                defaultDisplayName,
-                spec
-            };
-        }
-
-        String[] captionAndWS = s[0].split("\"");
-
-        return new String[] {
-            captionAndWS[1],
-            s[1]
-        };
-    }
-
-    private static String parseOutTypesFromPattern(String pattern, Map<String, String> constraints) {
-        Pattern p = Pattern.compile("(\\$[A-Za-z0-9_]+)(\\{([^}]*)\\})?");
-        StringBuffer filtered = new StringBuffer();
-        Matcher m = p.matcher(pattern);
-        int i = 0;
-
-        while (m.find()) {
-            filtered.append(pattern.substring(i, m.start()));
-            i = m.end();
-
-            String var  = m.group(1);
-            String type = m.group(3);
-
-            filtered.append(var);
-
-            if (type != null) {
-                constraints.put(var, type); //XXX: set non-null at most once
-            }
-        }
-
-        filtered.append(pattern.substring(i));
-
-        return filtered.toString();
-    }
 }

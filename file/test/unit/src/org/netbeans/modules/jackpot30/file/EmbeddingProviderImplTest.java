@@ -39,7 +39,7 @@ public class EmbeddingProviderImplTest extends NbTestCase {
     }
 
     public void testSimpleEmbedding() throws Exception {
-        performEmbeddingTest("\"\": 1 + 1 => \"\":1 + 1;;",
+        performEmbeddingTest("\'\': 1 + 1 => 1 + 1;;",
                              "package $; class $ {\n" +
                              "     private void $0() throws Throwable {\n" +
                              "         1 + 1 ;\n" +
@@ -51,24 +51,24 @@ public class EmbeddingProviderImplTest extends NbTestCase {
     }
 
     public void testEmbeddingWithVariables1() throws Exception {
-        performEmbeddingTest("\"\": $1{int} + $2{double} => \"\":1 + 1;;",
+        performEmbeddingTest("\'\': $1 + $2 :: $1 instanceof int && $2 instanceof double => 1 + 1;;",
                              "package $; class $ {\n" +
-                             "     private void $0(int $1, double $2) throws Throwable {\n" +
+                             "     private void $0( int $1, double $2) throws Throwable {\n" +
                              "         $1 + $2 ;\n" +
                              "     }\n" +
-                             "     private void $1(int $1, double $2) throws Throwable {\n" +
+                             "     private void $1( int $1, double $2) throws Throwable {\n" +
                              "         1 + 1 ;\n" +
                              "     }\n" +
                              "}\n");
     }
 
     public void testEmbeddingWithVariables2() throws Exception {
-        performEmbeddingTest("\"\": $1{int} + $2{double} => \"\":1 + 1;;\"\": 1 + 1 => \"\":1 + 1;;",
+        performEmbeddingTest("\'\': $1 + $2 :: $1 instanceof int && $2 instanceof double => 1 + 1;; 1 + 1 => 1 + 1;;",
                              "package $; class $ {\n" +
-                             "     private void $0(int $1, double $2) throws Throwable {\n" +
+                             "     private void $0( int $1, double $2) throws Throwable {\n" +
                              "         $1 + $2 ;\n" +
                              "     }\n" +
-                             "     private void $1(int $1, double $2) throws Throwable {\n" +
+                             "     private void $1( int $1, double $2) throws Throwable {\n" +
                              "         1 + 1 ;\n" +
                              "     }\n" +
                              "     private void $2() throws Throwable {\n" +

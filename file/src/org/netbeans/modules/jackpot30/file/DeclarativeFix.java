@@ -61,9 +61,7 @@ public final class DeclarativeFix {
         return displayName;
     }
 
-    public static DeclarativeFix parse(String spec) {
-        String[] s = DeclarativeHintRegistry.splitNameAndPattern(spec, null);
-
-        return new DeclarativeFix(s[1], s[0]);
+    public static DeclarativeFix create(String name, String fix) {
+        return new DeclarativeFix(fix, name);
     }
 }

@@ -60,11 +60,16 @@ public enum DeclarativeHintTokenId implements TokenId {
 
     DISPLAY_NAME("string"),
     COLON("operator"),
-    TYPE("pattern"),
-    PATTERN("pattern"),
+    DOUBLE_COLON("operator"),
     LEADS_TO("operator"),
-    WHITESPACE("whitespace"),
+    AND("operator"),
+    INSTANCEOF("keyword"),
+    NOT("operator"),
     DOUBLE_SEMICOLON("operator"),
+    DOUBLE_PERCENT("operator"),
+    VARIABLE("identifier"),
+    JAVA_SNIPPET("pattern"),
+    WHITESPACE("whitespace"),
     ERROR("error");
 
     private final String cat;
@@ -101,10 +106,8 @@ public enum DeclarativeHintTokenId implements TokenId {
         @Override
         protected LanguageEmbedding<?> embedding(Token<DeclarativeHintTokenId> token, LanguagePath languagePath, InputAttributes inputAttributes) {
             switch (token.id()) {
-                case PATTERN:
+                case JAVA_SNIPPET:
                     return LanguageEmbedding.create(Language.find("text/x-java"), 0, 0);
-                case TYPE:
-                    return LanguageEmbedding.create(Language.find("text/x-java"), 1, 1);
                 default:
                     return null;
             }

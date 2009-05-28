@@ -39,9 +39,11 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import org.netbeans.api.lexer.PartType;
 import org.netbeans.api.lexer.Token;
 import org.netbeans.spi.lexer.Lexer;
 import org.netbeans.spi.lexer.LexerInput;
@@ -57,225 +59,158 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
     private final LexerInput input;
     private final TokenFactory<DeclarativeHintTokenId> fact;
 
-    private int state;
-    private boolean wasSnippetPart;
-
     public DeclarativeHintLexer(LexerRestartInfo<DeclarativeHintTokenId> info) {
         input = info.input();
         fact  = info.tokenFactory();
-
-        if (info.state() != null) {
-            State s = (State) info.state();
-            
-            state = s.state;
-            wasSnippetPart = s.wasSnippetPart;
-        }
     }
 
     public Token<DeclarativeHintTokenId> nextToken() {
-        if (input.read() == LexerInput.EOF) {
+        int read = input.read();
+
+        if (read == LexerInput.EOF) {
             return null;
         }
 
-        input.backup(1);
-
-        if (state == 0 || state == 2) {
-            Token<DeclarativeHintTokenId> readWhiteSpace = readWhiteSpace();
-
-            if (readWhiteSpace != null) {
-                return readWhiteSpace;
+        int whitespaceLength = 0;
+        
+        if (Character.isWhitespace(read)) {
+            while ((read != LexerInput.EOF) && Character.isWhitespace((char) read)) {
+                read = input.read();
             }
+
+            if (read == LexerInput.EOF) {
+                return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
+            }
+
+            whitespaceLength = input.readLength() - 1;
         }
 
-        int read;
-        Token<DeclarativeHintTokenId> s;
+        while (read != LexerInput.EOF) {
+            Matcher dnMatcher = DISPLAY_NAME_RE.matcher(input.readText());
 
-        switch (state) {
-            case 0:
-                s = readString();
+            if (dnMatcher.find()) {
+                int start = dnMatcher.start();
 
-                if (s != null) {
-                    return s;
+                if (start == 0) {
+                    return fact.createToken(DeclarativeHintTokenId.DISPLAY_NAME);
                 }
 
-                read = input.read();
-
-                if (read == ':') {
-                    state = 1;
-                    return fact.createToken(DeclarativeHintTokenId.COLON);
+                if (whitespaceLength == start) {
+                    input.backup(input.readLength() - whitespaceLength);
+                    return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
                 }
-            case 1:
-                s = readSnippet();
 
-                if (wasSnippetPart) {
-                    state = 4;
-                } else {
-                    state = 2;
-                }
-                return s;
-            case 2:
-                read = input.read();
+                input.backup(input.readLength() - start);
 
-                if (read == '=') {
-                    if (input.read() == '>') {
-                        return fact.createToken(DeclarativeHintTokenId.LEADS_TO);
+                return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
+            }
+
+            Matcher variableMatcher = VARIABLE_RE.matcher(input.readText());
+
+            if (variableMatcher.find()) {
+                int start = variableMatcher.start();
+
+                if (start == 0) {
+                    Matcher m;
+
+                    while ((read = input.read()) != LexerInput.EOF && (m = VARIABLE_RE.matcher(input.readText())).find()) {
+                        if (m.end() < input.readLength())
+                            break;
                     }
 
-                    input.backup(1);
-
-                    return fact.createToken(DeclarativeHintTokenId.ERROR);
-                }
-
-                if (read == ':') {
-                    state = 3;
-                    return fact.createToken(DeclarativeHintTokenId.COLON);
-                }
-
-                if (read == ';') {
-                    int next = input.read();
-
-                    if (next == ';') {
-                        state = 0;
-                        return fact.createToken(DeclarativeHintTokenId.DOUBLE_SEMICOLON);
-                    }
-
-                    if (next != LexerInput.EOF) {
+                    if (read != LexerInput.EOF) {
                         input.backup(1);
                     }
-
-                    return fact.createToken(DeclarativeHintTokenId.ERROR);
+                    
+                    return fact.createToken(DeclarativeHintTokenId.VARIABLE);
                 }
 
-                if (read == '"') {
-                    input.backup(1);
-
-                    s = readString();
-
-                    if (s != null) {
-                        return s;
-                    }
+                if (whitespaceLength == start) {
+                    input.backup(input.readLength() - whitespaceLength);
+                    return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
                 }
-            case 3:
-                s = readSnippet();
-                if (wasSnippetPart) {
-                    state = 4;
-                } else {
-                    state = 2;
+
+                input.backup(input.readLength() - start);
+
+                return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
+            }
+            
+            Token<DeclarativeHintTokenId> t = testToken(String.valueOf(read), whitespaceLength);
+
+            if (t != null) {
+                return t;
+            }
+
+            if (input.readLength() > 1) {
+                t = testToken(input.readText().toString().substring(input.readLength() - 2), whitespaceLength);
+
+                if (t != null) {
+                    return t;
                 }
-                return s;
-            case 4:
-                state = 2;
-                return readType();
+            }
+
+            if (input.readLength() >= "instanceof".length()) {
+                t = testToken(input.readText().toString().substring(input.readLength() - "instanceof".length()), whitespaceLength);
+
+                if (t != null) {
+                    return t;
+                }
+            }
+
+            read = input.read();
         }
 
-        throw new IllegalStateException("" + state);
+        return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
     }
 
     public Object state() {
-        return new State(state, wasSnippetPart);
+        return null;
     }
 
     public void release() {}
 
-    private Token<DeclarativeHintTokenId> readWhiteSpace() {
-        int read = input.read();
-        boolean create = false;
+    private Token<DeclarativeHintTokenId> testToken(String toTest, int whitespaceLength) {
+        if (TOKENS.containsKey(toTest)) {
+            if (whitespaceLength > 0) {
+                if (input.readLength() == whitespaceLength + toTest.length()) {
+                    input.backup(input.readLength() - whitespaceLength);
 
-        while ((read != LexerInput.EOF) && Character.isWhitespace((char) read)) {
-            read = input.read();
-            create = true;
-        }
+                    return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
+                } else {
+                    input.backup(toTest.length());
+                    
+                    return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
+                }
+            } else {
+                if (input.readLength() == toTest.length()) {
+                    return fact.createToken(TOKENS.get(toTest));
+                } else {
+                    input.backup(toTest.length());
 
-        if (read != LexerInput.EOF) {
-            input.backup(1);
-        }
-
-        if (read != '"' && read != ':' && read != LexerInput.EOF) {
-            input.backup(input.readLength());
-            return null;
-        }
-
-        if (create) {
-            return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
+                    return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
+                }
+            }
         }
 
         return null;
     }
 
-    private Token<DeclarativeHintTokenId> readString() {
-        int read = input.read();
+    private static final Pattern DISPLAY_NAME_RE = Pattern.compile("'[^']*':");
+    private static final Pattern VARIABLE_RE = Pattern.compile("\\$[A-Za-z0-9_$]+");
 
-        if (read != '"') {
-            input.backup(1);
+    private static final Map<String, DeclarativeHintTokenId> TOKENS;
 
-            return null;
-        }
+    static {
+        Map<String, DeclarativeHintTokenId> map = new HashMap<String, DeclarativeHintTokenId>();
 
-        read = input.read();
-        
-        while ((read != LexerInput.EOF) && read != '"') {
-            read = input.read();
-        }
+        map.put("=>", DeclarativeHintTokenId.LEADS_TO);
+        map.put("::", DeclarativeHintTokenId.DOUBLE_COLON);
+        map.put("&&", DeclarativeHintTokenId.AND);
+        map.put("!", DeclarativeHintTokenId.NOT);
+        map.put(";;", DeclarativeHintTokenId.DOUBLE_SEMICOLON);
+        map.put("%%", DeclarativeHintTokenId.DOUBLE_PERCENT);
+        map.put("instanceof", DeclarativeHintTokenId.INSTANCEOF);
 
-        return fact.createToken(DeclarativeHintTokenId.DISPLAY_NAME);
-    }
-
-    private Token<DeclarativeHintTokenId> readSnippet() {
-        boolean wasSnippetPartCopy = this.wasSnippetPart;
-        
-        while (input.read() != LexerInput.EOF) {
-            if (input.readText().toString().endsWith("=>") || input.readText().toString().endsWith(";;")) {
-                input.backup(2);
-
-//                while (Character.isWhitespace(input.readText().charAt(input.readText().length() - 1))) {
-//                    input.backup(1);
-//                }
-
-                this.wasSnippetPart = false;
-
-                return fact.createToken(DeclarativeHintTokenId.PATTERN, input.readLength(), wasSnippetPartCopy ? PartType.END : PartType.COMPLETE);
-            }
-
-            Matcher m = VARIABLE_WITH_TYPE_RE.matcher(input.readText());
-
-            if (m.find() && m.end() == input.readLength()) {
-                input.backup(1);
-                this.wasSnippetPart = true;
-                
-                return fact.createToken(DeclarativeHintTokenId.PATTERN, input.readLength(), wasSnippetPartCopy ? PartType.MIDDLE : PartType.START);
-            }
-        }
-
-        if (input.read() != LexerInput.EOF) {
-            this.wasSnippetPart = false;
-            return fact.createToken(DeclarativeHintTokenId.PATTERN, input.readLength(), wasSnippetPartCopy ? PartType.END : PartType.COMPLETE);
-        }
-
-        return null;
-    }
-
-    private Token<DeclarativeHintTokenId> readType() {
-        int read = input.read();
-
-        assert read == '{';
-
-        while ((read != LexerInput.EOF) && read != '}') {
-            read = input.read();
-        }
-
-        return fact.createToken(DeclarativeHintTokenId.TYPE);
-    }
-
-    private static final Pattern VARIABLE_WITH_TYPE_RE = Pattern.compile("\\$[A-Za-z0-9_]+\\{");
-
-    private static final class State {
-        private final int state;
-        private final boolean wasSnippetPart;
-
-        public State(int state, boolean wasSnippetPart) {
-            this.state = state;
-            this.wasSnippetPart = wasSnippetPart;
-        }
-
+        TOKENS = Collections.unmodifiableMap(map);
     }
 }

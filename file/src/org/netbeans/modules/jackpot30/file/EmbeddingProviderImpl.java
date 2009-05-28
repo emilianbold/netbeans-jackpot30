@@ -5,11 +5,9 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import org.netbeans.api.lexer.PartType;
-import org.netbeans.api.lexer.Token;
+import java.util.Map.Entry;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.parsing.api.Embedding;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.spi.EmbeddingProvider;
@@ -28,86 +26,49 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
         List<Embedding> result = new LinkedList<Embedding>();
         TokenSequence<DeclarativeHintTokenId> ts = snapshot.getTokenHierarchy().tokenSequence(DeclarativeHintTokenId.language());
 
-        List<Token<DeclarativeHintTokenId>> parts = new LinkedList<Token<DeclarativeHintTokenId>>();
-        List<Embedding> declarations = new LinkedList<Embedding>();
-        Token<DeclarativeHintTokenId> previous = null;
+        result.add(snapshot.create(GLOBAL_PATTERN_PREFIX, "text/x-java"));
 
-        while (ts.moveNext()) {
-            Token<DeclarativeHintTokenId> t = ts.token();
-            
-            if (t.id() == DeclarativeHintTokenId.PATTERN) {
-                parts.add(t);
+        for (HintTextDescription hint : new DeclarativeHintsParser().parse(ts).hints) {
+            result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART1.replaceAll("\\{0\\}", "" + (index++)), "text/x-java"));
 
-                if (t.partType() != PartType.END && t.partType() != PartType.COMPLETE) {
-                    previous = t;
-                    continue;
-                }
+            StringBuilder builder = new StringBuilder();
+            boolean first = true;
 
-                List<Embedding> embeddingParts = new LinkedList<Embedding>();
-
-                String prefix = SNIPPET_PATTERN_PREFIX_PART1;
-
-                prefix = prefix.replaceAll("\\{0\\}", "" + (index++));
-
-                embeddingParts.add(snapshot.create(prefix, "text/x-java"));
-
-                boolean first = true;
-
-                for (Embedding d : declarations) {
-                    if (!first) {
-                        embeddingParts.add(snapshot.create(", ", "text/x-java"));
-                    }
-                    first = false;
-                    embeddingParts.add(d);
-                }
-
-                embeddingParts.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART2, "text/x-java"));
-
-                for (Token<DeclarativeHintTokenId> tokenPart : parts) {
-                    embeddingParts.add(snapshot.create(tokenPart.offset(null), tokenPart.length(), "text/x-java"));
+            for (Entry<String, int[]> e : hint.variables2Constraints.entrySet()) {
+                if (!first) {
+                    result.add(snapshot.create(", ", "text/x-java"));
+                    builder.append(", ");
                 }
                 
-                embeddingParts.add(snapshot.create(SNIPPET_PATTERN_SUFFIX, "text/x-java"));
+                Embedding e1 = snapshot.create(e.getValue()[0], e.getValue()[1] - e.getValue()[0], "text/x-java");
+                Embedding e2 = snapshot.create(" " + e.getKey(), "text/x-java");
 
-                Embedding e = Embedding.create(embeddingParts);
+                result.add(Embedding.create(Arrays.asList(e1, e2)));
 
-                result.add(e);
-
-                parts.clear();
+                builder.append(snapshot.getText().subSequence(e.getValue()[0], e.getValue()[1]).toString());
+                builder.append(" " + e.getKey());
+                
+                first = false;
             }
 
-            if (t.id() == DeclarativeHintTokenId.TYPE && previous != null && previous.id() == DeclarativeHintTokenId.PATTERN) {
-                Matcher m = VARIABLE_RE.matcher(previous.text().toString());
+            result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART2, "text/x-java"));
+            result.add(snapshot.create(hint.textStart, hint.textEnd - hint.textStart, "text/x-java"));
+            result.add(snapshot.create(SNIPPET_PATTERN_SUFFIX, "text/x-java"));
 
-                if (m.matches()) {
-                    String text = t.text().toString();
-
-                    Embedding e1 = snapshot.create(ts.offset() + 1, text.length() - 2, "text/x-java");
-                    Embedding e2 = snapshot.create(" " + m.group(1), "text/x-java");
-
-                    declarations.add(Embedding.create(Arrays.asList(e1, e2)));
-                }
+            for (int[] fixes : hint.fixes) {
+                result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART1.replaceAll("\\{0\\}", "" + (index++)), "text/x-java"));
+                result.add(snapshot.create(builder.toString(), "text/x-java"));
+                result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART2, "text/x-java"));
+                result.add(snapshot.create(fixes[0], fixes[1] - fixes[0], "text/x-java"));
+                result.add(snapshot.create(SNIPPET_PATTERN_SUFFIX, "text/x-java"));
             }
-
-            if (t.id() == DeclarativeHintTokenId.DOUBLE_SEMICOLON) {
-                declarations.clear();
-            }
-
-            previous = t;
         }
 
-        if (result.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        result.add(0, snapshot.create(GLOBAL_PATTERN_PREFIX, "text/x-java"));
         result.add(snapshot.create(GLOBAL_PATTERN_SUFFIX, "text/x-java"));
-        
+
         return Collections.singletonList(Embedding.create(result));
     }
-
-    private static final Pattern VARIABLE_RE = Pattern.compile(".*(\\$[A-Za-z0-9_]+)");
-
+    
     @Override
     public int getPriority() {
         return 100;
@@ -128,7 +89,7 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
         public Collection<? extends SchedulerTask> create(Snapshot snapshot) {
             return Collections.singletonList(new EmbeddingProviderImpl());
         }
-        
+
     }
 
 }
