@@ -47,6 +47,7 @@ import com.sun.source.tree.ErroneousTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
@@ -63,6 +64,7 @@ import com.sun.tools.javac.util.Log;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -84,6 +86,7 @@ import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
+import org.netbeans.modules.java.source.builder.TreeFactory;
 import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
@@ -214,8 +217,12 @@ public class Utilities {
         FixTree fixTree = new FixTree();
         Context c = JavaSourceAccessor.getINSTANCE().getJavacTask(info).getContext();
 
-        fixTree.attach(c, new ImportAnalysis2(c), info.getCompilationUnit(), null);
-        
+        //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
+        //but sometimes no CompilationUnitTree (e.g. during BatchApply):
+        CompilationUnitTree cut = TreeFactory.instance(c).CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
+
+        fixTree.attach(c, new ImportAnalysis2(c), cut, null);
+
         patternTree = fixTree.translate(patternTree);
 
         if (scope == null) {
