@@ -50,11 +50,10 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -62,22 +61,19 @@ import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.prefs.AbstractPreferences;
-import java.util.prefs.BackingStoreException;
-import java.util.prefs.Preferences;
-import java.util.regex.Pattern;
 import javax.swing.SwingUtilities;
 import javax.swing.text.Document;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.platform.JavaPlatform;
 import org.netbeans.api.java.platform.JavaPlatformManager;
 import org.netbeans.api.java.source.ClasspathInfo;
+import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.ModificationResult;
+import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.WorkingCopy;
@@ -87,7 +83,6 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
-//import org.netbeans.modules.jackpot30.hints.pm.AnnotationBasedHintsRunner;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
@@ -96,12 +91,7 @@ import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
-import org.netbeans.modules.java.hints.errors.SuppressWarningsFixer;
-import org.netbeans.modules.java.hints.infrastructure.HintsTask;
 import org.netbeans.modules.java.hints.options.HintsSettings;
-import org.netbeans.modules.java.hints.spi.AbstractHint;
-import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
-import org.netbeans.modules.java.hints.spi.TreeRule;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -129,55 +119,55 @@ public class BatchApply {
     public static String applyFixes(final Lookup context, final List<HintDescription> hints, boolean progress) {
         assert !progress || SwingUtilities.isEventDispatchThread();
 
-        if (progress) {
-            final AtomicBoolean cancel = new AtomicBoolean();
-            final ProgressHandle handle = ProgressHandleFactory.createHandle("Batch Hint Apply", new Cancellable() {
-                public boolean cancel() {
-                    cancel.set(true);
+        final AtomicBoolean cancel = new AtomicBoolean();
+        final ProgressHandle handle = ProgressHandleFactory.createHandle("Batch Hint Apply", new Cancellable() {
+            public boolean cancel() {
+                cancel.set(true);
 
-                    return true;
-                }
-            });
-            
-            try {
-                DialogDescriptor dd = new DialogDescriptor(ProgressHandleFactory.createProgressComponent(handle),
-                                                           "Batch Hint Apply",
-                                                           true,
-                                                           new Object[] {DialogDescriptor.CANCEL_OPTION},
-                                                           DialogDescriptor.CANCEL_OPTION,
-                                                           DialogDescriptor.DEFAULT_ALIGN,
-                                                           null,
-                                                           new ActionListener() {
-                    public void actionPerformed(ActionEvent e) {
-                        cancel.set(true);
-                    }
-                });
-                final Dialog d = DialogDisplayer.getDefault().createDialog(dd);
-                final String[] result = new String[1];
-
-                Runnable exec = new Runnable() {
-
-                    public void run() {
-                        result[0] = applyFixesImpl(context, hints, handle, cancel);
-
-                        SwingUtilities.invokeLater(new Runnable() {
-                            public void run() {
-                                d.setVisible(false);
-                            }
-                        });
-                    }
-                };
-
-                WORKER.post(exec);
-
-                d.setVisible(true);
-
-                return result[0];
-            } finally {
-                handle.finish();
+                return true;
             }
-        } else {
-            return applyFixesImpl(context, hints, null, new AtomicBoolean());
+        });
+
+        try {
+            if (progress) {
+                    DialogDescriptor dd = new DialogDescriptor(ProgressHandleFactory.createProgressComponent(handle),
+                                                               "Batch Hint Apply",
+                                                               true,
+                                                               new Object[] {DialogDescriptor.CANCEL_OPTION},
+                                                               DialogDescriptor.CANCEL_OPTION,
+                                                               DialogDescriptor.DEFAULT_ALIGN,
+                                                               null,
+                                                               new ActionListener() {
+                        public void actionPerformed(ActionEvent e) {
+                            cancel.set(true);
+                        }
+                    });
+                    final Dialog d = DialogDisplayer.getDefault().createDialog(dd);
+                    final String[] result = new String[1];
+
+                    Runnable exec = new Runnable() {
+
+                        public void run() {
+                            result[0] = applyFixesImpl(context, hints, handle, cancel);
+
+                            SwingUtilities.invokeLater(new Runnable() {
+                                public void run() {
+                                    d.setVisible(false);
+                                }
+                            });
+                        }
+                    };
+
+                    WORKER.post(exec);
+
+                    d.setVisible(true);
+
+                    return result[0];
+            } else {
+                return applyFixesImpl(context, hints, handle, cancel);
+            }
+        } finally {
+            handle.finish();
         }
     }
 
@@ -313,24 +303,55 @@ public class BatchApply {
         return null;
     }
 
-    private static List<ErrorDescription> processFiles(ClasspathInfo cpInfo, Collection<FileObject> toProcess, final BulkPattern bulkPattern, final Map<PatternDescription, List<HintDescription>> patterns, final Map<String, List<PatternDescription>> patternTests, final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
-        final List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
-        //XXX: workarounding NB issues #154252 and #152534:
-        for (FileObject file : toProcess) {
-//        JavaSource js = JavaSource.create(cpInfo, toProcess);
-        try {
-            DataObject d = DataObject.find(file);
-            EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
-            Document doc = ec.openDocument();
-            JavaSource js = JavaSource.create(cpInfo, file);
+    private static List<ErrorDescription> processFiles(final ClasspathInfo cpInfo, Collection<FileObject> toProcess, final BulkPattern bulkPattern, final Map<PatternDescription, List<HintDescription>> patterns, final Map<String, List<PatternDescription>> patternTests, final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
+        ClassPath sourceCP = cpInfo.getClassPath(PathKind.SOURCE);
+        boolean indexed = GlobalPathRegistry.getDefault().getSourceRoots().containsAll(sourceCP.entries());
+        List<ErrorDescription> result = new LinkedList<ErrorDescription>();
 
+        if (!indexed) {
+            Set<FileObject> done = new HashSet<FileObject>();
+
+            result.addAll(doProcessFiles(cpInfo, toProcess, bulkPattern, patterns, patternTests, handle, cancel, indexed, done));
+
+            if (toProcess.size() == done.size()) {
+                return result;
+            }
+            
+            toProcess = new LinkedHashSet<FileObject>(toProcess);
+            toProcess.removeAll(done);
+        }
+
+        if (!indexed) {
+            GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+            try {
+                waitScanFinished();
+            } catch (InterruptedException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+
+        try {
+            result.addAll(doProcessFiles(cpInfo, toProcess, bulkPattern, patterns, patternTests, handle, cancel, true, new LinkedList<FileObject>()));
+        } finally {
+            if (!indexed) {
+                GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+            }
+        }
+
+        return result;
+    }
+
+    private static List<ErrorDescription> doProcessFiles(final ClasspathInfo cpInfo, Collection<FileObject> toProcess, final BulkPattern bulkPattern, final Map<PatternDescription, List<HintDescription>> patterns, final Map<String, List<PatternDescription>> patternTests, final ProgressHandleWrapper handle, final AtomicBoolean cancel, final boolean indexed, final Collection<FileObject> done) {
+        final List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
+        final boolean[] stop = new boolean[1];
+        JavaSource js = JavaSource.create(cpInfo, toProcess);
+
+        try {
             js.runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController cc) throws Exception {
-                    if (cancel.get()) return ;
-                    
-//                    DataObject d = DataObject.find(cc.getFileObject());
-//                    EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
-//                    Document doc = ec.openDocument();
+                    if (cancel.get() || stop[0]) return ;
+
+                    Document doc = indexed ? cc.getSnapshot().getSource().getDocument(true) : null;
 
                     try {
                         if (cc.toPhase(JavaSource.Phase.PARSED).compareTo(JavaSource.Phase.PARSED) < 0) {
@@ -340,6 +361,13 @@ public class BatchApply {
                         Map<String, Collection<TreePath>> matchingPatterns = BulkSearch.match(cc, cc.getCompilationUnit(), bulkPattern);
 
                         if (matchingPatterns.isEmpty()) {
+                            done.add(cc.getFileObject());
+                            handle.tick();
+                            return ;
+                        }
+
+                        if (!indexed) {
+                            stop[0] = true;
                             return ;
                         }
 
@@ -348,6 +376,7 @@ public class BatchApply {
                         }
 
                         eds.addAll(new HintsInvoker().doComputeHints(cc, matchingPatterns, patternTests, patterns));
+                        done.add(cc.getFileObject());
                     } finally {
                         HintsSettings.setPreferencesOverride(null);
                     }
@@ -357,7 +386,6 @@ public class BatchApply {
             }, true);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
-        }
         }
 
         return eds;
@@ -535,6 +563,11 @@ public class BatchApply {
         return result;
     }
 
+    @SuppressWarnings("deprecation")
+    private static void waitScanFinished() throws InterruptedException {
+        SourceUtils.waitScanFinished();
+    }
+
     private static final class ProgressHandleWrapper {
 
         private static final int TOTAL = 1000;
@@ -545,6 +578,7 @@ public class BatchApply {
         private       int            currentPart = (-1);
         private       int            currentPartTotalWork;
         private       int            currentPartWorkDone;
+        private       long           currentPartStartTime;
 
         private       int            currentOffset;
 
@@ -585,6 +619,9 @@ public class BatchApply {
 
             currentPartTotalWork = totalWork;
             currentPartWorkDone  = 0;
+            currentPartStartTime = System.currentTimeMillis();
+
+            setAutomatedMessage();
         }
 
         public void tick() {
@@ -593,12 +630,46 @@ public class BatchApply {
             currentPartWorkDone++;
 
             handle.progress(currentOffset + (parts[currentPart] * currentPartWorkDone) / currentPartTotalWork);
+
+            setAutomatedMessage();
         }
 
         public void setMessage(String message) {
             if (handle == null) return ;
 
             handle.progress(message);
+        }
+
+        private void setAutomatedMessage() {
+            if (handle == null || currentPart == (-1)) return ;
+
+            long spentTime = System.currentTimeMillis() - currentPartStartTime;
+            double timePerUnit = ((double) spentTime) / currentPartWorkDone;
+            String timeString;
+
+            if (spentTime > 0) {
+                double totalTime = currentPartTotalWork * timePerUnit;
+                
+                timeString = toHumanReadableString(spentTime) + "/" + toHumanReadableString(totalTime);
+            } else {
+                timeString = "No estimate";
+            }
+            
+            handle.progress("Part " + (currentPart + 1) + "/" + parts.length + ", " + currentPartWorkDone + "/" + currentPartTotalWork + ", " + timeString);
+        }
+
+        private static String toHumanReadableString(double d) {
+            StringBuilder result = new StringBuilder();
+            long inSeconds = (long) (d / 1000);
+            int seconds = (int) (inSeconds % 60);
+            long inMinutes = inSeconds / 60;
+
+            result.append(inMinutes);
+            result.append("m");
+            result.append(seconds);
+            result.append("s");
+
+            return result.toString();
         }
     }
 }

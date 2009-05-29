@@ -48,14 +48,10 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.api.java.classpath.ClassPath;
-import org.netbeans.api.java.classpath.GlobalPathRegistry;
-import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ProjectUtils;
@@ -70,7 +66,6 @@ import org.netbeans.spi.sendopts.Option;
 import org.netbeans.spi.sendopts.OptionProcessor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
@@ -189,29 +184,32 @@ public class OptionProcessorImpl extends OptionProcessor {
         }
 
         if (optionValues.containsKey(APPLY_TRANSFORMATIONS)) {
-            for (Entry<String, List<ClassPath>> cps : classPaths.entrySet()) {
-                LOG.log(Level.INFO, "registering classpaths: type={0}, classpaths={1}", new Object[]{cps.getKey(), cps.getValue()});
-                GlobalPathRegistry.getDefault().register(cps.getKey(), cps.getValue().toArray(new ClassPath[0]));
-            }
-
-            try {
-                waitScanFinished();
-            } catch (InterruptedException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-
             String hintsArg = optionValues.get(APPLY_TRANSFORMATIONS)[0];
-//            String[] hints = hintsArg.split(":");
+            List<HintDescription> hintDescriptions = new LinkedList<HintDescription>();
+            Set<ClassPath> cps = new HashSet<ClassPath>();
+
+            for (List<ClassPath> c : classPaths.values()) {
+                cps.addAll(c);
+            }
+            
+            Map<String, Collection<HintDescription>> sorted = Utilities.sortOutHints(Utilities.listAllHints(cps), new TreeMap<String, Collection<HintDescription>>());
+
+            for (String hint : hintsArg.split(":")) {
+                Collection<HintDescription> descs = sorted.get(hint);
+
+                if (descs == null) {
+                    env.getErrorStream().println("Unknown hint: " + hint);
+                    continue;
+                }
+
+                hintDescriptions.addAll(descs);
+            }
 
             Lookup context = Lookups.fixed((Object[]) projects.toArray(new Project[0]));
-//            String error = BatchApply.applyFixes(context, hintsArg, false);
-//
-//            if (error != null) {
-//                env.getErrorStream().println("Cannot apply hints because of: " + error);
-//            }
+            String error = BatchApply.applyFixes(context, hintDescriptions, false);
 
-            for (Entry<String, List<ClassPath>> cps : classPaths.entrySet()) {
-                GlobalPathRegistry.getDefault().unregister(cps.toString(), cps.getValue().toArray(new ClassPath[0]));
+            if (error != null) {
+                env.getErrorStream().println("Cannot apply hints because of: " + error);
             }
         }
 
@@ -236,11 +234,6 @@ public class OptionProcessorImpl extends OptionProcessor {
         cps.add(cp);
         
         return true;
-    }
-
-    @SuppressWarnings("deprecation")
-    private void waitScanFinished() throws InterruptedException {
-        SourceUtils.waitScanFinished();
     }
 
 }
