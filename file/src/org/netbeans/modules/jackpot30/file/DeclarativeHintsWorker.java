@@ -79,7 +79,7 @@ class DeclarativeHintsWorker implements Worker {
         Fix[] editorFixes = new Fix[fixes.size()];
 
         for (int cntr = 0; cntr < fixes.size(); cntr++) {
-            editorFixes[cntr] = JavaFix.rewriteFix(ctx.getInfo(), fixes.get(cntr).getDisplayName(), ctx.getPath(), fixes.get(cntr).getPattern(), ctx.getVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/);
+            editorFixes[cntr] = JavaFix.rewriteFix(ctx.getInfo(), fixes.get(cntr).getDisplayName(), ctx.getPath(), fixes.get(cntr).getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/);
         }
 
         ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, editorFixes);

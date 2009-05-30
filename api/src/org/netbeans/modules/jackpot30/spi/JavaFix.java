@@ -40,19 +40,25 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.javadoc.Tag;
+import com.sun.org.apache.xpath.internal.SourceTree;
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.VariableTree;
 import java.io.IOException;
+import java.util.Collection;
 import java.util.regex.Matcher;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Scope;
+import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.logging.Level;
@@ -118,11 +124,23 @@ public abstract class JavaFix {
         return handle.getFileObject();
     }
 
-    public static Fix rewriteFix(CompilationInfo info, String displayName, TreePath what, final String to, Map<String, TreePath> parameters, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints) {
+    public static Fix rewriteFix(CompilationInfo info, String displayName, TreePath what, final String to, Map<String, TreePath> parameters, Map<String, Collection<? extends TreePath>> parametersMulti, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints) {
         final Map<String, TreePathHandle> params = new HashMap<String, TreePathHandle>();
 
         for (Entry<String, TreePath> e : parameters.entrySet()) {
             params.put(e.getKey(), TreePathHandle.create(e.getValue(), info));
+        }
+
+        final Map<String, Collection<TreePathHandle>> paramsMulti = new HashMap<String, Collection<TreePathHandle>>();
+
+        for (Entry<String, Collection<? extends TreePath>> e : parametersMulti.entrySet()) {
+            Collection<TreePathHandle> tph = new LinkedList<TreePathHandle>();
+
+            for (TreePath tp : e.getValue()) {
+                tph.add(TreePathHandle.create(tp, info));
+            }
+
+            paramsMulti.put(e.getKey(), tph);
         }
 
         final Map<String, TypeMirrorHandle> constraintsHandles = new HashMap<String, TypeMirrorHandle>();
@@ -148,11 +166,29 @@ public abstract class JavaFix {
                 for (Entry<String, TreePathHandle> e : params.entrySet()) {
                     TreePath p = e.getValue().resolve(wc);
 
-                    if (tp == null) {
+                    if (p == null) {
                         Logger.getLogger(JavaFix.class.getName()).log(Level.SEVERE, "Cannot resolve handle={0}", e.getValue());
                     }
 
                     parameters.put(e.getKey(), p);
+                }
+
+                final Map<String, Collection<TreePath>> parametersMulti = new HashMap<String, Collection<TreePath>>();
+
+                for (Entry<String, Collection<TreePathHandle>> e : paramsMulti.entrySet()) {
+                    Collection<TreePath> tps = new LinkedList<TreePath>();
+
+                    for (TreePathHandle tph : e.getValue()) {
+                        TreePath p = tph.resolve(wc);
+
+                        if (p == null) {
+                            Logger.getLogger(JavaFix.class.getName()).log(Level.SEVERE, "Cannot resolve handle={0}", e.getValue());
+                        }
+
+                        tps.add(p);
+                    }
+
+                    parametersMulti.put(e.getKey(), tps);
                 }
 
                 Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
@@ -247,7 +283,26 @@ public abstract class JavaFix {
                         
                         return super.visitExpressionStatement(node, p);
                     }
+                    @Override
+                    public Void visitBlock(BlockTree node, Void p) {
+                        List<StatementTree> nueStatement = new LinkedList<StatementTree>();
 
+                        for (StatementTree t : node.getStatements()) {
+                            if (Utilities.isMultistatementWildcardTree(t)) {
+                                for (TreePath tp : parametersMulti.get(Utilities.getWildcardTreeName(t).toString())) {
+                                    nueStatement.add((StatementTree) tp.getLeaf());
+                                }
+                            } else {
+                                nueStatement.add(t);
+                            }
+                        }
+
+                        BlockTree nue = wc.getTreeMaker().Block(nueStatement, node.isStatic());
+
+                        wc.rewrite(node, nue);
+
+                        return super.visitBlock(nue, p);
+                    }
                 }.scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
 
                 wc.rewrite(tp.getLeaf(), parsed);

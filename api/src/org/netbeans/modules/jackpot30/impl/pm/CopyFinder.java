@@ -59,9 +59,11 @@ import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -82,9 +84,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
     private final TreePath searchingFor;
     private final CompilationInfo info;
-    private final Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> result = new LinkedHashMap<TreePath, Pair<Map<String, TreePath>, Map<String, String>>>();
+    private final Map<TreePath, VariableAssignments> result = new LinkedHashMap<TreePath, VariableAssignments>();
     private boolean allowGoDeeper = true;
     private Map<String, TreePath> variables = new HashMap<String, TreePath>(); //XXX
+    private Map<String, Collection<? extends TreePath>> multiVariables = new HashMap<String, Collection<? extends TreePath>>(); //XXX
     private Map<String, String> variables2Names = new HashMap<String, String>(); //XXX
     private AtomicBoolean cancel;
 
@@ -98,7 +101,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     }
 
     //XXX: should probably also include designedTypeHack:
-    public static Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> computeDuplicates(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
+    public static Map<TreePath, VariableAssignments> computeDuplicates(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
         CopyFinder f = new CopyFinder(searchingFor, info, cancel);
         
         f.designedTypeHack = designedTypeHack;
@@ -108,7 +111,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return f.result;
     }
 
-    public static Pair<Map<String, TreePath>, Map<String, String>> computeVariables(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
+    public static VariableAssignments computeVariables(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
         if (!sameKind(searchingFor.getLeaf(), scope.getLeaf())) {
             return null;
         }
@@ -121,7 +124,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         f.designedTypeHack = designedTypeHack;
 
         if (f.scan(scope, searchingFor)) {
-            return new Pair(f.variables, f.variables2Names);
+            return new VariableAssignments(f.variables, f.multiVariables, f.variables2Names);
         }
 
         return null;
@@ -223,7 +226,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
             if (result) {
                 if (p == searchingFor && node != searchingFor) {
-                    this.result.put(new TreePath(getCurrentPath(), node), new Pair(variables, variables2Names));
+                    this.result.put(new TreePath(getCurrentPath(), node), new VariableAssignments(variables, multiVariables, variables2Names));
                     variables = new HashMap<String, TreePath>();
                     variables2Names = new HashMap<String, String>();
                 }
@@ -248,7 +251,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             
             if (result) {
                 if (node != searchingFor.getLeaf()) {
-                    this.result.put(new TreePath(getCurrentPath(), node), new Pair(variables, variables2Names));
+                    this.result.put(new TreePath(getCurrentPath(), node), new VariableAssignments(variables, multiVariables, variables2Names));
                     variables = new HashMap<String, TreePath>();
                     variables2Names = new HashMap<String, String>();
                 }
@@ -312,7 +315,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         if (one == null || other == null) {
             return one == other;
         }
-        
+
         if (one.size() != other.size())
             return false;
         
@@ -374,6 +377,74 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return result && scan(node.getRightOperand(), bt.getRightOperand(), p);
     }
 
+    private static boolean containsMultistatementTrees(List<? extends StatementTree> statements) {
+        for (StatementTree t : statements) {
+            if (Utilities.isMultistatementWildcardTree(t)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    //TODO: currently, only the first matching combination is found:
+    private boolean checkListsWithMultistatementTrees(List<? extends StatementTree> real, int realOffset, List<? extends StatementTree> pattern, int patternOffset, TreePath p) {
+        while (realOffset < real.size() && patternOffset < pattern.size() && !Utilities.isMultistatementWildcardTree(pattern.get(patternOffset))) {
+            if (!scan(real.get(realOffset), pattern.get(patternOffset), p)) {
+                return false;
+            }
+
+            realOffset++;
+            patternOffset++;
+        }
+
+        if (realOffset == real.size() && patternOffset == pattern.size()) {
+            return true;
+        }
+
+        if (Utilities.isMultistatementWildcardTree(pattern.get(patternOffset))) {
+            if (patternOffset + 1 == pattern.size()) {
+                List<TreePath> tps = new LinkedList<TreePath>();
+
+                for (StatementTree t : real.subList(realOffset, real.size())) {
+                    tps.add(new TreePath(getCurrentPath(), t));
+                }
+
+                multiVariables.put(Utilities.getWildcardTreeName(pattern.get(patternOffset)).toString(), tps);
+                return true;
+            }
+            
+            List<TreePath> tps = new LinkedList<TreePath>();
+            
+            while (realOffset < real.size()) {
+                Map<String, TreePath> variables = this.variables;
+                Map<String, Collection<? extends TreePath>> multiVariables = this.multiVariables;
+                Map<String, String> variables2Names = this.variables2Names;
+
+                this.variables = new HashMap<String, TreePath>(variables);
+                this.multiVariables = new HashMap<String, Collection<? extends TreePath>>(multiVariables);
+                this.variables2Names = new HashMap<String, String>(variables2Names);
+
+                if (checkListsWithMultistatementTrees(real, realOffset, pattern, patternOffset + 1, p)) {
+                    this.multiVariables.put(Utilities.getWildcardTreeName(pattern.get(patternOffset)).toString(), tps);
+                    return true;
+                }
+
+                this.variables = variables;
+                this.multiVariables = multiVariables;
+                this.variables2Names = variables2Names;
+
+                tps.add(new TreePath(getCurrentPath(), real.get(realOffset)));
+
+                realOffset++;
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+    
     public Boolean visitBlock(BlockTree node, TreePath p) {
         if (p == null) {
             super.visitBlock(node, p);
@@ -398,6 +469,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             return false;
         }
 
+        if (containsMultistatementTrees(at.getStatements())) {
+            return checkListsWithMultistatementTrees(node.getStatements(), 0, at.getStatements(), 0, p);
+        }
+        
         return checkLists(node.getStatements(), at.getStatements(), p);
     }
 
@@ -816,21 +891,15 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //    }
     
 
-    public static final class Pair<A, B> {
-        private final A a;
-        private final B b;
+    public static final class VariableAssignments {
+        public final Map<String, TreePath> variables;
+        public final Map<String, Collection<? extends TreePath>> multiVariables;
+        public final Map<String, String> variables2Names;
 
-        public Pair(A a, B b) {
-            this.a = a;
-            this.b = b;
-        }
-
-        public A getA() {
-            return a;
-        }
-
-        public B getB() {
-            return b;
+        VariableAssignments(Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variables2Names) {
+            this.variables = variables;
+            this.multiVariables = multiVariables;
+            this.variables2Names = variables2Names;
         }
 
     }

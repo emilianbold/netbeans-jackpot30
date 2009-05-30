@@ -130,8 +130,21 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             return null;
         }
 
-        if (Utilities.getWildcardTreeName(tree) != null) {
+        CharSequence wildcardTreeName = Utilities.getWildcardTreeName(tree);
+
+        if (wildcardTreeName != null) {
+            boolean isMultistatementWildcard = Utilities.isMultistatementWildcard(wildcardTreeName);
+
+            if (isMultistatementWildcard) {
+                append(p, "(?:");
+            }
+
             append(p, "<([0-9a-z]+)>.*?</\\" + (group++) + ">");
+
+            if (isMultistatementWildcard) {
+                append(p, ")*");
+            }
+
             return null;
         }
 

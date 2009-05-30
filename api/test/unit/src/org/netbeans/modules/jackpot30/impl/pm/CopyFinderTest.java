@@ -63,7 +63,7 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.Pair;
+import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.VariableAssignments;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -180,17 +180,43 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              new Pair[0]);
     }
 
+    public void testMultiStatementVariables1() throws Exception {
+        performVariablesTest("package test; public class Test { public int test1() { System.err.println(); System.err.println(); int i = 3; System.err.println(i); System.err.println(i); return i; } }",
+                             "{ $s1$; int $i = 3; $s2$; return $i; }",
+                             new Pair[0],
+                             new Pair[] {
+                                  new Pair<String, int[]>("$s1$", new int[] {55, 76, 77, 98}),
+                                  new Pair<String, int[]>("$s2$", new int[] {110, 132, 133, 155})
+                             },
+                             new Pair[] {new Pair<String, String>("$i", "i")});
+    }
+
+    public void testMultiStatementVariables2() throws Exception {
+        performVariablesTest("package test; public class Test { public int test1() { int i = 3; return i; } }",
+                             "{ $s1$; int $i = 3; $s2$; return $i; }",
+                             new Pair[0],
+                             new Pair[] {
+                                  new Pair<String, int[]>("$s1$", new int[] {}),
+                                  new Pair<String, int[]>("$s2$", new int[] {}),
+                             },
+                             new Pair[] {new Pair<String, String>("$i", "i")});
+    }
+    
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
+        performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
+    }
+
+    protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, int[]>[] multiStatementPos, Pair<String, String>[] duplicatesNames) throws Exception {
         prepareTest(code, -1);
 
         Tree patternTree = Pattern.parseAndAttribute(info, pattern, Collections.<String, TypeMirror>emptyMap(), new Scope[1]);
-        Map<TreePath, Pair<Map<String, TreePath>, Map<String, String>>> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean(), Collections.<String, TypeMirror>emptyMap());
+        Map<TreePath, VariableAssignments> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean(), Collections.<String, TypeMirror>emptyMap());
 
         assertSame(1, result.size());
 
         Map<String, int[]> actual = new HashMap<String, int[]>();
 
-        for (Entry<String, TreePath> e : result.values().iterator().next().getA().entrySet()) {
+        for (Entry<String, TreePath> e : result.values().iterator().next().variables.entrySet()) {
             int[] span = new int[] {
                 (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), e.getValue().getLeaf()),
                 (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), e.getValue().getLeaf())
@@ -208,13 +234,36 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
             assertTrue(dup.getA() + ":" + Arrays.toString(span), Arrays.equals(span, dup.getB()));
         }
 
+        Map<String, int[]> actualMulti = new HashMap<String, int[]>();
+
+        for (Entry<String, Collection<? extends TreePath>> e : result.values().iterator().next().multiVariables.entrySet()) {
+            int[] span = new int[2 * e.getValue().size()];
+            int i = 0;
+            
+            for (TreePath tp : e.getValue()) {
+                span[i++] = (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), tp.getLeaf());
+                span[i++] = (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), tp.getLeaf());
+            }
+
+            actualMulti.put(e.getKey(), span);
+        }
+
+        for (Pair<String, int[]> dup : multiStatementPos) {
+            int[] span = actualMulti.remove(dup.getA());
+
+            if (span == null) {
+                fail(dup.getA());
+            }
+            assertTrue(dup.getA() + ":" + Arrays.toString(span), Arrays.equals(span, dup.getB()));
+        }
+
         Map<String, String> golden = new HashMap<String, String>();
 
         for ( Pair<String, String> e : duplicatesNames) {
             golden.put(e.getA(), e.getB());
         }
 
-        assertEquals(golden, result.values().iterator().next().getB());
+        assertEquals(golden, result.values().iterator().next().variables2Names);
     }
 
 //    @Override
@@ -361,4 +410,22 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
     protected CompilationInfo info;
     private Document doc;
 
+    public static final class Pair<A, B> {
+        private final A a;
+        private final B b;
+
+        public Pair(A a, B b) {
+            this.a = a;
+            this.b = b;
+        }
+
+        public A getA() {
+            return a;
+        }
+
+        public B getB() {
+            return b;
+        }
+
+    }
 }

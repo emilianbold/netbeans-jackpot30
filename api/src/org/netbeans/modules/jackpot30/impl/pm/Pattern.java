@@ -54,7 +54,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.Pair;
+import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.VariableAssignments;
 
 /**XXX: cancelability!
  *
@@ -104,13 +104,13 @@ public class Pattern {
     }
 
     public Map<String, TreePath> match(TreePath toCheck) {
-        Pair<Map<String, TreePath>, Map<String, String>> variables = CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), toCheck, new AtomicBoolean(), constraintsHack);
+        VariableAssignments variables = CopyFinder.computeVariables(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), toCheck, new AtomicBoolean(), constraintsHack);
 
         if (variables == null) {
             return null;
         }
 
-        return variables.getA();
+        return variables.variables;
     }
 
     public boolean checkAntipatterns(TreePath tp) {

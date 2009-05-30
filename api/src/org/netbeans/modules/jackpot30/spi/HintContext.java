@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.util.TreePath;
+import java.util.Collection;
 import java.util.Map;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
@@ -54,13 +55,15 @@ public class HintContext {
     private final HintSeverity severity;
     private final TreePath path;
     private final Map<String, TreePath> variables;
+    private final Map<String, Collection<? extends TreePath>> multiVariables;
     private final Map<String, String> variableNames;
 
-    public HintContext(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables, Map<String, String> variableNames) {
+    public HintContext(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames) {
         this.info = info;
         this.severity = severity;
         this.path = path;
         this.variables = variables;
+        this.multiVariables = multiVariables;
         this.variableNames = variableNames;
     }
 
@@ -80,12 +83,16 @@ public class HintContext {
         return variables;
     }
 
+    public Map<String, Collection<? extends TreePath>> getMultiVariables() {
+        return multiVariables;
+    }
+
     public Map<String, String> getVariableNames() {
         return variableNames;
     }
 
     //XXX: probably should not be visible to clients:
-    public static HintContext create(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables, Map<String, String> variableNames) {
-        return new HintContext(info, severity, path, variables, variableNames);
+    public static HintContext create(CompilationInfo info, HintSeverity severity, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames) {
+        return new HintContext(info, severity, path, variables, multiVariables, variableNames);
     }
 }

@@ -230,6 +230,58 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testMultiStatementVariables1() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test(int j) {\n" +
+                       "         j++;\n" +
+                       "         j++;\n" +
+                       "         int i = 3;\n" +
+                       "         j++;\n" +
+                       "         j++;\n" +
+                       "         return i;\n" +
+                       "     }\n" +
+                       "}\n",
+                       "3:29-10:6:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test(int j) {\n" +
+                       "         j++;\n" +
+                       "         j++;\n" +
+                       "         float i = 3;\n" +
+                       "         j++;\n" +
+                       "         j++;\n" +
+                       "         return i;\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testMultiStatementVariables2() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test(int j) {\n" +
+                       "         int i = 3;\n" +
+                       "         return i;\n" +
+                       "     }\n" +
+                       "}\n",
+                       "3:29-6:6:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test(int j) {\n" +
+                       "         float i = 3;\n" +
+                       "         return i;\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -248,6 +300,8 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testPatternFalseOccurrence", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$1.toURL()", Collections.singletonMap("$1", "java.io.File"))).setWorker(new WorkerImpl()).produce());
         test2Hint.put("testStatementVariables1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("if ($1) $2; else $3;", constraints)).setWorker(new WorkerImpl("if (!$1) $3; else $2;")).produce());
         test2Hint.put("testStatementVariables2", test2Hint.get("testStatementVariables1"));
+        test2Hint.put("testMultiStatementVariables1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("{ $pref$; int $i = 3; $inf$; return $i; }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("{ $pref$; float $i = 3; $inf$; return $i; }")).produce());
+        test2Hint.put("testMultiStatementVariables2", test2Hint.get("testMultiStatementVariables1"));
     }
 
     @Override
@@ -300,7 +354,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
             List<Fix> fixes = new LinkedList<Fix>();
 
             if (fix != null) {
-                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), "Rewrite", ctx.getPath(), fix, ctx.getVariables(), ctx.getVariableNames(), /*XXX*/Collections.<String, TypeMirror>emptyMap()));
+                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), "Rewrite", ctx.getPath(), fix, ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), /*XXX*/Collections.<String, TypeMirror>emptyMap()));
             }
             
             return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "HINT", fixes.toArray(new Fix[0])));

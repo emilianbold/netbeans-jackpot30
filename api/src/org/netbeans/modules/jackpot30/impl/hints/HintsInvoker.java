@@ -86,7 +86,7 @@ import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
-import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.Pair;
+import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.VariableAssignments;
 import org.netbeans.modules.jackpot30.impl.pm.Pattern;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
@@ -206,13 +206,13 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                 TreePath patt = new TreePath(toplevel, p.getPattern());
 
                 for (TreePath candidate : occ.getValue()) {
-                    Pair<Map<String, TreePath>, Map<String, String>> verified = CopyFinder.computeVariables(info, patt, candidate, cancel, p.getConstraints());
+                    VariableAssignments verified = CopyFinder.computeVariables(info, patt, candidate, cancel, p.getConstraints());
 
                     if (verified == null) {
                         continue;
                     }
                     
-                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, candidate, verified.getA(), verified.getB());
+                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, candidate, verified.variables, verified.multiVariables, verified.variables2Names);
 
                     for (HintDescription hd : patternHints.get(d)) {
                         Collection<? extends ErrorDescription> workerErrors = hd.getWorker().createErrors(c);
@@ -306,7 +306,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                     }
 
                     if (enabled) {
-                        HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, path, Collections.<String, TreePath>emptyMap(), Collections.<String, String>emptyMap());
+                        HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, path, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
                         Collection<? extends ErrorDescription> errors = hd.getWorker().createErrors(c);
 
                         if (errors != null) {

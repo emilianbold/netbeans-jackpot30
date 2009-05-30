@@ -37,7 +37,7 @@ public class Test {
 package test;
 public class Test {
     public void test(boolean b) {
-        int q;
+        int q = 3;
         if (b)
             q = 1;
         else
@@ -48,7 +48,7 @@ public class Test {
 package test;
 public class Test {
     public void test(boolean b) {
-        int q;
+        int q = 3;
         q = b ? 1 : 2;
     }
 }
@@ -64,5 +64,31 @@ package test;
 public class Test {
     public void test(boolean b, Object o1, Object o2) {
         String s = (String) (b ? o1 : o2);
+    }
+}
+%%TestCase simplify-with-declaration
+package test;
+public class Test {
+    public void test(boolean b) {
+        int q;
+        if (b)
+            q = 1;
+        else
+            q = 2;
+    }
+}
+%%=>
+package test;
+public class Test {
+    public void test(boolean b) {
+        int q = b ? 1 : 2;
+    }
+}
+%%=>
+package test;
+public class Test {
+    public void test(boolean b) {
+        int q;
+        q = b ? 1 : 2;
     }
 }

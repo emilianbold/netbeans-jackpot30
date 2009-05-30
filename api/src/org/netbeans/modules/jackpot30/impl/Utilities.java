@@ -53,6 +53,7 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Scope;
+import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
@@ -294,6 +295,16 @@ public class Utilities {
         }
 
         return null;
+    }
+
+    public static boolean isMultistatementWildcard(@NonNull CharSequence name) {
+        return name.charAt(name.length() - 1) == '$';
+    }
+
+    public static boolean isMultistatementWildcardTree(StatementTree tree) {
+        CharSequence name = Utilities.getWildcardTreeName(tree);
+
+        return name != null && Utilities.isMultistatementWildcard(name);
     }
 
     private static long inc;

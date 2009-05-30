@@ -151,6 +151,18 @@ public class BulkSearchTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testMultiStatementVariables1() throws Exception {
+        performTest("package test; public class Test { public int test1(int i) { System.err.println(i); System.err.println(i); i = 3; System.err.println(i); System.err.println(i); return i; } }",
+                    Collections.singletonMap("{ $s1$; i = 3; $s2$; return i; }", Arrays.asList("{ System.err.println(i); System.err.println(i); i = 3; System.err.println(i); System.err.println(i); return i; }")),
+                    Collections.<String>emptyList());
+    }
+
+    public void testMultiStatementVariables2() throws Exception {
+        performTest("package test; public class Test { public int test1(int i) { i = 3; return i; } }",
+                    Collections.singletonMap("{ $s1$; i = 3; $s2$; return i; }", Arrays.asList("{ i = 3; return i; }")),
+                    Collections.<String>emptyList());
+    }
+
     public void XtestMeasureTime() throws Exception {
         String code = TestUtilities.copyFileToString(new File("/usr/local/home/lahvac/src/nb//outgoing/java.editor/src/org/netbeans/modules/editor/java/JavaCompletionProvider.java"));
         List<String> patterns = new LinkedList<String>();
