@@ -282,6 +282,36 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testMultiStatementVariables3() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test() {\n" +
+                       "         System.err.println();\n" +
+                       "         System.err.println();\n" +
+                       "         int i = 3;\n" +
+                       "         System.err.println(i);\n" +
+                       "         System.err.println(i);\n" +
+                       "         return i;\n" +
+                       "     }\n" +
+                       "}\n",
+                       "3:24-10:6:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private int test() {\n" +
+                       "         System.err.println();\n" +
+                       "         System.err.println();\n" +
+                       "         float i = 3;\n" +
+                       "         System.err.println(i);\n" +
+                       "         System.err.println(i);\n" +
+                       "         return i;\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -302,6 +332,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testStatementVariables2", test2Hint.get("testStatementVariables1"));
         test2Hint.put("testMultiStatementVariables1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("{ $pref$; int $i = 3; $inf$; return $i; }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("{ $pref$; float $i = 3; $inf$; return $i; }")).produce());
         test2Hint.put("testMultiStatementVariables2", test2Hint.get("testMultiStatementVariables1"));
+        test2Hint.put("testMultiStatementVariables3", test2Hint.get("testMultiStatementVariables1"));
     }
 
     @Override

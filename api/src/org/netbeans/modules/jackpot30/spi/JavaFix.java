@@ -65,6 +65,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -240,7 +241,7 @@ public abstract class JavaFix {
                         //check correct dependency:
                         checkDependency(wc, e, callback);
                         
-                        if (Utilities.isPureMemberSelect(node, false)) {
+                        if (isStaticElement(e)) {
                             wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
 
                             return null;
@@ -449,6 +450,12 @@ public abstract class JavaFix {
     @SuppressWarnings("deprecation")
     private static FileObject getFile(WorkingCopy copy, Element e) {
         return SourceUtils.getFile(e, copy.getClasspathInfo());
+    }
+
+    private static boolean isStaticElement(Element el) {
+        if (el == null) return false;
+
+        return el.getModifiers().contains(Modifier.STATIC);
     }
 
     public interface UpgradeUICallback {
