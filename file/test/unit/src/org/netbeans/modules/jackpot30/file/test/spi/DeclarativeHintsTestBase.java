@@ -37,7 +37,7 @@ public class DeclarativeHintsTestBase extends NbTestCase {
     }
 
     public DeclarativeHintsTestBase(FileObject hintFile, FileObject testFile, TestCase test) {
-        super(test.getName());
+        super(FileUtil.getFileDisplayName(testFile) + "/" + test.getName());
         this.hintFile = hintFile;
         this.testFile = testFile;
         this.test = test;
