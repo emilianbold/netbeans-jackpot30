@@ -46,6 +46,7 @@ import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -64,6 +65,10 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
 public class BulkSearch {
 
     public static Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern) {
+        if (pattern.original.isEmpty()) {
+            return Collections.<String, Collection<TreePath>>emptyMap();
+        }
+        
         Map<String, Collection<TreePath>> occurringPatterns = new HashMap<String, Collection<TreePath>>();
         StringBuilder ser = new StringBuilder();
         Map<Integer, List<TreePath>> serializedEnd2Tree = TreeSerializer.serializeText(tree, ser);
