@@ -71,10 +71,11 @@ public class BulkSearch {
 
         long s2 = System.currentTimeMillis();
         Matcher m = pattern.toRegexpPattern().matcher(serialized);
+        int start = 0; //XXX: hack to allow matches inside other matches (see testTwoPatterns)
 
 //        System.err.println("matcher=" + (System.currentTimeMillis() - s2));
 
-        while (m.find()) {
+        while (m.find(start)) {
             for (int cntr = 0; cntr < pattern.groups.length; cntr++) {
                 if (m.group(pattern.groups[cntr]) != null) {
                     String patt = pattern.original.get(cntr);
@@ -87,6 +88,8 @@ public class BulkSearch {
                     occurrences.addAll(serializedEnd2Tree.get(m.end()));
                 }
             }
+
+            start = m.start() + 1;
         }
 
         long e2 = System.currentTimeMillis();

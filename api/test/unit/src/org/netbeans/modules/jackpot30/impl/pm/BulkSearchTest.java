@@ -44,6 +44,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -160,6 +161,17 @@ public class BulkSearchTest extends NbTestCase {
     public void testMultiStatementVariables2() throws Exception {
         performTest("package test; public class Test { public int test1(int i) { i = 3; return i; } }",
                     Collections.singletonMap("{ $s1$; i = 3; $s2$; return i; }", Arrays.asList("{ i = 3; return i; }")),
+                    Collections.<String>emptyList());
+    }
+
+    public void testTwoPatterns() throws Exception {
+        Map<String, List<String>> contained = new HashMap<String, List<String>>();
+
+        contained.put("if ($a) $ret = $b; else $ret = $c;", Arrays.asList("if (b) q = 2; else q = 3;"));
+        contained.put("{ $p$; $T $v; if($a) $v = $b; else $v = $c; $q$; }", Arrays.asList("{ int q = 3; if (b) q = 2; else q = 3; }"));
+        
+        performTest("package test; public class Test { public void test1(boolean b) { int q = 3; if (b) q = 2; else q = 3; } }",
+                    contained,
                     Collections.<String>emptyList());
     }
 
