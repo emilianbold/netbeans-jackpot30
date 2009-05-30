@@ -75,7 +75,7 @@ public class BulkSearch {
 
 //        System.err.println("matcher=" + (System.currentTimeMillis() - s2));
 
-        while (m.find(start)) {
+        while (start < serialized.length() && m.find(start)) {
             for (int cntr = 0; cntr < pattern.groups.length; cntr++) {
                 if (m.group(pattern.groups[cntr]) != null) {
                     String patt = pattern.original.get(cntr);
