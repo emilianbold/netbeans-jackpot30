@@ -36,6 +36,7 @@ import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionStatementTree;
+import com.sun.source.tree.ForLoopTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.IfTree;
 import com.sun.source.tree.InstanceOfTree;
@@ -560,10 +561,25 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //
 //        return scan(node.getStatement(), ef.getStatement(), p);
 //    }
-//
-//    public Boolean visitForLoop(ForLoopTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+
+    public Boolean visitForLoop(ForLoopTree node, TreePath p) {
+        if (p == null)
+            return super.visitForLoop(node, p);
+
+        ForLoopTree t = (ForLoopTree) p.getLeaf();
+
+        if (!checkLists(node.getInitializer(), t.getInitializer(), p)) {
+            return false;
+        }
+        
+        if (!scan(node.getCondition(), t.getCondition(), p))
+            return false;
+
+        if (!checkLists(node.getUpdate(), t.getUpdate(), p))
+            return false;
+
+        return scan(node.getStatement(), t.getStatement(), p);
+    }
 
     public Boolean visitIdentifier(IdentifierTree node, TreePath p) {
         if (p == null)
