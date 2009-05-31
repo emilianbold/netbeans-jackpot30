@@ -241,6 +241,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                 if (p == searchingFor && node != searchingFor) {
                     this.result.put(new TreePath(getCurrentPath(), node), new VariableAssignments(variables, multiVariables, variables2Names));
                     variables = new HashMap<String, TreePath>();
+                    multiVariables = new HashMap<String, Collection<? extends TreePath>>();
                     variables2Names = new HashMap<String, String>();
                 }
                 
@@ -266,6 +267,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                 if (node != searchingFor.getLeaf()) {
                     this.result.put(new TreePath(getCurrentPath(), node), new VariableAssignments(variables, multiVariables, variables2Names));
                     variables = new HashMap<String, TreePath>();
+                    multiVariables = new HashMap<String, Collection<? extends TreePath>>();
                     variables2Names = new HashMap<String, String>();
                 }
                 
