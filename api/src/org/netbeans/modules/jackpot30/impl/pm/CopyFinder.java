@@ -202,8 +202,20 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                 }
 
                 if (bind) {
-                    variables.put(ident, currentPath);
-                    return true;
+                    TreePath original = variables.get(ident);
+
+                    if (original == null) {
+                        variables.put(ident, currentPath);
+                        return true;
+                    } else {
+                        boolean oldAllowGoDeeper = allowGoDeeper;
+
+                        try {
+                            return scan(node, original);
+                        } finally {
+                            allowGoDeeper = oldAllowGoDeeper;
+                        }
+                    }
                 } else {
                     return false;
                 }

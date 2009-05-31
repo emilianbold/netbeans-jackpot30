@@ -202,16 +202,34 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              new Pair[] {new Pair<String, String>("$i", "i")});
     }
     
+    public void testVariableVerification() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1(String[] a, String[] b) { for (int c = 0; c < a.length; c++) { String s = b[c]; System.err.println(s); } } }",
+                             "for(int $i = 0; $i < $array.length; $i++) { $T $var = $array[$i]; $stmts$; }",
+                             new Pair[0],
+                             new Pair[0],
+                             new Pair[0],
+                             true);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }
 
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, int[]>[] multiStatementPos, Pair<String, String>[] duplicatesNames) throws Exception {
+        performVariablesTest(code, pattern, duplicatesPos, multiStatementPos, duplicatesNames, false);
+    }
+
+    protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, int[]>[] multiStatementPos, Pair<String, String>[] duplicatesNames, boolean noOccurrences) throws Exception {
         prepareTest(code, -1);
 
         Tree patternTree = Pattern.parseAndAttribute(info, pattern, Collections.<String, TypeMirror>emptyMap(), new Scope[1]);
         Map<TreePath, VariableAssignments> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean(), Collections.<String, TypeMirror>emptyMap());
 
+        if (noOccurrences) {
+            assertEquals(0, result.size());
+            return ;
+        }
+        
         assertSame(1, result.size());
 
         Map<String, int[]> actual = new HashMap<String, int[]>();
