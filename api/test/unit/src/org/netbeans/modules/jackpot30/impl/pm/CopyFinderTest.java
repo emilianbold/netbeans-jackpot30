@@ -227,6 +227,21 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              });
     }
 
+    public void testEnhancedFor() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1(String[] a) { for (String s : a) { System.err.println(s); } } }",
+                             "for($T $var : $array) { $stmts$; }",
+                             new Pair[] {
+                                  new Pair<String, int[]>("$array", new int[] {113 - 31, 114 - 31}),
+                                  new Pair<String, int[]>("$T", new int[] {102 - 31, 108 - 31}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, int[]>("$stmts$", new int[] {118 - 31, 140 - 31}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, String>("$var", "s"),
+                             });
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }

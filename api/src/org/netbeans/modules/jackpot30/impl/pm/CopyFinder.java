@@ -545,22 +545,22 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return scan(node.getExpression(), et.getExpression(), p);
     }
 
-//    public Boolean visitEnhancedForLoop(EnhancedForLoopTree node, TreePath p) {
-//        if (p == null) {
-//            super.visitEnhancedForLoop(node, p);
-//            return false;
-//        }
-//
-//        EnhancedForLoopTree ef = (EnhancedForLoopTree) p.getLeaf();
-//
-//        if (!scan(node.getVariable(), ef.getVariable(), p))
-//            return false;
-//
-//        if (!scan(node.getExpression(), ef.getExpression(), p))
-//            return false;
-//
-//        return scan(node.getStatement(), ef.getStatement(), p);
-//    }
+    public Boolean visitEnhancedForLoop(EnhancedForLoopTree node, TreePath p) {
+        if (p == null) {
+            super.visitEnhancedForLoop(node, p);
+            return false;
+        }
+
+        EnhancedForLoopTree ef = (EnhancedForLoopTree) p.getLeaf();
+
+        if (!scan(node.getVariable(), ef.getVariable(), p))
+            return false;
+
+        if (!scan(node.getExpression(), ef.getExpression(), p))
+            return false;
+
+        return scan(node.getStatement(), ef.getStatement(), p);
+    }
 
     public Boolean visitForLoop(ForLoopTree node, TreePath p) {
         if (p == null)
