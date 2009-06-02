@@ -32,4 +32,21 @@ public class TestParserTest {
         assertEquals(golden, testCases);
     }
 
+    @Test
+    public void testNoResults() {
+        String code = "%%TestCase name\ncode\n";
+
+        code += code;
+
+        List<String> golden = Arrays.asList("name:code\n:[]:0:16:[]",
+                                            "name:code\n:[]:21:37:[]");
+        List<String> testCases = new LinkedList<String>();
+
+        for (TestCase ts : TestParser.parse(code)) {
+            testCases.add(ts.toString());
+        }
+
+        assertEquals(golden, testCases);
+    }
+
 }

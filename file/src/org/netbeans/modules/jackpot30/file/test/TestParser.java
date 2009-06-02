@@ -122,16 +122,15 @@ public class TestParser extends Parser {
         }
 
         if (code == null) {
-            code = testCase.substring(0, m.start());
+            code = testCase;//.substring(0, m.start());
         } else {
             results.add(testCase.substring(lastIndex));
             if (!startIndices.isEmpty()) {
                 endIndices.add(startIndices.get(startIndices.size() - 1));
             }
             startIndices.add(lastIndex);
+            endIndices.add(testCase.length());
         }
-
-        endIndices.add(testCase.length());
 
         int[] startIndicesArr = new int[startIndices.size()];
         int[] endIndicesArr = new int[endIndices.size()];
