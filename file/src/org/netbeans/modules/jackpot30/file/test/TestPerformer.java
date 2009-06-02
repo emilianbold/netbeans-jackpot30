@@ -25,9 +25,12 @@ import org.netbeans.modules.jackpot30.spi.HintsRunner;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
+import org.netbeans.spi.java.queries.SourceLevelQueryImplementation;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
+import org.openide.util.lookup.ServiceProvider;
+import org.openide.util.lookup.ServiceProviders;
 
 /**
  *
@@ -157,7 +160,11 @@ public class TestPerformer {
         return new String(file.asBytes(), encoding);
     }
 
-    private static final class TestClassPathProvider implements ClassPathProvider {
+    @ServiceProviders({
+        @ServiceProvider(service=ClassPathProvider.class),
+        @ServiceProvider(service=SourceLevelQueryImplementation.class)
+    })
+    public static final class TestClassPathProvider implements ClassPathProvider, SourceLevelQueryImplementation {
 
         private FileObject from;
         private FileObject sourceRoot;
@@ -177,6 +184,18 @@ public class TestPerformer {
         synchronized void setData(FileObject from, FileObject sourceRoot) {
             this.from = from;
             this.sourceRoot = sourceRoot;
+        }
+
+        public String getSourceLevel(FileObject file) {
+            if (from == null) {
+                return null;
+            }
+
+            if (sourceRoot.equals(file) || FileUtil.isParentOf(sourceRoot, file)) {
+                return "1.5"; //TODO
+            }
+
+            return null;
         }
         
     }
