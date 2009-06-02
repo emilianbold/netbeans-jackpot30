@@ -1,0 +1,64 @@
+%%TestCase simple-array
+package test;
+public class Test {
+    private void test() {
+        String[] a = new String[2];
+
+        for (int c = 0; c < a.length; c++) {
+            String s = a[c];
+            System.err.println(s);
+        }
+    }
+}
+%%=>
+package test;
+public class Test {
+    private void test() {
+        String[] a = new String[2];
+        for (String s : a) {
+            System.err.println(s);
+        }
+    }
+}
+%%TestCase simple-iterable
+package test;
+import java.util.Iterator;
+public class Test {
+    private void test(Iterable iterable) {
+        for (Iterator it = iterable.iterator(); it.hasNext();) {
+            String s = (String) it.next();
+            System.err.println(s);
+        }
+    }
+}
+%%=>
+package test;
+import java.util.Iterator;
+public class Test {
+    private void test(Iterable iterable) {
+        for (String s : iterable) {
+            System.err.println(s);
+        }
+    }
+}
+%%TestCase generified-iterable
+package test;
+import java.util.Iterator;
+public class Test {
+    private void test(Iterable<? extends String> iterable) {
+        for (Iterator<? extends String> it = iterable.iterator(); it.hasNext();) {
+            String s = it.next();
+            System.err.println(s);
+        }
+    }
+}
+%%=>
+package test;
+import java.util.Iterator;
+public class Test {
+    private void test(Iterable<? extends String> iterable) {
+        for (String s : iterable) {
+            System.err.println(s);
+        }
+    }
+}

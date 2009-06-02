@@ -1,0 +1,39 @@
+for(int $i = 0; $i < $array.length; $i++) {
+    $T $var = ($T) $array[$i];
+    $stmts$;
+} :: !referencedIn($i, $stmts$) && sourceVersionGE(SourceVersion.RELEASE_5)
+=>
+for($T $var : $array) {
+    $stmts$;
+}
+;;
+
+for(int $i = 0; $i < $array.length; $i++) {
+    $T $var = $array[$i];
+    $stmts$;
+} :: !referencedIn($i, $stmts$) && sourceVersionGE(SourceVersion.RELEASE_5)
+=> 
+for($T $var : $array) {
+    $stmts$;
+}
+;;
+
+for($I $i = $iterable.iterator(); $i.hasNext();) {
+    $T $var = ($T)$i.next();
+    $stmts$;
+} :: $iterable instanceof java.lang.Iterable && !referencedIn($i, $stmts$) && sourceVersionGE(SourceVersion.RELEASE_5)
+=>
+for($T $var : $iterable) {
+    $stmts$;
+}
+;;
+
+for($I $i = $iterable.iterator(); $i.hasNext();) {
+    $T $var = $i.next();
+    $stmts$;
+} :: $iterable instanceof java.lang.Iterable && !referencedIn($i, $stmts$) && sourceVersionGE(SourceVersion.RELEASE_5)
+=>
+for($T $var : $iterable) {
+    $stmts$;
+}
+;;
