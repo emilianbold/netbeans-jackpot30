@@ -7,6 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.parsing.api.Embedding;
 import org.netbeans.modules.parsing.api.Snapshot;
@@ -28,25 +29,30 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
 
         result.add(snapshot.create(GLOBAL_PATTERN_PREFIX, "text/x-java"));
 
-        for (HintTextDescription hint : new DeclarativeHintsParser().parse(ts).hints) {
+        for (HintTextDescription hint : new DeclarativeHintsParser().parse(snapshot.getText(), ts).hints) {
             result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART1.replaceAll("\\{0\\}", "" + (index++)), "text/x-java"));
 
             StringBuilder builder = new StringBuilder();
             boolean first = true;
 
-            for (Entry<String, int[]> e : hint.variables2Constraints.entrySet()) {
+            for (Condition c : hint.conditions) {
+                if (!(c instanceof Instanceof))
+                    continue;
+
+                Instanceof i = (Instanceof) c;
+                
                 if (!first) {
                     result.add(snapshot.create(", ", "text/x-java"));
                     builder.append(", ");
                 }
                 
-                Embedding e1 = snapshot.create(e.getValue()[0], e.getValue()[1] - e.getValue()[0], "text/x-java");
-                Embedding e2 = snapshot.create(" " + e.getKey(), "text/x-java");
+                Embedding e1 = snapshot.create(i.constraintSpan[0], i.constraintSpan[1] - i.constraintSpan[0], "text/x-java");
+                Embedding e2 = snapshot.create(" " + i.variable, "text/x-java");
 
                 result.add(Embedding.create(Arrays.asList(e1, e2)));
 
-                builder.append(snapshot.getText().subSequence(e.getValue()[0], e.getValue()[1]).toString());
-                builder.append(" " + e.getKey());
+                builder.append(i.constraint);
+                builder.append(" " + i.variable);
                 
                 first = false;
             }

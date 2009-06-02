@@ -901,6 +901,11 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                     return false;
                 }
             } else {
+                //XXX: putting the variable into both variables and variable2Names.
+                //variables is needed by the declarative hints to support conditions like
+                //referencedIn($variable, $statements$):
+                //causes problems in JavaFix, see visitIdentifier there.
+                variables.put(name, getCurrentPath());
                 variables2Names.put(name, currentName);
             }
         }

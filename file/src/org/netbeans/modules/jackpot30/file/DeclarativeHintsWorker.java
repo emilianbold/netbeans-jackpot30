@@ -58,10 +58,12 @@ import org.netbeans.spi.editor.hints.Fix;
 class DeclarativeHintsWorker implements Worker {
 
     private final String displayName;
+    private final List<Condition> conditions;
     private final List<DeclarativeFix> fixes;
 
-    public DeclarativeHintsWorker(String displayName, List<DeclarativeFix> fixes) {
+    public DeclarativeHintsWorker(String displayName, List<Condition> conditions, List<DeclarativeFix> fixes) {
         this.displayName = displayName;
+        this.conditions = conditions;
         this.fixes = fixes;
     }
 
@@ -76,6 +78,12 @@ class DeclarativeHintsWorker implements Worker {
     }
 
     public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
+        for (Condition c : conditions) {
+            if (!c.holds(ctx)) {
+                return null;
+            }
+        }
+        
         Fix[] editorFixes = new Fix[fixes.size()];
 
         for (int cntr = 0; cntr < fixes.size(); cntr++) {

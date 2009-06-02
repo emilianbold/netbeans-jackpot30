@@ -52,6 +52,7 @@ import java.util.Map.Entry;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
@@ -137,7 +138,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
         List<HintDescription> result = new LinkedList<HintDescription>();
 
-        for (HintTextDescription hint : new DeclarativeHintsParser().parse(ts).hints) {
+        for (HintTextDescription hint : new DeclarativeHintsParser().parse(spec, ts).hints) {
             HintDescriptionFactory f = HintDescriptionFactory.create();
             String displayName;
 
@@ -149,8 +150,13 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             Map<String, String> constraints = new HashMap<String, String>();
             
-            for (Entry<String, int[]> e : hint.variables2Constraints.entrySet()) {
-                constraints.put(e.getKey(), spec.substring(e.getValue()[0], e.getValue()[1]));
+            for (Condition c : hint.conditions) {
+                if (!(c instanceof Instanceof))
+                    continue;
+
+                Instanceof i = (Instanceof) c;
+                
+                constraints.put(i.variable, i.constraint);
             }
 
             f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints));
@@ -161,7 +167,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1])));
             }
 
-            f = f.setWorker(new DeclarativeHintsWorker(displayName, fixes));
+            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, fixes));
             f = f.setDisplayName(displayName);
 
             result.add(f.produce());

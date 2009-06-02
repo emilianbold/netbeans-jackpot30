@@ -40,7 +40,6 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.javadoc.Tag;
-import com.sun.org.apache.xpath.internal.SourceTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.VariableTree;
@@ -144,7 +143,7 @@ public abstract class JavaFix {
             paramsMulti.put(e.getKey(), tph);
         }
 
-        final Map<String, TypeMirrorHandle> constraintsHandles = new HashMap<String, TypeMirrorHandle>();
+        final Map<String, TypeMirrorHandle<?>> constraintsHandles = new HashMap<String, TypeMirrorHandle<?>>();
 
         for (Entry<String, TypeMirror> c : constraints.entrySet()) {
             constraintsHandles.put(c.getKey(), TypeMirrorHandle.create(c.getValue()));
@@ -194,7 +193,7 @@ public abstract class JavaFix {
 
                 Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
 
-                for (Entry<String, TypeMirrorHandle> c : constraintsHandles.entrySet()) {
+                for (Entry<String, TypeMirrorHandle<?>> c : constraintsHandles.entrySet()) {
                     constraints.put(c.getKey(), c.getValue().resolve(wc));
                 }
 
@@ -206,7 +205,7 @@ public abstract class JavaFix {
                         String name = node.getName().toString();
                         TreePath tp = parameters.get(name);
 
-                        if (tp != null) {
+                        if (tp != null && !parameterNames.containsKey(name)) {
                             wc.rewrite(node, tp.getLeaf());
                             return null;
                         }
