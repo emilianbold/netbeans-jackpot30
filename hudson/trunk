@@ -26,7 +26,7 @@ done
 cd ../..
 
 ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans clean || exit
-ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans || exit
+ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans build || exit
 ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans coverage-report || exit
 
 mkdir -p build/updates
