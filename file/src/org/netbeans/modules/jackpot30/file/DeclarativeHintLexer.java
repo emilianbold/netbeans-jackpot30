@@ -135,7 +135,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                 return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
             }
             
-            Token<DeclarativeHintTokenId> t = testToken(String.valueOf(read), whitespaceLength);
+            Token<DeclarativeHintTokenId> t = testToken(String.valueOf((char) read), whitespaceLength);
 
             if (t != null) {
                 return t;

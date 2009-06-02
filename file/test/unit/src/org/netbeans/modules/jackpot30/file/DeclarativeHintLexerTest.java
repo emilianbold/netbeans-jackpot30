@@ -1,7 +1,6 @@
 package org.netbeans.modules.jackpot30.file;
 
 import org.junit.Test;
-import org.netbeans.api.lexer.PartType;
 import static org.junit.Assert.*;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
@@ -47,7 +46,7 @@ public class DeclarativeHintLexerTest {
 
         assertFalse(ts.moveNext());
     }
-    
+
     @Test
     public void testWhitespaceAtTheEnd() {
         String text = " 1 + 1 => 1 + 1;; ";
@@ -124,4 +123,13 @@ public class DeclarativeHintLexerTest {
         assertFalse(ts.moveNext());
     }
 
+    @Test
+    public void testNot() {
+        String text = "!";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, NOT, "!");
+
+        assertFalse(ts.moveNext());
+    }
 }
