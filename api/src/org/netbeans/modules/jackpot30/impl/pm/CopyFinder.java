@@ -113,7 +113,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     }
 
     public static VariableAssignments computeVariables(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
-        if (!sameKind(searchingFor.getLeaf(), scope.getLeaf())) {
+        if (!sameKind(scope.getLeaf(), searchingFor.getLeaf())) {
             return null;
         }
 
@@ -153,6 +153,27 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
         if (isSingleStatemenBlockAndStatement(t1, t2) || isSingleStatemenBlockAndStatement(t2, t1)) {
             return true;
+        }
+
+        if (k2 == Kind.BLOCK && StatementTree.class.isAssignableFrom(k1.asInterface())) {
+            BlockTree bt = (BlockTree) t2;
+
+            if (bt.isStatic()) {
+                return false;
+            }
+            
+            switch (bt.getStatements().size()) {
+                case 1:
+                    return true;
+                case 2:
+                    return    Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))
+                           || Utilities.isMultistatementWildcardTree(bt.getStatements().get(1));
+                case 3:
+                    return    Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))
+                           || Utilities.isMultistatementWildcardTree(bt.getStatements().get(2));
+            }
+
+            return false;
         }
 
         if (    (k1 != Kind.MEMBER_SELECT && k1 != Kind.IDENTIFIER)
@@ -287,10 +308,32 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         if (p.getLeaf().getKind() == Kind.BLOCK && node.getKind() != Kind.BLOCK /*&& p.getLeaf() != searchingFor.getLeaf()*/) {
             BlockTree bt = (BlockTree) p.getLeaf();
 
-            assert bt.getStatements().size() == 1;
-            assert !bt.isStatic();
-            
-            p = new TreePath(p, bt.getStatements().get(0));
+            switch (bt.getStatements().size()) {
+                case 1:
+                    p = new TreePath(p, bt.getStatements().get(0));
+                    break;
+                case 2:
+                    if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))) {
+                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(0)).toString(), Collections.<TreePath>emptyList());
+                        p = new TreePath(p, bt.getStatements().get(1));
+                        break;
+                    }
+                    if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(1))) {
+                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(1)).toString(), Collections.<TreePath>emptyList());
+                        p = new TreePath(p, bt.getStatements().get(0));
+                        break;
+                    }
+                    throw new UnsupportedOperationException();
+                case 3:
+                    if (   Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))
+                        && Utilities.isMultistatementWildcardTree(bt.getStatements().get(2))) {
+                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(0)).toString(), Collections.<TreePath>emptyList());
+                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(2)).toString(), Collections.<TreePath>emptyList());
+                        p = new TreePath(p, bt.getStatements().get(1));
+                        break;
+                    }
+                    throw new UnsupportedOperationException();
+            }
         }
 
         if (!sameKind(node, p.getLeaf())) {

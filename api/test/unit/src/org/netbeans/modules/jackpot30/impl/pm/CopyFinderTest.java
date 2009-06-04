@@ -202,6 +202,37 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              new Pair[] {new Pair<String, String>("$i", "i")});
     }
     
+    public void testMultiStatementVariablesAndBlocks1() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1() { if (true) System.err.println(); } }",
+                             "if ($c) {$s1$; System.err.println(); $s2$; }",
+                             new Pair[] {new Pair<String, int[]>("$c", new int[] {60, 64})},
+                             new Pair[] {
+                                  new Pair<String, int[]>("$s1$", new int[] {}),
+                                  new Pair<String, int[]>("$s2$", new int[] {}),
+                             },
+                             new Pair[0]);
+    }
+
+    public void testMultiStatementVariablesAndBlocks2() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1() { if (true) System.err.println(); } }",
+                             "if ($c) {$s1$; System.err.println(); }",
+                             new Pair[] {new Pair<String, int[]>("$c", new int[] {60, 64})},
+                             new Pair[] {
+                                  new Pair<String, int[]>("$s1$", new int[] {}),
+                             },
+                             new Pair[0]);
+    }
+
+    public void testMultiStatementVariablesAndBlocks3() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1() { if (true) System.err.println(); } }",
+                             "if ($c) {System.err.println(); $s2$; }",
+                             new Pair[] {new Pair<String, int[]>("$c", new int[] {60, 64})},
+                             new Pair[] {
+                                  new Pair<String, int[]>("$s2$", new int[] {}),
+                             },
+                             new Pair[0]);
+    }
+
     public void testVariableVerification() throws Exception {
         performVariablesTest("package test; public class Test { public void test1(String[] a, String[] b) { for (int c = 0; c < a.length; c++) { String s = b[c]; System.err.println(s); } } }",
                              "for(int $i = 0; $i < $array.length; $i++) { $T $var = $array[$i]; $stmts$; }",

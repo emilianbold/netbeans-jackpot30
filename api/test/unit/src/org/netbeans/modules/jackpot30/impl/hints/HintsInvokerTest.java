@@ -312,6 +312,29 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testMultiStatementVariablesAndBlocks() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {" +
+                       "         if (true)\n" +
+                       "             System.err.println();\n" +
+                       "     }\n" +
+                       "}\n",
+                       "3:35-4:34:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {" +
+                       "         if (!true) {\n" +
+                       "             System.err.println();\n" +
+                       "         }\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -333,6 +356,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testMultiStatementVariables1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("{ $pref$; int $i = 3; $inf$; return $i; }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("{ $pref$; float $i = 3; $inf$; return $i; }")).produce());
         test2Hint.put("testMultiStatementVariables2", test2Hint.get("testMultiStatementVariables1"));
         test2Hint.put("testMultiStatementVariables3", test2Hint.get("testMultiStatementVariables1"));
+        test2Hint.put("testMultiStatementVariablesAndBlocks", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("if ($c) {$s1$; System.err.println(); $s2$; }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("if (!$c) {$s1$; System.err.println(); $s2$; }")).produce());
     }
 
     @Override

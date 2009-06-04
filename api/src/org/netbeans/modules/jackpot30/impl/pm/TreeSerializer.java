@@ -46,6 +46,7 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.VariableTree;
@@ -55,6 +56,7 @@ import java.io.IOException;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +124,8 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             }
         }
 
+        boolean closeWithBracket = false;
+        
         try {
         //shouldn't this be handled by visitIdentifier???
         if (   tree.getKind() == Kind.IDENTIFIER
@@ -151,10 +155,37 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         if (tree.getKind() == Kind.BLOCK) {
             BlockTree bt = (BlockTree) tree;
 
-            if (!bt.isStatic() && bt.getStatements().size() == 1) {
-                tree = bt.getStatements().get(0);
-                if (currentPath != null) {
-                    currentPath = new TreePath(currentPath, tree);
+            if (!bt.isStatic()) {
+                switch (bt.getStatements().size()) {
+                    case 1:
+                        tree = bt.getStatements().get(0);
+                        if (currentPath != null) {
+                            currentPath = new TreePath(currentPath, tree);
+                        }
+                        break;
+                    case 2:
+                        if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))) {
+                            append(p, "(?:(?:");
+                            scan(bt.getStatements().get(1), p);
+                            append(p, ")|(?:");
+                            closeWithBracket = true;
+                        } else {
+                            if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(1))) {
+                                append(p, "(?:(?:");
+                                scan(bt.getStatements().get(0), p);
+                                append(p, ")|(?:");
+                                closeWithBracket = true;
+                            }
+                        }
+                        break;
+                    case 3:
+                        if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(0)) && Utilities.isMultistatementWildcardTree(bt.getStatements().get(2))) {
+                            append(p, "(?:(?:");
+                            scan(bt.getStatements().get(1), p);
+                            append(p, ")|(?:");
+                            closeWithBracket = true;
+                        }
+                        break;
                 }
             }
         }
@@ -214,13 +245,16 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
             if (paths == null) {
                 this.serializedStart2Tree.put(length, paths = new LinkedList<TreePath>());
-            }
-
+        }
+        
             paths.add(currentPath);
             currentPath = originalTreePath;
         }
+            if (closeWithBracket) {
+                append(p, "))");
+            }
         }
-        
+
         return null;
     }
 
