@@ -1,3 +1,4 @@
+'Convert to Enhanced For':
 for(int $i = 0; $i < $array.length; $i++) {
     $T $var = ($T) $array[$i];
     $stmts$;
@@ -8,6 +9,7 @@ for($T $var : $array) {
 }
 ;;
 
+'Convert to Enhanced For':
 for(int $i = 0; $i < $array.length; $i++) {
     $T $var = $array[$i];
     $stmts$;
@@ -18,6 +20,7 @@ for($T $var : $array) {
 }
 ;;
 
+'Convert to Enhanced For':
 for($I $i = $iterable.iterator(); $i.hasNext();) {
     $T $var = ($T)$i.next();
     $stmts$;
@@ -28,6 +31,7 @@ for($T $var : $iterable) {
 }
 ;;
 
+'Convert to Enhanced For':
 for($I $i = $iterable.iterator(); $i.hasNext();) {
     $T $var = $i.next();
     $stmts$;

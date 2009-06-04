@@ -5,6 +5,7 @@
     <folder name="org-netbeans-modules-java-hints">
         <folder name="declarative">
             <file name="AddConditionals.hint" url="AddConditionals.hint" />
+            <file name="EnhancedFor.hint" url="EnhancedFor.hint" />
         </folder>
     </folder>
 
