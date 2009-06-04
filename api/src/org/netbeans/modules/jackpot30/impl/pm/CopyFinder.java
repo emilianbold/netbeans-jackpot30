@@ -310,6 +310,11 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
             switch (bt.getStatements().size()) {
                 case 1:
+                    if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))) {
+                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(0)).toString(), Collections.singletonList(new TreePath(getCurrentPath(), node)));
+                        return true;
+                    }
+                    
                     p = new TreePath(p, bt.getStatements().get(0));
                     break;
                 case 2:
