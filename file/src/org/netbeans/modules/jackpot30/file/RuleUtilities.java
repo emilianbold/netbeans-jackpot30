@@ -30,6 +30,10 @@ public class RuleUtilities {
             boolean occurs = new TreePathScanner<Boolean, Void>() {
                 @Override
                 public Boolean scan(Tree tree, Void p) {
+                    if (tree == null) {
+                        return false;
+                    }
+                    
                     TreePath currentPath = new TreePath(getCurrentPath(), tree);
                     Element currentElement = ctx.getInfo().getTrees().getElement(currentPath);
 
