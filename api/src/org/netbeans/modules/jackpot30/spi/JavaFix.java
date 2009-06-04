@@ -421,6 +421,10 @@ public abstract class JavaFix {
                 return ;
             }
 
+            if (dep.getSpecificationVersion() == null) {
+                return ;
+            }
+
             SpecificationVersion currentDep = new SpecificationVersion(dep.getSpecificationVersion());
 
             if (currentDep == null || currentDep.compareTo(sv) < 0) {
