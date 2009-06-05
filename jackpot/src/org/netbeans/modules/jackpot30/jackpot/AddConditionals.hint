@@ -2,5 +2,6 @@ if ($a) return $b; else return $c; => return $a ? $b : $c; ;;
 if ($a) $ret = $b; else $ret = $c; => $ret = $a ? $b : $c; ;;
 if ($a) $b=$c; else if ($a2) $b = $d; => $b = $a ? $c : $a2 ? $d : $b; ;;
 $a ? ($T)$b : ($T)$c => ($T)($a ? $b : $c) ;;
-{ $p$; $T $v; if($a) $v = $b; else $v = $c; $q$; } => { $p$; $T $v = $a ? $b : $c; $q$; }  ;;
+//the following hint causes BulkSearch to be extremelly slow:
+//{ $p$; $T $v; if($a) $v = $b; else $v = $c; $q$; } => { $p$; $T $v = $a ? $b : $c; $q$; }  ;;
 
