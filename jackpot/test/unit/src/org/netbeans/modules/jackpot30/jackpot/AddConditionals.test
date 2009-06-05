@@ -81,13 +81,6 @@ public class Test {
 package test;
 public class Test {
     public void test(boolean b) {
-        int q = b ? 1 : 2;
-    }
-}
-%%=>
-package test;
-public class Test {
-    public void test(boolean b) {
         int q;
         q = b ? 1 : 2;
     }
