@@ -67,6 +67,10 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
 public class BulkSearch {
 
     public static Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern) {
+        return match(info, tree, pattern, null);
+    }
+
+    public static Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern, Map<String, Long> timeLog) {
         if (pattern.original.isEmpty()) {
             return Collections.<String, Collection<TreePath>>emptyMap();
         }
@@ -76,13 +80,19 @@ public class BulkSearch {
         Map<Integer, List<TreePath>> serializedEnd2Tree = TreeSerializer.serializeText(tree, ser);
         String serialized = ser.toString();
 
+        if (timeLog != null) {
+            timeLog.put("[C] Jackpot 3.0 Serialized Tree Size", (long) serialized.length());
+        }
+        
         long s2 = System.currentTimeMillis();
         Matcher m = pattern.toRegexpPattern().matcher(serialized);
         int start = 0; //XXX: hack to allow matches inside other matches (see testTwoPatterns)
+        long patternOccurrences = 0;
 
 //        System.err.println("matcher=" + (System.currentTimeMillis() - s2));
 
         while (start < serialized.length() && m.find(start)) {
+            patternOccurrences++;
             for (int cntr = 0; cntr < pattern.groups.length; cntr++) {
                 if (m.group(pattern.groups[cntr]) != null) {
                     String patt = pattern.original.get(cntr);
@@ -100,6 +110,10 @@ public class BulkSearch {
         }
 
         long e2 = System.currentTimeMillis();
+
+        if (timeLog != null) {
+            timeLog.put("[C] Jackpot 3.0 Pattern Occurrences", patternOccurrences);
+        }
 
 //        System.err.println("match: " + (e2 - s2));
         return occurringPatterns;

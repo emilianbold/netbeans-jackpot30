@@ -101,10 +101,14 @@ import org.openide.util.lookup.ServiceProvider;
  */
 public class HintsInvoker implements CancellableTask<CompilationInfo> {
 
+    private static final Logger TIMER = Logger.getLogger("TIMER");
+    
     private final AtomicBoolean cancel = new AtomicBoolean();
+    private final Map<String, Long> timeLog = new HashMap<String, Long>();
     
     public void run(CompilationInfo info) {
         cancel.set(false);
+        timeLog.clear();
 
         long startTime = System.currentTimeMillis();
 
@@ -117,8 +121,12 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
         HintsController.setErrors(info.getFileObject(), HintsInvoker.class.getName(), result);
 
         long endTime = System.currentTimeMillis();
+        
+        TIMER.log(Level.FINE, "Jackpot 3.0 Hints Task", new Object[] {info.getFileObject(), endTime - startTime});
 
-        Logger.getLogger("TIMER").log(Level.FINE, "HintsTask", new Object[] {info.getFileObject(), endTime - startTime});
+        for (Entry<String, Long> e : timeLog.entrySet()) {
+            TIMER.log(Level.FINE, e.getKey(), new Object[] {info.getFileObject(), e.getValue()});
+        }
     }
 
     public void cancel() {
@@ -141,8 +149,14 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
             patternHints.put(e.getKey(), new LinkedList<HintDescription>(e.getValue()));
         }
 
+        long elementBasedStart = System.currentTimeMillis();
+
         RulesManager.computeElementBasedHintsXXX(info, cancel, kindHints, patternHints);
         
+        long elementBasedEnd = System.currentTimeMillis();
+
+        timeLog.put("Jackpot 3.0 Element Based Hints", elementBasedEnd - elementBasedStart);
+
         return computeHints(info, startAt, kindHints, patternHints);
     }
 
@@ -160,15 +174,33 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
         List<ErrorDescription> errors = new  LinkedList<ErrorDescription>();
 
         if (!hints.isEmpty()) {
+            long kindStart = System.currentTimeMillis();
+
             new ScannerImpl(info, cancel, hints).scan(startAt, errors);
+
+            long kindEnd = System.currentTimeMillis();
+
+            timeLog.put("Jackpot 3.0 Kind Based Hints", kindEnd - kindStart);
         }
+
+        long patternStart = System.currentTimeMillis();
         
         Map<String, List<PatternDescription>> patternTests = computePatternTests(patternHints);
 
+        long bulkStart = System.currentTimeMillis();
+        
         BulkPattern bulkPattern = BulkSearch.create(info, patternTests.keySet());
-        Map<String, Collection<TreePath>> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern);
+        Map<String, Collection<TreePath>> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern, timeLog);
+        
+        long bulkEnd = System.currentTimeMillis();
+
+        timeLog.put("Jackpot 3.0 Bulk Search", bulkEnd - bulkStart);
         
         errors.addAll(doComputeHints(info, occurringPatterns, patternTests, startAt, patternHints));
+
+        long patternEnd = System.currentTimeMillis();
+
+        timeLog.put("Jackpot 3.0 Pattern Based Hints", patternEnd - patternStart);
 
         return errors;
     }
