@@ -1,7 +1,6 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import java.util.Collection;
-import javax.lang.model.element.Element;
 import org.netbeans.api.java.source.CompilationInfo;
 
 /**
@@ -10,6 +9,6 @@ import org.netbeans.api.java.source.CompilationInfo;
  */
 public interface ElementBasedHintProvider {
 
-    public Collection<? extends HintDescription> computeHints(CompilationInfo info, Element el);
+    public Collection<? extends HintDescription> computeHints(CompilationInfo info);
 
 }

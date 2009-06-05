@@ -49,12 +49,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -62,6 +63,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeMirror;
@@ -75,6 +77,7 @@ import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TypeMirrorHandle;
+import org.netbeans.api.java.source.support.CancellableTreePathScanner;
 import org.netbeans.modules.jackpot30.spi.ElementBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
@@ -100,18 +103,7 @@ import static org.netbeans.modules.jackpot30.transformers.Annotations.*;
 @ServiceProvider(service=ElementBasedHintProvider.class)
 public class TransformationHintProviderImpl implements ElementBasedHintProvider {
 
-    private final Map<CompilationInfo, JavaSource> cachedJavaSources = new WeakHashMap<CompilationInfo, JavaSource>();
-
     private JavaSource prepareJavaSource(CompilationInfo info) {
-        //XXX: the caching is a hack (to improve performance by not creating new and new JavaSources).
-        //expects that the CompilationInfo will be the same for all elements from the one editor, but that is not guaranteed
-        //ideally, should go away eventually:
-        JavaSource js = cachedJavaSources.get(info);
-
-        if (js != null) {
-            return js;
-        }
-        
         ClasspathInfo currentCP = info.getClasspathInfo();
         ClassPath overlayCompileCP = prepareOverlayCompileCP();
         ClassPath extendedCompileCP = ClassPathSupport.createProxyClassPath(overlayCompileCP, currentCP.getClassPath(PathKind.COMPILE));
@@ -119,26 +111,32 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
         ClassPath extendedBootCP = ClassPathSupport.createProxyClassPath(overlayBootCP, currentCP.getClassPath(PathKind.BOOT));
         ClasspathInfo extendedCPInfo = ClasspathInfo.create(extendedBootCP, extendedCompileCP, currentCP.getClassPath(PathKind.SOURCE));
 
-        cachedJavaSources.put(info, js = JavaSource.create(extendedCPInfo));
-
-        return js;
+        return JavaSource.create(extendedCPInfo);
     }
     
-    public Collection<? extends HintDescription> computeHints(final CompilationInfo info, final Element el) {
+    public Collection<? extends HintDescription> computeHints(final CompilationInfo info) {
         final List<HintDescription> hints = new LinkedList<HintDescription>();
 
-        try {
-        prepareJavaSource(info).runUserActionTask(new Task<CompilationController>() {
-            public void run(final CompilationController overlayInfo) throws Exception {
-                List<HintDescription> w = doComputeHints(info, overlayInfo, el);
+        if (ANNOTATIONS_JAR != null && (JDK_OVERLAY_JAR != null || NB_OVERLAY_JAR != null)) {
+            try {
+                prepareJavaSource(info).runUserActionTask(new Task<CompilationController>() {
+                    public void run(final CompilationController overlayInfo) throws Exception {
+                        List<HintDescription> w = doComputeHints(info, overlayInfo);
 
-                if (w != null) {
-                    hints.addAll(w);
-                }
+                        if (w != null) {
+                            hints.addAll(w);
+                        }
+                    }
+                }, true);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
             }
-        }, true);
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
+        } else {
+            List<HintDescription> w = doComputeHints(info, null);
+
+            if (w != null) {
+                hints.addAll(w);
+            }
         }
 
         return hints;
@@ -151,19 +149,69 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
             ElementKind.ENUM_CONSTANT);
     
     private  List<HintDescription> doComputeHints(CompilationInfo info,
-                                                  CompilationInfo overlayInfo,
-                                                  Element el) {
-        List<HintDescription> patterns = processAnnotations(el, el.getEnclosingElement(), info, info);
+                                                  CompilationInfo overlayInfo) {
 
-        if (patterns.isEmpty() && KINDS_FOR_ELEMENT_HANDLE.contains(el.getKind())) {
-            Element overlay = ElementHandle.create(el).resolve(overlayInfo);
+        FindAnnotation ann = new FindAnnotation(info, overlayInfo, /*XXX*/new AtomicBoolean());
 
-            if (overlay != null) {
-                patterns = processAnnotations(overlay, overlay.getEnclosingElement(), info, overlayInfo);
-            }
+        ann.scan(info.getCompilationUnit(), null);
+
+        return ann.hints;
+    }
+
+    private final class FindAnnotation extends CancellableTreePathScanner<Void, Void> {
+
+        private final CompilationInfo info;
+        private final CompilationInfo overlayInfo;
+        private final List<HintDescription> hints = new LinkedList<HintDescription>();
+
+        public FindAnnotation(CompilationInfo info, CompilationInfo overlayInfo, AtomicBoolean cancel) {
+            super(cancel);
+            this.info = info;
+            this.overlayInfo = overlayInfo;
         }
 
-        return patterns;
+        private final Set<Element> handledElements = new HashSet<Element>();
+        
+        private void handleElementImpl(Element el) {
+            if (!handledElements.add(el)) return ;
+
+            List<HintDescription> currentHints = processAnnotations(el, el.getEnclosingElement(), info, info);
+
+            if (overlayInfo != null && currentHints.isEmpty() && KINDS_FOR_ELEMENT_HANDLE.contains(el.getKind())) {
+                Element overlay = ElementHandle.create(el).resolve(overlayInfo);
+
+                if (overlay != null) {
+                    currentHints = processAnnotations(overlay, overlay.getEnclosingElement(), info, overlayInfo);
+                }
+            }
+
+            this.hints.addAll(currentHints);
+        }
+
+        private void handleElement(Element el) {
+            PackageElement p = info.getElements().getPackageOf(el);
+
+            while (p != el) {
+                handleElementImpl(el);
+                el = el.getEnclosingElement();
+            }
+
+            handleElementImpl(p);
+        }
+
+        @Override
+        public Void scan(Tree tree, Void p) {
+            if (tree == null) return null;
+
+            TreePath tp = new TreePath(getCurrentPath(), tree);
+            Element el = info.getTrees().getElement(tp);
+
+            if (el != null) {
+                handleElement(el);
+            }
+
+            return super.scan(tree, p);
+        }
     }
 
     private static final class WorkerImpl implements Worker {
@@ -323,29 +371,34 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
 
     }
 
-    private ClassPath prepareOverlayCompileCP() throws IllegalArgumentException {
-        File nbOverlay = InstalledFileLocator.getDefault().locate("overlay/org-netbeans-nboverlay.jar", null, false);
+    private static final File ANNOTATIONS_JAR;
+    private static final File NB_OVERLAY_JAR;
+    private static final File JDK_OVERLAY_JAR;
 
-        if (nbOverlay ==null) {
+    static {
+        ANNOTATIONS_JAR = InstalledFileLocator.getDefault().locate("libs/annotations.jar", null, false);
+        NB_OVERLAY_JAR = InstalledFileLocator.getDefault().locate("overlay/org-netbeans-nboverlay.jar", null, false);
+        JDK_OVERLAY_JAR = InstalledFileLocator.getDefault().locate("overlay/jdk.jar", null, false);
+    }
+    
+    private ClassPath prepareOverlayCompileCP() throws IllegalArgumentException {
+        if (NB_OVERLAY_JAR ==null) {
             return ClassPathSupport.createClassPath(new URL[0]);
         }
         
-        return ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(nbOverlay));
+        return ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(NB_OVERLAY_JAR));
     }
 
     private ClassPath prepareOverlayBootCP() throws IllegalArgumentException {
-        File annotations = InstalledFileLocator.getDefault().locate("libs/annotations.jar", null, false);
-        File jdkOverlay = InstalledFileLocator.getDefault().locate("overlay/jdk.jar", null, false);
-
-        if (annotations == null) {
+        if (ANNOTATIONS_JAR == null) {
             return ClassPathSupport.createClassPath(new URL[0]);
         }
 
-        if (jdkOverlay == null) {
-            return ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(annotations));
+        if (JDK_OVERLAY_JAR == null) {
+            return ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(ANNOTATIONS_JAR));
         }
 
-        return ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(annotations), FileUtil.urlForArchiveOrDir(jdkOverlay));
+        return ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(ANNOTATIONS_JAR), FileUtil.urlForArchiveOrDir(JDK_OVERLAY_JAR));
     }
 
     private List<HintDescription> processAnnotations(Element e, Element enclosing, CompilationInfo info, CompilationInfo fake) {

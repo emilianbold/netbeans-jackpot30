@@ -99,41 +99,9 @@ public class RulesManager {
     }
 
     public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Collection<? extends ElementBasedHintProvider> providers, final Collection<? extends ClassPathBasedHintProvider> cpBasedProviders, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {
-        new CancellableTreePathScanner<Void, Void>(cancel) {
-            private Set<Element> handledElements = new HashSet<Element>();
-            private void handleElementImpl(Element el) {
-                if (!handledElements.add(el)) return ;
-                
-                for (ElementBasedHintProvider provider : providers) {
-                    sortOut(provider.computeHints(info, el), kind2Hints, pattern2Hint);
-                }
-            }
-            
-            private void handleElement(Element el) {
-                PackageElement p = info.getElements().getPackageOf(el);
-
-                while (p != el) {
-                    handleElementImpl(el);
-                    el = el.getEnclosingElement();
-                }
-                
-                handleElementImpl(p);
-            }
-
-            @Override
-            public Void scan(Tree tree, Void p) {
-                if (tree == null) return null;
-
-                TreePath tp = new TreePath(getCurrentPath(), tree);
-                Element el = info.getTrees().getElement(tp);
-
-                if (el != null) {
-                    handleElement(el);
-                }
-                
-                return super.scan(tree, p);
-            }
-        }.scan(info.getCompilationUnit(), null);
+        for (ElementBasedHintProvider provider : providers) {
+            sortOut(provider.computeHints(info), kind2Hints, pattern2Hint);
+        }
 
         ClasspathInfo cpInfo = info.getClasspathInfo();
         List<ClassPath> cps = new LinkedList<ClassPath>();
