@@ -142,18 +142,32 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
             }
 
             if (input.readLength() > 1) {
-                t = testToken(input.readText().toString().substring(input.readLength() - 2), whitespaceLength);
+                String inputString = input.readText().toString();
+                
+                t = testToken(inputString.substring(input.readLength() - 2), whitespaceLength);
 
                 if (t != null) {
                     return t;
                 }
-            }
 
-            if (input.readLength() >= "instanceof".length()) {
-                t = testToken(input.readText().toString().substring(input.readLength() - "instanceof".length()), whitespaceLength);
+                if (input.readLength() >= "instanceof".length()) {
+                    t = testToken(inputString.substring(input.readLength() - "instanceof".length()), whitespaceLength);
 
-                if (t != null) {
-                    return t;
+                    if (t != null) {
+                        return t;
+                    }
+                }
+
+                boolean blockComment;
+
+                if ((blockComment = inputString.endsWith("/*")) || inputString.endsWith("//")) {
+                    Token<DeclarativeHintTokenId> preread = resolvePrereadText(2, whitespaceLength);
+
+                    if (preread != null) {
+                        return preread;
+                    }
+
+                    return blockComment ? readComment(DeclarativeHintTokenId.BLOCK_COMMENT, "*/") : readComment(DeclarativeHintTokenId.LINE_COMMENT, "\n");
                 }
             }
 
@@ -171,28 +185,45 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
     private Token<DeclarativeHintTokenId> testToken(String toTest, int whitespaceLength) {
         if (TOKENS.containsKey(toTest)) {
-            if (whitespaceLength > 0) {
-                if (input.readLength() == whitespaceLength + toTest.length()) {
-                    input.backup(input.readLength() - whitespaceLength);
+            Token<DeclarativeHintTokenId> t = resolvePrereadText(toTest.length(), whitespaceLength);
 
-                    return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
-                } else {
-                    input.backup(toTest.length());
-                    
-                    return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
-                }
+            if (t != null) {
+                return t;
             } else {
-                if (input.readLength() == toTest.length()) {
-                    return fact.createToken(TOKENS.get(toTest));
-                } else {
-                    input.backup(toTest.length());
-
-                    return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
-                }
+                return fact.createToken(TOKENS.get(toTest));
             }
         }
 
         return null;
+    }
+
+    private Token<DeclarativeHintTokenId> resolvePrereadText(int backupLength, int whitespaceLength) {
+        if (whitespaceLength > 0) {
+            if (input.readLength() == whitespaceLength + backupLength) {
+                input.backup(input.readLength() - whitespaceLength);
+
+                return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
+            } else {
+                input.backup(backupLength);
+
+                return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
+            }
+        } else {
+            if (input.readLength() == backupLength) {
+                return null;
+            } else {
+                input.backup(backupLength);
+
+                return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
+            }
+        }
+    }
+
+    private Token<DeclarativeHintTokenId> readComment(DeclarativeHintTokenId commentId, String commentEnd) {
+        while (input.read() != LexerInput.EOF && !input.readText().toString().endsWith(commentEnd))
+            ;
+
+        return fact.createToken(commentId);
     }
 
     private static final Pattern DISPLAY_NAME_RE = Pattern.compile("'[^']*':");

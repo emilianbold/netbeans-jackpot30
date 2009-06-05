@@ -54,7 +54,7 @@ public class DeclarativeHintsParser {
 
     private boolean nextToken() {
         while (input.moveNext()) {
-            if (id() != WHITESPACE) {
+            if (id() != WHITESPACE && id() != BLOCK_COMMENT && id() != LINE_COMMENT) {
                 return true;
             }
         }

@@ -70,6 +70,8 @@ public enum DeclarativeHintTokenId implements TokenId {
     VARIABLE("identifier"),
     JAVA_SNIPPET("pattern"),
     WHITESPACE("whitespace"),
+    LINE_COMMENT("comment"),
+    BLOCK_COMMENT("comment"),
     ERROR("error");
 
     private final String cat;

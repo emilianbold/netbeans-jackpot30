@@ -96,6 +96,16 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test"));
     }
 
+    public void testComments1() {
+        performTest("/**/'test': /**/1 /**/+ 1//\n =>/**/ 1 + 1/**/;; //\n'test2': /**/1 + 1 =>//\n 1/**/ + 1;;",
+                    StringHintDescription.create("1 /**/+ 1//\n ")
+                                         .addTos(" 1 + 1/**/")
+                                         .setDisplayName("test"),
+                    StringHintDescription.create("1 + 1 ")
+                                         .addTos(" 1/**/ + 1")
+                                         .setDisplayName("test2"));
+    }
+
     protected void setUp() throws Exception {
         SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
         

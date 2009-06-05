@@ -132,4 +132,68 @@ public class DeclarativeHintLexerTest {
 
         assertFalse(ts.moveNext());
     }
+    
+    @Test
+    public void testComments1() {
+        String text = "/*=>*/'test': 1 + 1 => 1 + 1;;/*;;*/'test2': 1 + 1 => 1 + 1;;";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, BLOCK_COMMENT, "/*=>*/");
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+        assertNextTokenEquals(ts, BLOCK_COMMENT, "/*;;*/");
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+
+        assertFalse(ts.moveNext());
+    }
+
+    @Test
+    public void testComments2() {
+        String text = "//=>\n'test': 1 + 1 => 1 + 1;;//;;\n'test2': 1 + 1 => 1 + 1;;";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, LINE_COMMENT, "//=>\n");
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+        assertNextTokenEquals(ts, LINE_COMMENT, "//;;\n");
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+
+        assertFalse(ts.moveNext());
+    }
+
+    @Test
+    public void testComments3() {
+        String text = "'test': 1 /*=>;;::*/+ 1 => 1 + 1;;'test2': 1 + 1 => 1 + 1;;";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 ");
+        assertNextTokenEquals(ts, BLOCK_COMMENT, "/*=>;;::*/");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, "+ 1 ");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+
+        assertFalse(ts.moveNext());
+    }
+
 }
