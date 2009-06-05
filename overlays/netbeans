@@ -2,28 +2,141 @@ diff --git a/openide.loaders/src/META-INF/upgrade/org.openide.loaders.DataObject
 new file mode 100644
 --- /dev/null
 +++ b/openide.loaders/src/META-INF/upgrade/org.openide.loaders.DataObject.hint
-@@ -0,0 +1,1 @@
-+"DataObject.getCookie is obsolette": $this{org.openide.loaders.DataObject}.getCookie($1{java.lang.Class}) => $this.getLookup().lookup($1) ;;
+@@ -0,0 +1,3 @@
++'DataObject.getCookie is obsolette':
++$this.getCookie($1) :: $this instanceof org.openide.loaders.DataObject && $1 instanceof java.lang.Class
++   => $this.getLookup().lookup($1) ;;
 diff --git a/openide.nodes/src/META-INF/upgrade/org.openide.nodes.Node.hint b/openide.nodes/src/META-INF/upgrade/org.openide.nodes.Node.hint
 new file mode 100644
 --- /dev/null
 +++ b/openide.nodes/src/META-INF/upgrade/org.openide.nodes.Node.hint
-@@ -0,0 +1,1 @@
-+"Node.getCookie is obsolette": $this{org.openide.nodes.Node}.getCookie($1{java.lang.Class}) => $this.getLookup().lookup($1) ;;
+@@ -0,0 +1,3 @@
++'Node.getCookie is obsolette':
++$this.getCookie($1) :: $this instanceof org.openide.loaders.DataObject && $1 instanceof java.lang.Class
++   => $this.getLookup().lookup($1) ;;
 diff --git a/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint b/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint
 new file mode 100644
 --- /dev/null
 +++ b/openide.text/src/META-INF/upgrade/org.openide.text.Line.hint
 @@ -0,0 +1,12 @@
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TRY_SHOW, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.NONE, org.openide.text.Line.ShowVisibilityType.NONE, $1) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_SHOW, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.NONE, $1) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_GOTO, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TOFRONT, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FRONT, $1) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.REUSE, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE_NEW, $1{int}) => $this.show(org.openide.text.Line.ShowOpenType.REUSE_NEW, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TRY_SHOW) => $this.show(org.openide.text.Line.ShowOpenType.NONE, org.openide.text.Line.ShowVisibilityType.NONE) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_SHOW) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.NONE) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_GOTO) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_TOFRONT) => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FRONT) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE) => $this.show(org.openide.text.Line.ShowOpenType.REUSE, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
-+"Line.show is deprecated": $this{org.openide.text.Line}.show(org.openide.text.Line.SHOW_REUSE_NEW) => $this.show(org.openide.text.Line.ShowOpenType.REUSE_NEW, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_TRY_SHOW, $1) :: $1 instanceof int && $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.NONE, org.openide.text.Line.ShowVisibilityType.NONE, $1) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_SHOW, $1) :: $1 instanceof int && $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.NONE, $1) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_GOTO, $1) :: $1 instanceof int && $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_TOFRONT, $1) :: $1 instanceof int && $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FRONT, $1) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_REUSE, $1) :: $1 instanceof int && $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.REUSE, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_REUSE_NEW, $1) :: $1 instanceof int && $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.REUSE_NEW, org.openide.text.Line.ShowVisibilityType.FOCUS, $1) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_TRY_SHOW) :: $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.NONE, org.openide.text.Line.ShowVisibilityType.NONE) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_SHOW) :: $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.NONE) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_GOTO) :: $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_TOFRONT) :: $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.OPEN, org.openide.text.Line.ShowVisibilityType.FRONT) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_REUSE) :: $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.REUSE, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
++'Line.show is deprecated': $this.show(org.openide.text.Line.SHOW_REUSE_NEW) :: $this instanceof org.openide.text.Line => $this.show(org.openide.text.Line.ShowOpenType.REUSE_NEW, org.openide.text.Line.ShowVisibilityType.FOCUS) ;;
+diff --git a/openide.util/src/META-INF/upgrade/org.openide.ErrorManager.hint b/openide.util/src/META-INF/upgrade/org.openide.ErrorManager.hint
+new file mode 100644
+--- /dev/null
++++ b/openide.util/src/META-INF/upgrade/org.openide.ErrorManager.hint
+@@ -0,0 +1,104 @@
++'ErrorManager.notify is deprecated':
++$this.notify(org.openide.ErrorManager.UNKNOWN, $1) :: $1 instanceof java.lang.Throwable && $this instanceof org.openide.ErrorManager
++   =>org.openide.util.Exceptions.printStackTrace($1)
++   ;;
++
++'ErrorManager.notify is deprecated':
++org.openide.ErrorManager.getDefault().notify(org.openide.ErrorManager.EXCEPTION, $1) :: $1 instanceof java.lang.Throwable && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.WARNING, null, $1)
++   ;;
++
++'ErrorManager.notify is deprecated':
++org.openide.ErrorManager.getDefault().notify(org.openide.ErrorManager.EXCEPTION, $1) :: $1 instanceof java.lang.Throwable && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.WARNING, null, $1)
++   ;;
++
++'ErrorManager.notify is deprecated':
++org.openide.ErrorManager.getDefault().notify(org.openide.ErrorManager.INFORMATIONAL, $1) :: $1 instanceof java.lang.Throwable && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.INFO, null, $1)
++   ;;
++
++'ErrorManager.notify is deprecated':
++org.openide.ErrorManager.getDefault().notify(org.openide.ErrorManager.USER, $1) :: $1 instanceof java.lang.Throwable && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.WARNING, null, $1)
++   ;;
++
++'ErrorManager.notify is deprecated':
++org.openide.ErrorManager.getDefault().notify(org.openide.ErrorManager.WARNING, $1) :: $1 instanceof java.lang.Throwable && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.WARNING, null, $1)
++   ;;
++
++'ErrorManager.notify is deprecated':
++$this.notify($1) :: $1 instanceof java.lang.Throwable && $this instanceof org.openide.ErrorManager
++   =>org.openide.util.Exceptions.printStackTrace($1)
++   ;;
++
++'ErrorManager.log is deprecated':
++org.openide.ErrorManager.getDefault().log(org.openide.ErrorManager.UNKNOWN, $1) :: $1 instanceof java.lang.String && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.INFO, $1)
++   ;;
++
++'ErrorManager.log is deprecated':
++org.openide.ErrorManager.getDefault().log(org.openide.ErrorManager.ERROR, $1) :: $1 instanceof java.lang.String && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.SEVERE, $1)
++   ;;
++
++'ErrorManager.log is deprecated':
++org.openide.ErrorManager.getDefault().log(org.openide.ErrorManager.EXCEPTION, $1) :: $1 instanceof java.lang.String && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.SEVERE, $1)
++   ;;
++
++'ErrorManager.log is deprecated':
++org.openide.ErrorManager.getDefault().log(org.openide.ErrorManager.INFORMATIONAL, $1) :: $1 instanceof java.lang.String && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.FINE, $1)
++   ;;
++
++'ErrorManager.log is deprecated':
++org.openide.ErrorManager.getDefault().log(org.openide.ErrorManager.USER, $1) :: $1 instanceof java.lang.String && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.WARNING, $1)
++   ;;
++
++'ErrorManager.log is deprecated':
++org.openide.ErrorManager.getDefault().log(org.openide.ErrorManager.WARNING, $1) :: $1 instanceof java.lang.String && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.WARNING, $1)
++   ;;
++
++'ErrorManager.log is deprecated':
++org.openide.ErrorManager.getDefault().log($1) :: $1 instanceof java.lang.String && $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").log(java.util.logging.Level.FINE, $1)
++   ;;
++
++'ErrorManager.isLoggable is deprecated':
++org.openide.ErrorManager.getDefault().isLoggable(org.openide.ErrorManager.UNKNOWN) :: $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").isLoggable(java.util.logging.Level.INFO)
++   ;;
++
++'ErrorManager.isLoggable is deprecated':
++org.openide.ErrorManager.getDefault().isLoggable(org.openide.ErrorManager.ERROR) :: $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").isLoggable(java.util.logging.Level.SEVERE)
++   ;;
++
++'ErrorManager.isLoggable is deprecated':
++org.openide.ErrorManager.getDefault().isLoggable(org.openide.ErrorManager.EXCEPTION) :: $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").isLoggable(java.util.logging.Level.SEVERE)
++   ;;
++
++'ErrorManager.isLoggable is deprecated':
++org.openide.ErrorManager.getDefault().isLoggable(org.openide.ErrorManager.INFORMATIONAL) :: $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").isLoggable(java.util.logging.Level.FINE)
++   ;;
++
++'ErrorManager.isLoggable is deprecated':
++org.openide.ErrorManager.getDefault().isLoggable(org.openide.ErrorManager.USER) :: $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").isLoggable(java.util.logging.Level.WARNING)
++   ;;
++
++'ErrorManager.isLoggable is deprecated':
++org.openide.ErrorManager.getDefault().isLoggable(org.openide.ErrorManager.WARNING) :: $this instanceof org.openide.ErrorManager
++   =>java.util.logging.Logger.getLogger("global").isLoggable(java.util.logging.Level.WARNING)
++   ;;
++
++'ErrorManager.annotate is deprecated':
++$this.annotate($1, $2) :: $1 instanceof java.lang.Throwable && $2 instanceof java.lang.String  && $this instanceof org.openide.ErrorManager
++   =>org.openide.util.Exceptions.attachLocalizedMessage($1, $2)
++   ;;
