@@ -151,11 +151,11 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             Map<String, String> constraints = new HashMap<String, String>();
             
             for (Condition c : hint.conditions) {
-                if (!(c instanceof Instanceof))
+                if (!(c instanceof Instanceof) || c.not)
                     continue;
 
                 Instanceof i = (Instanceof) c;
-                
+
                 constraints.put(i.variable, i.constraint);
             }
 

@@ -7,6 +7,8 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.openide.util.Exceptions;
 
@@ -42,10 +44,16 @@ public abstract class Condition {
 
         @Override
         public boolean holds(HintContext ctx) {
-            return true; //XXX: '!' not supported!
-//            TreePath boundTo = ctx.getVariables().get(variable);
-//            TypeMirror realType = ctx.getInfo().getTrees().getTypeMirror(boundTo);
-//            TypeMirror designedType = ctx.getInfo().getTreeUtilities().parseType(variable, null)
+            if (!not) {
+                return true; //positive instanceof conditions should be fullfilled automatically
+            }
+
+            TreePath boundTo = ctx.getVariables().get(variable);
+            TypeMirror realType = ctx.getInfo().getTrees().getTypeMirror(boundTo);
+            TypeElement jlObject = ctx.getInfo().getElements().getTypeElement("java.lang.Object");
+            TypeMirror designedType = ctx.getInfo().getTreeUtilities().parseType(constraint, jlObject);
+
+            return !ctx.getInfo().getTypes().isSubtype(realType, designedType);
         }
 
         @Override

@@ -181,7 +181,7 @@ public class DeclarativeHintsParser {
 
             int typeEnd = input.offset();
 
-            conditions.add(new Instanceof(false, name, text.subSequence(typeStart, typeEnd).toString(), new int[] {typeStart, typeEnd}));
+            conditions.add(new Instanceof(not, name, text.subSequence(typeStart, typeEnd).toString(), new int[] {typeStart, typeEnd}));
             return ;
         }
 
