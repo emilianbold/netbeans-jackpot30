@@ -196,4 +196,21 @@ public class DeclarativeHintLexerTest {
         assertFalse(ts.moveNext());
     }
 
+    @Test
+    public void testLexerSanity() {
+        String code = "'Use of assert'://\n" +
+                      "   assert /**/ $1 : $2; :: //\n $1 instanceof boolean && $2 instanceof java.lang.Object\n" +
+                      "=> if (!$1) throw new /**/ IllegalStateException($2);\n" +
+                      ";;//\n";
+
+        for (int cntr = 0; cntr < code.length(); cntr++) {
+            String currentpath = code.substring(0, cntr);
+            TokenHierarchy<?> hi = TokenHierarchy.create(currentpath, language());
+            TokenSequence<?> ts = hi.tokenSequence();
+
+            while (ts.moveNext())
+                ;
+        }
+    }
+
 }
