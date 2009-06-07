@@ -59,9 +59,13 @@ public class DeclarativeHintsParser {
             }
         }
 
+        eof = true;
+        
         return false;
     }
 
+    private boolean eof;
+        
     private Token<DeclarativeHintTokenId> token() {
         return input.token();
     }
@@ -81,10 +85,6 @@ public class DeclarativeHintsParser {
 
     private void parseInput() {
         while (nextToken()) {
-            if (token().id() == DeclarativeHintTokenId.WHITESPACE) {
-                nextToken();
-            }
-
             parseRule();
         }
     }
@@ -104,8 +104,14 @@ public class DeclarativeHintsParser {
         
         while (   id() != LEADS_TO
                && id() != DOUBLE_COLON
-               && id() != DOUBLE_SEMICOLON) {
+               && id() != DOUBLE_SEMICOLON
+               && !eof) {
             nextToken();
+        }
+
+        if (eof) {
+            //XXX: should report an error
+            return ;
         }
 
         int patternEnd = input.offset();
@@ -118,14 +124,15 @@ public class DeclarativeHintsParser {
 
         List<int[]> targets = new LinkedList<int[]>();
 
-        while (id() == LEADS_TO) {
+        while (id() == LEADS_TO && !eof) {
             nextToken();
 
             int targetStart = input.offset();
 
             while (   id() != LEADS_TO
                    && id() != DOUBLE_COLON
-                   && id() != DOUBLE_SEMICOLON) {
+                   && id() != DOUBLE_SEMICOLON
+                   && !eof) {
                 nextToken();
             }
 
@@ -145,7 +152,7 @@ public class DeclarativeHintsParser {
         do {
             nextToken();
             parseCondition(conditions);
-        } while (id() == AND);
+        } while (id() == AND && !eof);
     }
 
     private void parseCondition(List<Condition> conditions) {
@@ -161,7 +168,10 @@ public class DeclarativeHintsParser {
 
             nextToken();
 
-            assert id() == INSTANCEOF;
+            if (id() != INSTANCEOF) {
+                //XXX: report an error
+                return ;
+            }
             
             nextToken();
 
@@ -177,7 +187,7 @@ public class DeclarativeHintsParser {
 
         int start   = input.offset();
         
-        while (id() != AND && id() != LEADS_TO && id() != DOUBLE_SEMICOLON) {
+        while (id() != AND && id() != LEADS_TO && id() != DOUBLE_SEMICOLON && !eof) {
             nextToken();
         }
         
@@ -211,7 +221,10 @@ public class DeclarativeHintsParser {
             public void run(CompilationController parameter) throws Exception {
                 ExpressionTree et = parameter.getTreeUtilities().parseExpression(invocation, new SourcePositions[1]);
 
-                assert et.getKind() == Kind.METHOD_INVOCATION;
+                if (et.getKind() != Kind.METHOD_INVOCATION) {
+                    //XXX: report an error
+                    return ;
+                }
 
                 Scope s = Hacks.constructScope(parameter, "javax.lang.model.element.Modifier", "javax.lang.model.SourceVersion");
 
@@ -246,6 +259,10 @@ public class DeclarativeHintsParser {
             }
         }, true);
 
+        if (methodName[0] == null) {
+            return null;
+        }
+        
         return new MethodInvocation(not, methodName[0], params);
     }
     

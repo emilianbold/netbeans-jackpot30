@@ -67,7 +67,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
-    
+
     public void testMethodInvocationCondition2() {
         Map<String, ParameterKind> m = new LinkedHashMap<String, ParameterKind>();
 
@@ -106,6 +106,15 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test2"));
     }
 
+    public void testParserSanity1() {
+        String code = "'Use of assert'://\n" +
+                      "   assert /**/ $1 : $2; :: //\n $1 instanceof boolean && $2 instanceof java.lang.Object\n" +
+                      "=> if (!$1) throw new /**/ IllegalStateException($2);\n" +
+                      ";;//\n";
+        performParserSanityTest(code);
+    }
+
+
     protected void setUp() throws Exception {
         SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
         
@@ -124,6 +133,18 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         }
 
         assertEquals(Arrays.asList(golden), real);
+    }
+
+    private void performParserSanityTest(String code) {
+        for (int cntr = 0; cntr < code.length(); cntr++) {
+            String currentpath = code.substring(0, cntr);
+
+            System.err.println("currentpath=" + currentpath);
+            
+            TokenHierarchy<?> h = TokenHierarchy.create(currentpath, DeclarativeHintTokenId.language());
+
+            new DeclarativeHintsParser().parse(currentpath, h.tokenSequence(DeclarativeHintTokenId.language()));
+        }
     }
 
     private static final class StringHintDescription {
