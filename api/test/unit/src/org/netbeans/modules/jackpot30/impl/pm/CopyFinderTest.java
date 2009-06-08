@@ -242,7 +242,7 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              },
                              new Pair[0]);
     }
-    
+
     public void testVariableVerification() throws Exception {
         performVariablesTest("package test; public class Test { public void test1(String[] a, String[] b) { for (int c = 0; c < a.length; c++) { String s = b[c]; System.err.println(s); } } }",
                              "for(int $i = 0; $i < $array.length; $i++) { $T $var = $array[$i]; $stmts$; }",
@@ -277,6 +277,22 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              },
                              new Pair[] {
                                   new Pair<String, int[]>("$stmts$", new int[] {118 - 31, 140 - 31}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, String>("$var", "s"),
+                             });
+    }
+
+    public void testWhile() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1(String[] a) { int c = 0; while  (c < a.length) { String s = a[c]; System.err.println(s); c++; } } }",
+                             "while ($i < $array.length) { $T $var = $array[$i]; $stmts$; $i++; }",
+                             new Pair[] {
+                                  new Pair<String, int[]>("$array", new int[] {120 - 31, 121 - 31}),
+                                  new Pair<String, int[]>("$T", new int[] {132 - 31, 138 - 31}),
+                                  new Pair<String, int[]>("$i", new int[] {116 - 31, 117 - 31}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, int[]>("$stmts$", new int[] {149 - 31, 171 - 31}),
                              },
                              new Pair[] {
                                   new Pair<String, String>("$var", "s"),
