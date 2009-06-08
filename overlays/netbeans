@@ -1,3 +1,31 @@
+diff --git a/openide.filesystems/src/META-INF/upgrade/org.openide.filesystems.FileObject.hint b/openide.filesystems/src/META-INF/upgrade/org.openide.filesystems.FileObject.hint
+new file mode 100644
+--- /dev/null
++++ b/openide.filesystems/src/META-INF/upgrade/org.openide.filesystems.FileObject.hint
+@@ -0,0 +1,23 @@
++'FileObject.getPackageNameExt(char, char) is deprecated':
++   $0.getPackageNameExt('/', '.') :: $0 instanceof org.openide.FileObject
++=> $0.getPath()
++;;
++'FileObject.getPackageNameExt(char, char) is deprecated':
++   $0.getPackageNameExt($1, '.') :: $0 instanceof org.openide.FileObject && $1 instanceof char
++=> $0.getPath().replace('/', $1)
++;;
++
++'FileObject.isReadOnly() is deprecated':
++    $0.isReadOnly() :: $0 instanceof org.openide.FileObject
++=> !$0.canWrite()
++;;
++
++'Repository.getDefaultFileSystem()':
++   org.openide.filesystems.Repository.getDefault.getDefaultFileSystem()
++=> org.openide.filesystems.FileUtil.getConfigRoot()
++;;
++
++'Repository.getDefaultFileSystem()':
++   org.openide.filesystems.Repository.getDefault.getDefaultFileSystem().findResource($path) :: $path instanceof java.lang.String
++=> org.openide.filesystems.FileUtil.getConfigFile($path)
++;;
 diff --git a/openide.loaders/src/META-INF/upgrade/org.openide.loaders.DataObject.hint b/openide.loaders/src/META-INF/upgrade/org.openide.loaders.DataObject.hint
 new file mode 100644
 --- /dev/null
@@ -140,3 +168,118 @@ new file mode 100644
 +$this.annotate($1, $2) :: $1 instanceof java.lang.Throwable && $2 instanceof java.lang.String  && $this instanceof org.openide.ErrorManager
 +   =>org.openide.util.Exceptions.attachLocalizedMessage($1, $2)
 +   ;;
+diff --git a/openide.util/src/META-INF/upgrade/org.openide.util.Utilities.hint b/openide.util/src/META-INF/upgrade/org.openide.util.Utilities.hint
+new file mode 100644
+--- /dev/null
++++ b/openide.util/src/META-INF/upgrade/org.openide.util.Utilities.hint
+@@ -0,0 +1,19 @@
++'Utilities.mergeImages is deprecated':
++   org.openide.util.Utilities.mergeImages($1, $2, $3, $4) :: $1 instanceof java.awt.Image && $2 instanceof java.awt.Image && $3 instanceof int && $4 instanceof int
++=> org.openide.util.ImageUtilities.mergeImages($1, $2, $3, $4)
++;;
++
++'Utilities.loadImage is deprecated':
++   org.openide.util.Utilities.loadImage($1) :: $1 instanceof String
++=> org.openide.util.ImageUtilities.loadImage($1)
++;;
++
++'Utilities.icon2Image is deprecated':
++   org.openide.util.Utilities.icon2Image($1) :: $1 instanceof javax.swing.Icon
++=> org.openide.util.ImageUtilities.icon2Image($1)
++;;
++
++'Utilities.image2Icon can be used instead of new ImageIcon':
++   new javax.swing.ImageIcon($1) :: $1 instanceof java.awt.Image
++=> org.openide.util.ImageUtilities.image2Icon($1)
++;;
+diff --git a/openide.util/test/unit/src/META-INF/upgrade/org.openide.util.Utilities.test b/openide.util/test/unit/src/META-INF/upgrade/org.openide.util.Utilities.test
+new file mode 100644
+--- /dev/null
++++ b/openide.util/test/unit/src/META-INF/upgrade/org.openide.util.Utilities.test
+@@ -0,0 +1,86 @@
++%%TestCase mergeImages1
++package test;
++import java.awt.Image;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        Image i1 = null, i2 = null;
++        Utilities.mergeImages(i1, i2, -9, 34);
++    }
++}
++%%=>
++package test;
++import java.awt.Image;
++import org.openide.util.ImageUtilities;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        Image i1 = null, i2 = null;
++        ImageUtilities.mergeImages(i1, i2, -9, 34);
++    }
++}
++%%TestCase loadImage1
++package test;
++import java.awt.Image;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        Utilities.loadImage("foobar");
++    }
++}
++%%=>
++package test;
++import java.awt.Image;
++import org.openide.util.ImageUtilities;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        ImageUtilities.loadImage("foobar");
++    }
++}
++%%TestCase icon2Image1
++package test;
++import javax.swing.Icon;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        Icon i = null;
++        Utilities.icon2Image(i);
++    }
++}
++%%=>
++package test;
++import javax.swing.Icon;
++import org.openide.util.ImageUtilities;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        Icon i = null;
++        ImageUtilities.icon2Image(i);
++    }
++}
++%%TestCase image2Icon1
++package test;
++import java.awt.Image;
++import javax.swing.Icon;
++import javax.swing.ImageIcon;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        Image img = null;
++        Icon i = new ImageIcon(img);
++    }
++}
++%%=>
++package test;
++import java.awt.Image;
++import javax.swing.Icon;
++import javax.swing.ImageIcon;
++import org.openide.util.ImageUtilities;
++import org.openide.util.Utilities;
++public class Test {
++    private void test() {
++        Image img = null;
++        Icon i = ImageUtilities.image2Icon(img);
++    }
++}
