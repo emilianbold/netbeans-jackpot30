@@ -1,5 +1,6 @@
 package org.netbeans.modules.jackpot30.file.test;
 
+import java.awt.Color;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -8,9 +9,13 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
+import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
+import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.editor.settings.AttributesUtilities;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.modules.jackpot30.file.test.TestParser.TestCase;
 import org.netbeans.modules.jackpot30.file.test.TestParser.TestResult;
@@ -20,6 +25,7 @@ import org.netbeans.modules.parsing.spi.Scheduler;
 import org.netbeans.modules.parsing.spi.SchedulerEvent;
 import org.netbeans.modules.parsing.spi.SchedulerTask;
 import org.netbeans.modules.parsing.spi.TaskFactory;
+import org.netbeans.spi.editor.highlighting.support.OffsetsBag;
 import org.netbeans.spi.editor.hints.ChangeInfo;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
@@ -37,6 +43,8 @@ import org.openide.util.Exceptions;
 public class EditorTestPerformer extends ParserResultTask<TestResult>{
 
     private static final Logger LOG = Logger.getLogger(EditorTestPerformer.class.getName());
+    private static final AttributeSet PASSED = AttributesUtilities.createImmutable(StyleConstants.Foreground, Color.GREEN);
+    private static final AttributeSet FAILED = AttributesUtilities.createImmutable(StyleConstants.Foreground, Color.RED);
     
     private final AtomicBoolean cancel = new AtomicBoolean();
     
@@ -77,17 +85,20 @@ public class EditorTestPerformer extends ParserResultTask<TestResult>{
         
         try {
             List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
+            OffsetsBag bag = new OffsetsBag(doc);
 
             for (Entry<TestCase, Collection<String>> e : TestPerformer.performTest(ruleFile, file, tests, cancel).entrySet()) {
                 TestCase tc = e.getKey();
                 String[] golden = tc.getResults();
                 String[] real = e.getValue().toArray(new String[0]);
+                boolean passed = true;
 
                 if (golden.length != real.length) {
                     int line = NbDocument.findLineNumber(sdoc, tc.getTestCaseStart()) + 1;
                     ErrorDescription ed = ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "Incorrect number of outputs, expected: " + golden.length + ", was: " + real.length, doc, line);
 
                     errors.add(ed);
+                    passed = false;
                 }
                 
                 for (int cntr = 0; cntr < Math.min(golden.length, real.length); cntr++) {
@@ -100,8 +111,13 @@ public class EditorTestPerformer extends ParserResultTask<TestResult>{
                         ErrorDescription ed = ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "Incorrect output", fixes, doc, line);
 
                         errors.add(ed);
+                        passed = false;
                     }
                 }
+
+                bag.addHighlight(tc.getTestCaseStart() + "%%TestCase ".length(), tc.getCodeStart() - 1, passed ? PASSED : FAILED);
+
+                getBag(doc).setHighlights(bag);
             }
 
             HintsController.setErrors(doc, EditorTestPerformer.class.getName(), errors);
@@ -123,6 +139,16 @@ public class EditorTestPerformer extends ParserResultTask<TestResult>{
 
     @Override
     public void cancel() {
+    }
+
+    static @NonNull OffsetsBag getBag(@NonNull Document doc) {
+        OffsetsBag bag = (OffsetsBag) doc.getProperty(EditorTestPerformer.class);
+
+        if (bag == null) {
+            doc.putProperty(EditorTestPerformer.class, bag = new OffsetsBag(doc));
+        }
+
+        return bag;
     }
 
     public static final class FactoryImpl extends TaskFactory {
