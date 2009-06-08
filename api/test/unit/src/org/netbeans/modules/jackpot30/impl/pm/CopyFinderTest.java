@@ -299,6 +299,22 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              });
     }
 
+    public void testDoWhile() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1(String[] a) { int c = 0; do { String s = a[c]; System.err.println(s); c++; } while  (c < a.length); } }",
+                             "do { $T $var = $array[$i]; $stmts$; $i++; } while ($i < $array.length);",
+                             new Pair[] {
+                                  new Pair<String, int[]>("$array", new int[] {124 - 31, 125 - 31}),
+                                  new Pair<String, int[]>("$T", new int[] {113 - 31, 119 - 31}),
+                                  new Pair<String, int[]>("$i", new int[] {126 - 31, 127 - 31}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, int[]>("$stmts$", new int[] {130 - 31, 152 - 31}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, String>("$var", "s"),
+                             });
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }

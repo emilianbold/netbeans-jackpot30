@@ -34,6 +34,7 @@ import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.DoWhileLoopTree;
 import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ForLoopTree;
@@ -576,11 +577,21 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //    public Boolean visitContinue(ContinueTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
-//
-//    public Boolean visitDoWhileLoop(DoWhileLoopTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
-//
+
+    public Boolean visitDoWhileLoop(DoWhileLoopTree node, TreePath p) {
+        if (p == null) {
+            super.visitDoWhileLoop(node, p);
+            return false;
+        }
+        
+        DoWhileLoopTree t = (DoWhileLoopTree) p.getLeaf();
+
+        if (!scan(node.getStatement(), t.getStatement(), p))
+            return false;
+
+        return scan(node.getCondition(), t.getCondition(), p);
+    }
+
 //    public Boolean visitErroneous(ErroneousTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
