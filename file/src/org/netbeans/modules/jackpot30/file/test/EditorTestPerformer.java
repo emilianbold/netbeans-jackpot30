@@ -58,8 +58,13 @@ public class EditorTestPerformer extends ParserResultTask<TestResult>{
         FileObject ruleFile = cp.findResource(ruleFileName);
 
         if (ruleFile == null) {
-            LOG.log(Level.FINE, "runFile==null");
-            return ;
+            cp = ClassPath.getClassPath(file, ClassPath.COMPILE);
+            ruleFile = cp.findResource(ruleFileName);
+
+            if (ruleFile == null) {
+                LOG.log(Level.FINE, "runFile==null");
+                return ;
+            }
         }
 
         Document doc = result.getSnapshot().getSource().getDocument(false);
