@@ -340,6 +340,11 @@ public abstract class JavaFix {
     private static void checkDependency(WorkingCopy copy, Element e, UpgradeUICallback callback) {
         SpecificationVersion sv = computeSpecVersion(copy, e);
 
+        while (sv == null && e.getKind() != ElementKind.PACKAGE) {
+            e = e.getEnclosingElement();
+            sv = computeSpecVersion(copy, e);
+        }
+        
         if (sv == null) {
             return ;
         }
