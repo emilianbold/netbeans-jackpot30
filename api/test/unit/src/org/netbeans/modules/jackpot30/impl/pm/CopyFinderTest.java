@@ -315,6 +315,16 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              });
     }
 
+    public void testArrayType() throws Exception {
+        performVariablesTest("package test; public class Test { public void test1() { int[][] a; } }",
+                             "$T[]",
+                             new Pair[] {
+                                  new Pair<String, int[]>("$T", new int[] {87 - 31, /*92*//*XXX:*/94 - 31}),
+                             },
+                             new Pair[0],
+                             new Pair[0]);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }

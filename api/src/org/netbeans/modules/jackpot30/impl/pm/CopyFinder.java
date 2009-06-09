@@ -28,6 +28,7 @@
 package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.tree.ArrayAccessTree;
+import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
@@ -887,9 +888,16 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return checkLists(node.getTypeArguments(), t.getTypeArguments(), p);
     }
 
-//    public Boolean visitArrayType(ArrayTypeTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitArrayType(ArrayTypeTree node, TreePath p) {
+        if (p == null) {
+            super.visitArrayType(node, p);
+            return false;
+        }
+
+        ArrayTypeTree at = (ArrayTypeTree) p.getLeaf();
+
+        return scan(node.getType(), at.getType(), p);
+    }
 
     public Boolean visitTypeCast(TypeCastTree node, TreePath p) {
         if (p == null)
