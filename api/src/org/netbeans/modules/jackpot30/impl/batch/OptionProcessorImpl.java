@@ -84,11 +84,11 @@ public class OptionProcessorImpl extends OptionProcessor {
     private static final Option LIST = Option.withoutArgument(Option.NO_SHORT_NAME, "list-hints-transformation");
     private static final Option APPLY_TRANSFORMATIONS = Option.shortDescription(
                                                             Option.requiredArgument(Option.NO_SHORT_NAME, "apply-transformations"),
-                                                            "org.netbeans.modules.jackpot30.hints.batch.Bundle",
+                                                            "org.netbeans.modules.jackpot30.impl.batch.Bundle",
                                                             "SD_ApplyTransformations");
     private static final Option APPLY_TRANSFORMATIONS_PROJECT = Option.shortDescription(
                                                             Option.additionalArguments(Option.NO_SHORT_NAME, APPLY_TRANSFORMATIONS_PROJECT_OPTION),
-                                                            "org.netbeans.modules.jackpot30.hints.batch.Bundle",
+                                                            "org.netbeans.modules.jackpot30.impl.batch.Bundle",
                                                             "SD_ApplyTransformationsProject");
 
     private static final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(LIST, APPLY_TRANSFORMATIONS, APPLY_TRANSFORMATIONS_PROJECT));
