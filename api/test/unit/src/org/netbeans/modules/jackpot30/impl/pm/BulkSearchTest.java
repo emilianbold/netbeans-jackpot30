@@ -193,6 +193,12 @@ public class BulkSearchTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testEffectiveNewClass() throws Exception {
+        performTest("package test; import javax.swing.ImageIcon; public class Test { public void test1(java.awt.Image i) { new ImageIcon(i); new String(i); } }",
+                    Collections.singletonMap("new javax.swing.ImageIcon($1)", Arrays.asList("new ImageIcon(i)")),
+                    Collections.<String>emptyList());
+    }
+
     public void XtestMeasureTime() throws Exception {
         String code = TestUtilities.copyFileToString(new File("/usr/local/home/lahvac/src/nb//outgoing/java.editor/src/org/netbeans/modules/editor/java/JavaCompletionProvider.java"));
         List<String> patterns = new LinkedList<String>();
