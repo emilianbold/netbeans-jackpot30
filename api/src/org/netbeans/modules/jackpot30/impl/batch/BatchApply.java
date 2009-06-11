@@ -84,6 +84,7 @@ import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
@@ -650,7 +651,7 @@ public class BatchApply {
             if (spentTime > 0) {
                 double totalTime = currentPartTotalWork * timePerUnit;
                 
-                timeString = toHumanReadableString(spentTime) + "/" + toHumanReadableString(totalTime);
+                timeString = Utilities.toHumanReadableTime(spentTime) + "/" + Utilities.toHumanReadableTime(totalTime);
             } else {
                 timeString = "No estimate";
             }
@@ -658,18 +659,5 @@ public class BatchApply {
             handle.progress("Part " + (currentPart + 1) + "/" + parts.length + ", " + currentPartWorkDone + "/" + currentPartTotalWork + ", " + timeString);
         }
 
-        private static String toHumanReadableString(double d) {
-            StringBuilder result = new StringBuilder();
-            long inSeconds = (long) (d / 1000);
-            int seconds = (int) (inSeconds % 60);
-            long inMinutes = inSeconds / 60;
-
-            result.append(inMinutes);
-            result.append("m");
-            result.append(seconds);
-            result.append("s");
-
-            return result.toString();
-        }
     }
 }

@@ -39,26 +39,20 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
-import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.Tree.Kind;
-import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
 
 /**
  *
@@ -76,22 +70,20 @@ public class BulkSearch {
         }
         
         Map<String, Collection<TreePath>> occurringPatterns = new HashMap<String, Collection<TreePath>>();
-        StringBuilder ser = new StringBuilder();
-        Map<Integer, List<TreePath>> serializedEnd2Tree = TreeSerializer.serializeText(tree, ser);
-        String serialized = ser.toString();
+        Result r = TreeSerializer.serializeText(tree);
 
         if (timeLog != null) {
-            timeLog.put("[C] Jackpot 3.0 Serialized Tree Size", (long) serialized.length());
+            timeLog.put("[C] Jackpot 3.0 Serialized Tree Size", (long) r.encoded.length());
         }
         
         long s2 = System.currentTimeMillis();
-        Matcher m = pattern.toRegexpPattern().matcher(serialized);
+        Matcher m = pattern.toRegexpPattern().matcher(r.encoded);
         int start = 0; //XXX: hack to allow matches inside other matches (see testTwoPatterns)
         long patternOccurrences = 0;
 
 //        System.err.println("matcher=" + (System.currentTimeMillis() - s2));
 
-        while (start < serialized.length() && m.find(start)) {
+        while (start < r.encoded.length() && m.find(start)) {
             patternOccurrences++;
             for (int cntr = 0; cntr < pattern.groups.length; cntr++) {
                 if (m.group(pattern.groups[cntr]) != null) {
@@ -102,7 +94,7 @@ public class BulkSearch {
                         occurringPatterns.put(patt, occurrences = new LinkedList<TreePath>());
                     }
 
-                    occurrences.addAll(serializedEnd2Tree.get(m.end()));
+                    occurrences.addAll(r.serializedEnd2Tree.get(m.end()));
                         }
                     }
 
@@ -118,13 +110,16 @@ public class BulkSearch {
 //        System.err.println("match: " + (e2 - s2));
         return occurringPatterns;
     }
+
+    public static boolean matches(String encoded, BulkPattern pattern) {
+        return pattern.toRegexpPattern().matcher(encoded).find();
+    }
     
     public static BulkPattern create(CompilationInfo info, String... code) {
         return create(info, Arrays.asList(code));
     }
 
     public static BulkPattern create(CompilationInfo info, Collection<? extends String> code) {
-        StringBuilder ser = new StringBuilder();
         Tree[] patterns = new Tree[code.size()];
         int i = 0;
 
@@ -132,9 +127,13 @@ public class BulkSearch {
             patterns[i++] = Utilities.parseAndAttribute(info, c, null);
         }
 
-        int[] groups = TreeSerializer.serializePatterns(ser, patterns);
+        Result r = TreeSerializer.serializePatterns(patterns);
 
-        return BulkPattern.create(new LinkedList<String>(code), ser.toString(), groups);
+        return BulkPattern.create(new LinkedList<String>(code), r.encoded, r.groups);
+    }
+
+    public static BulkPattern create(Result r) {
+        return BulkPattern.create(Collections.singletonList(""), r.encoded, r.groups);
     }
 
     public static class BulkPattern {

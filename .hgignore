@@ -1,5 +1,6 @@
 .*/build$
 ^build$
+.*/dist$
 ^dist$
 .*/nbproject/private
 ^nbproject/private$
@@ -7,3 +8,4 @@
 ^.ditz-config$
 ^external$
 .old$
+^server/lib$

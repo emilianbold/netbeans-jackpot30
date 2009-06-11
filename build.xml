@@ -6,8 +6,22 @@
     <description>Builds the module suite jackpot30.</description>
     <import file="nbproject/build-impl.xml"/>
     
+    <property name="server.modules" value="server/indexer:server/web.api" />
+    
     <target name="findbugs" depends="-init">
         <subant target="findbugs" buildpath="${modules}" inheritall="false"/>
     </target>
-    
+
+    <target name="clean" depends="suite.clean">
+        <subant target="clean" buildpath="${server.modules}" inheritall="false"/>
+    </target>
+
+    <target name="build" depends="suite.build">
+        <subant target="jar" buildpath="${server.modules}" inheritall="false"/>
+    </target>
+
+    <target name="test" depends="suite.test">
+        <subant target="test" buildpath="${server.modules}" inheritall="false"/>
+    </target>
+
 </project>

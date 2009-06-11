@@ -46,7 +46,6 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.VariableTree;
@@ -56,7 +55,6 @@ import java.io.IOException;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -69,15 +67,17 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
  */
 public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
-    public static Map<Integer, List<TreePath>> serializeText(Tree tree, Appendable p) {
+    public static Result serializeText(Tree tree) {
+        StringBuilder p = new StringBuilder();
         TreeSerializer serializer = new TreeSerializer(false);
 
         serializer.scan(tree, p);
 
-        return serializer.serializedStart2Tree;
+        return new Result(p.toString(), serializer.serializedStart2Tree, null, serializer.identifiers, serializer.treeKinds);
     }
 
-    public static int[] serializePatterns(Appendable p, Tree... patterns) {
+    public static Result serializePatterns(Tree... patterns) {
+        StringBuilder p = new StringBuilder();
         TreeSerializer ts = new TreeSerializer(true);
         int[] groups = new int[patterns.length];
         int i = 0;
@@ -90,7 +90,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             i++;
         }
 
-        return groups;
+        return new Result(p.toString(), null, groups, ts.identifiers, ts.treeKinds);
     }
 
     private int depth;
@@ -100,11 +100,17 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
     private int length;
     private TreePath currentPath;
 
+    private final Set<String> identifiers;
+    private final Set<String> treeKinds;
+
     private TreeSerializer(boolean pattern) {
         this.depth = !pattern ? 0 : -1;
         this.group = 1;
         this.serializedStart2Tree = pattern ? null : new HashMap<Integer, List<TreePath>>();
         this.length = 0;
+
+        this.identifiers = new HashSet<String>();
+        this.treeKinds = new HashSet<String>();
     }
     
     @Override
@@ -204,6 +210,9 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
         if (tree.getKind() != Kind.IDENTIFIER && (tree.getKind() != Kind.MEMBER_SELECT || !Utilities.isPureMemberSelect(tree, true))) {
             append(p, kindToShortName.get(tree.getKind()));
+            if (treeKinds != null) {
+                treeKinds.add(kindToShortName.get(tree.getKind()));
+            }
             super.scan(tree, p);
         } else {
             boolean memberSelectWithVariables = tree.getKind() == Kind.MEMBER_SELECT && !Utilities.isPureMemberSelect(tree, false);
@@ -261,6 +270,9 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
     private void printName(Appendable p, CharSequence name) {
         if (name.length() == 0 || name.charAt(0) != '$') {
             append(p, name);
+            if (identifiers != null) {
+                identifiers.add(name.toString());
+            }
         } else {
             append(p, "[^<>]+?");
         }
@@ -335,4 +347,21 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         }
     }
 
+    public static final class Result {
+
+        public final String encoded;
+        public final Map<Integer, List<TreePath>> serializedEnd2Tree;
+        public final int[] groups;
+        public final Set<String> identifiers;
+        public final Set<String> treeKinds;
+
+        private Result(String encoded, Map<Integer, List<TreePath>> serializedEnd2Tree, int[] groups, Set<String> identifiers, Set<String> treeKinds) {
+            this.encoded = encoded;
+            this.serializedEnd2Tree = serializedEnd2Tree;
+            this.groups = groups;
+            this.identifiers = identifiers;
+            this.treeKinds = treeKinds;
+        }
+
+    }
 }

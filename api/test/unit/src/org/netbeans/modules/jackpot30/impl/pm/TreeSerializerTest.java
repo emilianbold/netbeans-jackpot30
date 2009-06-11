@@ -76,11 +76,7 @@ public class TreeSerializerTest extends NbTestCase {
     public void testProhibittedCharacters() throws Exception {
         prepareTest("test/Test.java", "package test; public class Test {}");
 
-        StringBuilder sb = new StringBuilder();
-
-        TreeSerializer.serializeText(info.getCompilationUnit(), sb);
-
-        String serialized = sb.toString();
+        String serialized = TreeSerializer.serializeText(info.getCompilationUnit()).encoded;
 
         for (char c : new char[] {'(', ')', '|', '[', ']'}) {
             assertEquals(-1, serialized.indexOf(c));
@@ -90,11 +86,7 @@ public class TreeSerializerTest extends NbTestCase {
     public void testNamesForMethods() throws Exception {
         prepareTest("test/Test.java", "package test; public class Test { private static void test() { test(); System.err.println(); } }");
 
-        StringBuilder sb = new StringBuilder();
-
-        TreeSerializer.serializeText(info.getCompilationUnit(), sb);
-
-        String serialized = sb.toString();
+        String serialized = TreeSerializer.serializeText(info.getCompilationUnit()).encoded;
 
         assertEquals(4, serialized.split("test").length);
         assertEquals(2, serialized.split("println").length);

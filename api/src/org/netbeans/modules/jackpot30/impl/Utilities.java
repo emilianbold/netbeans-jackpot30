@@ -379,4 +379,17 @@ public class Utilities {
 //        env.info.
 //    }
 
+    public static String toHumanReadableTime(double d) {
+        StringBuilder result = new StringBuilder();
+        long inSeconds = (long) (d / 1000);
+        int seconds = (int) (inSeconds % 60);
+        long inMinutes = inSeconds / 60;
+
+        result.append(inMinutes);
+        result.append("m");
+        result.append(seconds);
+        result.append("s");
+
+        return result.toString();
+    }
 }
