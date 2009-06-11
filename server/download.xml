@@ -28,6 +28,8 @@
         <download url="http://download.java.net/maven/2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0.jar" target="jersey-1.1/jsr311-api-1.0.jar"/>
         <download url="http://download.java.net/maven/2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0-javadoc.jar" target="jersey-1.1/jsr311-api-1.0-javadoc.jar"/>
         <download url="http://download.java.net/maven/2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0-sources.jar" target="jersey-1.1/jsr311-api-1.0-sources.jar"/>
+        <download url="http://repo2.maven.org/maven2/asm/asm-all/3.1/asm-all-3.1.jar" target="jersey-1.1/asm-all-3.1.jar"/>
+        <download url="http://repo2.maven.org/maven2/asm/asm-all/3.1/asm-all-3.1-sources.jar" target="jersey-1.1/asm-all-3.1-sources.jar"/>
 
         <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.3.2/lucene-core-2.3.2.jar" target="lucene-2.3.2/lucene-core-2.3.2.jar" />
         <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.3.2/lucene-core-2.3.2-javadoc.jar" target="lucene-2.3.2/lucene-core-2.3.2-javadoc.jar" />
