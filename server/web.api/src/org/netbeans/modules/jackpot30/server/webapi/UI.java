@@ -43,7 +43,7 @@ public class UI {
         }
         response.append("</select>");
         response.append("<br>");
-        response.append("<label for=\"pattern\">Pattern:</label>");
+        response.append("<label for=\"pattern\">Pattern:</label><br>");
         response.append("<textarea rows=\"10\" cols=\"40\" name=\"pattern\">");
         if (pattern != null) {
             response.append(pattern);
