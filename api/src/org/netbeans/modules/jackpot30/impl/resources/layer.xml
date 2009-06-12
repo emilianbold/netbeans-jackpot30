@@ -18,6 +18,7 @@
         <folder name="text">
             <folder name="x-java">
                 <file name="org-netbeans-modules-jackpot30-impl-hints-HintsInvoker$FactoryImpl.instance" />
+                <file name="org-netbeans-modules-jackpot30-impl-indexing-CustomIndexerImpl$CustomIndexerFactoryImpl.instance"/>
             </folder>
         </folder>
     </folder>

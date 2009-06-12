@@ -149,13 +149,25 @@ public class Index {
                 }
             }
 
+            luceneWriter.deleteDocuments(new Term("path", relative));
+            
             Document doc = new Document();
 
             doc.add(new Field("identifiers", new TokenStreamImpl(r.identifiers)));
             doc.add(new Field("treeKinds", new TokenStreamImpl(r.treeKinds)));
-            doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NO));
+            doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
 
             luceneWriter.addDocument(doc);
+        }
+
+        public void remove(String relativePath) throws IOException {
+            File f = new File(new File(cacheRoot, "encoded"), relativePath);
+
+            if (f.canRead()) {
+                f.delete();
+            }
+
+            luceneWriter.deleteDocuments(new Term("path", relativePath));
         }
 
         public void close() throws IOException {
