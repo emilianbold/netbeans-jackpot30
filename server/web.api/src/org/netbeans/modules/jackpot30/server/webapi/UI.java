@@ -19,7 +19,7 @@ import javax.ws.rs.QueryParam;
  *
  * @author lahvac
  */
-@Path("/ui")
+@Path("/index/ui")
 public class UI {
 
     @GET
@@ -32,7 +32,7 @@ public class UI {
         response.append("<form method=\"get\">\n");
         response.append("<label for=\"path\">Project:</label>");
         response.append("<select size=\"1\" name=\"path\">");
-        for (String c : requestStringArrayResponse(new URI("http://localhost:9998/list"))) {
+        for (String c : requestStringArrayResponse(new URI("http://localhost:9998/index/list"))) {
             response.append("<option");
             if (c.equals(path)) {
                 response.append(" selected");
@@ -56,7 +56,7 @@ public class UI {
             response.append("Found candidates for pattern: " + pattern);
             response.append("<br>");
 
-            URI u = new URI("http", null, "localhost", 9998, "/find", "path=" + path + "&pattern=" + pattern, null);
+            URI u = new URI("http", null, "localhost", 9998, "/index/find", "path=" + path + "&pattern=" + pattern, null);
             
             for (String c : requestStringArrayResponse(u)) {
                 response.append(c);

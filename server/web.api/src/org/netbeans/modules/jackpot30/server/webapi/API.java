@@ -12,7 +12,7 @@ import org.netbeans.modules.jackpot30.server.indexer.StandaloneFinder;
  *
  * @author lahvac
  */
-@Path("/")
+@Path("/index")
 public class API {
 
     @GET
