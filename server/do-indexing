@@ -1,0 +1,17 @@
+#!/bin/bash -x
+
+performIndexing() {
+    name=`basename $1`;
+    if [ -d $name ] ; then
+        (cd $name; hg pull -u;)
+    else
+        hg clone $1
+    fi;
+    java -jar indexer.jar $name $2
+}
+
+mkdir -p cache
+
+for f in `echo $1 | tr ',' '\n'`; do
+    performIndexing $f cache
+done
