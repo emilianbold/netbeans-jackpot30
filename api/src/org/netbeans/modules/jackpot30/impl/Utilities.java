@@ -207,16 +207,24 @@ public class Utilities {
     }
     
     public static Tree parseAndAttribute(CompilationInfo info, String pattern, Scope scope) {
-        Tree patternTree = !isStatement(pattern) ? info.getTreeUtilities().parseExpression(pattern, new SourcePositions[1]) : null;
+        return parseAndAttribute(info, JavaSourceAccessor.getINSTANCE().getJavacTask(info), pattern, scope);
+    }
+
+    public static Tree parseAndAttribute(JavacTaskImpl jti, String pattern) {
+        return parseAndAttribute(null, jti, pattern, null);
+    }
+
+    private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope) {
+        Tree patternTree = !isStatement(pattern) ? jti.parseExpression(pattern, new SourcePositions[1]) : null;
         boolean expression = true;
 
         if (patternTree == null || patternTree.getKind() == Kind.ERRONEOUS || (patternTree.getKind() == Kind.IDENTIFIER && ((IdentifierTree) patternTree).getName().contentEquals("<error>"))) { //TODO: <error>...
-            patternTree = info.getTreeUtilities().parseStatement(pattern, new SourcePositions[1]);
+            patternTree = jti.parseStatement(pattern, new SourcePositions[1]);
             expression = false;
         }
 
         FixTree fixTree = new FixTree();
-        Context c = JavaSourceAccessor.getINSTANCE().getJavacTask(info).getContext();
+        Context c = jti.getContext();
 
         //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
         //but sometimes no CompilationUnitTree (e.g. during BatchApply):
@@ -229,6 +237,8 @@ public class Utilities {
         if (scope == null) {
             return patternTree;
         }
+
+        assert info != null;
 
         TypeMirror type = info.getTreeUtilities().attributeTree(patternTree, scope);
 
@@ -249,7 +259,7 @@ public class Utilities {
 
         return patternTree;
     }
-    
+
     private static boolean isError(Element el) {
         return (el == null || (el.getKind() == ElementKind.CLASS) && isError(((TypeElement) el).asType()));
     }

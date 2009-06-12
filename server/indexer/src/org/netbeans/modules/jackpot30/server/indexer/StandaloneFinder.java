@@ -1,7 +1,6 @@
 package org.netbeans.modules.jackpot30.server.indexer;
 
 import com.sun.source.tree.Tree;
-import com.sun.source.util.SourcePositions;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import java.io.File;
 import java.io.IOException;
@@ -11,6 +10,7 @@ import java.util.Collections;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.ToolProvider;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
 import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
@@ -32,7 +32,7 @@ public class StandaloneFinder {
 
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, null, Arrays.asList("-bootclasspath",  bootPath), null, Collections.<JavaFileObject>emptyList());
 
-        Tree patternTree = ct.parseExpression(pattern, new SourcePositions[1]);//XXX!!!!!
+        Tree patternTree = Utilities.parseAndAttribute(ct, pattern);
 
         return TreeSerializer.serializePatterns(patternTree);
     }
