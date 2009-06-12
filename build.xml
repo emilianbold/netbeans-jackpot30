@@ -8,6 +8,10 @@
     
     <property name="server.modules" value="server/indexer:server/web.api" />
     
+    <target name="-init" depends="suite.-init">
+        <copy file="${nbplatform.active.dir}/java2/modules/org-netbeans-modules-java-source.jar" todir="server/lib" />
+    </target>
+    
     <target name="findbugs" depends="-init">
         <subant target="findbugs" buildpath="${modules}" inheritall="false"/>
     </target>
