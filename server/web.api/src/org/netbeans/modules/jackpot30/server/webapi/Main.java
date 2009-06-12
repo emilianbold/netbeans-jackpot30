@@ -23,7 +23,7 @@ public class Main {
             return ;
         }
         
-        Cache.setStandaloneCacheRoot(new File("/tmp/cache"));
+        Cache.setStandaloneCacheRoot(new File(args[0]));
 
         final String baseUri = "http://localhost:9998/";
         final Map<String, String> initParams = new HashMap<String, String>();
