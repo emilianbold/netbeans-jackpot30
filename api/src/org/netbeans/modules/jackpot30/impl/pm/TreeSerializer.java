@@ -46,6 +46,7 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.VariableTree;
@@ -73,24 +74,39 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
         serializer.scan(tree, p);
 
-        return new Result(p.toString(), serializer.serializedStart2Tree, null, serializer.identifiers, serializer.treeKinds);
+        return new Result(p.toString(), serializer.serializedStart2Tree, null, null, serializer.identifiers, serializer.treeKinds);
     }
 
     public static Result serializePatterns(Tree... patterns) {
         StringBuilder p = new StringBuilder();
         TreeSerializer ts = new TreeSerializer(true);
         int[] groups = new int[patterns.length];
+        Set<Integer> patternsWithUnrolledBlocks = new HashSet<Integer>();
         int i = 0;
 
         for (Tree tree : patterns) {
             groups[i] = ts.group++;
             ts.append(p, i > 0 ? "|(" : "(");
+            //XXX HACK: see BulkSearchTest.testNoExponentialTimeComplexity
+            if (   tree.getKind() == Kind.BLOCK
+                && Utilities.isMultistatementWildcardTree(((BlockTree) tree).getStatements().get(0))) {
+
+                List<? extends StatementTree> statements = ((BlockTree) tree).getStatements();
+
+                for (Tree t : statements.subList(1, statements.size())) {
+                    ts.scan(t, p);
+                }
+
+                patternsWithUnrolledBlocks.add(i);
+            } else {
+            //XXX end hack
             ts.scan(tree, p);
+            }
             ts.append(p, ")");
             i++;
         }
 
-        return new Result(p.toString(), null, groups, ts.identifiers, ts.treeKinds);
+        return new Result(p.toString(), null, groups, patternsWithUnrolledBlocks, ts.identifiers, ts.treeKinds);
     }
 
     private int depth;
@@ -152,7 +168,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             append(p, "<([0-9a-z]+)>.*?</\\" + (group++) + ">");
 
             if (isMultistatementWildcard) {
-                append(p, ")*");
+                append(p, ")*?");
             }
 
             return null;
@@ -352,13 +368,15 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         public final String encoded;
         public final Map<Integer, List<TreePath>> serializedEnd2Tree;
         public final int[] groups;
+        public final Set<Integer> patternsWithUnrolledBlocks;
         public final Set<String> identifiers;
         public final Set<String> treeKinds;
 
-        private Result(String encoded, Map<Integer, List<TreePath>> serializedEnd2Tree, int[] groups, Set<String> identifiers, Set<String> treeKinds) {
+        private Result(String encoded, Map<Integer, List<TreePath>> serializedEnd2Tree, int[] groups, Set<Integer> patternsWithUnrolledBlocks, Set<String> identifiers, Set<String> treeKinds) {
             this.encoded = encoded;
             this.serializedEnd2Tree = serializedEnd2Tree;
             this.groups = groups;
+            this.patternsWithUnrolledBlocks = patternsWithUnrolledBlocks;
             this.identifiers = identifiers;
             this.treeKinds = treeKinds;
         }

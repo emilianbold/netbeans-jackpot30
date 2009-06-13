@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,6 +49,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -94,9 +96,27 @@ public class BulkSearch {
                         occurringPatterns.put(patt, occurrences = new LinkedList<TreePath>());
                     }
 
-                    occurrences.addAll(r.serializedEnd2Tree.get(m.end()));
+                    List<TreePath> paths = r.serializedEnd2Tree.get(m.end());
+
+                    if (pattern.patternsWithUnrolledBlocks.contains(cntr)) {
+                        //HACK: see BulkSearchTest.testNoExponentialTimeComplexity
+                        List<TreePath> updated = new LinkedList<TreePath>();
+
+                        for (TreePath tp : paths) {
+                            if (tp.getParentPath().getLeaf().getKind() == Kind.BLOCK) {
+                                updated.add(tp.getParentPath());
+                            } else {
+                                //see BulkSearchTest.testMultiStatementVariablesAndBlocks4
+                                updated.add(tp);
+                            }
                         }
+
+                        paths = updated;
                     }
+
+                    occurrences.addAll(paths);
+                }
+            }
 
             start = m.start() + 1;
         }
@@ -129,11 +149,11 @@ public class BulkSearch {
 
         Result r = TreeSerializer.serializePatterns(patterns);
 
-        return BulkPattern.create(new LinkedList<String>(code), r.encoded, r.groups);
+        return BulkPattern.create(new LinkedList<String>(code), r.encoded, r.groups, r.patternsWithUnrolledBlocks);
     }
 
     public static BulkPattern create(Result r) {
-        return BulkPattern.create(Collections.singletonList(""), r.encoded, r.groups);
+        return BulkPattern.create(Collections.singletonList(""), r.encoded, r.groups, r.patternsWithUnrolledBlocks);
     }
 
     public static class BulkPattern {
@@ -142,20 +162,22 @@ public class BulkSearch {
         private final String serialized;
         private final Pattern p;
         private final int[] groups;
+        private final Set<Integer> patternsWithUnrolledBlocks;
 
-        private BulkPattern(List<String> original, String serialized, int[] groups) {
+        private BulkPattern(List<String> original, String serialized, int[] groups, Set<Integer> patternsWithUnrolledBlocks) {
             this.original = original;
             this.serialized = serialized;
             this.p = Pattern.compile(serialized);
             this.groups = groups;
+            this.patternsWithUnrolledBlocks = patternsWithUnrolledBlocks;
         }
 
         Pattern toRegexpPattern() {
             return p;
         }
 
-        private static BulkPattern create(List<String> original, String patterns, int[] groups) {
-            return new BulkPattern(original, patterns, groups);
+        private static BulkPattern create(List<String> original, String patterns, int[] groups, Set<Integer> patternsWithUnrolledBlocks) {
+            return new BulkPattern(original, patterns, groups, patternsWithUnrolledBlocks);
         }
 
     }

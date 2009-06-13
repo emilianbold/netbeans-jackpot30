@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.swing.text.Document;
 import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -182,6 +183,12 @@ public class BulkSearchTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testMultiStatementVariablesAndBlocks4() throws Exception {
+        performTest("package test; public class Test { public void test1() { if (true) System.err.println(); } }",
+                    Collections.singletonMap("{ $s1$; System.err.println(); $s2$; }", Arrays.asList("System.err.println();")),
+                    Collections.<String>emptyList());
+    }
+
     public void testTwoPatterns() throws Exception {
         Map<String, List<String>> contained = new HashMap<String, List<String>>();
 
@@ -197,6 +204,64 @@ public class BulkSearchTest extends NbTestCase {
         performTest("package test; import javax.swing.ImageIcon; public class Test { public void test1(java.awt.Image i) { new ImageIcon(i); new String(i); } }",
                     Collections.singletonMap("new javax.swing.ImageIcon($1)", Arrays.asList("new ImageIcon(i)")),
                     Collections.<String>emptyList());
+    }
+
+    public void testNoExponentialTimeComplexity() throws Exception {
+        String code = "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test() {\n" +
+                      "        Object o;\n" +
+                      "        if(o == null) {\n" +
+                      "            f(\"\");\n" +
+                      "        }|\n" +
+                      "    }\n" +
+                      "}";
+        String pattern = "{ $p$; $T $v; if($a) $v = $b; else $v = $c; }";
+
+        measure(code, "\na(\"\");", 5, pattern); //to load needed classes, etc.
+
+        int rep = 1;
+        long baseline;
+
+        while (true) {
+            baseline = measure(code, "\na(\"\");", rep, pattern);
+
+            if (baseline >= 2000) {
+                break;
+            }
+
+            rep *= 2;
+        }
+
+        long doubleSize = measure(code, "\na(\"\");", 2 * rep, pattern);
+
+        assertTrue(doubleSize <= 4 * baseline);
+    }
+
+    private long measure(String baseCode, String toInsert, int repetitions, String pattern) throws Exception {
+        int pos = baseCode.indexOf('|');
+
+        assertTrue(pos != (-1));
+
+        baseCode = baseCode.replaceAll(Pattern.quote("|"), "");
+        
+        StringBuilder code = new StringBuilder(baseCode.length() + repetitions * toInsert.length());
+
+        code.append(baseCode);
+        
+        while (repetitions-- > 0) {
+            code.insert(pos, toInsert);
+        }
+
+        long startTime = System.currentTimeMillis();
+
+        performTest(code.toString(),
+                    Collections.<String, List<String>>emptyMap(),
+                    Arrays.asList(pattern));
+
+        long endTime = System.currentTimeMillis();
+
+        return endTime - startTime;
     }
 
     public void XtestMeasureTime() throws Exception {
