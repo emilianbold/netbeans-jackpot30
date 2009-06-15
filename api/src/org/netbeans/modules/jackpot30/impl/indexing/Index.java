@@ -10,6 +10,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.URL;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import org.apache.lucene.analysis.Token;
@@ -84,7 +85,13 @@ public class Index {
     }
 
     private Collection<? extends String> findCandidatesFromLucene(Result r) throws IOException {
-        IndexReader reader = IndexReader.open(new File(cacheRoot, "fulltext"));
+        File dir = new File(cacheRoot, "fulltext");
+
+        if (dir.listFiles() == null || dir.listFiles().length == 0) {
+            return Collections.emptyList();
+        }
+        
+        IndexReader reader = IndexReader.open(dir);
         Searcher s = new IndexSearcher(reader);
 
         Hits hits;
