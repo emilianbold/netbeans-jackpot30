@@ -19,7 +19,6 @@ import java.awt.Component;
 import java.awt.Dialog;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -36,7 +35,6 @@ import javax.swing.JList;
 import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CancellableTask;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -49,9 +47,11 @@ import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.UiUtils;
 import org.netbeans.api.java.source.support.CaretAwareJavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.SelectionAwareJavaSourceTaskFactory;
-import org.netbeans.modules.jackpot30.impl.indexing.Index;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.java.hints.introduce.IntroduceHint;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.builder.TreeFactory;
@@ -66,7 +66,6 @@ import org.netbeans.spi.editor.hints.Severity;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 
@@ -112,37 +111,6 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
         //XXX
     }
 
-    private static Collection<? extends FileObject> computeDuplicateCandidates(CompilationInfo info, int start, int end) {
-        Tree generalized = resolveAndGeneralizePattern(info, start, end);
-
-        if (generalized == null) {
-            return Collections.emptyList();
-        }
-
-        Result pattern = TreeSerializer.serializePatterns(generalized);
-        List<FileObject> result = new LinkedList<FileObject>();
-
-        for (FileObject src : GlobalPathRegistry.getDefault().getSourceRoots()) {
-            try {
-                Index i = Index.get(src.getURL());
-
-                if (i == null) {
-                    continue;
-                }
-
-                for (String candidate : i.findCandidates(pattern)) {
-                    FileObject f = src.getFileObject(candidate);
-
-                    result.add(f);
-                }
-            } catch (IOException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-        }
-
-        return result;
-    }
-
     static Tree resolveAndGeneralizePattern(CompilationInfo info, int start, int end) {
         TreePath selection = selectionForExpressionHack(info, start, end);
 
@@ -166,13 +134,15 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
         }
     }
 
-    private static void showDuplicates(final Collection<? extends FileObject> candidates) {
+    private static void showDuplicates(final BatchResult candidates) {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 DefaultListModel m = new DefaultListModel();
 
-                for (FileObject f : candidates) {
-                    m.addElement(f);
+                for (Iterable<? extends Resource> it : candidates.projectId2Resources.values()) {
+                    for (Resource r : it) {
+                        m.addElement(r);
+                    }
                 }
 
                 final JList l = new JList(m);
@@ -182,10 +152,10 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
                 l.addMouseListener(new MouseAdapter() {
                     public void mouseClicked(MouseEvent e) {
                         if (e.getClickCount() == 2) {
-                            FileObject f = (FileObject) l.getSelectedValue();
+                            Resource r = (Resource) l.getSelectedValue();
 
-                            if (f != null) {
-                                UiUtils.open(f, 0);
+                            if (r != null) {
+                                UiUtils.open(r.getResolvedFile(), 0);
                             }
                             
                             d.setVisible(false);
@@ -196,9 +166,9 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
                 l.setCellRenderer(new DefaultListCellRenderer() {
                     @Override
                     public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                        assert value instanceof FileObject;
+                        assert value instanceof Resource;
 
-                        String displayName = FileUtil.getFileDisplayName((FileObject) value);
+                        String displayName = ((Resource) value).getDisplayName();
 
                         return super.getListCellRendererComponent(list, displayName, index, isSelected, cellHasFocus);
                     }
@@ -230,7 +200,17 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
                 public void run(CompilationController cc) throws Exception {
                     cc.toPhase(Phase.RESOLVED);
 
-                    showDuplicates(computeDuplicateCandidates(cc, start, end));
+                    Tree generalized = resolveAndGeneralizePattern(cc, start, end);
+
+                    if (generalized == null) {
+                        return ;
+                    }
+
+                    String patternText = generalized.toString(); //XXX
+                    PatternDescription pattern = PatternDescription.create(patternText, Collections.<String, String>emptyMap());
+                    BatchResult candidates = BatchSearch.findOccurrences(pattern, Scope.ALL_OPENED_PROJECTS);
+                    
+                    showDuplicates(candidates);
                 }
             }, true);
             

@@ -81,6 +81,8 @@ import javax.tools.JavaFileObject;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.platform.JavaPlatform;
+import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
@@ -92,6 +94,7 @@ import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
@@ -401,5 +404,12 @@ public class Utilities {
         result.append("s");
 
         return result.toString();
+    }
+
+    private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
+    public static ClasspathInfo createUniversalCPInfo() {
+        ClassPath bootstrap = JavaPlatform.getDefault().getBootstrapLibraries();
+
+        return ClasspathInfo.create(bootstrap, EMPTY, EMPTY);
     }
 }
