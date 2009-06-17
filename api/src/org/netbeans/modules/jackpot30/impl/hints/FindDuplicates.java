@@ -301,8 +301,6 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
             }
         }
 
-        System.err.println("translated: " + translated);
-        
         return translated;
     }
 
