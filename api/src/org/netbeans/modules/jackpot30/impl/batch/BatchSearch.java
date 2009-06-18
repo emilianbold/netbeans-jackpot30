@@ -1,18 +1,26 @@
 package org.netbeans.modules.jackpot30.impl.batch;
 
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
 import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
@@ -54,17 +62,18 @@ public class BatchSearch {
     private static BatchResult findOccurrencesLocalImpl(CompilationInfo info/*XXX*/, PatternDescription pattern) {
         Tree treePattern = Utilities.parseAndAttribute(info, pattern.getPattern(), null);
         Result serializedPattern = TreeSerializer.serializePatterns(treePattern);
+        BulkPattern bulkPattern = BulkSearch.create(serializedPattern);
         Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         
         for (FileObject src : GlobalPathRegistry.getDefault().getSourceRoots()) {
-            Container id = new LocalContainer(src);
-
             try {
                 Index i = Index.get(src.getURL());
 
                 if (i == null) {
                     continue;
                 }
+                
+                Container id = new LocalContainer(src, i);
 
                 for (String candidate : i.findCandidates(serializedPattern)) {
                     Collection<Resource> resources = result.get(id);
@@ -73,7 +82,7 @@ public class BatchSearch {
                         result.put(id, resources = new LinkedList<Resource>());
                     }
 
-                    resources.add(new Resource(id, candidate));
+                    resources.add(new Resource(id, candidate, bulkPattern));
                 }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
@@ -102,6 +111,7 @@ public class BatchSearch {
         Container() {}
 
         public abstract boolean isLocal();
+               abstract CharSequence getSourceCode(String relativePath);
                abstract FileObject resolve(String relativePath);
                abstract String toDebugString() throws Exception;
     }
@@ -109,14 +119,21 @@ public class BatchSearch {
     public static final class LocalContainer extends Container {
 
         private final FileObject localFO;
+        private final Index index;
         
-        LocalContainer(FileObject localFO) {
+        LocalContainer(@NonNull FileObject localFO, @NonNull Index index) {
             this.localFO = localFO;
+            this.index = index;
         }
         
         @Override
         public boolean isLocal() {
             return true;
+        }
+
+        @Override
+        CharSequence getSourceCode(String relativePath) {
+            return index.getSourceCode(relativePath);
         }
 
         @Override
@@ -134,18 +151,87 @@ public class BatchSearch {
     public static final class Resource {
         private final Container container;
         private final String relativePath;
+        private final BulkPattern pattern;
 
-        public Resource(Container container, String relativePath) {
+        public Resource(Container container, String relativePath, BulkPattern pattern) {
             this.container = container;
             this.relativePath = relativePath;
+            this.pattern = pattern;
         }
 
         public String getRelativePath() {
             return relativePath;
         }
         
-        public Iterable<int[]> getSpans() {
-            throw new UnsupportedOperationException();
+        public Iterable<int[]> getCandidateSpans() {
+            FileObject file = getResolvedFile();
+            JavaSource js;
+
+            if (file != null) {
+                js = JavaSource.forFileObject(file);
+            } else {
+                CharSequence text = getSourceCode();
+
+                if (text == null) {
+                    return null;
+                }
+
+                Writer out = null;
+
+                try {
+                    file = FileUtil.createData(FileUtil.createMemoryFileSystem().getRoot(), relativePath);
+                    out = new OutputStreamWriter(file.getOutputStream());
+
+                    out.write(text.toString());
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                    return null;
+                } finally {
+                    if (out != null) {
+                        try {
+                            out.close();
+                        } catch (IOException ex) {
+                            Exceptions.printStackTrace(ex);
+                        }
+                    }
+                }
+
+                js = JavaSource.create(Utilities.createUniversalCPInfo(), file);
+            }
+
+            final List<int[]> span = new LinkedList<int[]>();
+
+            try {
+                js.runUserActionTask(new Task<CompilationController>() {
+                    public void run(CompilationController cc) throws Exception {
+                        cc.toPhase(Phase.PARSED);
+
+                        span.addAll(doComputeSpans(cc));
+                    }
+                }, true);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+
+            return span;
+        }
+
+        private Collection<int[]> doComputeSpans(CompilationInfo ci) {
+            Collection<int[]> result = new LinkedList<int[]>();
+            Map<String, Collection<TreePath>> found = BulkSearch.match(ci, ci.getCompilationUnit(), pattern);
+
+            for (Collection<TreePath> tps : found.values()) {
+                for (TreePath tp : tps) {
+                    int[] span = new int[] {
+                        (int) ci.getTrees().getSourcePositions().getStartPosition(ci.getCompilationUnit(), tp.getLeaf()),
+                        (int) ci.getTrees().getSourcePositions().getEndPosition(ci.getCompilationUnit(), tp.getLeaf())
+                    };
+
+                    result.add(span);
+                }
+            }
+
+            return result;
         }
         
         public FileObject getResolvedFile() {
@@ -162,6 +248,9 @@ public class BatchSearch {
             }
         }
         
+        public CharSequence getSourceCode() {
+            return container.getSourceCode(relativePath);
+        }
     }
 
 }
