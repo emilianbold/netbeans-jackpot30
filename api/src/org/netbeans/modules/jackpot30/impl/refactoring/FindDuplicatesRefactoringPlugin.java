@@ -89,7 +89,7 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
                 int boldStart = start.getColumn();
                 int boldEnd   = end.getLine() == start.getLine() ? end.getColumn() : lineText.length();
 
-                String displayName = escapedSubstring(lineText, 0, boldStart) + "<b>" + escapedSubstring(lineText, boldStart, boldEnd) + "</b>" + escapedSubstring(lineText, boldEnd, lineText.length());
+                String displayName = escapedSubstring(lineText, 0, boldStart).replaceAll("^[ ]*", "") + "<b>" + escapedSubstring(lineText, boldStart, boldEnd) + "</b>" + escapedSubstring(lineText, boldEnd, lineText.length());
 
                 result.add(new RefactoringElementImpl(r, bound, displayName));
             }
