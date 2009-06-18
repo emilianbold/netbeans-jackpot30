@@ -64,6 +64,7 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import java.io.File;
 import java.io.IOException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -406,8 +407,9 @@ public class Utilities {
         return result.toString();
     }
 
-    private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
     public static ClasspathInfo createUniversalCPInfo() {
+        //TODO: cannot be a class constant, would break the 
+        final ClassPath EMPTY = ClassPathSupport.createClassPath(new URL[0]);
         ClassPath bootstrap = JavaPlatform.getDefault().getBootstrapLibraries();
 
         return ClasspathInfo.create(bootstrap, EMPTY, EMPTY);
