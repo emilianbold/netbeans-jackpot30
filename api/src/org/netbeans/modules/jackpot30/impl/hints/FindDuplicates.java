@@ -15,10 +15,6 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.util.Context;
-import java.awt.Component;
-import java.awt.Dialog;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
@@ -29,10 +25,6 @@ import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.DefaultListModel;
-import javax.swing.JList;
-import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.source.CancellableTask;
@@ -44,27 +36,23 @@ import org.netbeans.api.java.source.JavaSource.Priority;
 import org.netbeans.api.java.source.JavaSourceTaskFactory;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TreePathHandle;
-import org.netbeans.api.java.source.UiUtils;
 import org.netbeans.api.java.source.support.CaretAwareJavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.SelectionAwareJavaSourceTaskFactory;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.impl.refactoring.FindDuplicatesRefactoringUI;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.java.hints.introduce.IntroduceHint;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.builder.TreeFactory;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
+import org.netbeans.modules.refactoring.spi.ui.UI;
 import org.netbeans.spi.editor.hints.ChangeInfo;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.Fix;
 import org.netbeans.spi.editor.hints.HintsController;
 import org.netbeans.spi.editor.hints.Severity;
-import org.openide.DialogDescriptor;
-import org.openide.DialogDisplayer;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
@@ -134,51 +122,6 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
         }
     }
 
-    private static void showDuplicates(final BatchResult candidates) {
-        SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
-                DefaultListModel m = new DefaultListModel();
-
-                for (Iterable<? extends Resource> it : candidates.projectId2Resources.values()) {
-                    for (Resource r : it) {
-                        m.addElement(r);
-                    }
-                }
-
-                final JList l = new JList(m);
-                      DialogDescriptor dd = new DialogDescriptor(new JScrollPane(l), "Possible Duplicates");
-                final Dialog d = DialogDisplayer.getDefault().createDialog(dd);
-
-                l.addMouseListener(new MouseAdapter() {
-                    public void mouseClicked(MouseEvent e) {
-                        if (e.getClickCount() == 2) {
-                            Resource r = (Resource) l.getSelectedValue();
-
-                            if (r != null) {
-                                UiUtils.open(r.getResolvedFile(), 0);
-                            }
-                            
-                            d.setVisible(false);
-                        }
-                    }
-                });
-
-                l.setCellRenderer(new DefaultListCellRenderer() {
-                    @Override
-                    public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                        assert value instanceof Resource;
-
-                        String displayName = ((Resource) value).getDisplayName();
-
-                        return super.getListCellRendererComponent(list, displayName, index, isSelected, cellHasFocus);
-                    }
-                });
-
-                d.setVisible(true);
-            }
-        });
-    }
-    
     private static final class FixImpl implements Fix {
 
         private final FileObject file;
@@ -207,10 +150,13 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
                     }
 
                     String patternText = generalized.toString(); //XXX
-                    PatternDescription pattern = PatternDescription.create(patternText, Collections.<String, String>emptyMap());
-                    BatchResult candidates = BatchSearch.findOccurrences(pattern, Scope.ALL_OPENED_PROJECTS);
-                    
-                    showDuplicates(candidates);
+                    final PatternDescription pattern = PatternDescription.create(patternText, Collections.<String, String>emptyMap());
+
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            UI.openRefactoringUI(new FindDuplicatesRefactoringUI(pattern, Scope.ALL_OPENED_PROJECTS));
+                        }
+                    });
                 }
             }, true);
             
