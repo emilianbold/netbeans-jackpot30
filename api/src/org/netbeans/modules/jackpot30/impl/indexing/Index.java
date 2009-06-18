@@ -4,10 +4,13 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,9 +32,11 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
+import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
+import org.openide.util.Exceptions;
 
 /**
  *
@@ -49,7 +54,7 @@ public class Index {
         this.cacheRoot = cacheRoot;
     }
 
-    public static Index get(URL sourceRoot) throws IOException {
+    public static @CheckForNull Index get(URL sourceRoot) throws IOException {
         return new Index(sourceRoot, Cache.findCacheRoot(sourceRoot)); //XXX: new!
     }
 
@@ -129,6 +134,42 @@ public class Index {
         }
 
         return q;
+    }
+
+    public CharSequence getSourceCode(String relativePath) {
+        try {
+            URI absolute = sourceRoot.toURI().resolve(relativePath);
+            StringBuilder result = new StringBuilder();
+            InputStream input = null;
+            Reader reader = null;
+
+            try {
+                input = absolute.toURL().openStream();
+                reader = new InputStreamReader(input); //XXX encoding!!!
+
+                int read;
+
+                while ((read = reader.read()) != (-1)) {
+                    result.append((char) read);
+                }
+
+                return result;
+            } finally {
+                if (reader != null) {
+                    reader.close();
+                } else {
+                    if (input != null) {
+                        input.close();
+                    }
+                }
+            }
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+            return null;
+        } catch (URISyntaxException ex) {
+            Exceptions.printStackTrace(ex);
+            return null;
+        }
     }
     
     public class IndexWriter {
