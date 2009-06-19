@@ -74,7 +74,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     }
 
     public HelpCtx getHelpCtx() {
-        return HelpCtx.DEFAULT_HELP;
+        return new HelpCtx("jackpot30.pattern.format");
     }
 
 }
