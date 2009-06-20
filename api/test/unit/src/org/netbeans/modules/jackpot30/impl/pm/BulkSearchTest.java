@@ -206,6 +206,20 @@ public class BulkSearchTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void XtestJackpot30_2() throws Exception {
+        String code = "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void m() {\n" +
+                      "        a(c.i().getFileObject());\n" +
+                      "        if (span != null && span[0] != (-1) && span[1] != (-1));\n" +
+                      "    }\n" +
+                      "}\n";
+        
+        performTest(code,
+                    Collections.<String, List<String>>emptyMap(),
+                    Arrays.asList("$0.getFileObject($1)"));
+    }
+
     public void XtestNoExponentialTimeComplexity() throws Exception {
         String code = "package test;\n" +
                       "public class Test {\n" +
