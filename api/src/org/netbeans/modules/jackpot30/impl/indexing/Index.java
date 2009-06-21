@@ -62,14 +62,12 @@ public class Index {
         return new IndexWriter();
     }
 
-    public Collection<? extends String> findCandidates(Result r) throws IOException {
-        Collection<? extends String> candidates = findCandidatesFromLucene(r);
+    public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
+        Collection<? extends String> candidates = findCandidatesFromLucene(pattern);
 
         if (candidates.isEmpty()) {
             return candidates;
         }
-
-        BulkPattern pattern = BulkSearch.create(r);
 
         for (Iterator<? extends String> it = candidates.iterator(); it.hasNext();) {
             String relative = it.next();
@@ -81,7 +79,7 @@ public class Index {
                 text.append((char) read);
             }
 
-            if (!BulkSearch.matches(text.toString(), pattern)) {
+            if (!BulkSearch.getDefault().matches(text.toString(), pattern)) {
                 it.remove();
             }
         }
@@ -89,7 +87,7 @@ public class Index {
         return candidates;
     }
 
-    private Collection<? extends String> findCandidatesFromLucene(Result r) throws IOException {
+    private Collection<? extends String> findCandidatesFromLucene(BulkPattern pattern) throws IOException {
         File dir = new File(cacheRoot, "fulltext");
 
         if (dir.listFiles() == null || dir.listFiles().length == 0) {
@@ -101,7 +99,7 @@ public class Index {
 
         Hits hits;
         try {
-            hits = s.search(query(r));
+            hits = s.search(query(pattern));
         } catch (ParseException ex) {
             throw new IOException(ex);
         }
@@ -119,16 +117,16 @@ public class Index {
         return result;
     }
 
-    private Query query(Result r) throws ParseException {
+    private Query query(BulkPattern pattern) throws ParseException {
         BooleanQuery q = new BooleanQuery();
         
-        if (!r.identifiers.isEmpty()) {
-            for (String a : r.identifiers) {
+        if (!pattern.getIdentifiers().isEmpty()) {
+            for (String a : pattern.getIdentifiers()) {
                 q.add(new TermQuery(new Term("identifiers", a)), BooleanClause.Occur.MUST);
             }
         }
-        if (!r.treeKinds.isEmpty()) {
-            for (String t : r.treeKinds) {
+        if (!pattern.getKinds().isEmpty()) {
+            for (String t : pattern.getKinds()) {
                 q.add(new TermQuery(new Term("treeKinds", t)), BooleanClause.Occur.MUST);
             }
         }

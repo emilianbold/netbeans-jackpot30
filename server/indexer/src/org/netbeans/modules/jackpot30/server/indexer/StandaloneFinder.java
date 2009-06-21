@@ -12,8 +12,8 @@ import javax.tools.JavaFileObject;
 import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 
 /**
  *
@@ -22,18 +22,18 @@ import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
 public class StandaloneFinder {
 
     public static Collection<? extends String> findCandidates(File sourceRoot, String pattern) throws IOException {
-        return Index.get(sourceRoot.toURI().toURL()).findCandidates(parsePattern(pattern));
+        BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(pattern), Collections.singleton(parsePattern(pattern)));
+        
+        return Index.get(sourceRoot.toURI().toURL()).findCandidates(bulkPattern);
     }
 
-    private static Result parsePattern(String pattern) {
+    private static Tree parsePattern(String pattern) {
         final String bootPath = System.getProperty("sun.boot.class.path"); //NOI18N
         final JavaCompiler tool = ToolProvider.getSystemJavaCompiler();
         assert tool != null;
 
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, null, Arrays.asList("-bootclasspath",  bootPath), null, Collections.<JavaFileObject>emptyList());
 
-        Tree patternTree = Utilities.parseAndAttribute(ct, pattern);
-
-        return TreeSerializer.serializePatterns(patternTree);
+        return Utilities.parseAndAttribute(ct, pattern);
     }
 }

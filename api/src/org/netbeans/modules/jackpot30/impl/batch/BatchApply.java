@@ -190,7 +190,7 @@ public class BatchApply {
         try {
             js.runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController cc) throws Exception {
-                    bp[0] = BulkSearch.create(cc, patterns);
+                    bp[0] = BulkSearch.getDefault().create(cc, patterns);
                 }
             }, true);
         } catch (IOException ex) {
@@ -359,7 +359,7 @@ public class BatchApply {
                             return;
                         }
 
-                        Map<String, Collection<TreePath>> matchingPatterns = BulkSearch.match(cc, cc.getCompilationUnit(), bulkPattern);
+                        Map<String, Collection<TreePath>> matchingPatterns = BulkSearch.getDefault().match(cc, cc.getCompilationUnit(), bulkPattern);
 
                         if (matchingPatterns.isEmpty()) {
                             done.add(cc.getFileObject());

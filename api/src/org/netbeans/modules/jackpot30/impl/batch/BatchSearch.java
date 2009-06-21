@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -61,8 +62,7 @@ public class BatchSearch {
     }
     private static BatchResult findOccurrencesLocalImpl(CompilationInfo info/*XXX*/, PatternDescription pattern) {
         Tree treePattern = Utilities.parseAndAttribute(info, pattern.getPattern(), null);
-        Result serializedPattern = TreeSerializer.serializePatterns(treePattern);
-        BulkPattern bulkPattern = BulkSearch.create(serializedPattern);
+        BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(pattern.getPattern()), Collections.singleton(treePattern));
         Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         
         for (FileObject src : GlobalPathRegistry.getDefault().getSourceRoots()) {
@@ -75,7 +75,7 @@ public class BatchSearch {
                 
                 Container id = new LocalContainer(src, i);
 
-                for (String candidate : i.findCandidates(serializedPattern)) {
+                for (String candidate : i.findCandidates(bulkPattern)) {
                     Collection<Resource> resources = result.get(id);
 
                     if (resources == null) {
@@ -218,7 +218,7 @@ public class BatchSearch {
 
         private Collection<int[]> doComputeSpans(CompilationInfo ci) {
             Collection<int[]> result = new LinkedList<int[]>();
-            Map<String, Collection<TreePath>> found = BulkSearch.match(ci, ci.getCompilationUnit(), pattern);
+            Map<String, Collection<TreePath>> found = BulkSearch.getDefault().match(ci, ci.getCompilationUnit(), pattern);
 
             for (Collection<TreePath> tps : found.values()) {
                 for (TreePath tp : tps) {

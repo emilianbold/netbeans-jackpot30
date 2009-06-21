@@ -40,144 +40,70 @@
 package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
 
 /**
  *
  * @author lahvac
  */
-public class BulkSearch {
+public abstract class BulkSearch {
 
-    public static Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern) {
+    private static final BulkSearch INSTANCE = new REBasedBulkSearch();
+
+    public static BulkSearch getDefault() {
+        return INSTANCE;
+    }
+    
+    protected BulkSearch() {}
+    
+    public final Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern) {
         return match(info, tree, pattern, null);
     }
 
-    public static Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern, Map<String, Long> timeLog) {
-        if (pattern.original.isEmpty()) {
-            return Collections.<String, Collection<TreePath>>emptyMap();
-        }
-        
-        Map<String, Collection<TreePath>> occurringPatterns = new HashMap<String, Collection<TreePath>>();
-        Result r = TreeSerializer.serializeText(tree);
+    public abstract Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern, Map<String, Long> timeLog);
 
-        if (timeLog != null) {
-            timeLog.put("[C] Jackpot 3.0 Serialized Tree Size", (long) r.encoded.length());
-        }
-        
-        long s2 = System.currentTimeMillis();
-        Matcher m = pattern.toRegexpPattern().matcher(r.encoded);
-        int start = 0; //XXX: hack to allow matches inside other matches (see testTwoPatterns)
-        long patternOccurrences = 0;
-
-//        System.err.println("matcher=" + (System.currentTimeMillis() - s2));
-
-        while (start < r.encoded.length() && m.find(start)) {
-            patternOccurrences++;
-            for (int cntr = 0; cntr < pattern.groups.length; cntr++) {
-                if (m.group(pattern.groups[cntr]) != null) {
-                    String patt = pattern.original.get(cntr);
-                    Collection<TreePath> occurrences = occurringPatterns.get(patt);
-
-                    if (occurrences == null) {
-                        occurringPatterns.put(patt, occurrences = new LinkedList<TreePath>());
-                    }
-
-                    List<TreePath> paths = r.serializedEnd2Tree.get(m.end());
-
-                    if (pattern.patternsWithUnrolledBlocks.contains(cntr)) {
-                        //HACK: see BulkSearchTest.testNoExponentialTimeComplexity
-                        List<TreePath> updated = new LinkedList<TreePath>();
-
-                        for (TreePath tp : paths) {
-                            if (tp.getParentPath().getLeaf().getKind() == Kind.BLOCK) {
-                                updated.add(tp.getParentPath());
-                            } else {
-                                //see BulkSearchTest.testMultiStatementVariablesAndBlocks4
-                                updated.add(tp);
-                            }
-                        }
-
-                        paths = updated;
-                    }
-
-                    occurrences.addAll(paths);
-                }
-            }
-
-            start = m.start() + 1;
-        }
-
-        long e2 = System.currentTimeMillis();
-
-        if (timeLog != null) {
-            timeLog.put("[C] Jackpot 3.0 Pattern Occurrences", patternOccurrences);
-        }
-
-//        System.err.println("match: " + (e2 - s2));
-        return occurringPatterns;
-    }
-
-    public static boolean matches(String encoded, BulkPattern pattern) {
-        return pattern.toRegexpPattern().matcher(encoded).find();
-    }
+    public abstract boolean matches(String encoded, BulkPattern pattern);
     
-    public static BulkPattern create(CompilationInfo info, String... code) {
+    public final BulkPattern create(CompilationInfo info, String... code) {
         return create(info, Arrays.asList(code));
     }
 
-    public static BulkPattern create(CompilationInfo info, Collection<? extends String> code) {
-        Tree[] patterns = new Tree[code.size()];
-        int i = 0;
+    public final BulkPattern create(CompilationInfo info, Collection<? extends String> code) {
+        List<Tree> patterns = new LinkedList<Tree>();
 
         for (String c : code) {
-            patterns[i++] = Utilities.parseAndAttribute(info, c, null);
+            patterns.add(Utilities.parseAndAttribute(info, c, null));
         }
 
-        Result r = TreeSerializer.serializePatterns(patterns);
-
-        return BulkPattern.create(new LinkedList<String>(code), r.encoded, r.groups, r.patternsWithUnrolledBlocks);
+        return create(code, patterns);
     }
+    
+    public abstract BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns);
 
-    public static BulkPattern create(Result r) {
-        return BulkPattern.create(Collections.singletonList(""), r.encoded, r.groups, r.patternsWithUnrolledBlocks);
-    }
+    public static abstract class BulkPattern {
 
-    public static class BulkPattern {
+        private final Set<String> identifiers;
+        private final Set<String> kinds;
 
-        private final List<String> original;
-        private final String serialized;
-        private final Pattern p;
-        private final int[] groups;
-        private final Set<Integer> patternsWithUnrolledBlocks;
-
-        private BulkPattern(List<String> original, String serialized, int[] groups, Set<Integer> patternsWithUnrolledBlocks) {
-            this.original = original;
-            this.serialized = serialized;
-            this.p = Pattern.compile(serialized);
-            this.groups = groups;
-            this.patternsWithUnrolledBlocks = patternsWithUnrolledBlocks;
+        public BulkPattern(Set<String> identifiers, Set<String> kinds) {
+            this.identifiers = identifiers;//TODO: immutable, maybe clone
+            this.kinds = kinds;
         }
 
-        Pattern toRegexpPattern() {
-            return p;
+        public Set<String> getIdentifiers() {
+            return identifiers;
         }
 
-        private static BulkPattern create(List<String> original, String patterns, int[] groups, Set<Integer> patternsWithUnrolledBlocks) {
-            return new BulkPattern(original, patterns, groups, patternsWithUnrolledBlocks);
+        public Set<String> getKinds() {
+            return kinds;
         }
 
     }

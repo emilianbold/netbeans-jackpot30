@@ -189,8 +189,8 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
 
         long bulkStart = System.currentTimeMillis();
         
-        BulkPattern bulkPattern = BulkSearch.create(info, patternTests.keySet());
-        Map<String, Collection<TreePath>> occurringPatterns = BulkSearch.match(info, info.getCompilationUnit(), bulkPattern, timeLog);
+        BulkPattern bulkPattern = BulkSearch.getDefault().create(info, patternTests.keySet());
+        Map<String, Collection<TreePath>> occurringPatterns = BulkSearch.getDefault().match(info, info.getCompilationUnit(), bulkPattern, timeLog);
         
         long bulkEnd = System.currentTimeMillis();
 

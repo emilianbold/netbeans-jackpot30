@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import java.io.File;
 import java.util.Arrays;
@@ -74,9 +75,9 @@ import static org.junit.Assert.*;
  *
  * @author lahvac
  */
-public class BulkSearchTest extends NbTestCase {
+public abstract class BulkSearchTestPerformer extends NbTestCase {
 
-    public BulkSearchTest(String name) {
+    public BulkSearchTestPerformer(String name) {
         super(name);
     }
 
@@ -214,13 +215,13 @@ public class BulkSearchTest extends NbTestCase {
                       "        if (span != null && span[0] != (-1) && span[1] != (-1));\n" +
                       "    }\n" +
                       "}\n";
-        
+
         performTest(code,
                     Collections.<String, List<String>>emptyMap(),
                     Arrays.asList("$0.getFileObject($1)"));
     }
 
-    public void XtestNoExponentialTimeComplexity() throws Exception {
+    public void testNoExponentialTimeComplexity() throws Exception {
         String code = "package test;\n" +
                       "public class Test {\n" +
                       "    private void test() {\n" +
@@ -291,6 +292,9 @@ public class BulkSearchTest extends NbTestCase {
                     patterns);
     }
 
+    protected abstract BulkPattern create(CompilationInfo info, Collection<? extends String> patterns);
+    protected abstract Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern);
+    
     private void performTest(String text, Map<String, List<String>> containedPatterns, Collection<String> notContainedPatterns) throws Exception {
         prepareTest("test/Test.java", text);
 
@@ -300,13 +304,13 @@ public class BulkSearchTest extends NbTestCase {
         patterns.addAll(notContainedPatterns);
 
         long s1 = System.currentTimeMillis();
-        BulkPattern p = BulkSearch.create(info, patterns);
+        BulkPattern p = create(info, patterns);
         long e1 = System.currentTimeMillis();
 
 //        System.err.println("create: " + (e1 - s1));
 
         long s2 = System.currentTimeMillis();
-        Map<String, Collection<TreePath>> result = BulkSearch.match(info, info.getCompilationUnit(), p);
+        Map<String, Collection<TreePath>> result = match(info, info.getCompilationUnit(), p);
         long e2 = System.currentTimeMillis();
 
 //        System.err.println("match: " + (e2 - s2));
