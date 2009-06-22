@@ -11,6 +11,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationController;
@@ -22,8 +23,7 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
+import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
@@ -82,7 +82,7 @@ public class BatchSearch {
                         result.put(id, resources = new LinkedList<Resource>());
                     }
 
-                    resources.add(new Resource(id, candidate, bulkPattern));
+                    resources.add(new Resource(id, candidate, pattern.getPattern(), bulkPattern));
                 }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
@@ -151,11 +151,13 @@ public class BatchSearch {
     public static final class Resource {
         private final Container container;
         private final String relativePath;
+        private final String treePatternCode;
         private final BulkPattern pattern;
 
-        public Resource(Container container, String relativePath, BulkPattern pattern) {
+        public Resource(Container container, String relativePath, String treePatternCode, BulkPattern pattern) {
             this.container = container;
             this.relativePath = relativePath;
+            this.treePatternCode = treePatternCode;
             this.pattern = pattern;
         }
 
@@ -219,9 +221,15 @@ public class BatchSearch {
         private Collection<int[]> doComputeSpans(CompilationInfo ci) {
             Collection<int[]> result = new LinkedList<int[]>();
             Map<String, Collection<TreePath>> found = BulkSearch.getDefault().match(ci, ci.getCompilationUnit(), pattern);
+            Tree treePattern = Utilities.parseAndAttribute(ci, treePatternCode, null);
 
             for (Collection<TreePath> tps : found.values()) {
                 for (TreePath tp : tps) {
+                    //XXX: this pass will not be performed on the web!!!
+                    if (   BulkSearch.getDefault().requiresLightweightVerification()
+                        && !CopyFinder.isDuplicate(ci, new TreePath(new TreePath(ci.getCompilationUnit()), treePattern), tp, false, new AtomicBoolean())) {
+                        continue;
+                    }
                     int[] span = new int[] {
                         (int) ci.getTrees().getSourcePositions().getStartPosition(ci.getCompilationUnit(), tp.getLeaf()),
                         (int) ci.getTrees().getSourcePositions().getEndPosition(ci.getCompilationUnit(), tp.getLeaf())

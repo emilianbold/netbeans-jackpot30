@@ -4,9 +4,12 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
@@ -80,6 +83,37 @@ public class BatchSearchTest extends NbTestCase {
         assertEquals(golden, output);
     }
     
+    public void testBatchSearchSpanAndVerification() throws Exception {
+        String code = "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void m() {\n" +
+                      "        a(c.i().getFileObject());\n" +
+                      "        if (span != null && span[0] != (-1) && span[1] != (-1));\n" +
+                      "        c.i().getFileObject(\"\");\n" +
+                      "    }\n" +
+                      "}\n";
+
+        writeFilesAndWaitForScan(src1, new File("test/Test.java", code));
+
+        PatternDescription pd = PatternDescription.create("$0.getFileObject($1)", Collections.<String, String>emptyMap());
+        BatchResult result = BatchSearch.findOccurrences(pd, Scope.ALL_OPENED_PROJECTS);
+
+        assertEquals(1, result.projectId2Resources.size());
+        Iterator<? extends Resource> resources = result.projectId2Resources.values().iterator().next().iterator();
+        Resource r = resources.next();
+
+        assertFalse(resources.hasNext());
+
+        Set<String> snipets = new HashSet<String>();
+
+        for (int[] span : r.getCandidateSpans()) {
+            snipets.add(code.substring(span[0], span[1]));
+        }
+
+        Set<String> golden = new HashSet<String>(Arrays.asList("c.i().getFileObject(\"\")"));
+        assertEquals(golden, snipets);
+    }
+
     private FileObject src1;
     private FileObject src2;
 

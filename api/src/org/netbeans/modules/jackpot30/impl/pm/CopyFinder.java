@@ -74,6 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -135,11 +136,22 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     }
 
     public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, AtomicBoolean cancel) {
+        return isDuplicate(info, one, second, true, cancel);
+    }
+
+    public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, AtomicBoolean cancel) {
         if (one.getLeaf().getKind() != second.getLeaf().getKind()) {
             return false;
         }
         
-        CopyFinder f = new CopyFinder(one, info, cancel);
+        CopyFinder f =   fullElementVerify
+                       ? new CopyFinder(one, info, cancel)
+                       : new CopyFinder(one, info, cancel) {
+            @Override
+            protected boolean verifyElements(TreePath node, TreePath p) {
+                return getSimpleName(node.getLeaf()).contentEquals(getSimpleName(p.getLeaf()));
+            }
+        };
 
         f.allowGoDeeper = false;
         
@@ -647,24 +659,8 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     public Boolean visitIdentifier(IdentifierTree node, TreePath p) {
         if (p == null)
             return super.visitIdentifier(node, p);
-        
-        Element nodeEl = info.getTrees().getElement(getCurrentPath());
-        Element pEl    = info.getTrees().getElement(p);
 
-        if (nodeEl == pEl) { //covers null == null
-            return true;
-        }
-        
-        if (nodeEl == null || pEl == null)
-            return false;
-
-        if (nodeEl.getKind() == pEl.getKind() && nodeEl.getKind() == ElementKind.METHOD) {
-            if (info.getElements().overrides((ExecutableElement) nodeEl, (ExecutableElement) pEl, (TypeElement) nodeEl.getEnclosingElement())) {
-                return true;
-            }
-        }
-        
-        return nodeEl.equals(pEl);
+        return verifyElements(getCurrentPath(), p);
     }
 
     public Boolean visitIf(IfTree node, TreePath p) {
@@ -795,20 +791,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             return super.visitMemberSelect(node, p);
 
         if (Utilities.isPureMemberSelect(node, true) && Utilities.isPureMemberSelect(p.getLeaf(), true)) {
-            Element nodeEl = info.getTrees().getElement(getCurrentPath());
-            Element pEl    = info.getTrees().getElement(p);
-
-            boolean ret = false;
-
-            if (nodeEl == pEl) { //covers null == null
-                ret = true;
-            }
-
-            if (nodeEl != null && pEl != null && nodeEl.getKind() == pEl.getKind() && nodeEl.getKind() == ElementKind.METHOD) {
-                if (info.getElements().overrides((ExecutableElement) nodeEl, (ExecutableElement) pEl, (TypeElement) nodeEl.getEnclosingElement())) {
-                    ret = true;
-                }
-            }
+            boolean ret = verifyElements(getCurrentPath(), p);
 
             if (ret) {
                 if (node.getKind() == p.getLeaf().getKind()) {
@@ -1002,6 +985,37 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //    }
     
 
+    protected boolean verifyElements(TreePath node, TreePath p) {
+        Element nodeEl = info.getTrees().getElement(node);
+        Element pEl    = info.getTrees().getElement(p);
+
+        if (nodeEl == pEl) { //covers null == null
+            return true;
+        }
+
+        if (nodeEl == null || pEl == null)
+            return false;
+
+        if (nodeEl.getKind() == pEl.getKind() && nodeEl.getKind() == ElementKind.METHOD) {
+            if (info.getElements().overrides((ExecutableElement) nodeEl, (ExecutableElement) pEl, (TypeElement) nodeEl.getEnclosingElement())) {
+                return true;
+            }
+        }
+
+        return nodeEl.equals(pEl);
+    }
+
+    private static Name getSimpleName(Tree t) {
+        if (t.getKind() == Kind.IDENTIFIER) {
+            return ((IdentifierTree) t).getName();
+        }
+        if (t.getKind() == Kind.MEMBER_SELECT) {
+            return ((MemberSelectTree) t).getIdentifier();
+        }
+
+        throw new UnsupportedOperationException();
+    }
+    
     public static final class VariableAssignments {
         public final Map<String, TreePath> variables;
         public final Map<String, Collection<? extends TreePath>> multiVariables;

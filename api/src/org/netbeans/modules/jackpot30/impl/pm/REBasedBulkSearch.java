@@ -61,6 +61,7 @@ import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
 public class REBasedBulkSearch extends BulkSearch {
 
     public REBasedBulkSearch() {
+        super(true);
     }
 
     @Override
