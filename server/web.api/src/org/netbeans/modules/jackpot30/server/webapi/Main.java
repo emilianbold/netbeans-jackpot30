@@ -18,8 +18,8 @@ public class Main {
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException {
-        if (args.length != 1) {
-            System.err.println("Usage: java -jar " + Main.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " <cache>");
+        if (args.length != 1 && args.length != 2) {
+            System.err.println("Usage: java -jar " + Main.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " <cache> [nohup]");
             return ;
         }
         
@@ -33,6 +33,11 @@ public class Main {
         System.out.println("Starting grizzly...");
         SelectorThread threadSelector = GrizzlyWebContainerFactory.create(
                 baseUri, initParams);
+
+        if (args.length == 2 && "nohup".equals(args[1])) {
+            return ;
+        }
+        
         System.out.println(String.format(
                 "Jersey app started with WADL available at %sapplication.wadl\n" +
                 "Hit enter to stop it...", baseUri));
