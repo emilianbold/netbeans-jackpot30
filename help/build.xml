@@ -5,6 +5,7 @@
 <project name="org.netbeans.modules.jackpot30.help" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.help.</description>
     <import file="nbproject/build-impl.xml"/>
+    <import file="${suite.dir}/findbugs-import.xml"/>
 
     <target name="help-init">
         <property environment="ENV." />
@@ -42,5 +43,9 @@
     </target>
 
     <target name="compile" depends="projectized-common.compile,compile-help" />
+
+    <target name="test" />
+    <target name="test-coverage" />
+    <target name="coverage-report" />
 
 </project>
