@@ -20,7 +20,8 @@ import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Container;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
 import org.netbeans.modules.parsing.impl.indexing.Util;
@@ -61,8 +62,8 @@ public class BatchSearchTest extends NbTestCase {
                                  new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
                                  new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
 
-        PatternDescription pd = PatternDescription.create("$1.isDirectory()", Collections.<String, String>emptyMap());
-        BatchResult result = BatchSearch.findOccurrences(pd, Scope.ALL_OPENED_PROJECTS);
+        HintDescription hint = PatternConvertor.create("$1.isDirectory()");
+        BatchResult result = BatchSearch.findOccurrences(hint, Scope.ALL_OPENED_PROJECTS);
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
@@ -95,8 +96,8 @@ public class BatchSearchTest extends NbTestCase {
 
         writeFilesAndWaitForScan(src1, new File("test/Test.java", code));
 
-        PatternDescription pd = PatternDescription.create("$0.getFileObject($1)", Collections.<String, String>emptyMap());
-        BatchResult result = BatchSearch.findOccurrences(pd, Scope.ALL_OPENED_PROJECTS);
+        HintDescription hint = PatternConvertor.create("$0.getFileObject($1)");
+        BatchResult result = BatchSearch.findOccurrences(hint, Scope.ALL_OPENED_PROJECTS);
 
         assertEquals(1, result.projectId2Resources.size());
         Iterator<? extends Resource> resources = result.projectId2Resources.values().iterator().next().iterator();
