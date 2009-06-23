@@ -149,8 +149,7 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
                         return ;
                     }
 
-                    String patternText = generalized.toString(); //XXX
-                    final PatternDescription pattern = PatternDescription.create(patternText, Collections.<String, String>emptyMap());
+                    final String pattern = generalized.toString(); //XXX
 
                     SwingUtilities.invokeLater(new Runnable() {
                         public void run() {

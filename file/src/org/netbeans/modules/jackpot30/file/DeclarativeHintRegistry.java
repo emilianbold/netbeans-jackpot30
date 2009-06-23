@@ -133,7 +133,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         }
     }
 
-    private static List<HintDescription> parseHints(String spec) {
+    public static List<HintDescription> parseHints(String spec) {
         TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
         TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
         List<HintDescription> result = new LinkedList<HintDescription>();

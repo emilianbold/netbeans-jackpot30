@@ -24,7 +24,7 @@ import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
@@ -36,7 +36,11 @@ import org.openide.util.Exceptions;
  */
 public class BatchSearch {
 
-    public static BatchResult findOccurrences(PatternDescription pattern, Scope scope) {
+    public static BatchResult findOccurrences(HintDescription pattern, Scope scope) {
+        if (pattern.getTriggerKind() != null || pattern.getTriggerPattern() == null) {
+            throw new UnsupportedOperationException();
+        }
+        
         switch (scope) {
             case ALL_OPENED_PROJECTS:
                 return findOccurrencesLocal(pattern);
@@ -45,7 +49,7 @@ public class BatchSearch {
         }
     }
 
-    private static BatchResult findOccurrencesLocal(final PatternDescription pattern) {
+    private static BatchResult findOccurrencesLocal(final HintDescription pattern) {
         final BatchResult[] result = new BatchResult[1];
 
         try {
@@ -60,9 +64,10 @@ public class BatchSearch {
 
         return result[0];
     }
-    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info/*XXX*/, PatternDescription pattern) {
-        Tree treePattern = Utilities.parseAndAttribute(info, pattern.getPattern(), null);
-        BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(pattern.getPattern()), Collections.singleton(treePattern));
+    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, HintDescription pattern) {
+        String textPattern = pattern.getTriggerPattern().getPattern();
+        Tree treePattern = Utilities.parseAndAttribute(info, textPattern, null);
+        BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(textPattern), Collections.singleton(treePattern));
         Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         
         for (FileObject src : GlobalPathRegistry.getDefault().getSourceRoots()) {
@@ -82,7 +87,7 @@ public class BatchSearch {
                         result.put(id, resources = new LinkedList<Resource>());
                     }
 
-                    resources.add(new Resource(id, candidate, pattern.getPattern(), bulkPattern));
+                    resources.add(new Resource(id, candidate, textPattern, bulkPattern));
                 }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
