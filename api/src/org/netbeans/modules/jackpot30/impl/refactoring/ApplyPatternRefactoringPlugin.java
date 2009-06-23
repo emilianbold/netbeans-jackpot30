@@ -50,8 +50,10 @@ public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
     public Problem prepare(RefactoringElementsBag refactoringElements) {
         Map<FileObject, Collection<ErrorDescription>> file2eds = new HashMap<FileObject, Collection<ErrorDescription>>();
         BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope());
-
-        for (Iterable<? extends Resource> it :candidates.projectId2Resources.values()) {
+        
+        for (Iterable<? extends Resource> it : candidates.projectId2Resources.values()) {
+            BatchSearch.getVerifiedSpans(it);
+            
             for (Resource r : it) {
                 List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
 

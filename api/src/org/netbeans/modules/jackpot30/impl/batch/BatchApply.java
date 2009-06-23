@@ -539,7 +539,7 @@ public class BatchApply {
         return result;
     }
 
-    private static Map<ClasspathInfo, Collection<FileObject>> sortFiles(Collection<FileObject> from) {
+    public static Map<ClasspathInfo, Collection<FileObject>> sortFiles(Collection<FileObject> from) {
         Map<List<ClassPath>, Collection<FileObject>> m = new HashMap<List<ClassPath>, Collection<FileObject>>();
 
         for (FileObject f : from) {

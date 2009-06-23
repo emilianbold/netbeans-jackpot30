@@ -12,9 +12,11 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
@@ -27,6 +29,7 @@ import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
@@ -98,6 +101,53 @@ public class BatchSearch {
         }
 
         return new BatchResult(result);
+    }
+
+    //TODO: should check whether the project is opened?
+    public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources) {
+        Collection<FileObject> files = new LinkedList<FileObject>();
+        final Map<FileObject, Resource> file2Resource = new HashMap<FileObject, Resource>();
+        final Map<Resource, Iterable<? extends ErrorDescription>> resource2Errors = new HashMap<Resource, Iterable<? extends ErrorDescription>>();
+
+        for (Resource r : resources) {
+            if (r.areSpansComputed()) {
+                resource2Errors.put(r, r.getVerifiedSpans());
+            }
+            
+            FileObject file = r.getResolvedFile();
+
+            if (file != null) {
+                files.add(file);
+                file2Resource.put(file, r);
+            } else {
+                r.setVerifiedSpans(null);
+            }
+        }
+
+        Map<ClasspathInfo, Collection<FileObject>> cp2Files = BatchApply.sortFiles(files);
+
+        for (Entry<ClasspathInfo, Collection<FileObject>> e : cp2Files.entrySet()) {
+            try {
+                JavaSource.create(e.getKey(), e.getValue()).runUserActionTask(new Task<CompilationController>() {
+                    public void run(CompilationController parameter) throws Exception {
+                        if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
+                            return ;
+                        
+                        Resource r = file2Resource.get(parameter.getFileObject());
+                        Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = Collections.singletonMap(r.hint.getTriggerPattern(), Collections.singletonList(r.hint));
+                        Map<Kind, List<HintDescription>> sortedHintsKinds = Collections.<Kind, List<HintDescription>>emptyMap();
+                        List<ErrorDescription> hints = new HintsInvoker().computeHints(parameter, sortedHintsKinds, sortedHintsPatterns);
+
+                        r.setVerifiedSpans(hints);
+                        resource2Errors.put(r, hints);
+                    }
+                }, true);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+
+        return resource2Errors;
     }
 
     public enum Scope {
@@ -268,31 +318,24 @@ public class BatchSearch {
             return container.getSourceCode(relativePath);
         }
 
-        //TODO: should check whether the project is opened?
-        //XXX: ability to process many Results at once, instead of one-by-one
-        public Iterable<ErrorDescription> getVerifiedSpans() {
-            FileObject file = getResolvedFile();
+        private Iterable<ErrorDescription> verifiedSpans;
+        private boolean spansComputed;
 
-            if (file == null) {
-                return null;
+        synchronized void setVerifiedSpans(Iterable<ErrorDescription> eds) {
+            this.verifiedSpans = eds;
+            this.spansComputed = true;
+        }
+
+        synchronized boolean areSpansComputed() {
+            return spansComputed;
+        }
+
+        public synchronized Iterable<ErrorDescription> getVerifiedSpans() {
+            if (!spansComputed) {
+                BatchSearch.getVerifiedSpans(Collections.singletonList(this));
             }
-
-            final List<ErrorDescription> result = new LinkedList<ErrorDescription>();
-            JavaSource js = JavaSource.forFileObject(file);
-            try {
-                js.runUserActionTask(new Task<CompilationController>() {
-                    public void run(CompilationController parameter) throws Exception {
-                        parameter.toPhase(Phase.RESOLVED);
-
-                        result.addAll(new HintsInvoker().computeHints(parameter, Collections.<Kind, List<HintDescription>>emptyMap(), Collections.singletonMap(hint.getTriggerPattern(), Collections.singletonList(hint))));
-                    }
-                }, true);
-            } catch (IOException ex) {
-                Exceptions.printStackTrace(ex);
-                return null;
-            }
-
-            return result;
+            
+            return verifiedSpans;
         }
     }
 
