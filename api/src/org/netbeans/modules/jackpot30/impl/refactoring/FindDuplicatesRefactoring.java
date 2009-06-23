@@ -9,6 +9,7 @@ public class FindDuplicatesRefactoring extends AbstractRefactoring {
 
     private HintDescription pattern;
     private Scope scope;
+    private boolean verify;
 
     public FindDuplicatesRefactoring() {
         super(Lookup.EMPTY);
@@ -28,6 +29,14 @@ public class FindDuplicatesRefactoring extends AbstractRefactoring {
 
     public synchronized void setScope(Scope scope) {
         this.scope = scope;
+    }
+
+    public boolean isVerify() {
+        return verify;
+    }
+
+    public void setVerify(boolean verify) {
+        this.verify = verify;
     }
 
 }

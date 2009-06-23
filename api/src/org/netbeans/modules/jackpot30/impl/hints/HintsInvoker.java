@@ -160,7 +160,6 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
         return computeHints(info, startAt, kindHints, patternHints);
     }
 
-    //XXX: used by tests (in other modules too):
     public List<ErrorDescription> computeHints(CompilationInfo info,
                                         Map<Kind, List<HintDescription>> hints,
                                         Map<PatternDescription, List<HintDescription>> patternHints) {

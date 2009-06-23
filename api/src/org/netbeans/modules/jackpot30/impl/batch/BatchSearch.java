@@ -1,6 +1,7 @@
 package org.netbeans.modules.jackpot30.impl.batch;
 
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
@@ -20,11 +21,13 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
@@ -87,7 +90,7 @@ public class BatchSearch {
                         result.put(id, resources = new LinkedList<Resource>());
                     }
 
-                    resources.add(new Resource(id, candidate, textPattern, bulkPattern));
+                    resources.add(new Resource(id, candidate, pattern, bulkPattern));
                 }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
@@ -156,13 +159,13 @@ public class BatchSearch {
     public static final class Resource {
         private final Container container;
         private final String relativePath;
-        private final String treePatternCode;
+        private final HintDescription hint;
         private final BulkPattern pattern;
 
-        public Resource(Container container, String relativePath, String treePatternCode, BulkPattern pattern) {
+        public Resource(Container container, String relativePath, HintDescription hint, BulkPattern pattern) {
             this.container = container;
             this.relativePath = relativePath;
-            this.treePatternCode = treePatternCode;
+            this.hint = hint;
             this.pattern = pattern;
         }
 
@@ -226,7 +229,7 @@ public class BatchSearch {
         private Collection<int[]> doComputeSpans(CompilationInfo ci) {
             Collection<int[]> result = new LinkedList<int[]>();
             Map<String, Collection<TreePath>> found = BulkSearch.getDefault().match(ci, ci.getCompilationUnit(), pattern);
-            Tree treePattern = Utilities.parseAndAttribute(ci, treePatternCode, null);
+            Tree treePattern = Utilities.parseAndAttribute(ci, hint.getTriggerPattern().getPattern(), null);
 
             for (Collection<TreePath> tps : found.values()) {
                 for (TreePath tp : tps) {
@@ -263,6 +266,33 @@ public class BatchSearch {
         
         public CharSequence getSourceCode() {
             return container.getSourceCode(relativePath);
+        }
+
+        //TODO: should check whether the project is opened?
+        //XXX: ability to process many Results at once, instead of one-by-one
+        public Iterable<ErrorDescription> getVerifiedSpans() {
+            FileObject file = getResolvedFile();
+
+            if (file == null) {
+                return null;
+            }
+
+            final List<ErrorDescription> result = new LinkedList<ErrorDescription>();
+            JavaSource js = JavaSource.forFileObject(file);
+            try {
+                js.runUserActionTask(new Task<CompilationController>() {
+                    public void run(CompilationController parameter) throws Exception {
+                        parameter.toPhase(Phase.RESOLVED);
+
+                        result.addAll(new HintsInvoker().computeHints(parameter, Collections.<Kind, List<HintDescription>>emptyMap(), Collections.singletonMap(hint.getTriggerPattern(), Collections.singletonList(hint))));
+                    }
+                }, true);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+                return null;
+            }
+
+            return result;
         }
     }
 

@@ -16,10 +16,16 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
 
     private volatile @NullAllowed String pattern;
     private volatile @NonNull Scope scope;
+    private volatile boolean verify;
 
     public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope) {
+        this(pattern, scope, false);
+    }
+    
+    public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope, boolean verify) {
         this.pattern = pattern;
         this.scope = scope;
+        this.verify = verify;
     }
 
     public String getName() {
@@ -55,6 +61,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     public Problem setParameters() {
         pattern = panel.getPattern();
         scope   = panel.getScope();
+        verify  = panel.getVerify();
         return null;
     }
 
@@ -79,6 +86,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
 
         r.setPattern(pattern != null ? PatternConvertor.create(pattern) : null/*???*/);
         r.setScope(scope);
+        r.setVerify(verify);
 
         return r;
     }

@@ -14,6 +14,7 @@ import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
 import org.netbeans.modules.refactoring.spi.SimpleRefactoringElementImplementation;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.cookies.EditCookie;
 import org.openide.cookies.LineCookie;
 import org.openide.filesystems.FileObject;
@@ -56,14 +57,14 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
 
         for (Iterable<? extends Resource> it :candidates.projectId2Resources.values()) {
             for (Resource r : it) {
-                refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r));
+                refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r, refactoring.isVerify()));
             }
         }
 
         return null;
     }
 
-    public static Collection<RefactoringElementImplementation> createRefactoringElementImplementation(Resource r) {
+    public static Collection<RefactoringElementImplementation> createRefactoringElementImplementation(Resource r, boolean verify) {
         FileObject file = r.getResolvedFile();
 
         if (file == null) {
@@ -74,24 +75,62 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
         List<RefactoringElementImplementation> result = new LinkedList<RefactoringElementImplementation>();
         
         try {
-            DataObject d = DataObject.find(file);
-            EditCookie ec = d.getLookup().lookup(EditCookie.class);
-            LineCookie lc = d.getLookup().lookup(LineCookie.class);
-            CloneableEditorSupport ces = (CloneableEditorSupport) ec;
+            List<PositionBounds> spans = null;
+            boolean faded = false;
 
-            for (int[] span : r.getCandidateSpans()) {
-                PositionRef start = ces.createPositionRef(span[0], Bias.Forward);
-                PositionRef end   = ces.createPositionRef(span[1], Bias.Forward);
-                PositionBounds bound = new PositionBounds(start, end);
+            if (verify) {
+                Iterable<? extends ErrorDescription> errors = r.getVerifiedSpans();
+
+                if (errors != null) {
+                    spans = new LinkedList<PositionBounds>();
+                    
+                    for (ErrorDescription ed : errors) {
+                        spans.add(ed.getRange());
+                    }
+                } else {
+                    faded = true;
+                }
+            }
+
+            DataObject d = DataObject.find(file);
+            LineCookie lc = d.getLookup().lookup(LineCookie.class);
+            
+            if (spans == null) {
+                EditCookie ec = d.getLookup().lookup(EditCookie.class);
+                CloneableEditorSupport ces = (CloneableEditorSupport) ec;
+
+                spans = new LinkedList<PositionBounds>();
+                
+                for (int[] span : r.getCandidateSpans()) {
+                    PositionRef start = ces.createPositionRef(span[0], Bias.Forward);
+                    PositionRef end = ces.createPositionRef(span[1], Bias.Forward);
+                    
+                    spans.add(new PositionBounds(start, end));
+                }
+            }
+
+            for (PositionBounds bound : spans) {
+                PositionRef start = bound.getBegin();
+                PositionRef end = bound.getEnd();
                 Line l = lc.getLineSet().getCurrent(start.getLine());
                 String lineText = l.getText();
 
                 int boldStart = start.getColumn();
                 int boldEnd   = end.getLine() == start.getLine() ? end.getColumn() : lineText.length();
 
-                String displayName = escapedSubstring(lineText, 0, boldStart).replaceAll("^[ ]*", "") + "<b>" + escapedSubstring(lineText, boldStart, boldEnd) + "</b>" + escapedSubstring(lineText, boldEnd, lineText.length());
+                StringBuilder displayName = new StringBuilder();
 
-                result.add(new RefactoringElementImpl(r, bound, displayName));
+                if (faded) {
+                    displayName.append("(not verified) ");
+                }
+                
+                displayName.append(escapedSubstring(lineText, 0, boldStart).replaceAll("^[ ]*", ""));
+                displayName.append("<b>");
+                displayName.append(escapedSubstring(lineText, boldStart, boldEnd));
+                displayName.append("</b>");
+                displayName.append(escapedSubstring(lineText, boldEnd, lineText.length()));
+
+                result.add(new RefactoringElementImpl(r, bound, displayName.toString()));
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);

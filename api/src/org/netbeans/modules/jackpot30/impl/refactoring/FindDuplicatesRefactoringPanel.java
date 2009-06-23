@@ -31,11 +31,13 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             }
             public void changedUpdate(DocumentEvent e) {}
         });
-        scope.addItemListener(new ItemListener() {
+        ItemListener ilImpl = new ItemListener() {
             public void itemStateChanged(ItemEvent e) {
                 parent.stateChanged(new ChangeEvent(FindDuplicatesRefactoringPanel.this));
             }
-        });
+        };
+        scope.addItemListener(ilImpl);
+        verify.addItemListener(ilImpl);
 
         DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
 
@@ -61,6 +63,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         scope = new javax.swing.JComboBox();
         jLabel1 = new javax.swing.JLabel();
         jLabel2 = new javax.swing.JLabel();
+        verify = new javax.swing.JCheckBox();
 
         jScrollPane1.setViewportView(pattern);
 
@@ -72,29 +75,38 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         jLabel2.setLabelFor(scope);
         org.openide.awt.Mnemonics.setLocalizedText(jLabel2, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.jLabel2.text")); // NOI18N
 
+        org.openide.awt.Mnemonics.setLocalizedText(verify, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.verify.text")); // NOI18N
+
         org.jdesktop.layout.GroupLayout layout = new org.jdesktop.layout.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
-            .add(scope, 0, 400, Short.MAX_VALUE)
+            .add(layout.createSequentialGroup()
+                .add(jLabel1)
+                .addContainerGap())
+            .add(layout.createSequentialGroup()
+                .add(verify)
+                .addContainerGap())
+            .add(layout.createSequentialGroup()
+                .add(scope, 0, 388, Short.MAX_VALUE)
+                .addContainerGap())
             .add(layout.createSequentialGroup()
                 .add(jLabel2)
                 .addContainerGap())
             .add(jScrollPane1, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 400, Short.MAX_VALUE)
-            .add(layout.createSequentialGroup()
-                .add(jLabel1)
-                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(org.jdesktop.layout.GroupLayout.LEADING)
-            .add(org.jdesktop.layout.GroupLayout.TRAILING, layout.createSequentialGroup()
+            .add(layout.createSequentialGroup()
                 .add(jLabel1, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, 15, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
-                .add(jScrollPane1, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 222, Short.MAX_VALUE)
-                .addPreferredGap(org.jdesktop.layout.LayoutStyle.UNRELATED)
+                .add(jScrollPane1, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, 175, Short.MAX_VALUE)
+                .add(18, 18, 18)
                 .add(jLabel2)
                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
-                .add(scope, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE))
+                .add(scope, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
+                .add(18, 18, 18)
+                .add(verify))
         );
     }// </editor-fold>//GEN-END:initComponents
 
@@ -114,12 +126,21 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         return (Scope) this.scope.getSelectedItem();
     }
 
+    public boolean getVerify() {
+        return verify.isSelected();
+    }
+
+    public void setVerify(boolean verify) {
+        this.verify.setSelected(verify);
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JTextPane pattern;
     private javax.swing.JComboBox scope;
+    private javax.swing.JCheckBox verify;
     // End of variables declaration//GEN-END:variables
 
     private static final class RendererImpl extends DefaultListCellRenderer {
