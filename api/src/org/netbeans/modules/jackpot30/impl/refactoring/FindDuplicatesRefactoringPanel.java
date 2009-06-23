@@ -20,7 +20,7 @@ import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
  */
 public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
-    public FindDuplicatesRefactoringPanel(final ChangeListener parent) {
+    public FindDuplicatesRefactoringPanel(final ChangeListener parent, boolean allowVerify) {
         initComponents();
         pattern.getDocument().addDocumentListener(new DocumentListener() {
             public void insertUpdate(DocumentEvent e) {
@@ -39,6 +39,10 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         scope.addItemListener(ilImpl);
         verify.addItemListener(ilImpl);
 
+        if (!allowVerify) {
+            verify.setVisible(false);
+        }
+        
         DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
 
         for (Scope s : Scope.values()) {

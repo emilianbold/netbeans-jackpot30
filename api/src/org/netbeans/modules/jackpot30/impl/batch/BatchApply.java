@@ -63,6 +63,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.SwingUtilities;
 import javax.swing.text.Document;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.platform.JavaPlatform;
@@ -442,7 +443,7 @@ public class BatchApply {
         }
     }
 
-    private static List<ModificationResult> performFastFixes(Map<FileObject, List<JavaFix>> fastFixes, ProgressHandleWrapper handle, AtomicBoolean cancel) {
+    public static List<ModificationResult> performFastFixes(Map<FileObject, List<JavaFix>> fastFixes, @NullAllowed ProgressHandleWrapper handle, AtomicBoolean cancel) {
         Map<ClasspathInfo, Collection<FileObject>> sortedFilesForFixes = sortFiles(fastFixes.keySet());
         List<ModificationResult> results = new LinkedList<ModificationResult>();
 
@@ -465,7 +466,7 @@ public class BatchApply {
         return results;
     }
 
-    private static ModificationResult performFastFixes(ClasspathInfo cpInfo, final Map<FileObject, List<JavaFix>> toProcess, final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
+    private static ModificationResult performFastFixes(ClasspathInfo cpInfo, final Map<FileObject, List<JavaFix>> toProcess, @NullAllowed final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
         JavaSource js = JavaSource.create(cpInfo, toProcess.keySet());
 
         try {
@@ -486,7 +487,9 @@ public class BatchApply {
                         });
                     }
 
-                    handle.tick();
+                    if (handle != null) {
+                        handle.tick();
+                    }
                 }
             });
         } catch (IOException ex) {

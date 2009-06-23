@@ -57,7 +57,7 @@ import org.openide.filesystems.FileObject;
  */
 public final class JavaFixImpl implements Fix {
 
-    final JavaFix jf;
+    public final JavaFix jf;
 
     public JavaFixImpl(JavaFix jf) {
         this.jf = jf;

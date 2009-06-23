@@ -18,26 +18,37 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     private volatile @NonNull Scope scope;
     private volatile boolean verify;
 
+    private final boolean query;
+
     public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope) {
         this(pattern, scope, false);
     }
     
     public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope, boolean verify) {
+        this(pattern, scope, verify, true);
+    }
+
+    public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope, boolean verify, boolean query) {
+        if (!query && !verify) {
+            throw new UnsupportedOperationException();
+        }
+        
         this.pattern = pattern;
         this.scope = scope;
         this.verify = verify;
+        this.query = query;
     }
 
     public String getName() {
-        return "Look for Duplicates";
+        return query ? "Look for Duplicates" : "Apply Pattern";
     }
 
     public String getDescription() {
-        return "Look for Duplicates";
+        return query ? "Look for Duplicates" : "Apply Pattern";
     }
 
     public boolean isQuery() {
-        return true;
+        return query;
     }
 
     private FindDuplicatesRefactoringPanel panel;
@@ -47,10 +58,11 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
             public void initialize() {}
             public Component getComponent() {
                 if (panel == null) {
-                    panel = new FindDuplicatesRefactoringPanel(parent);
+                    panel = new FindDuplicatesRefactoringPanel(parent, query);
                     String pattern = FindDuplicatesRefactoringUI.this.pattern;
                     panel.setPattern(pattern != null ? pattern : "");
                     panel.setScope(scope);
+                    panel.setVerify(verify);
                 }
 
                 return panel;
@@ -82,11 +94,20 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     }
 
     public AbstractRefactoring getRefactoring() {
-        FindDuplicatesRefactoring r = new FindDuplicatesRefactoring();
+        if (query) {
+            FindDuplicatesRefactoring r = new FindDuplicatesRefactoring();
+
+            r.setPattern(pattern != null ? PatternConvertor.create(pattern) : null/*???*/);
+            r.setScope(scope);
+            r.setVerify(verify);
+
+            return r;
+        }
+
+        ApplyPatternRefactoring r = new ApplyPatternRefactoring();
 
         r.setPattern(pattern != null ? PatternConvertor.create(pattern) : null/*???*/);
         r.setScope(scope);
-        r.setVerify(verify);
 
         return r;
     }

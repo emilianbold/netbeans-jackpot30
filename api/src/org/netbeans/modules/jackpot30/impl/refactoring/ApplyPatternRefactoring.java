@@ -1,0 +1,33 @@
+package org.netbeans.modules.jackpot30.impl.refactoring;
+
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.refactoring.api.AbstractRefactoring;
+import org.openide.util.Lookup;
+
+public class ApplyPatternRefactoring extends AbstractRefactoring {
+
+    private HintDescription pattern;
+    private Scope scope;
+
+    public ApplyPatternRefactoring() {
+        super(Lookup.EMPTY);
+    }
+
+    public synchronized HintDescription getPattern() {
+        return pattern;
+    }
+
+    public synchronized void setPattern(HintDescription pattern) {
+        this.pattern = pattern;
+    }
+
+    public synchronized Scope getScope() {
+        return scope;
+    }
+
+    public synchronized void setScope(Scope scope) {
+        this.scope = scope;
+    }
+
+}

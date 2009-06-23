@@ -4,6 +4,13 @@
     <folder name="Actions">
         <folder name="Refactoring">
             <file name="org-netbeans-modules-jackpot30-impl-batch-BatchApplyAction.instance"/>
+            <file name="org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.instance">
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.impl.resources.Bundle"/>
+                <attr name="delegate" newvalue="org.netbeans.modules.jackpot30.impl.refactoring.ApplyPatternAction"/>
+                <attr name="displayName" bundlevalue="org.netbeans.modules.jackpot30.impl.refactoring.Bundle#CTL_ApplyPatternAction"/>
+                <attr name="instanceCreate" methodvalue="org.openide.awt.Actions.alwaysEnabled"/>
+                <attr name="noIconInMenu" boolvalue="false"/>
+            </file>
             <file name="org-netbeans-modules-jackpot30-impl-refactoring-FindOccurrencesAction.instance">
                 <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.impl.resources.Bundle"/>
                 <attr name="delegate" newvalue="org.netbeans.modules.jackpot30.impl.refactoring.FindOccurrencesAction"/>
@@ -24,13 +31,17 @@
         </folder>
         <folder name="Refactoring">
             <file name="org-netbeans-modules-jackpot30-impl-batch-BatchApplyAction.instance"/>
+            <file name="org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.shadow">
+                <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.instance"/>
+                <attr name="position" intvalue="2200"/>
+            </file>
         </folder>
     </folder>
 
     <folder name="Editors">
         <folder name="text">
             <folder name="x-java">
-                <file name="org-netbeans-modules-jackpot30-impl-hints-HintsInvoker$FactoryImpl.instance" />
+                <file name="org-netbeans-modules-jackpot30-impl-hints-HintsInvoker$FactoryImpl.instance"/>
                 <file name="org-netbeans-modules-jackpot30-impl-indexing-CustomIndexerImpl$CustomIndexerFactoryImpl.instance"/>
             </folder>
         </folder>
