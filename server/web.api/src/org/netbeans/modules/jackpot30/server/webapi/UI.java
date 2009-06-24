@@ -52,8 +52,12 @@ public class UI {
             URI u = new URI("http", null, "localhost", 9998, "/index/find", "path=" + path + "&pattern=" + pattern, null);
             
             for (String c : WebUtilities.requestStringArrayResponse(u)) {
+                URI rel = new URI(null, null, "/index/cat", "path=" + path + "&relative=" + c, null);
+                response.append("<a href=\"");
+                response.append(rel.toASCIIString());
+                response.append("\">");
                 response.append(c);
-                response.append("<br>");
+                response.append("</a><br>");
             }
         }
         
