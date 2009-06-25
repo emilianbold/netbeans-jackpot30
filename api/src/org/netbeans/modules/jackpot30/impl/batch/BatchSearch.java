@@ -6,15 +6,20 @@ import com.sun.source.util.TreePath;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.net.URL;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
@@ -30,11 +35,14 @@ import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.parsing.impl.indexing.PathRegistry;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
+import org.openide.util.NbCollections;
 
 /**
  *
@@ -42,26 +50,37 @@ import org.openide.util.Exceptions;
  */
 public class BatchSearch {
 
-    public static BatchResult findOccurrences(HintDescription pattern, Scope scope) {
+    public static BatchResult findOccurrences(HintDescription pattern, Scope scope, Object... parameters) {
         if (pattern.getTriggerKind() != null || pattern.getTriggerPattern() == null) {
             throw new UnsupportedOperationException();
         }
+
+        Set<FileObject> knownSourceRoots;
+        Set<FileObject> todo;
         
         switch (scope) {
             case ALL_OPENED_PROJECTS:
-                return findOccurrencesLocal(pattern);
+                knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
+                todo = new HashSet<FileObject>(knownSourceRoots);
+                
+                return findOccurrencesLocal(pattern, knownSourceRoots, todo);
+            case GIVEN_SOURCE_ROOTS:
+                knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
+                todo = NbCollections.checkedSetByCopy(new HashSet<Object>(Arrays.asList(parameters)), FileObject.class, true);
+
+                return findOccurrencesLocal(pattern, knownSourceRoots, todo);
             default:
                 throw new UnsupportedOperationException(scope.name());
         }
     }
 
-    private static BatchResult findOccurrencesLocal(final HintDescription pattern) {
+    private static BatchResult findOccurrencesLocal(final HintDescription pattern, final Set<FileObject> indexedSourceRoots, final Set<FileObject> todo) {
         final BatchResult[] result = new BatchResult[1];
 
         try {
             JavaSource.create(Utilities.createUniversalCPInfo()).runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController parameter) throws Exception {
-                    result[0] = findOccurrencesLocalImpl(parameter, pattern);
+                    result[0] = findOccurrencesLocalImpl(parameter, pattern, indexedSourceRoots, todo);
                 }
             }, true);
         } catch (IOException ex) {
@@ -70,30 +89,56 @@ public class BatchSearch {
 
         return result[0];
     }
-    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, HintDescription pattern) {
+    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, final HintDescription pattern, Set<FileObject> indexedSourceRoots, Set<FileObject> todo) {
         String textPattern = pattern.getTriggerPattern().getPattern();
         Tree treePattern = Utilities.parseAndAttribute(info, textPattern, null);
-        BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(textPattern), Collections.singleton(treePattern));
-        Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
+        final BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(textPattern), Collections.singleton(treePattern));
+        final Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         
-        for (FileObject src : GlobalPathRegistry.getDefault().getSourceRoots()) {
+        for (final FileObject src : todo) {
             try {
-                Index i = Index.get(src.getURL());
+                if (indexedSourceRoots.contains(src)) {
+                    Index i = Index.get(src.getURL());
 
-                if (i == null) {
-                    continue;
-                }
-                
-                Container id = new LocalContainer(src, i);
+                    if (i == null)
+                         continue;
+                    
+                    Container id = new LocalContainer(src, i);
 
-                for (String candidate : i.findCandidates(bulkPattern)) {
-                    Collection<Resource> resources = result.get(id);
+                    for (String candidate : i.findCandidates(bulkPattern)) {
+                        Collection<Resource> resources = result.get(id);
 
-                    if (resources == null) {
-                        result.put(id, resources = new LinkedList<Resource>());
+                        if (resources == null) {
+                            result.put(id, resources = new LinkedList<Resource>());
+                        }
+
+                        resources.add(new Resource(id, candidate, pattern, bulkPattern));
                     }
+                } else {
+                    Collection<FileObject> files = new LinkedList<FileObject>();
+                    final Container id = new LocalContainer(src, null);
+                    
+                    recursive(src, files);
+                    JavaSource.create(Utilities.createUniversalCPInfo(), files).runUserActionTask(new Task<CompilationController>() {
+                        public void run(CompilationController cc) throws Exception {
+                            if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) <0) {
+                                return ;
+                            }
 
-                    resources.add(new Resource(id, candidate, pattern, bulkPattern));
+                            //TODO: we have precise results, but we throw them away and will need to compute them again in the future:
+                            boolean matches = !BulkSearch.getDefault().match(cc, cc.getCompilationUnit(), bulkPattern).isEmpty();
+
+                            if (matches) {
+                                Collection<Resource> resources = result.get(id);
+
+                                if (resources == null) {
+                                    result.put(id, resources = new LinkedList<Resource>());
+                                }
+
+                                resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), pattern, bulkPattern));
+                            }
+                        }
+                    }, true);
                 }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
@@ -103,8 +148,68 @@ public class BatchSearch {
         return new BatchResult(result);
     }
 
-    //TODO: should check whether the project is opened?
+    private static void recursive(FileObject file, Collection<FileObject> collected) {
+        if (file.isData()) {
+            if (/*???:*/"java".equals(file.getExt()) || "text/x-java".equals(FileUtil.getMIMEType(file))) {
+                collected.add(file);
+            }
+        } else {
+            for (FileObject c : file.getChildren()) {
+                recursive(c, collected);
+            }
+        }
+    }
+    
     public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources) {
+        Set<Container> containers = new HashSet<Container>();
+
+        for (Resource r : resources) {
+            containers.add(r.container);
+        }
+
+        Collection<FileObject> rootsToRegister = new LinkedList<FileObject>();
+        Collection<? extends URL> knownSourceRoots = PathRegistry.getDefault().getSources();
+
+        for (Container c : containers) {
+            if (!c.isLocal()) {
+                continue;
+            }
+            
+            FileObject root = ((LocalContainer) c).localFO;
+            
+            try {
+                if (knownSourceRoots.contains(root.getURL())) {
+                    continue;
+                }
+            } catch (FileStateInvalidException ex) {
+                Exceptions.printStackTrace(ex);
+                continue;
+            }
+            
+            rootsToRegister.add(root);
+        }
+
+        ClassPath toRegister = !rootsToRegister.isEmpty() ? ClassPathSupport.createClassPath(rootsToRegister.toArray(new FileObject[0])) : null;
+
+        if (toRegister != null) {
+            GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {toRegister});
+            try {
+                BatchApply.waitScanFinished();
+            } catch (InterruptedException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+
+        try {
+            return getVerifiedSpansImpl(resources);
+        } finally {
+            if (toRegister != null) {
+                GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {toRegister});
+            }
+        }
+    }
+    
+    private static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpansImpl(Iterable<? extends Resource> resources) {
         Collection<FileObject> files = new LinkedList<FileObject>();
         final Map<FileObject, Resource> file2Resource = new HashMap<FileObject, Resource>();
         final Map<Resource, Iterable<? extends ErrorDescription>> resource2Errors = new HashMap<Resource, Iterable<? extends ErrorDescription>>();
@@ -112,6 +217,7 @@ public class BatchSearch {
         for (Resource r : resources) {
             if (r.areSpansComputed()) {
                 resource2Errors.put(r, r.getVerifiedSpans());
+                continue;
             }
             
             FileObject file = r.getResolvedFile();
@@ -152,6 +258,7 @@ public class BatchSearch {
 
     public enum Scope {
         ALL_OPENED_PROJECTS,
+        GIVEN_SOURCE_ROOTS,
         ALL_REMOTE_PROJECTS;
     }
 

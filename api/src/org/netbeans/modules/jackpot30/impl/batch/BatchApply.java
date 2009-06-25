@@ -568,7 +568,7 @@ public class BatchApply {
     }
 
     @SuppressWarnings("deprecation")
-    private static void waitScanFinished() throws InterruptedException {
+    static void waitScanFinished() throws InterruptedException {
         SourceUtils.waitScanFinished();
     }
 
