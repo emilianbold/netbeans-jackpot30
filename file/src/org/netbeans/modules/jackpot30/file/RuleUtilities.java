@@ -8,6 +8,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import org.netbeans.api.java.queries.SourceLevelQuery;
 import org.netbeans.modules.jackpot30.spi.HintContext;
+import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
 import org.openide.modules.SpecificationVersion;
 
 /**
@@ -87,4 +88,9 @@ public class RuleUtilities {
 
         return e.getModifiers().contains(modifier);
     }
+
+    public static boolean parentMatches(HintContext ctx, String pattern) {
+        return MatcherUtilities.parentMatches(ctx, pattern);
+    }
+
 }

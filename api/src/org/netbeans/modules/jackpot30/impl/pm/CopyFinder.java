@@ -140,6 +140,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     }
 
     public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, AtomicBoolean cancel) {
+        return isDuplicate(info, one, second, fullElementVerify, Collections.<String, TreePath>emptyMap(), cancel);
+    }
+
+    public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, Map<String, TreePath> inVariables, AtomicBoolean cancel) {
         if (one.getLeaf().getKind() != second.getLeaf().getKind()) {
             return false;
         }
@@ -153,6 +157,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             }
         };
 
+        f.variables.putAll(inVariables);
         f.allowGoDeeper = false;
         
         return f.scan(second, one);
