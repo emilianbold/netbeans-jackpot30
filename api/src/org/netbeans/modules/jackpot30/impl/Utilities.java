@@ -219,6 +219,8 @@ public class Utilities {
     }
 
     private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope) {
+        Context c = jti.getContext();
+        TreeFactory make = TreeFactory.instance(c);
         Tree patternTree = !isStatement(pattern) ? jti.parseExpression(pattern, new SourcePositions[1]) : null;
         boolean expression = true;
 
@@ -227,17 +229,28 @@ public class Utilities {
 
             assert patternTree.getKind() == Kind.BLOCK : patternTree.getKind();
 
-            patternTree = ((BlockTree) patternTree).getStatements().get(0);
+            List<? extends StatementTree> statements = ((BlockTree) patternTree).getStatements();
+
+            if (statements.size() == 1) {
+                patternTree = statements.get(0);
+            } else {
+                List<StatementTree> newStatements = new LinkedList<StatementTree>();
+
+                newStatements.add(make.ExpressionStatement(make.Identifier("$$1")));
+                newStatements.addAll(statements);
+                newStatements.add(make.ExpressionStatement(make.Identifier("$$2")));
+
+                patternTree = make.Block(newStatements, false);
+            }
             
             expression = false;
         }
 
         FixTree fixTree = new FixTree();
-        Context c = jti.getContext();
 
         //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
         //but sometimes no CompilationUnitTree (e.g. during BatchApply):
-        CompilationUnitTree cut = TreeFactory.instance(c).CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
+        CompilationUnitTree cut = make.CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
 
         fixTree.attach(c, new ImportAnalysis2(c), cut, null);
 
