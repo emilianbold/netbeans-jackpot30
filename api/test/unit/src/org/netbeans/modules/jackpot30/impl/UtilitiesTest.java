@@ -24,4 +24,13 @@ public class UtilitiesTest extends TestBase {
         assertTrue(result.getKind().name(), result.getKind() == Kind.EXPRESSION_STATEMENT);
     }
 
+    public void testParseAndAttributeVariable() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.singletonMap("$1", info.getTreeUtilities().parseType("int", info.getTopLevelElements().get(0))));
+        Tree result = Utilities.parseAndAttribute(info, "int $2 = $1;", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.VARIABLE);
+    }
+
 }

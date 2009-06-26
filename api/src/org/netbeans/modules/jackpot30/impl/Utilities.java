@@ -223,7 +223,12 @@ public class Utilities {
         boolean expression = true;
 
         if (patternTree == null || patternTree.getKind() == Kind.ERRONEOUS || (patternTree.getKind() == Kind.IDENTIFIER && ((IdentifierTree) patternTree).getName().contentEquals("<error>"))) { //TODO: <error>...
-            patternTree = jti.parseStatement(pattern, new SourcePositions[1]);
+            patternTree = jti.parseStatement("{" + pattern + "}", new SourcePositions[1]);
+
+            assert patternTree.getKind() == Kind.BLOCK : patternTree.getKind();
+
+            patternTree = ((BlockTree) patternTree).getStatements().get(0);
+            
             expression = false;
         }
 
