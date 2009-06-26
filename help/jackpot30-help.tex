@@ -1,4 +1,10 @@
 \documentclass{article}
+\usepackage{verbdef}
+
+\verbdef\simplevariable=$[0-9A-Za-z_]+=
+\verbdef\statementvariable=$[0-9A-Za-z_]+;=
+\verbdef\multiplestatementvariable=$[0-9A-Za-z_]+$;=
+\verbdef\reserved=$$[0-9A-Za-z_]+=
 
 \begin{document}
 
@@ -8,5 +14,13 @@
 
 The pattern is a Java expression or statement, with several exceptions, as described
 below.
+
+Don't cares start with the dollar sign (\verb=$=). The special forms are:
+\begin{description}
+\item[\simplevariable]{any expression}
+\item[\statementvariable]{any statement}
+\item[\multiplestatementvariable]{any number of statement}
+\item[\reserved]{reserved -- do not use}
+\end{description}
 
 \end{document}
