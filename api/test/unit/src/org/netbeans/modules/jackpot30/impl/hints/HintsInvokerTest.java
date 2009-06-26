@@ -335,6 +335,97 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testOneStatement2MultipleBlock() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         System.err.println(\"\");\n" +
+                       "     }\n" +
+                       "}\n",
+                       "4:9-4:32:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         System.err.println(\"\");\n" +
+                       "         System.err.println(\"\");\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testOneStatement2MultipleStatement() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         if (true)\n" +
+                       "             System.err.println(\"\");\n" +
+                       "     }\n" +
+                       "}\n",
+                       "5:13-5:36:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         if (true) {\n" +
+                       "             System.err.println(\"\");\n" +
+                       "             System.err.println(\"\");\n" +
+                       "         }\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testMultiple2OneStatement1() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         System.err.println(\"\");\n" +
+                       "         System.err.println(\"\");\n" +
+                       "     }\n" +
+                       "}\n",
+                       "3:25-6:6:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         System.err.println(\"\");\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testMultiple2OneStatement2() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         int i = 0;\n" +
+                       "         System.err.println(\"\");\n" +
+                       "         System.err.println(\"\");\n" +
+                       "         i++;\n" +
+                       "     }\n" +
+                       "}\n",
+                       "3:25-8:6:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         int i = 0;\n" +
+                       "         System.err.println(\"\");\n" +
+                       "         i++;\n" +
+                       "     }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -357,6 +448,10 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testMultiStatementVariables2", test2Hint.get("testMultiStatementVariables1"));
         test2Hint.put("testMultiStatementVariables3", test2Hint.get("testMultiStatementVariables1"));
         test2Hint.put("testMultiStatementVariablesAndBlocks", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("if ($c) {$s1$; System.err.println(); $s2$; }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("if (!$c) {$s1$; System.err.println(); $s2$; }")).produce());
+        test2Hint.put("testOneStatement2MultipleBlock", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("System.err.println($1);", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("System.err.println($1); System.err.println($1);")).produce());
+        test2Hint.put("testOneStatement2MultipleStatement", test2Hint.get("testOneStatement2MultipleBlock"));
+        test2Hint.put("testMultiple2OneStatement1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("System.err.println($1); System.err.println($2);", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("System.err.println($1);")).produce());
+        test2Hint.put("testMultiple2OneStatement2", test2Hint.get("testMultiple2OneStatement1"));
     }
 
     @Override

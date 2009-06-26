@@ -236,9 +236,9 @@ public class Utilities {
             } else {
                 List<StatementTree> newStatements = new LinkedList<StatementTree>();
 
-                newStatements.add(make.ExpressionStatement(make.Identifier("$$1")));
+                newStatements.add(make.ExpressionStatement(make.Identifier("$$1$")));
                 newStatements.addAll(statements);
-                newStatements.add(make.ExpressionStatement(make.Identifier("$$2")));
+                newStatements.add(make.ExpressionStatement(make.Identifier("$$2$")));
 
                 patternTree = make.Block(newStatements, false);
             }

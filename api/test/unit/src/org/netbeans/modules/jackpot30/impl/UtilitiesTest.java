@@ -43,11 +43,11 @@ public class UtilitiesTest extends TestBase {
         assertTrue(result.getKind().name(), result.getKind() == Kind.BLOCK);
 
         String golden = "{\n" +
-                        "    $$1;\n" +
+                        "    $$1$;\n" +
                         "    String $2 = $1;\n" +
                         "    int $l = $2.length();\n" +
                         "    System.err.println($l);\n" +
-                        "    $$2;\n" +
+                        "    $$2$;\n" +
                         "}";
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
     }

@@ -200,6 +200,43 @@ public abstract class JavaFix {
 
                 Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1]);
 
+                if (!isFakeBlock(parsed) && (tp.getLeaf().getKind() != Kind.BLOCK || !parametersMulti.containsKey("$$1$") || parsed.getKind() == Kind.BLOCK)) {
+                    wc.rewrite(tp.getLeaf(), parsed);
+                } else {
+                    if (isFakeBlock(parsed)) {
+                        TreePath parent = tp.getParentPath();
+                        List<? extends StatementTree> statements = ((BlockTree) parsed).getStatements();
+
+                        statements = statements.subList(1, statements.size() - 1);
+
+                        if (parent.getLeaf().getKind() == Kind.BLOCK) {
+                            List<StatementTree> newStatements = new LinkedList<StatementTree>();
+
+                            for (StatementTree st : ((BlockTree) parent.getLeaf()).getStatements()) {
+                                if (st == tp.getLeaf()) {
+                                    newStatements.addAll(statements);
+                                } else {
+                                    newStatements.add(st);
+                                }
+                            }
+
+                            wc.rewrite(parent.getLeaf(), wc.getTreeMaker().Block(newStatements, ((BlockTree) parent.getLeaf()).isStatic()));
+                        } else {
+                            wc.rewrite(tp.getLeaf(), wc.getTreeMaker().Block(statements, false));
+                        }
+                    } else {
+                        List<StatementTree> newStatements = new LinkedList<StatementTree>();
+
+                        newStatements.add(wc.getTreeMaker().ExpressionStatement(wc.getTreeMaker().Identifier("$$1$")));
+                        newStatements.add((StatementTree) parsed);
+                        newStatements.add(wc.getTreeMaker().ExpressionStatement(wc.getTreeMaker().Identifier("$$2$")));
+
+                        parsed = wc.getTreeMaker().Block(newStatements, ((BlockTree) tp.getLeaf()).isStatic());
+
+                        wc.rewrite(tp.getLeaf(), parsed);
+                    }
+                }
+                
                 new TreePathScanner<Void, Void>() {
                     @Override
                     public Void visitIdentifier(IdentifierTree node, Void p) {
@@ -290,8 +327,12 @@ public abstract class JavaFix {
 
                         for (StatementTree t : node.getStatements()) {
                             if (Utilities.isMultistatementWildcardTree(t)) {
-                                for (TreePath tp : parametersMulti.get(Utilities.getWildcardTreeName(t).toString())) {
-                                    nueStatement.add((StatementTree) tp.getLeaf());
+                                Collection<TreePath> embedded = parametersMulti.get(Utilities.getWildcardTreeName(t).toString());
+
+                                if (embedded != null) {
+                                    for (TreePath tp : embedded) {
+                                        nueStatement.add((StatementTree) tp.getLeaf());
+                                    }
                                 }
                             } else {
                                 nueStatement.add(t);
@@ -305,10 +346,28 @@ public abstract class JavaFix {
                         return super.visitBlock(nue, p);
                     }
                 }.scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
-
-                wc.rewrite(tp.getLeaf(), parsed);
             }
         });
+    }
+
+    private static boolean isFakeBlock(Tree t) {
+        if (!(t instanceof BlockTree)) {
+            return false;
+        }
+
+        BlockTree bt = (BlockTree) t;
+
+        if (bt.getStatements().isEmpty()) {
+            return false;
+        }
+
+        CharSequence wildcardTreeName = Utilities.getWildcardTreeName(bt.getStatements().get(0));
+
+        if (wildcardTreeName == null) {
+            return false;
+        }
+
+        return wildcardTreeName.toString().startsWith("$$");
     }
 
     private static String defaultFixDisplayName(CompilationInfo info, Map<String, TreePath> variables, String replaceTarget) {
