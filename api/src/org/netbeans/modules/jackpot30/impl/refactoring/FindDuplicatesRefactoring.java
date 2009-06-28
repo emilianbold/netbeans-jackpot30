@@ -7,7 +7,7 @@ import org.openide.util.Lookup;
 
 public class FindDuplicatesRefactoring extends AbstractRefactoring {
 
-    private HintDescription pattern;
+    private Iterable<? extends HintDescription> patterns;
     private Scope scope;
     private boolean verify;
 
@@ -15,12 +15,12 @@ public class FindDuplicatesRefactoring extends AbstractRefactoring {
         super(Lookup.EMPTY);
     }
 
-    public synchronized HintDescription getPattern() {
-        return pattern;
+    public synchronized Iterable<? extends HintDescription> getPattern() {
+        return patterns;
     }
 
-    public synchronized void setPattern(HintDescription pattern) {
-        this.pattern = pattern;
+    public synchronized void setPattern(Iterable<? extends HintDescription> patterns) {
+        this.patterns = patterns;
     }
 
     public synchronized Scope getScope() {

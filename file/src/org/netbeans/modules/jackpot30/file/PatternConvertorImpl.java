@@ -13,16 +13,14 @@ import org.openide.util.lookup.ServiceProvider;
 public class PatternConvertorImpl extends PatternConvertor {
 
     @Override
-    protected HintDescription parseString(String code) {
+    protected Iterable<? extends HintDescription> parseString(String code) {
         List<HintDescription> hints = DeclarativeHintRegistry.parseHints(code);
 
         if (hints.isEmpty()) {
             return null;
         }
 
-        //XXX: what about hints.size() > 1?
-
-        return hints.get(0);
+        return hints;
     }
 
 }

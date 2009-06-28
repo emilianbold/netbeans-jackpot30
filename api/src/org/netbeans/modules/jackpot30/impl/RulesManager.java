@@ -118,8 +118,7 @@ public class RulesManager {
 
     }
 
-    //used by tests:
-    public static void sortOut(Collection<? extends HintDescription> hints, Map<Kind, List<HintDescription>> kind2Hints, Map<PatternDescription, List<HintDescription>> pattern2Hint) {
+    public static void sortOut(Iterable<? extends HintDescription> hints, Map<Kind, List<HintDescription>> kind2Hints, Map<PatternDescription, List<HintDescription>> pattern2Hint) {
         for (HintDescription d : hints) {
             if (d.getTriggerKind() != null) {
                 List<HintDescription> l = kind2Hints.get(d.getTriggerKind());

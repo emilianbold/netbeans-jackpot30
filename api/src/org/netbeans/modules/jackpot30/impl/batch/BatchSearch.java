@@ -27,6 +27,7 @@ import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
@@ -50,9 +51,11 @@ import org.openide.util.NbCollections;
  */
 public class BatchSearch {
 
-    public static BatchResult findOccurrences(HintDescription pattern, Scope scope, Object... parameters) {
-        if (pattern.getTriggerKind() != null || pattern.getTriggerPattern() == null) {
-            throw new UnsupportedOperationException();
+    public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, Scope scope, Object... parameters) {
+        for (HintDescription pattern : patterns) {
+            if (pattern.getTriggerKind() != null || pattern.getTriggerPattern() == null) {
+                throw new UnsupportedOperationException();
+            }
         }
 
         Set<FileObject> knownSourceRoots;
@@ -63,24 +66,24 @@ public class BatchSearch {
                 knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
                 todo = new HashSet<FileObject>(knownSourceRoots);
                 
-                return findOccurrencesLocal(pattern, knownSourceRoots, todo);
+                return findOccurrencesLocal(patterns, knownSourceRoots, todo);
             case GIVEN_SOURCE_ROOTS:
                 knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
                 todo = NbCollections.checkedSetByCopy(new HashSet<Object>(Arrays.asList(parameters)), FileObject.class, true);
 
-                return findOccurrencesLocal(pattern, knownSourceRoots, todo);
+                return findOccurrencesLocal(patterns, knownSourceRoots, todo);
             default:
                 throw new UnsupportedOperationException(scope.name());
         }
     }
 
-    private static BatchResult findOccurrencesLocal(final HintDescription pattern, final Set<FileObject> indexedSourceRoots, final Set<FileObject> todo) {
+    private static BatchResult findOccurrencesLocal(final Iterable<? extends HintDescription> patterns, final Set<FileObject> indexedSourceRoots, final Set<FileObject> todo) {
         final BatchResult[] result = new BatchResult[1];
 
         try {
             JavaSource.create(Utilities.createUniversalCPInfo()).runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController parameter) throws Exception {
-                    result[0] = findOccurrencesLocalImpl(parameter, pattern, indexedSourceRoots, todo);
+                    result[0] = findOccurrencesLocalImpl(parameter, patterns, indexedSourceRoots, todo);
                 }
             }, true);
         } catch (IOException ex) {
@@ -89,10 +92,18 @@ public class BatchSearch {
 
         return result[0];
     }
-    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, final HintDescription pattern, Set<FileObject> indexedSourceRoots, Set<FileObject> todo) {
-        String textPattern = pattern.getTriggerPattern().getPattern();
-        Tree treePattern = Utilities.parseAndAttribute(info, textPattern, null);
-        final BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(textPattern), Collections.singleton(treePattern));
+    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, final Iterable<? extends HintDescription> patterns, Set<FileObject> indexedSourceRoots, Set<FileObject> todo) {
+        Collection<String> code = new LinkedList<String>();
+        Collection<Tree> trees = new LinkedList<Tree>();
+
+        for (HintDescription pattern : patterns) {
+            String textPattern = pattern.getTriggerPattern().getPattern();
+            
+            code.add(textPattern);
+            trees.add(Utilities.parseAndAttribute(info, textPattern, null));
+        }
+
+        final BulkPattern bulkPattern = BulkSearch.getDefault().create(code, trees);
         final Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         
         for (final FileObject src : todo) {
@@ -112,7 +123,7 @@ public class BatchSearch {
                             result.put(id, resources = new LinkedList<Resource>());
                         }
 
-                        resources.add(new Resource(id, candidate, pattern, bulkPattern));
+                        resources.add(new Resource(id, candidate, patterns, bulkPattern));
                     }
                 } else {
                     Collection<FileObject> files = new LinkedList<FileObject>();
@@ -135,7 +146,7 @@ public class BatchSearch {
                                     result.put(id, resources = new LinkedList<Resource>());
                                 }
 
-                                resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), pattern, bulkPattern));
+                                resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), patterns, bulkPattern));
                             }
                         }
                     }, true);
@@ -240,8 +251,11 @@ public class BatchSearch {
                             return ;
                         
                         Resource r = file2Resource.get(parameter.getFileObject());
-                        Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = Collections.singletonMap(r.hint.getTriggerPattern(), Collections.singletonList(r.hint));
-                        Map<Kind, List<HintDescription>> sortedHintsKinds = Collections.<Kind, List<HintDescription>>emptyMap();
+                        Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = new HashMap<PatternDescription, List<HintDescription>>();
+                        Map<Kind, List<HintDescription>> sortedHintsKinds = new HashMap<Kind, List<HintDescription>>();
+
+                        RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
+
                         List<ErrorDescription> hints = new HintsInvoker().computeHints(parameter, sortedHintsKinds, sortedHintsPatterns);
 
                         r.setVerifiedSpans(hints);
@@ -316,13 +330,13 @@ public class BatchSearch {
     public static final class Resource {
         private final Container container;
         private final String relativePath;
-        private final HintDescription hint;
+        private final Iterable<? extends HintDescription> hints;
         private final BulkPattern pattern;
 
-        public Resource(Container container, String relativePath, HintDescription hint, BulkPattern pattern) {
+        public Resource(Container container, String relativePath, Iterable<? extends HintDescription> hints, BulkPattern pattern) {
             this.container = container;
             this.relativePath = relativePath;
-            this.hint = hint;
+            this.hints = hints;
             this.pattern = pattern;
         }
 
@@ -386,10 +400,11 @@ public class BatchSearch {
         private Collection<int[]> doComputeSpans(CompilationInfo ci) {
             Collection<int[]> result = new LinkedList<int[]>();
             Map<String, Collection<TreePath>> found = BulkSearch.getDefault().match(ci, ci.getCompilationUnit(), pattern);
-            Tree treePattern = Utilities.parseAndAttribute(ci, hint.getTriggerPattern().getPattern(), null);
 
-            for (Collection<TreePath> tps : found.values()) {
-                for (TreePath tp : tps) {
+            for (Entry<String, Collection<TreePath>> e : found.entrySet()) {
+                Tree treePattern = Utilities.parseAndAttribute(ci, e.getKey(), null);
+                
+                for (TreePath tp : e.getValue()) {
                     //XXX: this pass will not be performed on the web!!!
                     if (   BulkSearch.getDefault().requiresLightweightVerification()
                         && !CopyFinder.isDuplicate(ci, new TreePath(new TreePath(ci.getCompilationUnit()), treePattern), tp, false, new AtomicBoolean())) {

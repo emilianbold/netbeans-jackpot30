@@ -66,8 +66,8 @@ public class BatchSearchTest extends NbTestCase {
                                  new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
                                  new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
 
-        HintDescription hint = PatternConvertor.create("$1.isDirectory()");
-        BatchResult result = BatchSearch.findOccurrences(hint, Scope.ALL_OPENED_PROJECTS);
+        Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory()");
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.ALL_OPENED_PROJECTS);
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
@@ -100,8 +100,8 @@ public class BatchSearchTest extends NbTestCase {
 
         writeFilesAndWaitForScan(src1, new File("test/Test.java", code));
 
-        HintDescription hint = PatternConvertor.create("$0.getFileObject($1)");
-        BatchResult result = BatchSearch.findOccurrences(hint, Scope.ALL_OPENED_PROJECTS);
+        Iterable<? extends HintDescription> hints = PatternConvertor.create("$0.getFileObject($1)");
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.ALL_OPENED_PROJECTS);
 
         assertEquals(1, result.projectId2Resources.size());
         Iterator<? extends Resource> resources = result.projectId2Resources.values().iterator().next().iterator();
@@ -127,8 +127,8 @@ public class BatchSearchTest extends NbTestCase {
                                  new File("test/Test1.java", "package test; public class Test1 { private void test() { Test2 f = null; f.isDirectory(); } }"),
                                  new File("test/Test2.java", "package test; public class Test2 { public boolean isDirectory() {return false} }"));
 
-        HintDescription hint = PatternConvertor.create("$1.isDirectory() :: $1 instanceof test.Test2 ;;");
-        BatchResult result = BatchSearch.findOccurrences(hint, Scope.GIVEN_SOURCE_ROOTS, src1, src3);
+        Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory() :: $1 instanceof test.Test2 ;;");
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, src1, src3);
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
@@ -202,7 +202,7 @@ public class BatchSearchTest extends NbTestCase {
             return sourceRoots;
         }
 
-        public ClassPath findClassPath(FileObject file, String type) {
+        public synchronized ClassPath findClassPath(FileObject file, String type) {
             if (ClassPath.BOOT.equals(type)) {
                 return ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0]));
             }
@@ -211,7 +211,7 @@ public class BatchSearchTest extends NbTestCase {
                 return ClassPathSupport.createClassPath(new URL[0]);
             }
 
-            if (ClassPath.SOURCE.equals(type)) {
+            if (ClassPath.SOURCE.equals(type) && sourceRoots != null) {
                 for (FileObject sr : sourceRoots) {
                     if (file.equals(sr) || FileUtil.isParentOf(sr, file)) {
                         return ClassPathSupport.createClassPath(sr);

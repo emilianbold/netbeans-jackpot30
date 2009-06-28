@@ -16,9 +16,9 @@ import org.openide.util.Lookup;
  */
 public abstract class PatternConvertor {
 
-    protected abstract @CheckForNull HintDescription parseString(@NonNull String code);
+    protected abstract @CheckForNull Iterable<? extends HintDescription> parseString(@NonNull String code);
 
-    public static @CheckForNull HintDescription create(@NonNull String code) {
+    public static @CheckForNull Iterable<? extends HintDescription> create(@NonNull String code) {
         //XXX:
         if (code.contains(";;")) {
             PatternConvertor c = Lookup.getDefault().lookup(PatternConvertor.class);
@@ -32,11 +32,13 @@ public abstract class PatternConvertor {
 
         PatternDescription pd = PatternDescription.create(code, Collections.<String, String>emptyMap());
 
-        return HintDescriptionFactory.create()
-                                     .setDisplayName("Pattern Matches")
-                                     .setTriggerPattern(pd)
-                                     .setWorker(new WorkerImpl())
-                                     .produce();
+        HintDescription desc = HintDescriptionFactory.create()
+                                                     .setDisplayName("Pattern Matches")
+                                                     .setTriggerPattern(pd)
+                                                     .setWorker(new WorkerImpl())
+                                                     .produce();
+
+        return Collections.singletonList(desc);
     }
 
     private static final class WorkerImpl implements Worker {
