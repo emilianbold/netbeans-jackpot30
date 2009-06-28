@@ -1,20 +1,23 @@
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.Component;
+import java.util.Collections;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 import org.netbeans.modules.refactoring.api.AbstractRefactoring;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.spi.ui.CustomRefactoringPanel;
 import org.netbeans.modules.refactoring.spi.ui.RefactoringUI;
 import org.openide.util.HelpCtx;
+import org.openide.util.Union2;
 
 public class FindDuplicatesRefactoringUI implements RefactoringUI {
 
-    private volatile @NullAllowed String pattern;
+    private volatile @NonNull Union2<String, Iterable<? extends HintDescription>> pattern;
     private volatile @NonNull Scope scope;
     private volatile boolean verify;
 
@@ -33,7 +36,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
             throw new UnsupportedOperationException();
         }
         
-        this.pattern = pattern;
+        this.pattern = pattern != null ? Union2.<String, Iterable<? extends HintDescription>>createFirst(pattern) : Union2.<String, Iterable<? extends HintDescription>>createSecond(Collections.<HintDescription>emptyList());
         this.scope = scope;
         this.verify = verify;
         this.query = query;
@@ -59,8 +62,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
             public Component getComponent() {
                 if (panel == null) {
                     panel = new FindDuplicatesRefactoringPanel(parent, query);
-                    String pattern = FindDuplicatesRefactoringUI.this.pattern;
-                    panel.setPattern(pattern != null ? pattern : "");
+                    panel.setPattern(FindDuplicatesRefactoringUI.this.pattern);
                     panel.setScope(scope);
                     panel.setVerify(verify);
                 }
@@ -78,14 +80,20 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     }
 
     public Problem checkParameters() {
-        String pattern = panel != null ? panel.getPattern() : this.pattern;
-        if (pattern == null) {
-            return new Problem(true, "No pattern specified");
+        Union2<String, Iterable<? extends HintDescription>> pattern = panel != null ? panel.getPattern() : this.pattern;
+
+        if (pattern.hasFirst()) {
+            if (pattern.first() == null) {
+                return new Problem(true, "No pattern specified");
+            }
+            if (PatternConvertor.create(pattern.first()) == null) {
+                return new Problem(true, "The pattern cannot be parsed");
+            }
+        } else {
+            if (!pattern.second().iterator().hasNext()) {
+                return new Problem(true, "No pattern specified");
+            }
         }
-        if (PatternConvertor.create(pattern) == null) {
-            return new Problem(true, "The pattern cannot be parsed");
-        }
-        //TODO
         return null;
     }
 
@@ -94,10 +102,21 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     }
 
     public AbstractRefactoring getRefactoring() {
+        Iterable<? extends HintDescription> hints;
+        
+        if (pattern.hasFirst()) {
+            if (pattern.first() != null) {
+                hints = PatternConvertor.create(pattern.first());
+            } else {
+                hints = Collections.<HintDescription>emptyList();
+            }
+        } else {
+            hints = pattern.second();
+        }
+
         if (query) {
             FindDuplicatesRefactoring r = new FindDuplicatesRefactoring();
-
-            r.setPattern(pattern != null ? PatternConvertor.create(pattern) : null/*???*/);
+            r.setPattern(hints);
             r.setScope(scope);
             r.setVerify(verify);
 
@@ -106,7 +125,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
 
         ApplyPatternRefactoring r = new ApplyPatternRefactoring();
 
-        r.setPattern(pattern != null ? PatternConvertor.create(pattern) : null/*???*/);
+        r.setPattern(hints);
         r.setScope(scope);
 
         return r;
