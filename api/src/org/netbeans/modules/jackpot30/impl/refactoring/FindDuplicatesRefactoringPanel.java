@@ -34,7 +34,8 @@ import org.openide.util.Union2;
  */
 public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
-    private Map<String, Collection<HintDescription>> displayName2Hints;
+    private final Map<String, Collection<HintDescription>> displayName2Hints;
+    private final ChangeListener changeListener;
     
     public FindDuplicatesRefactoringPanel(final ChangeListener parent, boolean allowVerify) {
         Set<ClassPath> cps = new HashSet<ClassPath>();
@@ -89,6 +90,8 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         scope.setRenderer(new RendererImpl());
 
         enableDisable();
+
+        this.changeListener = parent;
     }
 
     /** This method is called from within the constructor to
@@ -321,6 +324,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             ((DefaultListModel) selectedHints.getModel()).addElement(selected);
             ((DefaultListModel) allHints.getModel()).removeElement(selected);
         }
+        changeListener.stateChanged(new ChangeEvent(this));
 }//GEN-LAST:event_addHintActionPerformed
 
     private void addAllHintsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addAllHintsActionPerformed
@@ -328,6 +332,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             ((DefaultListModel) selectedHints.getModel()).addElement(o);
         }
         ((DefaultListModel) allHints.getModel()).removeAllElements();
+        changeListener.stateChanged(new ChangeEvent(this));
 }//GEN-LAST:event_addAllHintsActionPerformed
 
     private void removeHintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeHintActionPerformed
@@ -335,6 +340,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             ((DefaultListModel) allHints.getModel()).addElement(selected);
             ((DefaultListModel) selectedHints.getModel()).removeElement(selected);
         }
+        changeListener.stateChanged(new ChangeEvent(this));
 }//GEN-LAST:event_removeHintActionPerformed
 
     private void removeAllHintsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeAllHintsActionPerformed
@@ -342,6 +348,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             ((DefaultListModel) allHints.getModel()).addElement(o);
         }
         ((DefaultListModel) selectedHints.getModel()).removeAllElements();
+        changeListener.stateChanged(new ChangeEvent(this));
 }//GEN-LAST:event_removeAllHintsActionPerformed
 
     private void customPatternActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_customPatternActionPerformed
