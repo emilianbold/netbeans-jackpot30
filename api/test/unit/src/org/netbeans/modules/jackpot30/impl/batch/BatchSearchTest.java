@@ -1,6 +1,7 @@
 package org.netbeans.modules.jackpot30.impl.batch;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -8,9 +9,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
@@ -30,8 +33,10 @@ import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 
+import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.writeFilesAndWaitForScan;
 
@@ -204,7 +209,7 @@ public class BatchSearchTest extends NbTestCase {
 
         public synchronized ClassPath findClassPath(FileObject file, String type) {
             if (ClassPath.BOOT.equals(type)) {
-                return ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0]));
+                return ClassPathSupport.createClassPath(getBootClassPath().toArray(new URL[0]));
             }
             
             if (ClassPath.COMPILE.equals(type)) {
@@ -222,5 +227,41 @@ public class BatchSearchTest extends NbTestCase {
             return null;
         }
         
+    }
+
+    //TODO: copied from SourceUtilsTestUtil:
+    private static List<URL> bootClassPath;
+
+    public static synchronized List<URL> getBootClassPath() {
+        if (bootClassPath == null) {
+            try {
+                String cp = System.getProperty("sun.boot.class.path");
+                List<URL> urls = new ArrayList<URL>();
+                String[] paths = cp.split(Pattern.quote(System.getProperty("path.separator")));
+
+                for (String path : paths) {
+                    java.io.File f = new java.io.File(path);
+
+                    if (!f.canRead())
+                        continue;
+
+                    FileObject fo = FileUtil.toFileObject(f);
+
+                    if (FileUtil.isArchiveFile(fo)) {
+                        fo = FileUtil.getArchiveRoot(fo);
+                    }
+
+                    if (fo != null) {
+                        urls.add(fo.getURL());
+                    }
+                }
+
+                bootClassPath = urls;
+            } catch (FileStateInvalidException e) {
+                Exceptions.printStackTrace(e);
+            }
+        }
+
+        return bootClassPath;
     }
 }
