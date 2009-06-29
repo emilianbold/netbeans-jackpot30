@@ -285,6 +285,10 @@
                         <code-name-base>org.netbeans.modules.editor.util</code-name-base>
                     </test-dependency>
                     <test-dependency>
+                        <code-name-base>org.netbeans.modules.jackpot30.file</code-name-base>
+                        <compile-dependency/>
+                    </test-dependency>
+                    <test-dependency>
                         <code-name-base>org.netbeans.modules.jackpot30.test.borrowed</code-name-base>
                         <recursive/>
                         <compile-dependency/>
