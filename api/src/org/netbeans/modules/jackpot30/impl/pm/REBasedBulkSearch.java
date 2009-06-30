@@ -138,6 +138,28 @@ public class REBasedBulkSearch extends BulkSearch {
 
         return pattern.toRegexpPattern().matcher(encoded).find();
     }
+    
+    @Override
+    public boolean matches(CompilationInfo info, Tree tree, BulkPattern patternIn) {
+        REBasedBulkPattern pattern = (REBasedBulkPattern) patternIn;
+        Result r = TreeSerializer.serializeText(tree);
+
+        boolean contains = false;
+
+        for (int cntr = 0; cntr < pattern.getIdentifiers().size(); cntr++) {
+            if (   r.identifiers.get(0).containsAll(pattern.getIdentifiers().get(cntr))
+                && r.treeKinds.get(0).containsAll(pattern.getKinds().get(cntr))) {
+                contains = true;
+                break;
+            }
+        }
+
+        if (!contains) {
+            return false;
+        }
+
+        return pattern.toRegexpPattern().matcher(r.encoded).find();
+    }
 
     @Override
     public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns) {
@@ -146,7 +168,7 @@ public class REBasedBulkSearch extends BulkSearch {
         return REBasedBulkPattern.create(new LinkedList<String>(code), r);
     }
 
-    public static class REBasedBulkPattern extends BulkPattern {
+    static class REBasedBulkPattern extends BulkPattern {
 
         private final List<String> original;
         private final String serialized;

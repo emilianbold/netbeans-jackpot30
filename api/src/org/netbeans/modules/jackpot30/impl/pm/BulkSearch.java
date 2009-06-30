@@ -80,6 +80,8 @@ public abstract class BulkSearch {
 
     public abstract boolean matches(String encoded, BulkPattern pattern);
     
+    public abstract boolean matches(CompilationInfo info, Tree tree, BulkPattern pattern);
+    
     public final BulkPattern create(CompilationInfo info, String... code) {
         return create(info, Arrays.asList(code));
     }
@@ -98,19 +100,19 @@ public abstract class BulkSearch {
 
     public static abstract class BulkPattern {
 
-        private final Set<String> identifiers;
-        private final Set<String> kinds;
+        private final List<? extends Set<? extends String>> identifiers;
+        private final List<? extends Set<? extends String>> kinds;
 
-        public BulkPattern(Set<String> identifiers, Set<String> kinds) {
+        public BulkPattern(List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds) {
             this.identifiers = identifiers;//TODO: immutable, maybe clone
             this.kinds = kinds;
         }
 
-        public Set<String> getIdentifiers() {
+        public List<? extends Set<? extends String>> getIdentifiers() {
             return identifiers;
         }
 
-        public Set<String> getKinds() {
+        public List<? extends Set<? extends String>> getKinds() {
             return kinds;
         }
 

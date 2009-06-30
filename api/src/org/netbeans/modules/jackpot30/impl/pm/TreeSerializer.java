@@ -53,6 +53,8 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -74,7 +76,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
         serializer.scan(tree, p);
 
-        return new Result(p.toString(), serializer.serializedStart2Tree, null, null, serializer.identifiers, serializer.treeKinds);
+        return new Result(p.toString(), serializer.serializedStart2Tree, null, null, Collections.singletonList(serializer.identifiers), Collections.singletonList(serializer.treeKinds));
     }
 
     public static Result serializePatterns(Tree... patterns) {
@@ -83,6 +85,8 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         int[] groups = new int[patterns.length];
         Set<Integer> patternsWithUnrolledBlocks = new HashSet<Integer>();
         int i = 0;
+        List<Set<? extends String>> identifiers = new ArrayList<Set<? extends String>>(patterns.length);
+        List<Set<? extends String>> treeKinds = new ArrayList<Set<? extends String>>(patterns.length);
 
         for (Tree tree : patterns) {
             groups[i] = ts.group++;
@@ -104,9 +108,11 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
             }
             ts.append(p, ")");
             i++;
+            identifiers.add(ts.identifiers); ts.identifiers = new HashSet<String>();
+            treeKinds.add(ts.treeKinds); ts.treeKinds = new HashSet<String>();
         }
 
-        return new Result(p.toString(), null, groups, patternsWithUnrolledBlocks, ts.identifiers, ts.treeKinds);
+        return new Result(p.toString(), null, groups, patternsWithUnrolledBlocks, identifiers, treeKinds);
     }
 
     private int depth;
@@ -116,8 +122,8 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
     private int length;
     private TreePath currentPath;
 
-    private final Set<String> identifiers;
-    private final Set<String> treeKinds;
+    private Set<String> identifiers;
+    private Set<String> treeKinds;
 
     private TreeSerializer(boolean pattern) {
         this.depth = !pattern ? 0 : -1;
@@ -369,10 +375,10 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         public final Map<Integer, List<TreePath>> serializedEnd2Tree;
         public final int[] groups;
         public final Set<Integer> patternsWithUnrolledBlocks;
-        public final Set<String> identifiers;
-        public final Set<String> treeKinds;
+        public final List<? extends Set<? extends String>> identifiers;
+        public final List<? extends Set<? extends String>> treeKinds;
 
-        private Result(String encoded, Map<Integer, List<TreePath>> serializedEnd2Tree, int[] groups, Set<Integer> patternsWithUnrolledBlocks, Set<String> identifiers, Set<String> treeKinds) {
+        private Result(String encoded, Map<Integer, List<TreePath>> serializedEnd2Tree, int[] groups, Set<Integer> patternsWithUnrolledBlocks, List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> treeKinds) {
             this.encoded = encoded;
             this.serializedEnd2Tree = serializedEnd2Tree;
             this.groups = groups;

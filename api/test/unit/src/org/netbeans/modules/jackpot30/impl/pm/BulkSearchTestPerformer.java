@@ -292,8 +292,21 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     patterns);
     }
 
-    protected abstract BulkPattern create(CompilationInfo info, Collection<? extends String> patterns);
-    protected abstract Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern);
+    public void testMatches1() throws Exception {
+        performMatchesTest("package test; public class Test { private void test() { f.isDirectory(); } }", Arrays.asList("$1.isDirectory()", "new ImageIcon($1)"), true);
+    }
+
+    protected abstract BulkSearch createSearch();
+    
+    private void performMatchesTest(String text, List<String> patterns, boolean golden) throws Exception {
+        prepareTest("test/Test.java", text);
+
+        BulkPattern p = createSearch().create(info, patterns);
+
+        boolean result = createSearch().matches(info, info.getCompilationUnit(), p);
+
+        assertEquals(golden, result);
+    }
     
     private void performTest(String text, Map<String, List<String>> containedPatterns, Collection<String> notContainedPatterns) throws Exception {
         prepareTest("test/Test.java", text);
@@ -304,13 +317,13 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
         patterns.addAll(notContainedPatterns);
 
         long s1 = System.currentTimeMillis();
-        BulkPattern p = create(info, patterns);
+        BulkPattern p = createSearch().create(info, patterns);
         long e1 = System.currentTimeMillis();
 
 //        System.err.println("create: " + (e1 - s1));
 
         long s2 = System.currentTimeMillis();
-        Map<String, Collection<TreePath>> result = match(info, info.getCompilationUnit(), p);
+        Map<String, Collection<TreePath>> result = createSearch().match(info, info.getCompilationUnit(), p);
         long e2 = System.currentTimeMillis();
 
 //        System.err.println("match: " + (e2 - s2));

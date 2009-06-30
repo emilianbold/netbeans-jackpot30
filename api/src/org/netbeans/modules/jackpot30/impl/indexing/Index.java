@@ -16,6 +16,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.Set;
 import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -118,20 +119,25 @@ public class Index {
     }
 
     private Query query(BulkPattern pattern) throws ParseException {
-        BooleanQuery q = new BooleanQuery();
-        
-        if (!pattern.getIdentifiers().isEmpty()) {
-            for (String a : pattern.getIdentifiers()) {
-                q.add(new TermQuery(new Term("identifiers", a)), BooleanClause.Occur.MUST);
+        BooleanQuery result = new BooleanQuery();
+
+        for (int cntr = 0; cntr < pattern.getIdentifiers().size(); cntr++) {
+            BooleanQuery q = new BooleanQuery();
+            if (!pattern.getIdentifiers().get(cntr).isEmpty()) {
+                for (String a : pattern.getIdentifiers().get(cntr)) {
+                    q.add(new TermQuery(new Term("identifiers", a)), BooleanClause.Occur.MUST);
+                }
             }
-        }
-        if (!pattern.getKinds().isEmpty()) {
-            for (String t : pattern.getKinds()) {
-                q.add(new TermQuery(new Term("treeKinds", t)), BooleanClause.Occur.MUST);
+            if (!pattern.getKinds().get(cntr).isEmpty()) {
+                for (String t : pattern.getKinds().get(cntr)) {
+                    q.add(new TermQuery(new Term("treeKinds", t)), BooleanClause.Occur.MUST);
+                }
             }
+
+            result.add(q, BooleanClause.Occur.SHOULD);
         }
 
-        return q;
+        return result;
     }
 
     public CharSequence getSourceCode(String relativePath) {
@@ -199,8 +205,8 @@ public class Index {
             
             Document doc = new Document();
 
-            doc.add(new Field("identifiers", new TokenStreamImpl(r.identifiers)));
-            doc.add(new Field("treeKinds", new TokenStreamImpl(r.treeKinds)));
+            doc.add(new Field("identifiers", new TokenStreamImpl(join(r.identifiers))));
+            doc.add(new Field("treeKinds", new TokenStreamImpl(join(r.treeKinds))));
             doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
 
             luceneWriter.addDocument(doc);
@@ -220,6 +226,16 @@ public class Index {
             luceneWriter.optimize();
             luceneWriter.close();
         }
+    }
+
+    private static Set<String> join(Iterable<? extends Set<? extends String>> toJoin) {
+        Set<String> result = new HashSet<String>();
+
+        for (Set<? extends String> s : toJoin) {
+            result.addAll(s);
+        }
+
+        return result;
     }
 
     private static final class TokenStreamImpl extends TokenStream {
