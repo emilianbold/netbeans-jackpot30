@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.URL;
+import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -27,6 +28,7 @@ import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
@@ -114,7 +116,7 @@ public class BatchSearch {
                     if (i == null)
                          continue;
                     
-                    Container id = new LocalContainer(src, i);
+                    Container id = new LocalContainer(src);
 
                     for (String candidate : i.findCandidates(bulkPattern)) {
                         Collection<Resource> resources = result.get(id);
@@ -127,14 +129,14 @@ public class BatchSearch {
                     }
                 } else {
                     Collection<FileObject> files = new LinkedList<FileObject>();
-                    final Container id = new LocalContainer(src, null);
+                    final Container id = new LocalContainer(src);
                     
                     recursive(src, files);
-                    JavaSource.create(Utilities.createUniversalCPInfo(), files).runUserActionTask(new Task<CompilationController>() {
-                        public void run(CompilationController cc) throws Exception {
-                            if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) <0) {
-                                return ;
-                            }
+                        JavaSource.create(Utilities.createUniversalCPInfo(), files).runUserActionTask(new Task<CompilationController>() {
+                            public void run(CompilationController cc) throws Exception {
+                                if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) <0) {
+                                    return ;
+                                }
 
                             //TODO: we have precise results, but we throw them away and will need to compute them again in the future:
                             boolean matches = !BulkSearch.getDefault().match(cc, cc.getCompilationUnit(), bulkPattern).isEmpty();
@@ -149,8 +151,8 @@ public class BatchSearch {
                                 resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), patterns, bulkPattern));
                             }
                         }
-                    }, true);
-                }
+                        }, true);
+                    }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
             }
@@ -298,11 +300,9 @@ public class BatchSearch {
     public static final class LocalContainer extends Container {
 
         private final FileObject localFO;
-        private final Index index;
         
-        LocalContainer(@NonNull FileObject localFO, @NonNull Index index) {
+        LocalContainer(@NonNull FileObject localFO) {
             this.localFO = localFO;
-            this.index = index;
         }
         
         @Override
@@ -312,7 +312,15 @@ public class BatchSearch {
 
         @Override
         CharSequence getSourceCode(String relativePath) {
-            return index.getSourceCode(relativePath);
+            try {
+                FileObject file = localFO.getFileObject(relativePath);
+                ByteBuffer bb = ByteBuffer.wrap(file.asBytes());
+
+                return FileEncodingQuery.getEncoding(file).decode(bb);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+                return null;
+            }
         }
 
         @Override
