@@ -133,7 +133,7 @@ public class BatchSearchTest extends NbTestCase {
                                  new File("test/Test2.java", "package test; public class Test2 { public boolean isDirectory() {return false} }"));
 
         Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory() :: $1 instanceof test.Test2 ;;");
-        BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, src1, src3);
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, src1, src3, empty);
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
@@ -179,6 +179,7 @@ public class BatchSearchTest extends NbTestCase {
     private FileObject src1;
     private FileObject src2;
     private FileObject src3;
+    private FileObject empty;
 
     private void prepareTest() throws Exception {
         FileObject workdir = SourceUtilsTestUtil.makeScratchDir(this);
@@ -186,6 +187,7 @@ public class BatchSearchTest extends NbTestCase {
         src1 = FileUtil.createFolder(workdir, "src1");
         src2 = FileUtil.createFolder(workdir, "src2");
         src3 = FileUtil.createFolder(workdir, "src3");
+        empty = FileUtil.createFolder(workdir, "empty");
 
         ClassPathProviderImpl.setSourceRoots(Arrays.asList(src1, src2, src3));
         

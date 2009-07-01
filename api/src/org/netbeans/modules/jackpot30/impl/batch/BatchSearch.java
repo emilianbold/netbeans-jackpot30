@@ -19,6 +19,8 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
@@ -52,6 +54,8 @@ import org.openide.util.NbCollections;
  * @author lahvac
  */
 public class BatchSearch {
+
+    private static final Logger LOG = Logger.getLogger(BatchSearch.class.getName());
 
     public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, Scope scope, Object... parameters) {
         for (HintDescription pattern : patterns) {
@@ -109,6 +113,8 @@ public class BatchSearch {
         final Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         
         for (final FileObject src : todo) {
+            LOG.log(Level.FINE, "Processing: {0}", FileUtil.getFileDisplayName(src));
+            
             try {
                 if (indexedSourceRoots.contains(src)) {
                     Index i = Index.get(src.getURL());
@@ -132,27 +138,37 @@ public class BatchSearch {
                     final Container id = new LocalContainer(src);
                     
                     recursive(src, files);
+
+                    LOG.log(Level.FINE, "files: {0}", files);
+
+                    if (!files.isEmpty()) {
+                        long start = System.currentTimeMillis();
+
                         JavaSource.create(Utilities.createUniversalCPInfo(), files).runUserActionTask(new Task<CompilationController>() {
                             public void run(CompilationController cc) throws Exception {
                                 if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) <0) {
                                     return ;
                                 }
 
-                            //TODO: we have precise results, but we throw them away and will need to compute them again in the future:
-                            boolean matches = !BulkSearch.getDefault().match(cc, cc.getCompilationUnit(), bulkPattern).isEmpty();
+                                boolean matches = BulkSearch.getDefault().matches(cc, cc.getCompilationUnit(), bulkPattern);
 
-                            if (matches) {
-                                Collection<Resource> resources = result.get(id);
+                                if (matches) {
+                                    Collection<Resource> resources = result.get(id);
 
-                                if (resources == null) {
-                                    result.put(id, resources = new LinkedList<Resource>());
+                                    if (resources == null) {
+                                        result.put(id, resources = new LinkedList<Resource>());
+                                    }
+
+                                    resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), patterns, bulkPattern));
                                 }
-
-                                resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), patterns, bulkPattern));
                             }
-                        }
                         }, true);
+
+                        long end = System.currentTimeMillis();
+
+                        LOG.log(Level.FINE, "took: {0}, per file: {1}", new Object[]{end - start, (end - start) / files.size()});
                     }
+                }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
             }
