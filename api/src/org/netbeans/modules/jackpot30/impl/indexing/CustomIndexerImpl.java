@@ -39,6 +39,10 @@ public class CustomIndexerImpl extends CustomIndexer {
                 }
             }
 
+            if (toIndex.isEmpty()) {
+                return ;
+            }
+
             ClasspathInfo cpInfo = ClasspathInfo.create(context.getRoot());
             w[0] = Index.get(context.getRootURI()).openForWriting();
 
