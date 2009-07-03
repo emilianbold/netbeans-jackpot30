@@ -83,8 +83,10 @@ import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.platform.JavaPlatform;
+import org.netbeans.api.java.platform.JavaPlatformManager;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
@@ -426,10 +428,21 @@ public class Utilities {
     }
 
     public static ClasspathInfo createUniversalCPInfo() {
-        //TODO: cannot be a class constant, would break the 
+        //TODO: cannot be a class constant, would break the standalone workers
         final ClassPath EMPTY = ClassPathSupport.createClassPath(new URL[0]);
-        ClassPath bootstrap = JavaPlatform.getDefault().getBootstrapLibraries();
+        JavaPlatform select = JavaPlatform.getDefault();
 
-        return ClasspathInfo.create(bootstrap, EMPTY, EMPTY);
+        for (JavaPlatform p : JavaPlatformManager.getDefault().getInstalledPlatforms()) {
+            if (p.getSpecification().getVersion().compareTo(select.getSpecification().getVersion()) > 0) {
+                select = p;
+            }
+        }
+
+        return ClasspathInfo.create(select.getBootstrapLibraries(), EMPTY, EMPTY);
+    }
+
+    @SuppressWarnings("deprecation")
+    public static void waitScanFinished() throws InterruptedException {
+        SourceUtils.waitScanFinished();
     }
 }
