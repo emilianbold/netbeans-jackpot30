@@ -52,4 +52,11 @@ public class UtilitiesTest extends TestBase {
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
     }
 
+    public void testToHumanReadableTime() {
+        long time = 202;
+        assertEquals(    "5s", Utilities.toHumanReadableTime(time +=           5 * 1000));
+        assertEquals(  "3m5s", Utilities.toHumanReadableTime(time +=      3 * 60 * 1000));
+        assertEquals("7h3m5s", Utilities.toHumanReadableTime(time += 7 * 60 * 60 * 1000));
+    }
+
 }

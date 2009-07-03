@@ -418,9 +418,19 @@ public class Utilities {
         long inSeconds = (long) (d / 1000);
         int seconds = (int) (inSeconds % 60);
         long inMinutes = inSeconds / 60;
+        int minutes = (int) (inMinutes % 60);
+        long inHours = inMinutes / 60;
 
-        result.append(inMinutes);
-        result.append("m");
+        if (inHours > 0) {
+            result.append(inHours);
+            result.append("h");
+        }
+
+        if (minutes > 0) {
+            result.append(minutes);
+            result.append("m");
+        }
+        
         result.append(seconds);
         result.append("s");
 
