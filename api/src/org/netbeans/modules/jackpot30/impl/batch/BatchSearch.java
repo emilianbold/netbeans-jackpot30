@@ -223,7 +223,7 @@ public class BatchSearch {
         if (toRegister != null) {
             GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {toRegister});
             try {
-                BatchApply.waitScanFinished();
+                Utilities.waitScanFinished();
             } catch (InterruptedException ex) {
                 Exceptions.printStackTrace(ex);
             }
@@ -259,7 +259,7 @@ public class BatchSearch {
             }
         }
 
-        Map<ClasspathInfo, Collection<FileObject>> cp2Files = BatchApply.sortFiles(files);
+        Map<ClasspathInfo, Collection<FileObject>> cp2Files = BatchUtilities.sortFiles(files);
 
         for (Entry<ClasspathInfo, Collection<FileObject>> e : cp2Files.entrySet()) {
             try {

@@ -52,6 +52,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.logging.Logger;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ProjectUtils;
@@ -59,6 +60,8 @@ import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.sendopts.Env;
@@ -66,8 +69,6 @@ import org.netbeans.spi.sendopts.Option;
 import org.netbeans.spi.sendopts.OptionProcessor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Lookup;
-import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -78,7 +79,7 @@ import org.openide.util.lookup.ServiceProvider;
 public class OptionProcessorImpl extends OptionProcessor {
 
     private static final Logger LOG = Logger.getLogger(OptionProcessorImpl.class.getName());
-    
+
     private static final String APPLY_TRANSFORMATIONS_PROJECT_OPTION = "apply-transformations-project";
 
     private static final Option LIST = Option.withoutArgument(Option.NO_SHORT_NAME, "list-hints-transformation");
@@ -92,7 +93,7 @@ public class OptionProcessorImpl extends OptionProcessor {
                                                             "SD_ApplyTransformationsProject");
 
     private static final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(LIST, APPLY_TRANSFORMATIONS, APPLY_TRANSFORMATIONS_PROJECT));
-    
+
     @Override
     protected Set<Option> getOptions() {
         return OPTIONS;
@@ -102,7 +103,7 @@ public class OptionProcessorImpl extends OptionProcessor {
     protected void process(Env env, Map<Option, String[]> optionValues) throws CommandException {
         List<Project> projects = new LinkedList<Project>();
         Map<String, List<ClassPath>> classPaths = new HashMap<String, List<ClassPath>>();
-        
+
         if (optionValues.containsKey(APPLY_TRANSFORMATIONS_PROJECT)) {
             String[] projectNames = optionValues.get(APPLY_TRANSFORMATIONS_PROJECT);
 
@@ -112,7 +113,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             }
 
             FileObject currentDirectory = FileUtil.toFileObject(env.getCurrentDirectory());
-            
+
             OUTER: for (String p : projectNames) {
                 FileObject projectFile = currentDirectory.getFileObject(p);
 
@@ -166,7 +167,7 @@ public class OptionProcessorImpl extends OptionProcessor {
         } else {
             projects.addAll(Arrays.asList(OpenProjects.getDefault().getOpenProjects()));
         }
-        
+
         if (optionValues.containsKey(LIST)) {
             env.getOutputStream().println("Supported Hints:");
 
@@ -191,7 +192,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             for (List<ClassPath> c : classPaths.values()) {
                 cps.addAll(c);
             }
-            
+
             Map<String, Collection<HintDescription>> sorted = Utilities.sortOutHints(Utilities.listAllHints(cps), new TreeMap<String, Collection<HintDescription>>());
 
             for (String hint : hintsArg.split(":")) {
@@ -205,11 +206,34 @@ public class OptionProcessorImpl extends OptionProcessor {
                 hintDescriptions.addAll(descs);
             }
 
-            Lookup context = Lookups.fixed((Object[]) projects.toArray(new Project[0]));
-            String error = BatchApply.applyFixes(context, hintDescriptions, false);
+            BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scope.GIVEN_SOURCE_ROOTS, (Object[]) BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0]));
+            List<String> problems = new LinkedList<String>();
+            Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, null, problems);
+            Set<FileObject> modified = new HashSet<FileObject>();
 
-            if (error != null) {
-                env.getErrorStream().println("Cannot apply hints because of: " + error);
+            for (ModificationResult mr : res) {
+                try {
+                    mr.commit();
+                } catch (IOException ex) {
+                    ex.printStackTrace(env.getErrorStream());
+                    problems.add("Cannot apply changes: " + ex.getLocalizedMessage());
+                }
+                modified.addAll(mr.getModifiedFileObjects());
+            }
+
+            try {
+                BatchUtilities.removeUnusedImports(modified);
+            } catch (IOException ex) {
+                ex.printStackTrace(env.getErrorStream());
+                problems.add("Cannot remove unused imports: " + ex.getLocalizedMessage());
+            }
+
+            if (!problems.isEmpty()) {
+                env.getErrorStream().println("Problem encountered while applying the transformations:");
+
+                for (String problem : problems) {
+                    env.getErrorStream().println(problem);
+                }
             }
         }
 
@@ -230,9 +254,9 @@ public class OptionProcessorImpl extends OptionProcessor {
         }
 
         cp = ClassPathSupport.createProxyClassPath(cp);
-        
+
         cps.add(cp);
-        
+
         return true;
     }
 

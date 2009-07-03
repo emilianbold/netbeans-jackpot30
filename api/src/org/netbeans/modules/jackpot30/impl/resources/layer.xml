@@ -3,7 +3,6 @@
 <filesystem>
     <folder name="Actions">
         <folder name="Refactoring">
-            <file name="org-netbeans-modules-jackpot30-impl-batch-BatchApplyAction.instance"/>
             <file name="org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.instance">
                 <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.impl.resources.Bundle"/>
                 <attr name="delegate" newvalue="org.netbeans.modules.jackpot30.impl.refactoring.ApplyPatternAction"/>
@@ -30,7 +29,6 @@
             </file>
         </folder>
         <folder name="Refactoring">
-            <file name="org-netbeans-modules-jackpot30-impl-batch-BatchApplyAction.instance"/>
             <file name="org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.shadow">
                 <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.instance"/>
                 <attr name="position" intvalue="2200"/>

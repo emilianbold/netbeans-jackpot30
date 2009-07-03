@@ -1,26 +1,16 @@
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.ModificationResult.Difference;
-import org.netbeans.modules.jackpot30.impl.batch.BatchApply;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
-import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
-import org.netbeans.modules.jackpot30.spi.JavaFix;
+import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.java.spi.DiffElement;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
-import org.netbeans.spi.editor.hints.ErrorDescription;
-import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileObject;
 
 public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
@@ -48,60 +38,9 @@ public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
     }
 
     public Problem prepare(RefactoringElementsBag refactoringElements) {
-        Map<FileObject, Collection<ErrorDescription>> file2eds = new HashMap<FileObject, Collection<ErrorDescription>>();
         BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope());
-        
-        for (Iterable<? extends Resource> it : candidates.projectId2Resources.values()) {
-            BatchSearch.getVerifiedSpans(it);
-            
-            for (Resource r : it) {
-                List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
-
-                Iterable<? extends ErrorDescription> current = r.getVerifiedSpans();
-
-                if (current == null) {
-                    //XXX: warn?
-                    continue;
-                }
-
-                for (ErrorDescription ed : current) {
-                    eds.add(ed);
-                }
-                
-                if (!eds.isEmpty()) {
-                    file2eds.put(r.getResolvedFile(), eds);
-                }
-            }
-        }
-
-        Map<FileObject, List<JavaFix>> file2Fixes = new HashMap<FileObject, List<JavaFix>>();
-
-        for (final Entry<FileObject, Collection<ErrorDescription>> e : file2eds.entrySet()) {
-            LinkedList<JavaFix> fixes = new LinkedList<JavaFix>();
-            
-            file2Fixes.put(e.getKey(), fixes);
-            
-            for (ErrorDescription ed : e.getValue()) {
-                if (!ed.getFixes().isComputed()) {
-                    throw new IllegalStateException();//TODO: should be problem
-                }
-
-                if (ed.getFixes().getFixes().size() != 1) {
-                    throw new IllegalStateException();//TODO: should be problem
-                }
-
-                Fix f = ed.getFixes().getFixes().get(0);
-
-                if (!(f instanceof JavaFixImpl)) {
-                    throw new IllegalStateException();//TODO: should be problem
-                }
-
-
-                fixes.add(((JavaFixImpl) f).jf);
-            }
-        }
-
-        List<ModificationResult> res = BatchApply.performFastFixes(file2Fixes, null, new AtomicBoolean());
+        LinkedList<String> problems = new LinkedList<String>();
+        Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, null, problems);
 
         for (ModificationResult mr : res) {
             for (FileObject file : mr.getModifiedFileObjects()) {
@@ -110,8 +49,18 @@ public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
                 }
             }
         }
-                                    
-        return null;
+
+        Problem current = null;
+
+        for (String problem : problems) {
+            Problem p = new Problem(false, problem);
+
+            if (current != null)
+                p.setNext(current);
+            current = p;
+        }
+
+        return current;
     }
 
 }
