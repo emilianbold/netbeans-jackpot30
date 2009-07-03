@@ -168,6 +168,28 @@ new file mode 100644
 +$this.annotate($1, $2) :: $1 instanceof java.lang.Throwable && $2 instanceof java.lang.String  && $this instanceof org.openide.ErrorManager
 +   =>org.openide.util.Exceptions.attachLocalizedMessage($1, $2)
 +   ;;
+diff --git a/openide.util/src/META-INF/upgrade/org.openide.util.Lookup.hint b/openide.util/src/META-INF/upgrade/org.openide.util.Lookup.hint
+new file mode 100644
+--- /dev/null
++++ b/openide.util/src/META-INF/upgrade/org.openide.util.Lookup.hint
+@@ -0,0 +1,17 @@
++'Lookup.lookupAll can be used instead':
++$0.lookup(new org.openide.util.Lookup.Template($1)).allInstances() :: $0 instanceof org.openide.util.Lookup && $1 instanceof java.lang.Class
++=>
++$0.lookupAll($1)
++;;
++
++'Lookup.lookupResult can be used instead':
++$0.lookup(new org.openide.util.Lookup.Template($1)) :: $0 instanceof org.openide.util.Lookup && $1 instanceof java.lang.Class && !parentMatches("$_.allInstances()")
++=>
++$0.lookupResult($1)
++;;
++
++'Lookup.Template() is deprecated':
++new org.openide.util.Lookup.Template()
++=>
++new org.openide.util.Lookup.Template(java.lang.Object.class)
++;;
 diff --git a/openide.util/src/META-INF/upgrade/org.openide.util.Utilities.hint b/openide.util/src/META-INF/upgrade/org.openide.util.Utilities.hint
 new file mode 100644
 --- /dev/null
