@@ -61,6 +61,17 @@ public class FindDuplicatesTest extends TestBase {
                     "$0");
     }
 
+    public void testVoidMethod() throws Exception {
+        performGeneralizationTest("package test;\n" +
+                    "public class Test {\n" +
+                    "    private void test() {\n" +
+                    "        |System.err.println()|;\n" +
+                    "    }\n" +
+                    "}\n" +
+                    "",
+                    "System.err.println()");
+    }
+
     private void performGeneralizationTest(String code, String generalized) throws Exception {
         String[] split = code.split(Pattern.quote("|"));
 

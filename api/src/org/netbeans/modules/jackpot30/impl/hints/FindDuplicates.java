@@ -19,12 +19,15 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeKind;
 import javax.swing.SwingUtilities;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.source.CancellableTask;
@@ -40,7 +43,6 @@ import org.netbeans.api.java.source.support.CaretAwareJavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.SelectionAwareJavaSourceTaskFactory;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.refactoring.FindDuplicatesRefactoringUI;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.java.hints.introduce.IntroduceHint;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.builder.TreeFactory;
@@ -164,51 +166,14 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
 
     }
 
+    private static final Set<TypeKind> NOT_ACCEPTED_TYPES = EnumSet.of(TypeKind.NONE, TypeKind.OTHER);
+    
     static TreePath selectionForExpressionHack(CompilationInfo info, int start, int end) {
-        //XXX: reflection
-        //XXX: the IntroduceHint.validateSelection ignores expression of type void!
-        try {
-            Method m = IntroduceHint.class.getDeclaredMethod("validateSelection", CompilationInfo.class, int.class, int.class);
-
-            m.setAccessible(true);
-
-            return (TreePath) m.invoke(null, info, start, end);
-        } catch (IllegalAccessException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (IllegalArgumentException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (InvocationTargetException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (NoSuchMethodException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (SecurityException ex) {
-            Exceptions.printStackTrace(ex);
-        }
-        
-        return null;
+        return IntroduceHint.validateSelection(info, start, end, NOT_ACCEPTED_TYPES);
     }
 
     static TreePathHandle selectionForStatementsHack(CompilationInfo info, int start, int end, int[] outSpan)  {
-        //XXX: reflection
-        try {
-            Method m = IntroduceHint.class.getDeclaredMethod("validateSelectionForIntroduceMethod", CompilationInfo.class, int.class, int.class, int[].class);
-
-            m.setAccessible(true);
-
-            return (TreePathHandle) m.invoke(null, info, start, end, outSpan);
-        } catch (IllegalAccessException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (IllegalArgumentException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (InvocationTargetException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (NoSuchMethodException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (SecurityException ex) {
-            Exceptions.printStackTrace(ex);
-        }
-
-        return null;
+        return IntroduceHint.validateSelectionForIntroduceMethod(info, start, end, outSpan);
     }
 
     static Tree generalizePattern(CompilationInfo info, TreePath original, int[] statementSpan) {
