@@ -213,4 +213,14 @@ public class DeclarativeHintLexerTest {
         }
     }
 
+//    @Test
+    public void testDisplayNameWithKeyword() {
+        String text = "'test instanceof':";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test instanceof':");
+
+        assertFalse(ts.moveNext());
+    }
+
 }
