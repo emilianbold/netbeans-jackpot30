@@ -226,6 +226,7 @@ public class DeclarativeHintsParser {
         Impl i = new Impl(text, ts);
 
         i.parseInput();
+        i.mic.setCode(i.importsBlock, i.blocks);
 
         return new Result(i.importsBlock, i.hints, i.blocks);
     }
