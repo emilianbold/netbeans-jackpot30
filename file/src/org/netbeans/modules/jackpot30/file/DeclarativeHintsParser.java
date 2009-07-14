@@ -44,12 +44,16 @@ public class DeclarativeHintsParser {
     private static final class Impl {
     private final CharSequence text;
     private final TokenSequence<DeclarativeHintTokenId> input;
+    private       String importsBlock;
     private final List<HintTextDescription> hints = new LinkedList<HintTextDescription>();
+    private final List<String> blocks = new LinkedList<String>();
     private final List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
+    private final MethodInvocationContext mic;
 
     private Impl(CharSequence text, TokenSequence<DeclarativeHintTokenId> input) {
         this.text = text;
         this.input = input;
+        this.mic = new MethodInvocationContext();
     }
 
     private boolean nextToken() {
@@ -84,8 +88,21 @@ public class DeclarativeHintsParser {
     }
 
     private void parseInput() {
+        boolean wasFirstRule = false;
+        
         while (nextToken()) {
-            parseRule();
+            if (id() == JAVA_BLOCK) {
+                String text = token().text().toString();
+                text = text.substring(2, text.length() - 2);
+                if (importsBlock == null && !wasFirstRule) {
+                    importsBlock = text;
+                } else {
+                    blocks.add(text);
+                }
+            } else {
+                parseRule();
+                wasFirstRule = true;
+            }
         }
     }
 
@@ -194,7 +211,7 @@ public class DeclarativeHintsParser {
         int end = input.offset();
 
         try {
-            MethodInvocation mi = resolve(text.subSequence(start, end).toString(), not);
+            MethodInvocation mi = resolve(mic, text.subSequence(start, end).toString(), not);
 
             if (mi != null) {
                 conditions.add(mi);
@@ -210,11 +227,11 @@ public class DeclarativeHintsParser {
 
         i.parseInput();
 
-        return new Result(i.hints);
+        return new Result(i.importsBlock, i.hints, i.blocks);
     }
 
     private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
-    private static MethodInvocation resolve(final String invocation, final boolean not) throws IOException {
+    private static MethodInvocation resolve(MethodInvocationContext mic, final String invocation, final boolean not) throws IOException {
         final String[] methodName = new String[1];
         final Map<String, ParameterKind> params = new LinkedHashMap<String, ParameterKind>();
         JavaSource.create(ClasspathInfo.create(JavaPlatform.getDefault().getBootstrapLibraries(), EMPTY, EMPTY)).runUserActionTask(new Task<CompilationController>() {
@@ -263,15 +280,19 @@ public class DeclarativeHintsParser {
             return null;
         }
         
-        return new MethodInvocation(not, methodName[0], params);
+        return new MethodInvocation(not, methodName[0], params, mic);
     }
     
     public static final class Result {
-        
-        public final List<HintTextDescription> hints;
 
-        public Result(List<HintTextDescription> hints) {
+        public final String importsBlock;
+        public final List<HintTextDescription> hints;
+        public final List<String> blocks;
+
+        public Result(String importsBlock, List<HintTextDescription> hints, List<String> blocks) {
+            this.importsBlock = importsBlock;
             this.hints = hints;
+            this.blocks = blocks;
         }
 
     }

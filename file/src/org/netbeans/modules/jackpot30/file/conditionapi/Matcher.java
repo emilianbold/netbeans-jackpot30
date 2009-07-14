@@ -1,40 +1,45 @@
-package org.netbeans.modules.jackpot30.file;
+package org.netbeans.modules.jackpot30.file.conditionapi;
 
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
-import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Modifier;
-import org.netbeans.api.java.queries.SourceLevelQuery;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
-import org.openide.modules.SpecificationVersion;
 
 /**
  *
  * @author lahvac
  */
-public class RuleUtilities {
+public final class Matcher {
 
-    private RuleUtilities() {
+    private final HintContext ctx;
+
+    //XXX: should not be public:
+    public Matcher(HintContext ctx) {
+        this.ctx = ctx;
     }
 
-    public static boolean referencedIn(final HintContext ctx, TreePath variable, Iterable<? extends TreePath> in) {
-        final Element e = ctx.getInfo().getTrees().getElement(variable);
+    public boolean matches(@NonNull Variable var, @NonNull String pattern) {
+        return MatcherUtilities.matches(ctx, ctx.getVariables().get(var.variableName), pattern);
+    }
+
+    public boolean referencedIn(@NonNull Variable variable, @NonNull Variable in) {
+        final Element e = ctx.getInfo().getTrees().getElement(ctx.getVariables().get(variable.variableName));
 
         if (e == null) { //TODO: check also error
             return false;
         }
 
-        for (TreePath tp : in) {
+        for (TreePath tp : Context.getVariable(ctx, in)) {
             boolean occurs = new TreePathScanner<Boolean, Void>() {
                 @Override
                 public Boolean scan(Tree tree, Void p) {
                     if (tree == null) {
                         return false;
                     }
-                    
+
                     TreePath currentPath = new TreePath(getCurrentPath(), tree);
                     Element currentElement = ctx.getInfo().getTrees().getElement(currentPath);
 
@@ -64,33 +69,8 @@ public class RuleUtilities {
                 return true;
             }
         }
-        
+
         return false;
-    }
-
-    public static boolean sourceVersionGE(final HintContext ctx, SourceVersion source) {
-        String sourceLevel = SourceLevelQuery.getSourceLevel(ctx.getInfo().getFileObject());
-
-        if (sourceLevel == null) {
-            return false;//TODO:???
-        }
-
-        String designedSourceLevel = "1." + source.name().substring(source.name().indexOf("_") + 1);
-        return new SpecificationVersion(sourceLevel).compareTo(new SpecificationVersion(designedSourceLevel)) >= 0;
-    }
-
-    public static boolean hasModifier(HintContext ctx, TreePath variable, Modifier modifier) {
-        final Element e = ctx.getInfo().getTrees().getElement(variable);
-
-        if (e == null) {
-            return false;
-        }
-
-        return e.getModifiers().contains(modifier);
-    }
-
-    public static boolean parentMatches(HintContext ctx, String pattern) {
-        return MatcherUtilities.parentMatches(ctx, pattern);
     }
 
 }

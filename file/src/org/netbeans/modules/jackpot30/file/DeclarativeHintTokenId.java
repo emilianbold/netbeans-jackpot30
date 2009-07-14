@@ -72,6 +72,7 @@ public enum DeclarativeHintTokenId implements TokenId {
     WHITESPACE("whitespace"),
     LINE_COMMENT("comment"),
     BLOCK_COMMENT("comment"),
+    JAVA_BLOCK("java"),
     ERROR("error");
 
     private final String cat;

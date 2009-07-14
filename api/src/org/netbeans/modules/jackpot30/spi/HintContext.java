@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.util.TreePath;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
@@ -62,6 +63,10 @@ public class HintContext {
         this.info = info;
         this.severity = severity;
         this.path = path;
+
+        variables = new HashMap<String, TreePath>(variables);
+        variables.put("$_", path);
+        
         this.variables = variables;
         this.multiVariables = multiVariables;
         this.variableNames = variableNames;

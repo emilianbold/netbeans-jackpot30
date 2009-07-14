@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.file;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.lexer.Token;
@@ -158,16 +159,17 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                     }
                 }
 
-                boolean blockComment;
-
-                if ((blockComment = inputString.endsWith("/*")) || inputString.endsWith("//")) {
-                    Token<DeclarativeHintTokenId> preread = resolvePrereadText(2, whitespaceLength);
+                for (Entry<String, DeclarativeHintTokenId> e : BLOCK_TOKEN_START.entrySet()) {
+                    if (!inputString.endsWith(e.getKey()))
+                        continue;
+                    
+                    Token<DeclarativeHintTokenId> preread = resolvePrereadText(e.getKey().length(), whitespaceLength);
 
                     if (preread != null) {
                         return preread;
                     }
 
-                    return blockComment ? readComment(DeclarativeHintTokenId.BLOCK_COMMENT, "*/") : readComment(DeclarativeHintTokenId.LINE_COMMENT, "\n");
+                    return readBlockToken(e.getValue(), BLOCK_TOKEN_END.get(e.getValue()));
                 }
             }
 
@@ -219,17 +221,19 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         }
     }
 
-    private Token<DeclarativeHintTokenId> readComment(DeclarativeHintTokenId commentId, String commentEnd) {
-        while (input.read() != LexerInput.EOF && !input.readText().toString().endsWith(commentEnd))
+    private Token<DeclarativeHintTokenId> readBlockToken(DeclarativeHintTokenId tokenId, String tokenEnd) {
+        while (input.read() != LexerInput.EOF && !input.readText().toString().endsWith(tokenEnd))
             ;
 
-        return fact.createToken(commentId);
+        return fact.createToken(tokenId);
     }
 
     private static final Pattern DISPLAY_NAME_RE = Pattern.compile("'[^']*':");
     private static final Pattern VARIABLE_RE = Pattern.compile("\\$[A-Za-z0-9_$]+");
 
     private static final Map<String, DeclarativeHintTokenId> TOKENS;
+    private static final Map<String, DeclarativeHintTokenId> BLOCK_TOKEN_START;
+    private static final Map<DeclarativeHintTokenId, String> BLOCK_TOKEN_END;
 
     static {
         Map<String, DeclarativeHintTokenId> map = new HashMap<String, DeclarativeHintTokenId>();
@@ -243,5 +247,21 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         map.put("instanceof", DeclarativeHintTokenId.INSTANCEOF);
 
         TOKENS = Collections.unmodifiableMap(map);
+
+        Map<String, DeclarativeHintTokenId> blockStartMap = new HashMap<String, DeclarativeHintTokenId>();
+
+        blockStartMap.put("/*", DeclarativeHintTokenId.BLOCK_COMMENT);
+        blockStartMap.put("//", DeclarativeHintTokenId.LINE_COMMENT);
+        blockStartMap.put("<?", DeclarativeHintTokenId.JAVA_BLOCK);
+
+        BLOCK_TOKEN_START = Collections.unmodifiableMap(blockStartMap);
+
+        Map<DeclarativeHintTokenId, String> blockEndMap = new HashMap<DeclarativeHintTokenId, String>();
+
+        blockEndMap.put(DeclarativeHintTokenId.BLOCK_COMMENT, "*/");
+        blockEndMap.put(DeclarativeHintTokenId.LINE_COMMENT, "\n");
+        blockEndMap.put(DeclarativeHintTokenId.JAVA_BLOCK, "?>");
+
+        BLOCK_TOKEN_END = Collections.unmodifiableMap(blockEndMap);
     }
 }

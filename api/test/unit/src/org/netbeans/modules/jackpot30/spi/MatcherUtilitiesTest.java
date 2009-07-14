@@ -27,7 +27,7 @@ public class MatcherUtilitiesTest extends TestBase {
         TreePath tp = info.getTreeUtilities().pathFor(pos);
         HintContext ctx = HintContext.create(info, HintSeverity.ERROR, tp, Collections.<String, TreePath>emptyMap(), null, null);
 
-        assertTrue(MatcherUtilities.parentMatches(ctx, "$0 = $_"));
+        assertTrue(MatcherUtilities.matches(ctx, ctx.getPath().getParentPath(), "$0 = $_"));
     }
 
     public void testParentMatches2() throws Exception {
@@ -41,7 +41,7 @@ public class MatcherUtilitiesTest extends TestBase {
         TreePath tp = info.getTreeUtilities().pathFor(pos);
         HintContext ctx = HintContext.create(info, HintSeverity.ERROR, tp, Collections.<String, TreePath>emptyMap(), null, null);
 
-        assertTrue(MatcherUtilities.parentMatches(ctx, "$1 $0 = $_;"));
+        assertTrue(MatcherUtilities.matches(ctx, ctx.getPath().getParentPath(), "$1 $0 = $_;"));
     }
 
 }

@@ -225,16 +225,17 @@ public class DeclarativeHintLexerTest {
 
     @Test
     public void testImportsAndPredicates() {
-        String text = "<?import java.util.List;?>'test': 1 + 1 => 1 + 1;;<?private boolean doTest() {return false;}?>'test2': 1 + 1 => 1 + 1;;";
+        String text = "<?import java.util.List;?>'test': 1 + 1 => 1 + 1;;<?private boolean doTest() {return false;}%>'test2': 1 + 1 => 1 + 1;;";
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
         assertNextTokenEquals(ts, JAVA_BLOCK, "<?import java.util.List;?>");
         assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
-        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 ");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, "+ 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
-        assertNextTokenEquals(ts, JAVA_BLOCK, "<?private boolean doTest() {return false;}?>");
+        assertNextTokenEquals(ts, JAVA_BLOCK, "<?private boolean doTest() {return false;}%>");
         assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");

@@ -1,6 +1,8 @@
 package org.netbeans.modules.jackpot30.file;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -63,7 +65,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
         performTest("'test': $1 + $2 :: test(\"a\", $2, $1) => 1 + 1;;",
                     StringHintDescription.create("$1 + $2 ")
-                                         .addCondition(new MethodInvocation(false, "test", m))
+                                         .addCondition(new MethodInvocation(false, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
@@ -77,7 +79,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
         performTest("'test': $1 + $2 :: test($1, Modifier.VOLATILE, SourceVersion.RELEASE_6) => 1 + 1;;",
                     StringHintDescription.create("$1 + $2 ")
-                                         .addCondition(new MethodInvocation(false, "test", m))
+                                         .addCondition(new MethodInvocation(false, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
@@ -91,7 +93,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
         performTest("'test': $1 + $2 :: !test($1, Modifier.VOLATILE, SourceVersion.RELEASE_6) => 1 + 1;;",
                     StringHintDescription.create("$1 + $2 ")
-                                         .addCondition(new MethodInvocation(true, "test", m))
+                                         .addCondition(new MethodInvocation(true, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
@@ -114,6 +116,15 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         performParserSanityTest(code);
     }
 
+    public void testJavaBlocks() {
+        performTest("<?import java.util.List;?> /**/'test': List $l; :: test($_)\n => List $l; ;; <?private boolean test(Variable v) {return false;}?>",
+                    "import java.util.List;",
+                    Arrays.asList(StringHintDescription.create(" List $l; ")
+                                                       .addTos(" List $l; ")
+                                                       .setDisplayName("test")
+                                                       .addCondition(new MethodInvocation(false, "test", Collections.singletonMap("$_", ParameterKind.VARIABLE), null))),
+                    Arrays.asList("private boolean test(Variable v) {return false;}"));
+    }
 
     protected void setUp() throws Exception {
         SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
@@ -124,6 +135,10 @@ public class DeclarativeHintsParserTest extends NbTestCase {
     }
     
     private void performTest(String code, StringHintDescription... golden) {
+        performTest(code, null, Arrays.asList(golden), Collections.<String>emptyList());
+    }
+
+    private void performTest(String code, String goldenImportsBlock, Collection<StringHintDescription> goldenHints, Collection<String> goldenBlocks) {
         TokenHierarchy<?> h = TokenHierarchy.create(code, DeclarativeHintTokenId.language());
         Result parsed = new DeclarativeHintsParser().parse(code, h.tokenSequence(DeclarativeHintTokenId.language()));
         List<StringHintDescription> real = new LinkedList<StringHintDescription>();
@@ -132,7 +147,9 @@ public class DeclarativeHintsParserTest extends NbTestCase {
             real.add(StringHintDescription.create(code, hint));
         }
 
-        assertEquals(Arrays.asList(golden), real);
+        assertEquals(goldenImportsBlock, parsed.importsBlock);
+        assertEquals(goldenHints, real);
+        assertEquals(goldenBlocks, parsed.blocks);
     }
 
     private void performParserSanityTest(String code) {

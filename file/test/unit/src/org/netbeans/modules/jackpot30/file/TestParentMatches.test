@@ -1,0 +1,24 @@
+%%TestCase run-condition-pass
+package test;
+public class Test {
+    private void test() {
+        String a;
+        String b = a = new String();
+    }
+}
+%%=>
+package test;
+public class Test {
+    private void test() {
+        String a;
+        String b = a = String.create();
+    }
+}
+%%TestCase run-condition-fail
+package test;
+public class Test {
+    private void test() {
+        String a;
+        a = new String();
+    }
+}
