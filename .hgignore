@@ -7,5 +7,5 @@
 ^nbbuild$
 ^.ditz-config$
 ^external$
-.old$
+\.old$
 ^server/lib$
