@@ -18,6 +18,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.tools.FileObject;
 import javax.tools.ForwardingJavaFileManager;
 import javax.tools.JavaFileManager;
@@ -147,7 +149,12 @@ public class Hacks {
 
         for (Entry e : cp.entries()) {
             File f = FileUtil.archiveOrDirForURL(e.getURL());
-            
+
+            if (f == null) {
+                Logger.getLogger(Hacks.class.getName()).log(Level.INFO, "file == null, url={0}", e.getURL());
+                continue;
+            }
+
             result.add(f);
         }
 
