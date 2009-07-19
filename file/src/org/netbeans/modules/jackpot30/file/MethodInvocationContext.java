@@ -140,7 +140,7 @@ public class MethodInvocationContext {
 
         ClassPath boot = JavaPlatform.getDefault().getBootstrapLibraries();
         URL jarFile = MethodInvocationContext.class.getProtectionDomain().getCodeSource().getLocation();
-        ClassPath compile = ClassPathSupport.createClassPath(FileUtil.getArchiveRoot(jarFile));
+        ClassPath compile = ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(FileUtil.archiveOrDirForURL(jarFile)));
 
         try {
             final Map<String, byte[]> classes = Hacks.compile(boot, compile, code.toString());
