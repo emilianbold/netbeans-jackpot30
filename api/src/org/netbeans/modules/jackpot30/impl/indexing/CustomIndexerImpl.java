@@ -75,7 +75,7 @@ public class CustomIndexerImpl extends CustomIndexer {
         }
 
         @Override
-        public void filesDeleted(Collection<? extends Indexable> deleted, Context context) {
+        public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
             IndexWriter w = null;
 
             try {
@@ -98,7 +98,7 @@ public class CustomIndexerImpl extends CustomIndexer {
         }
 
         @Override
-        public void filesDirty(Collection<? extends Indexable> dirty, Context context) {}
+        public void filesDirty(Iterable<? extends Indexable> dirty, Context context) {}
 
         @Override
         public String getIndexerName() {
