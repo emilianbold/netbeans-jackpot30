@@ -7,7 +7,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.BadLocationException;
@@ -16,7 +15,6 @@ import javax.swing.text.StyleConstants;
 import javax.swing.text.StyledDocument;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.editor.settings.AttributesUtilities;
-import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.modules.jackpot30.file.test.TestParser.TestCase;
 import org.netbeans.modules.jackpot30.file.test.TestParser.TestResult;
 import org.netbeans.modules.parsing.api.Snapshot;
@@ -52,29 +50,12 @@ public class EditorTestPerformer extends ParserResultTask<TestResult>{
     public void run(TestResult result, SchedulerEvent event) {
         TestCase[] tests = result.getTests();
         FileObject file = result.getSnapshot().getSource().getFileObject();
-        ClassPath cp = ClassPath.getClassPath(file, ClassPath.SOURCE);
-        String resourceName = cp != null ? cp.getResourceName(file) : null;
-
-        if (cp == null) {
-            LOG.log(Level.FINE, "cp==null");
-            return ;
-        }
-
-        //XXX: lookup throws the hint file
-        String ruleFileName = resourceName.substring(0, resourceName.length() - ".test".length()) + ".hint";
-
-        FileObject ruleFile = cp.findResource(ruleFileName);
+        FileObject ruleFile = TestLocatorImpl.findOpposite(file, false);
 
         if (ruleFile == null) {
-            cp = ClassPath.getClassPath(file, ClassPath.COMPILE);
-            ruleFile = cp.findResource(ruleFileName);
-
-            if (ruleFile == null) {
-                LOG.log(Level.FINE, "runFile==null");
                 return ;
-            }
         }
-
+        
         Document doc = result.getSnapshot().getSource().getDocument(false);
 
         if (!(doc instanceof StyledDocument)) {
