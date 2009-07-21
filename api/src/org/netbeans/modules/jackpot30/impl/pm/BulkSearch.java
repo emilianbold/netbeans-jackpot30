@@ -41,6 +41,8 @@ package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
@@ -56,7 +58,8 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
  */
 public abstract class BulkSearch {
 
-    private static final BulkSearch INSTANCE = new REBasedBulkSearch();
+    private static final BulkSearch INSTANCE = new NFABasedBulkSearch();
+//    private static final BulkSearch INSTANCE = new REBasedBulkSearch();
 
     public static BulkSearch getDefault() {
         return INSTANCE;
@@ -78,9 +81,11 @@ public abstract class BulkSearch {
 
     public abstract Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern pattern, Map<String, Long> timeLog);
 
-    public abstract boolean matches(String encoded, BulkPattern pattern);
+    public abstract boolean matches(InputStream encoded, BulkPattern pattern);
     
     public abstract boolean matches(CompilationInfo info, Tree tree, BulkPattern pattern);
+
+    public abstract void encode(Tree tree, EncodingContext ctx);
     
     public final BulkPattern create(CompilationInfo info, String... code) {
         return create(info, Arrays.asList(code));
@@ -114,6 +119,38 @@ public abstract class BulkSearch {
 
         public List<? extends Set<? extends String>> getKinds() {
             return kinds;
+        }
+
+    }
+
+    public static final class EncodingContext {
+
+        private final OutputStream out;
+        private Set<? extends String> identifiers;
+        private Set<? extends String> kinds;
+
+        public EncodingContext(OutputStream out) {
+            this.out = out;
+        }
+
+        public Set<? extends String> getIdentifiers() {
+            return identifiers;
+        }
+
+        public Set<? extends String> getKinds() {
+            return kinds;
+        }
+
+        public OutputStream getOut() {
+            return out;
+        }
+
+        public void setIdentifiers(Set<? extends String> identifiers) {
+            this.identifiers = identifiers;
+        }
+
+        public void setKinds(Set<? extends String> kinds) {
+            this.kinds = kinds;
         }
 
     }

@@ -153,6 +153,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
         }
 
         boolean closeWithBracket = false;
+        boolean recordTreeKind = true;
         
         try {
         //shouldn't this be handled by visitIdentifier???
@@ -197,12 +198,14 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
                             scan(bt.getStatements().get(1), p);
                             append(p, ")|(?:");
                             closeWithBracket = true;
+                            recordTreeKind = false;
                         } else {
                             if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(1))) {
                                 append(p, "(?:(?:");
                                 scan(bt.getStatements().get(0), p);
                                 append(p, ")|(?:");
                                 closeWithBracket = true;
+                                recordTreeKind = false;
                             }
                         }
                         break;
@@ -212,6 +215,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
                             scan(bt.getStatements().get(1), p);
                             append(p, ")|(?:");
                             closeWithBracket = true;
+                            recordTreeKind = false;
                         }
                         break;
                 }
@@ -232,7 +236,7 @@ public class TreeSerializer extends TreeScanner<Void, Appendable> {
 
         if (tree.getKind() != Kind.IDENTIFIER && (tree.getKind() != Kind.MEMBER_SELECT || !Utilities.isPureMemberSelect(tree, true))) {
             append(p, kindToShortName.get(tree.getKind()));
-            if (treeKinds != null) {
+            if (treeKinds != null && recordTreeKind) {
                 treeKinds.add(kindToShortName.get(tree.getKind()));
             }
             super.scan(tree, p);

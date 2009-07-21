@@ -42,6 +42,12 @@ package org.netbeans.modules.jackpot30.impl.pm;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.Reader;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -53,6 +59,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
+import org.openide.util.Exceptions;
 
 /**
  *
@@ -133,13 +140,6 @@ public class REBasedBulkSearch extends BulkSearch {
     }
 
     @Override
-    public boolean matches(String encoded, BulkPattern patternIn) {
-        REBasedBulkPattern pattern = (REBasedBulkPattern) patternIn;
-
-        return pattern.toRegexpPattern().matcher(encoded).find();
-    }
-    
-    @Override
     public boolean matches(CompilationInfo info, Tree tree, BulkPattern patternIn) {
         REBasedBulkPattern pattern = (REBasedBulkPattern) patternIn;
         Result r = TreeSerializer.serializeText(tree);
@@ -166,6 +166,60 @@ public class REBasedBulkSearch extends BulkSearch {
         Result r = TreeSerializer.serializePatterns(patterns.toArray(new Tree[0]));
 
         return REBasedBulkPattern.create(new LinkedList<String>(code), r);
+    }
+
+    @Override
+    public boolean matches(InputStream encoded, BulkPattern patternIn) {
+        Reader reader = null;
+        
+        try {
+            StringBuilder text = new StringBuilder();
+
+            reader = new InputStreamReader(encoded, "UTF-8");
+            
+            int read;
+
+            while ((read = reader.read()) != (-1)) {
+                text.append((char) read);
+            }
+
+            REBasedBulkPattern pattern = (REBasedBulkPattern) patternIn;
+            
+            return pattern.toRegexpPattern().matcher(text).find();
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+            return false;
+        } finally {
+            try {
+                if (reader != null)
+                    reader.close();
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+    }
+
+    @Override
+    public void encode(Tree tree, EncodingContext ctx) {
+        Writer w = null;
+
+        try {
+            Result r = TreeSerializer.serializeText(tree);
+            w = new OutputStreamWriter(ctx.getOut(), "UTF-8");
+            
+            w.write(r.encoded);
+            ctx.setIdentifiers(r.identifiers.get(0));
+            ctx.setKinds(r.treeKinds.get(0));
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        } finally {
+            try {
+                if (w != null)
+                    w.close();
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
     }
 
     static class REBasedBulkPattern extends BulkPattern {

@@ -1,14 +1,14 @@
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import com.sun.source.tree.CompilationUnitTree;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.io.OutputStream;
 import java.io.Reader;
-import java.io.Writer;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -16,7 +16,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -36,7 +35,7 @@ import org.apache.lucene.search.TermQuery;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer.Result;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
 import org.openide.util.Exceptions;
 
 /**
@@ -72,15 +71,9 @@ public class Index {
 
         for (Iterator<? extends String> it = candidates.iterator(); it.hasNext();) {
             String relative = it.next();
-            StringBuilder text = new StringBuilder();
-            Reader reader = new InputStreamReader(new FileInputStream(new File(new File(cacheRoot, "encoded"), relative)), "UTF-8");
-            int read;
-
-            while ((read = reader.read()) != (-1)) {
-                text.append((char) read);
-            }
-
-            if (!BulkSearch.getDefault().matches(text.toString(), pattern)) {
+            InputStream in = new FileInputStream(new File(new File(cacheRoot, "encoded"), relative));
+            
+            if (!BulkSearch.getDefault().matches(in, pattern)) {
                 it.remove();
             }
         }
@@ -184,32 +177,35 @@ public class Index {
             luceneWriter = new org.apache.lucene.index.IndexWriter(new File(cacheRoot, "fulltext"), new StandardAnalyzer());
         }
 
-        public void record(URL source, Result r) throws IOException {
+        public void record(URL source, CompilationUnitTree cut) throws IOException {
             String relative = source.getPath().substring(stripLength);
-            Writer w = null;
+            OutputStream out = null;
+            EncodingContext ec = null;
             
             try {
                 File cacheFile = new File(new File(cacheRoot, "encoded"), relative);
 
                 cacheFile.getParentFile().mkdirs();
 
-                w = new OutputStreamWriter(new FileOutputStream(cacheFile), "UTF-8");
-                w.write(r.encoded);
+                out = new FileOutputStream(cacheFile);
+                ec = new EncodingContext(out);
+
+                BulkSearch.getDefault().encode(cut, ec);
+
+                luceneWriter.deleteDocuments(new Term("path", relative));
+            
+                Document doc = new Document();
+
+                doc.add(new Field("identifiers", new TokenStreamImpl(ec.getIdentifiers())));
+                doc.add(new Field("treeKinds", new TokenStreamImpl(ec.getKinds())));
+                doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
+
+                luceneWriter.addDocument(doc);
             } finally {
-                if (w != null) {
-                    w.close();
+                if (out != null) {
+                    out.close();
                 }
             }
-
-            luceneWriter.deleteDocuments(new Term("path", relative));
-            
-            Document doc = new Document();
-
-            doc.add(new Field("identifiers", new TokenStreamImpl(join(r.identifiers))));
-            doc.add(new Field("treeKinds", new TokenStreamImpl(join(r.treeKinds))));
-            doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
-
-            luceneWriter.addDocument(doc);
         }
 
         public void remove(String relativePath) throws IOException {
@@ -228,22 +224,12 @@ public class Index {
         }
     }
 
-    private static Set<String> join(Iterable<? extends Set<? extends String>> toJoin) {
-        Set<String> result = new HashSet<String>();
-
-        for (Set<? extends String> s : toJoin) {
-            result.addAll(s);
-        }
-
-        return result;
-    }
-
     private static final class TokenStreamImpl extends TokenStream {
 
-        private final Iterator<String> tokens;
+        private final Iterator<? extends String> tokens;
 
-        public TokenStreamImpl(Iterable<String> tokens) {
-            this.tokens = tokens.iterator();
+        public TokenStreamImpl(Iterable<? extends String> tokens) {
+            this.tokens = tokens != null ? tokens.iterator() : /*???*/Collections.<String>emptyList().iterator();
         }
 
         @Override

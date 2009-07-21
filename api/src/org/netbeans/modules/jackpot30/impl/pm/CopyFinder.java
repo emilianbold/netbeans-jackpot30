@@ -105,9 +105,19 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         this.cancel = cancel;
     }
 
-    //XXX: should probably also include designedTypeHack:
     public static Map<TreePath, VariableAssignments> computeDuplicates(CompilationInfo info, TreePath searchingFor, TreePath scope, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
-        CopyFinder f = new CopyFinder(searchingFor, info, cancel);
+        return computeDuplicates(info, searchingFor, scope, true, cancel, designedTypeHack);
+    }
+
+    public static Map<TreePath, VariableAssignments> computeDuplicates(CompilationInfo info, TreePath searchingFor, TreePath scope, boolean fullElementVerify, AtomicBoolean cancel, Map<String, TypeMirror> designedTypeHack) {
+        CopyFinder f =   fullElementVerify
+                       ? new CopyFinder(searchingFor, info, cancel)
+                       : new CopyFinder(searchingFor, info, cancel) {
+            @Override
+            protected boolean verifyElements(TreePath node, TreePath p) {
+                return getSimpleName(node.getLeaf()).contentEquals(getSimpleName(p.getLeaf()));
+            }
+        };
         
         f.designedTypeHack = designedTypeHack;
         

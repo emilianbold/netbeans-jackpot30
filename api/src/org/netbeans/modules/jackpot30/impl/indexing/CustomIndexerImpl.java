@@ -51,7 +51,7 @@ public class CustomIndexerImpl extends CustomIndexer {
                     if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
                         return ;
 
-                    w[0].record(cc.getFileObject().getURL(), TreeSerializer.serializeText(cc.getCompilationUnit()));
+                    w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit());
                 }
             }, true);
         } catch (IOException ex) {

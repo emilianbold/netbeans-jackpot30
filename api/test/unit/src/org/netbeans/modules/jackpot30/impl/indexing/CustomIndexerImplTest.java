@@ -1,6 +1,5 @@
 package org.netbeans.modules.jackpot30.impl.indexing;
 
-import com.sun.source.tree.Tree;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15,10 +14,8 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
-import org.netbeans.modules.jackpot30.impl.pm.REBasedBulkSearch;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
 import org.netbeans.modules.parsing.impl.indexing.Util;
@@ -94,7 +91,7 @@ public class CustomIndexerImplTest extends NbTestCase {
         
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
-                real.addAll(Index.get(src.getURL()).findCandidates(new REBasedBulkSearch().create(parameter, pattern)));
+                real.addAll(Index.get(src.getURL()).findCandidates(BulkSearch.getDefault().create(parameter, pattern)));
             }
         }, true);
 

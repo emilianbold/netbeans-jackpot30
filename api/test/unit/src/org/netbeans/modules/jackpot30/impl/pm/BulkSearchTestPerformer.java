@@ -39,8 +39,9 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
-import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.util.Arrays;
 import java.util.Collection;
@@ -54,6 +55,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.swing.text.Document;
+import junit.framework.TestSuite;
 import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
@@ -63,7 +65,9 @@ import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.junit.NbTestSuite;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
 import org.netbeans.modules.java.source.TreeLoader;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
@@ -87,6 +91,14 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
         SourceUtilsTestUtil.prepareTest(new String[] {"org/netbeans/modules/java/editor/resources/layer.xml"}, new Object[0]);
         TreeLoader.DISABLE_CONFINEMENT_TEST = true;
     }
+
+//    public static TestSuite suite() {
+//        NbTestSuite s = new NbTestSuite();
+//
+//        s.addTestSuite(NFABasedBulkSearchTest.class);
+//
+//        return s;
+//    }
 
     public void testSimple1() throws Exception {
         performTest("package test; public class Test { private void test() { System.err./**/println(\"\");}}",
@@ -190,13 +202,19 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void XtestMultiVariablesInMethodInvocation1() throws Exception {
+        performTest("package test; public class Test { public static void test() { test(); } }",
+                    Collections.singletonMap("test.Test.test($params$)", Arrays.asList("test()")),
+                    Collections.<String>emptyList());
+    }
+
     public void testTwoPatterns() throws Exception {
         Map<String, List<String>> contained = new HashMap<String, List<String>>();
 
         contained.put("if ($a) $ret = $b; else $ret = $c;", Arrays.asList("if (b) q = 2; else q = 3;"));
-        contained.put("{ $p$; $T $v; if($a) $v = $b; else $v = $c; $q$; }", Arrays.asList("{ int q = 3; if (b) q = 2; else q = 3; }"));
+        contained.put("{ $p$; $T $v; if($a) $v = $b; else $v = $c; $q$; }", Arrays.asList("{ int q; if (b) q = 2; else q = 3; }"));
 
-        performTest("package test; public class Test { public void test1(boolean b) { int q = 3; if (b) q = 2; else q = 3; } }",
+        performTest("package test; public class Test { public void test1(boolean b) { int q; if (b) q = 2; else q = 3; } }",
                     contained,
                     Collections.<String>emptyList());
     }
@@ -207,7 +225,13 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
-    public void XtestJackpot30_2() throws Exception {
+    public void testSynchronizedAndMultiStatementVariables() throws Exception {
+        performTest("package test; public class Test {public void test() { Object o = null; int i = 0; synchronized (o) {} } }",
+                    Collections.singletonMap("synchronized($var) {$stmts$;}", Arrays.asList("synchronized (o) {}")),
+                    Collections.<String>emptyList());
+    }
+
+    public void testJackpot30_2() throws Exception {
         String code = "package test;\n" +
                       "public class Test {\n" +
                       "    private void m() {\n" +
@@ -250,7 +274,7 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
 
         long doubleSize = measure(code, "\na(\"\");", 2 * rep, pattern);
 
-        assertTrue(doubleSize <= 4 * baseline);
+        assertTrue("baseline=" + baseline + ", actual=" + String.valueOf(doubleSize), doubleSize <= 4 * baseline);
     }
 
     private long measure(String baseCode, String toInsert, int repetitions, String pattern) throws Exception {
@@ -294,6 +318,21 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
 
     public void testMatches1() throws Exception {
         performMatchesTest("package test; public class Test { private void test() { f.isDirectory(); } }", Arrays.asList("$1.isDirectory()", "new ImageIcon($1)"), true);
+    }
+
+    public void testSerialization() throws Exception {
+        String text = "package test; public class Test { public void test1(boolean b) { int q; if (b) q = 2; else q = 3; } }";
+
+        prepareTest("test/Test.java", text);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        EncodingContext ec = new EncodingContext(out);
+
+        createSearch().encode(info.getCompilationUnit(), ec);
+        
+        boolean matches = createSearch().matches(new ByteArrayInputStream(out.toByteArray()), createSearch().create(info, "{ $p$; $T $v; if($a) $v = $b; else $v = $c; $q$; }"));
+
+        assertTrue(matches);
     }
 
     protected abstract BulkSearch createSearch();
@@ -351,6 +390,19 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
         none.retainAll(notContainedPatterns);
 
         assertTrue(none.isEmpty());
+
+        if (!verifyIndexingData())
+            return ;
+        
+        //ensure the returned identifiers/treeKinds are correct:
+        EncodingContext ec = new EncodingContext(new ByteArrayOutputStream());
+        
+        createSearch().encode(info.getCompilationUnit(), ec);
+
+        for (int i = 0; i < containedPatterns.size(); i++) {
+            assertTrue("expected: " + p.getIdentifiers().get(i) + ", but exist only: " + ec.getIdentifiers(), ec.getIdentifiers().containsAll(p.getIdentifiers().get(i)));
+            assertTrue("expected: " + p.getKinds().get(i) + ", but exist only: " + ec.getKinds(), ec.getKinds().containsAll(p.getKinds().get(i)));
+        }
     }
     
     private void prepareTest(String fileName, String code) throws Exception {
@@ -398,4 +450,7 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
     private CompilationInfo info;
     private Document doc;
 
+    protected boolean verifyIndexingData() {
+        return true;
+    }
 }

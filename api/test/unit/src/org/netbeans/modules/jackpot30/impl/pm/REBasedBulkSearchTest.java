@@ -15,4 +15,11 @@ public class REBasedBulkSearchTest extends BulkSearchTestPerformer {
         return new REBasedBulkSearch();
     }
 
+    public void testSynchronizedAndMultiStatementVariables() throws Exception {
+        //XXX
+    }
+
+    public void testJackpot30_2() throws Exception {
+        //XXX
+    }
 }

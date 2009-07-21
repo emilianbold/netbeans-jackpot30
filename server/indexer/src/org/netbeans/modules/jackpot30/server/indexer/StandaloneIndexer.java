@@ -11,7 +11,6 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
 
 /**
  *
@@ -52,7 +51,7 @@ public class StandaloneIndexer {
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, null, Arrays.asList("-bootclasspath",  bootPath), null, fos);
         CompilationUnitTree cut = ct.parse().iterator().next();
 
-        w.record(source.toURI().toURL(), TreeSerializer.serializeText(cut));
+        w.record(source.toURI().toURL(), cut);
     }
     
 }
