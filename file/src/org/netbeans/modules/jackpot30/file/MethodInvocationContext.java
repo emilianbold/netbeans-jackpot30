@@ -30,7 +30,7 @@ import org.openide.util.Exceptions;
  */
 public class MethodInvocationContext {
 
-    private final List<Class<?>> ruleUtilities;
+    /*not private for tests*/final List<Class<?>> ruleUtilities;
     
     public MethodInvocationContext() {
         ruleUtilities = new LinkedList<Class<?>>();
@@ -115,6 +115,7 @@ public class MethodInvocationContext {
 
     private static final AtomicInteger c = new AtomicInteger();
     void setCode(String imports, Iterable<? extends String> blocks) {
+        if (!blocks.iterator().hasNext()) return ;
         String className = "RuleUtilities$" + c.getAndIncrement();
         StringBuilder code = new StringBuilder();
 

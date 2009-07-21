@@ -20,4 +20,12 @@ public class MethodInvocationContextTest {
         assertFalse(mic.invokeMethod(null, "test", Collections.<String, ParameterKind>emptyMap()));
     }
 
+    @Test
+    public void testPerformance() {
+        MethodInvocationContext mic = new MethodInvocationContext();
+
+        mic.setCode("", Collections.<String>emptyList());
+        assertEquals(1, mic.ruleUtilities.size());
+    }
+
 }
