@@ -9,3 +9,10 @@
 ^external$
 \.old$
 ^server/lib$
+.*/nbproject-.*/private.xml
+.*.aux
+.*.dvi
+.*.log
+.*.pdf
+.*.ps
+
