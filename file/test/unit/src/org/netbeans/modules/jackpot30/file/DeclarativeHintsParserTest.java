@@ -147,9 +147,25 @@ public class DeclarativeHintsParserTest extends NbTestCase {
             real.add(StringHintDescription.create(code, hint));
         }
 
-        assertEquals(goldenImportsBlock, parsed.importsBlock);
+        if (goldenImportsBlock != null) {
+            assertNotNull(parsed.importsBlock);
+            assertEquals(goldenImportsBlock, code.substring(parsed.importsBlock[0], parsed.importsBlock[1]));
+        } else {
+            assertNull(parsed.importsBlock);
+        }
+        
         assertEquals(goldenHints, real);
-        assertEquals(goldenBlocks, parsed.blocks);
+        if (goldenBlocks != null) {
+            assertNotNull(parsed.blocks);
+
+            List<String> realBlocks = new LinkedList<String>();
+            
+            for (int[] span : parsed.blocks) {
+                realBlocks.add(code.substring(span[0], span[1]));
+            }
+        } else {
+            assertNull(parsed.blocks);
+        }
     }
 
     private void performParserSanityTest(String code) {
