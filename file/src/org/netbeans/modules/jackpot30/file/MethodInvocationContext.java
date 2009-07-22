@@ -120,9 +120,11 @@ public class MethodInvocationContext {
         StringBuilder code = new StringBuilder();
 
         code.append("package $;\n");
-        code.append("import org.netbeans.modules.jackpot30.file.conditionapi.Context;\n");
-        code.append("import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;\n");
-        code.append("import org.netbeans.modules.jackpot30.file.conditionapi.Variable;\n");
+
+        for (String imp : AUXILIARY_IMPORTS) {
+            code.append(imp);
+            code.append("\n");
+        }
 
         if (imports != null)
             code.append(imports);
@@ -139,12 +141,10 @@ public class MethodInvocationContext {
 
         code.append("}\n");
 
-        ClassPath boot = JavaPlatform.getDefault().getBootstrapLibraries();
-        URL jarFile = MethodInvocationContext.class.getProtectionDomain().getCodeSource().getLocation();
-        ClassPath compile = ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(FileUtil.archiveOrDirForURL(jarFile)));
+        ClassPath[] classpaths = computeClassPaths();
 
         try {
-            final Map<String, byte[]> classes = Hacks.compile(boot, compile, code.toString());
+            final Map<String, byte[]> classes = Hacks.compile(classpaths[0], classpaths[1], code.toString());
 
             ClassLoader l = new ClassLoader(MethodInvocationContext.class.getClassLoader()) {
                 @Override
@@ -169,4 +169,20 @@ public class MethodInvocationContext {
         }
     }
 
+    static final String[] AUXILIARY_IMPORTS = new String[] {
+        "import org.netbeans.modules.jackpot30.file.conditionapi.Context;",
+        "import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;",
+        "import org.netbeans.modules.jackpot30.file.conditionapi.Variable;"
+    };
+
+    static ClassPath[] computeClassPaths() {
+        ClassPath boot = JavaPlatform.getDefault().getBootstrapLibraries();
+        URL jarFile = MethodInvocationContext.class.getProtectionDomain().getCodeSource().getLocation();
+        ClassPath compile = ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(FileUtil.archiveOrDirForURL(jarFile)));
+
+        return new ClassPath[] {
+            boot,
+            compile
+        };
+    }
 }

@@ -80,6 +80,23 @@ public class EmbeddingProviderImplTest extends NbTestCase {
                              "}\n");
     }
 
+    public void testEmbeddingWithImportsAndConditions() throws Exception {
+        performEmbeddingTest("<?import java.util.List;?>\'\': $1 + $2 :: $1 instanceof int && $2 instanceof double && cond($1, $2);; <?private boolean test(Variable v1, Variable v2) {return true;}?>",
+                             "package $;\n" + 
+                             "import java.util.List;\n" +
+                             "import org.netbeans.modules.jackpot30.file.conditionapi.Context;\n" +
+                             "import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;\n" +
+                             "import org.netbeans.modules.jackpot30.file.conditionapi.Variable;\n" +
+                             "class $ {\n" +
+                             "     private void $0( int $1, double $2) throws Throwable {\n" +
+                             "         $1 + $2 ;\n" +
+                             "     }\n" +
+                             "     private final Context context = null;\n" +
+                             "     private final Matcher matcher = null;\n" +
+                             "     private boolean test(Variable v1, Variable v2) {return true;}\n" +
+                             "}\n");
+    }
+
     private void performEmbeddingTest(String code, String... golden) throws Exception {
         prepareTest(code, -1);
 
@@ -107,6 +124,8 @@ public class EmbeddingProviderImplTest extends NbTestCase {
     
     @Override
     protected void setUp() throws Exception {
+        clearWorkDir();
+        System.setProperty("netbeans.user", getWorkDir().getAbsolutePath());
         SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
         super.setUp();
     }

@@ -9,6 +9,7 @@ import java.util.Map.Entry;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
 import org.netbeans.modules.parsing.api.Embedding;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.spi.EmbeddingProvider;
@@ -27,9 +28,24 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
         List<Embedding> result = new LinkedList<Embedding>();
         TokenSequence<DeclarativeHintTokenId> ts = snapshot.getTokenHierarchy().tokenSequence(DeclarativeHintTokenId.language());
 
-        result.add(snapshot.create(GLOBAL_PATTERN_PREFIX, "text/x-java"));
+        result.add(snapshot.create(GLOBAL_PATTERN_PACKAGE, "text/x-java"));
 
-        for (HintTextDescription hint : new DeclarativeHintsParser().parse(snapshot.getText(), ts).hints) {
+        Result parsed = new DeclarativeHintsParser().parse(snapshot.getText(), ts);
+
+        if (parsed.importsBlock != null) {
+            result.add(snapshot.create(parsed.importsBlock[0], parsed.importsBlock[1] - parsed.importsBlock[0], "text/x-java"));
+            result.add(snapshot.create("\n", "text/x-java"));
+        }
+
+        if (!parsed.blocks.isEmpty()) {
+            for (String imp : MethodInvocationContext.AUXILIARY_IMPORTS) {
+                result.add(snapshot.create(imp + "\n", "text/x-java"));
+            }
+        }
+
+        result.add(snapshot.create(GLOBAL_PATTERN_CLASS, "text/x-java"));
+
+        for (HintTextDescription hint : parsed.hints) {
             result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART1.replaceAll("\\{0\\}", "" + (index++)), "text/x-java"));
 
             StringBuilder builder = new StringBuilder();
@@ -70,6 +86,14 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
             }
         }
 
+        if (!parsed.blocks.isEmpty()) {
+            result.add(snapshot.create(CUSTOM_CONDITIONS_VARIABLES, "text/x-java"));
+        }
+        
+        for (int[] span : parsed.blocks) {
+            result.add(snapshot.create(span[0], span[1] - span[0], "text/x-java"));
+        }
+
         result.add(snapshot.create(GLOBAL_PATTERN_SUFFIX, "text/x-java"));
 
         return Collections.singletonList(Embedding.create(result));
@@ -83,11 +107,14 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
     @Override
     public void cancel() {}
 
-    private static final String GLOBAL_PATTERN_PREFIX = "package $; class $ {\n";
+    private static final String GLOBAL_PATTERN_PACKAGE = "package $;\n";
+    private static final String GLOBAL_PATTERN_CLASS = "class $ {\n";
     private static final String GLOBAL_PATTERN_SUFFIX = "\n}\n";
     private static final String SNIPPET_PATTERN_PREFIX_PART1 = "private void ${0}(";
     private static final String SNIPPET_PATTERN_PREFIX_PART2 = ") throws Throwable {\n";
     private static final String SNIPPET_PATTERN_SUFFIX = " ;\n}\n";
+
+    private static final String CUSTOM_CONDITIONS_VARIABLES = "private final Context context = null;\nprivate final Matcher matcher = null;\n";
 
     public static final class FactoryImpl extends TaskFactory {
 

@@ -111,6 +111,8 @@ public enum DeclarativeHintTokenId implements TokenId {
             switch (token.id()) {
                 case JAVA_SNIPPET:
                     return LanguageEmbedding.create(Language.find("text/x-java"), 0, 0);
+                case JAVA_BLOCK:
+                    return LanguageEmbedding.create(Language.find("text/x-java"), 2, 2);
                 default:
                     return null;
             }

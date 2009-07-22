@@ -44,9 +44,11 @@ public class DeclarativeHintsParser {
     private static final class Impl {
     private final CharSequence text;
     private final TokenSequence<DeclarativeHintTokenId> input;
-    private       String importsBlock;
+    private       String importsBlockCode;
+    private       int[] importsBlockSpan;
     private final List<HintTextDescription> hints = new LinkedList<HintTextDescription>();
-    private final List<String> blocks = new LinkedList<String>();
+    private final List<String> blocksCode = new LinkedList<String>();
+    private final List<int[]> blocksSpan = new LinkedList<int[]>();
     private final List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
     private final MethodInvocationContext mic;
 
@@ -94,10 +96,13 @@ public class DeclarativeHintsParser {
             if (id() == JAVA_BLOCK) {
                 String text = token().text().toString();
                 text = text.substring(2, text.length() - 2);
-                if (importsBlock == null && !wasFirstRule) {
-                    importsBlock = text;
+                int[] span = new int[] {token().offset(null) + 2, token().offset(null) + token().length() - 2};
+                if (importsBlockCode == null && !wasFirstRule) {
+                    importsBlockCode = text;
+                    importsBlockSpan = span;
                 } else {
-                    blocks.add(text);
+                    blocksCode.add(text);
+                    blocksSpan.add(span);
                 }
             } else {
                 parseRule();
@@ -226,9 +231,9 @@ public class DeclarativeHintsParser {
         Impl i = new Impl(text, ts);
 
         i.parseInput();
-        i.mic.setCode(i.importsBlock, i.blocks);
+        i.mic.setCode(i.importsBlockCode, i.blocksCode);
 
-        return new Result(i.importsBlock, i.hints, i.blocks);
+        return new Result(i.importsBlockSpan, i.hints, i.blocksSpan);
     }
 
     private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
@@ -286,11 +291,11 @@ public class DeclarativeHintsParser {
     
     public static final class Result {
 
-        public final String importsBlock;
+        public final int[] importsBlock;
         public final List<HintTextDescription> hints;
-        public final List<String> blocks;
+        public final List<int[]> blocks;
 
-        public Result(String importsBlock, List<HintTextDescription> hints, List<String> blocks) {
+        public Result(int[] importsBlock, List<HintTextDescription> hints, List<int[]> blocks) {
             this.importsBlock = importsBlock;
             this.hints = hints;
             this.blocks = blocks;
