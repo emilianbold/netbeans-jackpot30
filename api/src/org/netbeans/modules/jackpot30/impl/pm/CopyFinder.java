@@ -65,11 +65,13 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -224,6 +226,8 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
         return false;
     }
+
+    private static final Set<TypeKind> IGNORE_KINDS = EnumSet.of(TypeKind.EXECUTABLE, TypeKind.PACKAGE);
     
     @Override
     public Boolean scan(Tree node, TreePath p) {
@@ -250,7 +254,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                 if (designed != null && designed.getKind() != TypeKind.ERROR) {
                     TypeMirror real = info.getTrees().getTypeMirror(currentPath);
 
-                    bind = info.getTypes().isAssignable(real, designed);
+                    if (real != null && !IGNORE_KINDS.contains(real.getKind()))
+                        bind = info.getTypes().isAssignable(real, designed);
+                    else
+                        bind = false;
                 }
 
                 if (bind) {

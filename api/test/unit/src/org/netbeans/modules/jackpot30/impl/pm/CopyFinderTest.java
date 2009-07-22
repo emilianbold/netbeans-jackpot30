@@ -325,6 +325,24 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              new Pair[0]);
     }
 
+    public void testSemiMatchPackage() throws Exception {
+        performVariablesTest("package test; import javax.lang.model.type.TypeMirror; public class Test { }",
+                             "$T{java.lang.Object}.type",
+                             new Pair[0],
+                             new Pair[0],
+                             new Pair[0],
+                             true);
+    }
+
+    public void testNullType() throws Exception {
+        performVariablesTest("package javax.lang.model.type; public class Test { }",
+                             "$T{java.lang.Object}.type",
+                             new Pair[0],
+                             new Pair[0],
+                             new Pair[0],
+                             true);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }
@@ -336,8 +354,8 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, int[]>[] multiStatementPos, Pair<String, String>[] duplicatesNames, boolean noOccurrences) throws Exception {
         prepareTest(code, -1);
 
-        Tree patternTree = Pattern.parseAndAttribute(info, pattern, Collections.<String, TypeMirror>emptyMap(), new Scope[1]);
-        Map<TreePath, VariableAssignments> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternTree), new TreePath(info.getCompilationUnit()), new AtomicBoolean(), Collections.<String, TypeMirror>emptyMap());
+        Pattern patternObj = Pattern.compile(info, pattern);
+        Map<TreePath, VariableAssignments> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternObj.getPattern()), new TreePath(info.getCompilationUnit()), new AtomicBoolean(), patternObj.getConstraints());
 
         if (noOccurrences) {
             assertEquals(0, result.size());
