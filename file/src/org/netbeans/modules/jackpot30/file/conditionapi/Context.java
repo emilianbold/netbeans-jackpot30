@@ -1,5 +1,6 @@
 package org.netbeans.modules.jackpot30.file.conditionapi;
 
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -81,6 +82,12 @@ public class Context {
         }
         
         return new Variable(variableName);
+    }
+
+    public boolean isNullLiteral(@NonNull Variable var) {
+        TreePath varPath = ctx.getVariables().get(var.variableName);
+
+        return varPath.getLeaf().getKind() == Kind.NULL_LITERAL;
     }
 
     static Iterable<? extends TreePath> getVariable(HintContext ctx, Variable v) {

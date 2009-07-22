@@ -3,6 +3,7 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import org.netbeans.api.annotations.common.NonNull;
 
 /**
  *
@@ -43,4 +44,9 @@ public final class DefaultRuleUtilities {
     public boolean elementKindMatches(Variable variable, ElementKind kind) {
         return kind == context.elementKind(variable);
     }
+
+    public boolean isNullLiteral(@NonNull Variable var) {
+        return context.isNullLiteral(var);
+    }
+    
 }
