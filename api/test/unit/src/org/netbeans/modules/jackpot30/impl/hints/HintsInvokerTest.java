@@ -426,6 +426,11 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testPackageInfo() throws Exception {
+        performAnalysisTest("test/package-info.java",
+                            "|package test;\n");
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -452,6 +457,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testOneStatement2MultipleStatement", test2Hint.get("testOneStatement2MultipleBlock"));
         test2Hint.put("testMultiple2OneStatement1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("System.err.println($1); System.err.println($2);", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("System.err.println($1);")).produce());
         test2Hint.put("testMultiple2OneStatement2", test2Hint.get("testMultiple2OneStatement1"));
+        test2Hint.put("testPackageInfo", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$Test.test", Collections.<String, String>singletonMap("$Test", "test.Test"))).setWorker(new WorkerImpl("$Test.getTest()")).produce());
     }
 
     @Override

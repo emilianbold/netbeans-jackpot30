@@ -229,7 +229,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                 Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
 
                 for (Entry<String, String> e : d.getConstraints().entrySet()) {
-                    constraints.put(e.getKey(), info.getTreeUtilities().parseType(e.getValue(), info.getTopLevelElements().get(0))); //XXX
+                    constraints.put(e.getKey(), info.getTreeUtilities().parseType(e.getValue(), info.getElements().getTypeElement("java.lang.Object")));
                 }
 
                 Pattern p = Pattern.compile(info, occ.getKey(), constraints);
