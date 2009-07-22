@@ -244,7 +244,7 @@ public class DeclarativeHintsParser {
                     return ;
                 }
 
-                Scope s = Hacks.constructScope(parameter, "javax.lang.model.element.Modifier", "javax.lang.model.SourceVersion");
+                Scope s = Hacks.constructScope(parameter, "javax.lang.model.SourceVersion", "javax.lang.model.element.Modifier", "javax.lang.model.element.ElementKind");
 
                 parameter.getTreeUtilities().attributeTree(et, s);
 

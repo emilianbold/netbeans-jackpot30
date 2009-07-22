@@ -1,6 +1,7 @@
 package org.netbeans.modules.jackpot30.file.conditionapi;
 
 import javax.lang.model.SourceVersion;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 
 /**
@@ -37,5 +38,9 @@ public final class DefaultRuleUtilities {
         }
         
         return matcher.matches(parent, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
+    }
+
+    public boolean elementKindMatches(Variable variable, ElementKind kind) {
+        return kind == context.elementKind(variable);
     }
 }

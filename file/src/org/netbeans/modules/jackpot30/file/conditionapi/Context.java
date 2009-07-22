@@ -7,6 +7,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
@@ -48,6 +49,16 @@ public class Context {
         }
 
         return Collections.unmodifiableSet(e.getModifiers());
+    }
+
+    public @CheckForNull ElementKind elementKind(@NonNull Variable variable) {
+        final Element e = ctx.getInfo().getTrees().getElement(ctx.getVariables().get(variable.variableName));
+
+        if (e == null) {
+            return null;
+        }
+
+        return e.getKind();
     }
 
     public @CheckForNull Variable parent(@NonNull Variable variable) {
