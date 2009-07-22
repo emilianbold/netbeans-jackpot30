@@ -2,6 +2,7 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.ModificationResult.Difference;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
@@ -40,8 +41,10 @@ public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
     public Problem prepare(RefactoringElementsBag refactoringElements) {
         BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope());
         LinkedList<String> problems = new LinkedList<String>();
-        Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, null, problems);
+        Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, /*XXX*/new AtomicBoolean(), problems);
 
+        refactoringElements.registerTransaction(new RetoucheCommit(new LinkedList<ModificationResult>(res)));
+        
         for (ModificationResult mr : res) {
             for (FileObject file : mr.getModifiedFileObjects()) {
                 for (Difference d : mr.getDifferences(file)) {
