@@ -245,6 +245,22 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Arrays.asList("$0.getFileObject($1)"));
     }
 
+    public void testIdentifierInPureMemberSelect() throws Exception {
+        String code = "package test;\n" +
+                       "public class Test {\n" +
+                       "     public Test test;\n" +
+                       "     public String name;\n" +
+                       "     private void test() {\n" +
+                       "         Test t = null;\n" +
+                       "         String s = t.test.name;\n" +
+                       "     }\n" +
+                       "}\n";
+
+        performTest(code,
+                    Collections.singletonMap("$Test.test", Arrays.asList("test", "t.test")),
+                    Collections.<String>emptyList());
+    }
+
     public void testNoExponentialTimeComplexity() throws Exception {
         String code = "package test;\n" +
                       "public class Test {\n" +

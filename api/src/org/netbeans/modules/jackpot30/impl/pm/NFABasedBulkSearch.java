@@ -55,8 +55,10 @@ public class NFABasedBulkSearch extends BulkSearch {
 
                 boolean[] goDeeper = new boolean[1];
                 final State newActiveAfterVariable = nfa.transition(active, new Input(Kind.IDENTIFIER, "$", false));
-                Input normalizedInput = normalizeInput(node, goDeeper, null);
+                Input[] bypass = new Input[1];
+                Input normalizedInput = normalizeInput(node, goDeeper, bypass);
                 active = nfa.transition(active, normalizedInput);
+                State bypassed = bypass[0] != null ? nfa.transition(active, bypass[0]) : null;
 
                 if (goDeeper[0]) {
                     super.scan(node, p);
@@ -66,6 +68,13 @@ public class NFABasedBulkSearch extends BulkSearch {
                 State s2 = nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true));
 
                 active = nfa.join(s1, s2);
+
+                if (bypassed != null) {
+                    //XXX: performance, might be better to have join(State, State, State):
+                    State bypassed2 = nfa.transition(active, new Input(bypass[0].kind, bypass[0].name, true));
+                    
+                    active = nfa.join(active, bypassed2);
+                }
 
                 for (Res r : nfa.getResults(active)) {
                     addOccurrence(r, node);
@@ -172,7 +181,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                     if (i.name == null) {
                         patternKinds.add(i.kind.name());
                     } else {
-                        if (!"$".equals(i.name))
+                        if (!"$".equals(i.name) && !Utilities.isPureMemberSelect(t, true))
                             patternIdentifiers.add(i.name);
                     }
 
@@ -258,16 +267,11 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         if (t.getKind() == Kind.MEMBER_SELECT) {
             String name = ((MemberSelectTree) t).getIdentifier().toString();
-            if (Utilities.isPureMemberSelect(t, false)) {
-                goDeeper[0] = false;
-                return new Input(Kind.IDENTIFIER, name, false);
-            } else {
-                if (bypass != null && Utilities.isPureMemberSelect(t, true)) {
-                    bypass[0] = new Input(Kind.IDENTIFIER, name, false);
-                }
-                goDeeper[0] = true;
-                return new Input(Kind.MEMBER_SELECT, name, false);
+            if (bypass != null) {
+                bypass[0] = new Input(Kind.IDENTIFIER, name, false);
             }
+            goDeeper[0] = true;
+            return new Input(Kind.MEMBER_SELECT, name, false);
         }
 
         goDeeper[0] = true;

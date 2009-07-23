@@ -22,4 +22,10 @@ public class REBasedBulkSearchTest extends BulkSearchTestPerformer {
     public void testJackpot30_2() throws Exception {
         //XXX
     }
+
+    @Override
+    public void testIdentifierInPureMemberSelect() throws Exception {
+        //XXX
+    }
+
 }
