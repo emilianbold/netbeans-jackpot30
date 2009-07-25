@@ -57,8 +57,8 @@ public class NFABasedBulkSearch extends BulkSearch {
                 final State newActiveAfterVariable = nfa.transition(active, new Input(Kind.IDENTIFIER, "$", false));
                 Input[] bypass = new Input[1];
                 Input normalizedInput = normalizeInput(node, goDeeper, bypass);
-                active = nfa.transition(active, normalizedInput);
                 State bypassed = bypass[0] != null ? nfa.transition(active, bypass[0]) : null;
+                active = nfa.transition(active, normalizedInput);
 
                 if (goDeeper[0]) {
                     super.scan(node, p);
@@ -67,13 +67,13 @@ public class NFABasedBulkSearch extends BulkSearch {
                 State s1 = nfa.transition(active, new Input(normalizedInput.kind, normalizedInput.name, true));
                 State s2 = nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true));
 
-                active = nfa.join(s1, s2);
-
                 if (bypassed != null) {
                     //XXX: performance, might be better to have join(State, State, State):
-                    State bypassed2 = nfa.transition(active, new Input(bypass[0].kind, bypass[0].name, true));
+                    State bypassed2 = nfa.transition(bypassed, new Input(bypass[0].kind, bypass[0].name, true));
                     
-                    active = nfa.join(active, bypassed2);
+                    active = nfa.join(nfa.join(s1, s2), bypassed2);
+                } else {
+                    active = nfa.join(s1, s2);
                 }
 
                 for (Res r : nfa.getResults(active)) {
@@ -267,7 +267,7 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         if (t.getKind() == Kind.MEMBER_SELECT) {
             String name = ((MemberSelectTree) t).getIdentifier().toString();
-            if (bypass != null) {
+            if (bypass != null && Utilities.isPureMemberSelect(t, true)) {
                 bypass[0] = new Input(Kind.IDENTIFIER, name, false);
             }
             goDeeper[0] = true;
@@ -345,6 +345,7 @@ public class NFABasedBulkSearch extends BulkSearch {
         final NFA<Input, Res> nfa = pattern.toNFA();
         Stack<Input> unfinished = new Stack<Input>();
         Stack<State> skips = new Stack<State>();
+        Stack<State> bypassed = new Stack<State>();
         State active = nfa.getStartingState();
         int read = encoded.read();
 
@@ -378,18 +379,28 @@ public class NFABasedBulkSearch extends BulkSearch {
                 
                 final State newActiveAfterVariable = nfa.transition(active, new Input(Kind.IDENTIFIER, "$", false));
                 Input normalizedInput = new Input(k, name, false);
+                State bypassedState = k == Kind.MEMBER_SELECT && name != null ? nfa.transition(active, new Input(Kind.IDENTIFIER, name, false)) : null;
                 active = nfa.transition(active, normalizedInput);
 
                 unfinished.push(normalizedInput);
                 skips.push(newActiveAfterVariable);
+                bypassed.push(bypassedState);
             } else {
                 Input i = unfinished.pop();
                 State newActiveAfterVariable = skips.pop();
                 State s1 = nfa.transition(active, new Input(i.kind, i.name, true));
                 State s2 = nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true));
 
-                active = nfa.join(s1, s2);
+                State bypassedState = bypassed.pop();
 
+                if (bypassedState != null) {
+                    State activeAfterBypassed = nfa.transition(bypassedState, new Input(Kind.IDENTIFIER, i.name, true));
+                    
+                    active = nfa.join(nfa.join(s1, s2), activeAfterBypassed);
+                } else {
+                    active = nfa.join(s1, s2);
+                }
+                
                 if (!nfa.getResults(active).isEmpty()) {
                     return true;
                 }
