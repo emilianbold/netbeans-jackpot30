@@ -1,6 +1,7 @@
 package org.netbeans.modules.jackpot30.impl.indexing;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.Collection;
 import java.util.LinkedList;
 import org.netbeans.api.java.source.ClasspathInfo;
@@ -114,6 +115,9 @@ public class CustomIndexerImpl extends CustomIndexer {
         public int getIndexVersion() {
             return Cache.VERSION;
         }
+
+        @Override
+        public void rootsRemoved(Iterable<? extends URL> removedRoots) {}
         
     }
 
