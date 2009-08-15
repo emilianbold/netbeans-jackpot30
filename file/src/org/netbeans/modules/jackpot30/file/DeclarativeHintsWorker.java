@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
@@ -61,11 +62,13 @@ class DeclarativeHintsWorker implements Worker {
     private final String displayName;
     private final List<Condition> conditions;
     private final List<DeclarativeFix> fixes;
+    private final Map<String, String> options;
 
-    public DeclarativeHintsWorker(String displayName, List<Condition> conditions, List<DeclarativeFix> fixes) {
+    public DeclarativeHintsWorker(String displayName, List<Condition> conditions, List<DeclarativeFix> fixes, Map<String, String> options) {
         this.displayName = displayName;
         this.conditions = conditions;
         this.fixes = fixes;
+        this.options = options;
     }
 
     //for tests:

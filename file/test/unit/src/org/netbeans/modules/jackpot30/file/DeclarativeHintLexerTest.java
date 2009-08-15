@@ -244,4 +244,20 @@ public class DeclarativeHintLexerTest {
         assertFalse(ts.moveNext());
     }
 
+    @Test
+    public void testOptions() {
+        String text = "<!option1=\"value1,value2\",option2=true>'test': 1 + 1 <!option1=\"value1,value2\",option2=true>=> 1 + 1;;";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, OPTIONS, "<!option1=\"value1,value2\",option2=true>");
+        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, OPTIONS, "<!option1=\"value1,value2\",option2=true>");
+        assertNextTokenEquals(ts, LEADS_TO, "=>");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
+
+        assertFalse(ts.moveNext());
+    }
+
 }

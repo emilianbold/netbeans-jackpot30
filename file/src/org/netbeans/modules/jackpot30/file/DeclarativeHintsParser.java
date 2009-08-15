@@ -9,10 +9,13 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
@@ -44,6 +47,7 @@ public class DeclarativeHintsParser {
     private static final class Impl {
     private final CharSequence text;
     private final TokenSequence<DeclarativeHintTokenId> input;
+    private final Map<String, String> options = new HashMap<String, String>();
     private       String importsBlockCode;
     private       int[] importsBlockSpan;
     private final List<HintTextDescription> hints = new LinkedList<HintTextDescription>();
@@ -105,6 +109,7 @@ public class DeclarativeHintsParser {
                     blocksSpan.add(span);
                 }
             } else {
+                maybeParseOptions(options);
                 parseRule();
                 wasFirstRule = true;
             }
@@ -127,6 +132,7 @@ public class DeclarativeHintsParser {
         while (   id() != LEADS_TO
                && id() != DOUBLE_COLON
                && id() != DOUBLE_SEMICOLON
+               && id() != OPTIONS
                && !eof) {
             nextToken();
         }
@@ -137,6 +143,10 @@ public class DeclarativeHintsParser {
         }
 
         int patternEnd = input.offset();
+
+        Map<String, String> ruleOptions = new HashMap<String, String>();
+
+        maybeParseOptions(ruleOptions);
 
         List<Condition> conditions = new LinkedList<Condition>();
 
@@ -154,11 +164,17 @@ public class DeclarativeHintsParser {
             while (   id() != LEADS_TO
                    && id() != DOUBLE_COLON
                    && id() != DOUBLE_SEMICOLON
+                   && id() != OPTIONS
                    && !eof) {
                 nextToken();
             }
 
             int targetEnd = input.offset();
+            
+            Map<String, String> fixOptions = new HashMap<String, String>();
+
+            maybeParseOptions(fixOptions);
+
             int[] span = new int[] {targetStart, targetEnd};
             List<Condition> fixConditions = new LinkedList<Condition>();
 
@@ -166,10 +182,10 @@ public class DeclarativeHintsParser {
                 parseConditions(fixConditions);
             }
 
-            targets.add(new FixTextDescription(span, fixConditions));
+            targets.add(new FixTextDescription(span, fixConditions, fixOptions));
         }
 
-        hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, targets));
+        hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, targets, ruleOptions));
     }
     
     private void parseConditions(List<Condition> conditions) {
@@ -227,15 +243,54 @@ public class DeclarativeHintsParser {
             Exceptions.printStackTrace(ex);
         }
     }
+
+    private void maybeParseOptions(Map<String, String> to) {
+        if (id() != OPTIONS)
+            return ;
+
+        String opts = token().text().toString();
+
+        parseOptions(opts.substring(2, opts.length() - 1), to);
+
+        nextToken();
+    }
     }
 
+    private static final Pattern OPTION = Pattern.compile("([^=]+)=(([^\"].*?)|(\".*?\")),");
+    
+    static void parseOptions(String options, Map<String, String> to) {
+        Matcher m = OPTION.matcher(options);
+        int end = 0;
+
+        while (m.find()) {
+            to.put(m.group(1), unquote(m.group(2)));
+            end = m.end();
+        }
+
+        String[] keyValue = options.substring(end).split("=");
+
+        if (keyValue.length == 1) {
+            //TODO: semantics? error?
+            to.put(keyValue[0], "");
+        } else {
+            to.put(keyValue[0], unquote(keyValue[1]));
+        }
+    }
+    
+    private static String unquote(String what) {
+        if (what.length() > 2 && what.charAt(0) == '"' && what.charAt(what.length() - 1) == '"')
+            return what.substring(1, what.length() - 1);
+        else
+            return what;
+    }
+    
     public Result parse(CharSequence text, TokenSequence<DeclarativeHintTokenId> ts) {
         Impl i = new Impl(text, ts);
 
         i.parseInput();
         i.mic.setCode(i.importsBlockCode, i.blocksCode);
 
-        return new Result(i.importsBlockSpan, i.hints, i.blocksSpan);
+        return new Result(i.options, i.importsBlockSpan, i.hints, i.blocksSpan);
     }
 
     private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
@@ -293,11 +348,13 @@ public class DeclarativeHintsParser {
     
     public static final class Result {
 
+        public final Map<String, String> options;
         public final int[] importsBlock;
         public final List<HintTextDescription> hints;
         public final List<int[]> blocks;
 
-        public Result(int[] importsBlock, List<HintTextDescription> hints, List<int[]> blocks) {
+        public Result(Map<String, String> options, int[] importsBlock, List<HintTextDescription> hints, List<int[]> blocks) {
+            this.options = options;
             this.importsBlock = importsBlock;
             this.hints = hints;
             this.blocks = blocks;
@@ -311,13 +368,15 @@ public class DeclarativeHintsParser {
         public final int textEnd;
         public final List<Condition> conditions;
         public final List<FixTextDescription> fixes;
+        public final Map<String, String> options;
 
-        public HintTextDescription(String displayName, int textStart, int textEnd, List<Condition> conditions, List<FixTextDescription> fixes) {
+        public HintTextDescription(String displayName, int textStart, int textEnd, List<Condition> conditions, List<FixTextDescription> fixes, Map<String, String> options) {
             this.displayName = displayName;
             this.textStart = textStart;
             this.textEnd = textEnd;
             this.conditions = conditions;
             this.fixes = fixes;
+            this.options = options;
         }
 
     }
@@ -325,10 +384,12 @@ public class DeclarativeHintsParser {
     public static final class FixTextDescription {
         public final int[] fixSpan;
         public final List<Condition> conditions;
+        public final Map<String, String> options;
 
-        public FixTextDescription(int[] fixSpan, List<Condition> conditions) {
+        public FixTextDescription(int[] fixSpan, List<Condition> conditions, Map<String, String> options) {
             this.fixSpan = fixSpan;
             this.conditions = conditions;
+            this.options = options;
         }
     }
 }

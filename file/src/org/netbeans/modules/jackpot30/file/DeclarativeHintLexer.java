@@ -135,17 +135,11 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
                 return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
             }
-            
-            Token<DeclarativeHintTokenId> t = testToken(String.valueOf((char) read), whitespaceLength);
-
-            if (t != null) {
-                return t;
-            }
 
             if (input.readLength() > 1) {
                 String inputString = input.readText().toString();
                 
-                t = testToken(inputString.substring(input.readLength() - 2), whitespaceLength);
+                Token t = testToken(inputString.substring(input.readLength() - 2), whitespaceLength);
 
                 if (t != null) {
                     return t;
@@ -171,6 +165,12 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
                     return readBlockToken(e.getValue(), BLOCK_TOKEN_END.get(e.getValue()));
                 }
+            }
+
+            Token<DeclarativeHintTokenId> t = testToken(String.valueOf((char) read), whitespaceLength);
+
+            if (t != null) {
+                return t;
             }
 
             read = input.read();
@@ -253,6 +253,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         blockStartMap.put("/*", DeclarativeHintTokenId.BLOCK_COMMENT);
         blockStartMap.put("//", DeclarativeHintTokenId.LINE_COMMENT);
         blockStartMap.put("<?", DeclarativeHintTokenId.JAVA_BLOCK);
+        blockStartMap.put("<!", DeclarativeHintTokenId.OPTIONS);
 
         BLOCK_TOKEN_START = Collections.unmodifiableMap(blockStartMap);
 
@@ -261,6 +262,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         blockEndMap.put(DeclarativeHintTokenId.BLOCK_COMMENT, "*/");
         blockEndMap.put(DeclarativeHintTokenId.LINE_COMMENT, "\n");
         blockEndMap.put(DeclarativeHintTokenId.JAVA_BLOCK, "?>");
+        blockEndMap.put(DeclarativeHintTokenId.OPTIONS, ">");
 
         BLOCK_TOKEN_END = Collections.unmodifiableMap(blockEndMap);
     }

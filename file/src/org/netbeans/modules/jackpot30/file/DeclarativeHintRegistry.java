@@ -166,10 +166,10 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             for (FixTextDescription fix : hint.fixes) {
                 int[] fixRange = fix.fixSpan;
-                fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1]), fix.conditions));
+                fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1]), fix.conditions, fix.options));
             }
 
-            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, fixes));
+            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, fixes, hint.options));
             f = f.setDisplayName(displayName);
 
             result.add(f.produce());

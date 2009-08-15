@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.file;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  *
@@ -50,11 +51,13 @@ public final class DeclarativeFix {
     private final String pattern;
     private final String displayName;
     private final List<Condition> conditions;
+    private final Map<String, String> options;
 
-    private DeclarativeFix(String pattern, String displayName, List<Condition> conditions) {
+    private DeclarativeFix(String pattern, String displayName, List<Condition> conditions, Map<String, String> options) {
         this.pattern = pattern;
         this.displayName = displayName;
         this.conditions = conditions;
+        this.options = options;
     }
 
     public String getPattern() {
@@ -69,7 +72,11 @@ public final class DeclarativeFix {
         return conditions;
     }
 
-    public static DeclarativeFix create(String name, String fix, List<Condition> conditions) {
-        return new DeclarativeFix(fix, name, conditions);
+    public Map<String, String> getOptions() {
+        return options;
+    }
+
+    public static DeclarativeFix create(String name, String fix, List<Condition> conditions, Map<String, String> options) {
+        return new DeclarativeFix(fix, name, conditions, options);
     }
 }
