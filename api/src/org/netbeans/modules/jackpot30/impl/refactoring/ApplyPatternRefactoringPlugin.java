@@ -5,9 +5,11 @@ import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.ModificationResult.Difference;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
+import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.java.spi.DiffElement;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
@@ -40,7 +42,7 @@ public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
 
     public Problem prepare(RefactoringElementsBag refactoringElements) {
         BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope());
-        LinkedList<String> problems = new LinkedList<String>();
+        Collection<MessageImpl> problems = new LinkedList<MessageImpl>();
         Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, /*XXX*/new AtomicBoolean(), problems);
 
         refactoringElements.registerTransaction(new RetoucheCommit(new LinkedList<ModificationResult>(res)));
@@ -55,8 +57,8 @@ public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
 
         Problem current = null;
 
-        for (String problem : problems) {
-            Problem p = new Problem(false, problem);
+        for (MessageImpl problem : problems) {
+            Problem p = new Problem(problem.kind == MessageKind.ERROR, problem.text);
 
             if (current != null)
                 p.setNext(current);

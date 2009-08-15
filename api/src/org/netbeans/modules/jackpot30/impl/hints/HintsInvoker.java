@@ -81,6 +81,7 @@ import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.JavaSource.Priority;
 import org.netbeans.api.java.source.JavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.EditorAwareJavaSourceTaskFactory;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
@@ -157,19 +158,27 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
 
         timeLog.put("Jackpot 3.0 Element Based Hints", elementBasedEnd - elementBasedStart);
 
-        return computeHints(info, startAt, kindHints, patternHints);
+        return computeHints(info, startAt, kindHints, patternHints, new LinkedList<MessageImpl>());
     }
 
     public List<ErrorDescription> computeHints(CompilationInfo info,
                                         Map<Kind, List<HintDescription>> hints,
                                         Map<PatternDescription, List<HintDescription>> patternHints) {
-        return computeHints(info, new TreePath(info.getCompilationUnit()), hints, patternHints);
+        return computeHints(info, hints, patternHints, new LinkedList<MessageImpl>());
+    }
+
+    public List<ErrorDescription> computeHints(CompilationInfo info,
+                                        Map<Kind, List<HintDescription>> hints,
+                                        Map<PatternDescription, List<HintDescription>> patternHints,
+                                        Collection<? super MessageImpl> problems) {
+        return computeHints(info, new TreePath(info.getCompilationUnit()), hints, patternHints, problems);
     }
 
     List<ErrorDescription> computeHints(CompilationInfo info,
                                         TreePath startAt,
                                         Map<Kind, List<HintDescription>> hints,
-                                        Map<PatternDescription, List<HintDescription>> patternHints) {
+                                        Map<PatternDescription, List<HintDescription>> patternHints,
+                                        Collection<? super MessageImpl> problems) {
         List<ErrorDescription> errors = new  LinkedList<ErrorDescription>();
 
         if (!hints.isEmpty()) {
@@ -195,7 +204,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
 
         timeLog.put("Jackpot 3.0 Bulk Search", bulkEnd - bulkStart);
         
-        errors.addAll(doComputeHints(info, occurringPatterns, patternTests, startAt, patternHints));
+        errors.addAll(doComputeHints(info, occurringPatterns, patternTests, startAt, patternHints, problems));
 
         long patternEnd = System.currentTimeMillis();
 
@@ -205,7 +214,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
     }
 
     public List<ErrorDescription> doComputeHints(CompilationInfo info, Map<String, Collection<TreePath>> occurringPatterns, Map<String, List<PatternDescription>> patterns, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
-        return doComputeHints(info, occurringPatterns, patterns, new TreePath(info.getCompilationUnit()), patternHints);
+        return doComputeHints(info, occurringPatterns, patterns, new TreePath(info.getCompilationUnit()), patternHints, new LinkedList<MessageImpl>());
     }
 
     public static Map<String, List<PatternDescription>> computePatternTests(Map<PatternDescription, List<HintDescription>> patternHints) {
@@ -221,7 +230,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
         return patternTests;
     }
     
-    private List<ErrorDescription> doComputeHints(CompilationInfo info, Map<String, Collection<TreePath>> occurringPatterns, Map<String, List<PatternDescription>> patterns, TreePath startAt, Map<PatternDescription, List<HintDescription>> patternHints) throws IllegalStateException {
+    private List<ErrorDescription> doComputeHints(CompilationInfo info, Map<String, Collection<TreePath>> occurringPatterns, Map<String, List<PatternDescription>> patterns, TreePath startAt, Map<PatternDescription, List<HintDescription>> patternHints, Collection<? super MessageImpl> problems) throws IllegalStateException {
         List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
         
         for (Entry<String, Collection<TreePath>> occ : occurringPatterns.entrySet()) {
@@ -243,7 +252,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                         continue;
                     }
                     
-                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, candidate, verified.variables, verified.multiVariables, verified.variables2Names);
+                    HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, candidate, verified.variables, verified.multiVariables, verified.variables2Names, problems);
 
                     for (HintDescription hd : patternHints.get(d)) {
                         Collection<? extends ErrorDescription> workerErrors = hd.getWorker().createErrors(c);

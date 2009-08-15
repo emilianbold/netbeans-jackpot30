@@ -59,9 +59,11 @@ import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.sendopts.Env;
@@ -207,7 +209,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             }
 
             BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scope.GIVEN_SOURCE_ROOTS, (Object[]) BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0]));
-            List<String> problems = new LinkedList<String>();
+            List<MessageImpl> problems = new LinkedList<MessageImpl>();
             Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, null, problems);
             Set<FileObject> modified = new HashSet<FileObject>();
 
@@ -216,7 +218,7 @@ public class OptionProcessorImpl extends OptionProcessor {
                     mr.commit();
                 } catch (IOException ex) {
                     ex.printStackTrace(env.getErrorStream());
-                    problems.add("Cannot apply changes: " + ex.getLocalizedMessage());
+                    problems.add(new MessageImpl(MessageKind.ERROR, "Cannot apply changes: " + ex.getLocalizedMessage()));
                 }
                 modified.addAll(mr.getModifiedFileObjects());
             }
@@ -225,14 +227,14 @@ public class OptionProcessorImpl extends OptionProcessor {
                 BatchUtilities.removeUnusedImports(modified);
             } catch (IOException ex) {
                 ex.printStackTrace(env.getErrorStream());
-                problems.add("Cannot remove unused imports: " + ex.getLocalizedMessage());
+                problems.add(new MessageImpl(MessageKind.ERROR, "Cannot remove unused imports: " + ex.getLocalizedMessage()));
             }
 
             if (!problems.isEmpty()) {
                 env.getErrorStream().println("Problem encountered while applying the transformations:");
 
-                for (String problem : problems) {
-                    env.getErrorStream().println(problem);
+                for (MessageImpl problem : problems) {
+                    env.getErrorStream().println(problem.text);
                 }
             }
         }

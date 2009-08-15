@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Map;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.modules.jackpot30.spi.HintContext;
+import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
@@ -97,6 +98,9 @@ class DeclarativeHintsWorker implements Worker {
                 }
             }
 
+            reportErrorWarning(ctx, fix.getOptions());
+
+            //XXX: empty/noop fixes should not be realized:
             editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/));
         }
 
@@ -107,6 +111,20 @@ class DeclarativeHintsWorker implements Worker {
         }
 
         return Collections.singletonList(ed);
+    }
+
+    private static void reportErrorWarning(HintContext ctx, Map<String, String> options) {
+        String errorText = options.get("error");
+
+        if (errorText != null)  {
+            ctx.reportMessage(MessageKind.ERROR, errorText);
+        }
+
+        String warningText = options.get("warning");
+
+        if (warningText != null)  {
+            ctx.reportMessage(MessageKind.WARNING, warningText);
+        }
     }
 
 }

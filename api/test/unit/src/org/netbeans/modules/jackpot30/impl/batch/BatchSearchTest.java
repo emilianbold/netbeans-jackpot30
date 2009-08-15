@@ -19,6 +19,7 @@ import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Container;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
@@ -160,7 +161,7 @@ public class BatchSearchTest extends NbTestCase {
             Collection<String> resourcesRepr = new LinkedList<String>();
 
             for (Resource r : e.getValue()) {
-                for (ErrorDescription ed : r.getVerifiedSpans()) {
+                for (ErrorDescription ed : r.getVerifiedSpans(new LinkedList<MessageImpl>())) {
                     resourcesRepr.add(ed.toString());
                 }
             }

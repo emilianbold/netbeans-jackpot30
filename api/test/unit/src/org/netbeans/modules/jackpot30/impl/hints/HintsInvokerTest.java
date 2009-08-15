@@ -59,6 +59,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
 import org.netbeans.modules.jackpot30.spi.HintContext;
@@ -497,7 +498,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         Map<PatternDescription, List<HintDescription>> pattern2Hint = new HashMap<PatternDescription, List<HintDescription>>();
         RulesManager.sortOut(Collections.singletonList(hd), kind2Hints, pattern2Hint);
 
-        return new HintsInvoker().computeHints(info, new TreePath(info.getCompilationUnit()), kind2Hints, pattern2Hint);
+        return new HintsInvoker().computeHints(info, new TreePath(info.getCompilationUnit()), kind2Hints, pattern2Hint, new LinkedList<MessageImpl>());
     }
 
     @Override

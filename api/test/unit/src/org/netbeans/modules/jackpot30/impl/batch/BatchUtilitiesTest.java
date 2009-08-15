@@ -21,6 +21,7 @@ import org.netbeans.api.lexer.LanguagePath;
 import org.netbeans.api.lexer.Token;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearchTest.ClassPathProviderImpl;
@@ -78,7 +79,7 @@ public class BatchUtilitiesTest extends NbTestCase {
 
         Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory() :: $1 instanceof java.io.File => !$1.isFile();;");
         BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, src1, src3, empty);
-        List<String> problems = new LinkedList<String>();
+        List<MessageImpl> problems = new LinkedList<MessageImpl>();
         Collection<? extends ModificationResult> changes = BatchUtilities.applyFixes(result, null, new AtomicBoolean(), problems);
 
         assertTrue(problems.toString(), problems.isEmpty());

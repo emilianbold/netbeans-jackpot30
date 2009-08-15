@@ -31,6 +31,7 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.queries.FileEncodingQuery;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
@@ -189,7 +190,7 @@ public class BatchSearch {
         }
     }
     
-    public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources) {
+    public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources, Collection<? super MessageImpl> problems) {
         Set<Container> containers = new HashSet<Container>();
 
         for (Resource r : resources) {
@@ -230,7 +231,7 @@ public class BatchSearch {
         }
 
         try {
-            return getVerifiedSpansImpl(resources);
+            return getVerifiedSpansImpl(resources, problems);
         } finally {
             if (toRegister != null) {
                 GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {toRegister});
@@ -238,14 +239,14 @@ public class BatchSearch {
         }
     }
     
-    private static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpansImpl(Iterable<? extends Resource> resources) {
+    private static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpansImpl(Iterable<? extends Resource> resources, final Collection<? super MessageImpl> problems) {
         Collection<FileObject> files = new LinkedList<FileObject>();
         final Map<FileObject, Resource> file2Resource = new HashMap<FileObject, Resource>();
         final Map<Resource, Iterable<? extends ErrorDescription>> resource2Errors = new HashMap<Resource, Iterable<? extends ErrorDescription>>();
 
         for (Resource r : resources) {
             if (r.areSpansComputed()) {
-                resource2Errors.put(r, r.getVerifiedSpans());
+                resource2Errors.put(r, r.getVerifiedSpans(problems));
                 continue;
             }
             
@@ -274,7 +275,7 @@ public class BatchSearch {
 
                         RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
 
-                        List<ErrorDescription> hints = new HintsInvoker().computeHints(parameter, sortedHintsKinds, sortedHintsPatterns);
+                        List<ErrorDescription> hints = new HintsInvoker().computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
 
                         r.setVerifiedSpans(hints);
                         resource2Errors.put(r, hints);
@@ -476,9 +477,9 @@ public class BatchSearch {
             return spansComputed;
         }
 
-        public synchronized Iterable<ErrorDescription> getVerifiedSpans() {
+        public synchronized Iterable<ErrorDescription> getVerifiedSpans(Collection<? super MessageImpl> problems) {
             if (!spansComputed) {
-                BatchSearch.getVerifiedSpans(Collections.singletonList(this));
+                BatchSearch.getVerifiedSpans(Collections.singletonList(this), problems);
             }
             
             return verifiedSpans;

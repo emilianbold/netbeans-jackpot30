@@ -6,6 +6,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import javax.swing.text.Position.Bias;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
@@ -79,7 +80,7 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
             boolean faded = false;
 
             if (verify) {
-                Iterable<? extends ErrorDescription> errors = r.getVerifiedSpans();
+                Iterable<? extends ErrorDescription> errors = r.getVerifiedSpans(new LinkedList<MessageImpl>());
 
                 if (errors != null) {
                     spans = new LinkedList<PositionBounds>();

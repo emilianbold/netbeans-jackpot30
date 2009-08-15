@@ -65,6 +65,7 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
@@ -80,16 +81,16 @@ import org.openide.util.Exceptions;
  */
 public class BatchUtilities {
 
-    public static Collection<? extends ModificationResult> applyFixes(BatchResult candidates, ProgressHandleWrapper progress, AtomicBoolean cancel, Collection<? super String> problems) {
+    public static Collection<? extends ModificationResult> applyFixes(BatchResult candidates, ProgressHandleWrapper progress, AtomicBoolean cancel, Collection<? super MessageImpl> problems) {
         Map<FileObject, Collection<ErrorDescription>> file2eds = new HashMap<FileObject, Collection<ErrorDescription>>();
         
         for (Iterable<? extends Resource> it : candidates.projectId2Resources.values()) {
-            BatchSearch.getVerifiedSpans(it);
+            BatchSearch.getVerifiedSpans(it, problems);
 
             for (Resource r : it) {
                 List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
 
-                Iterable<? extends ErrorDescription> current = r.getVerifiedSpans();
+                Iterable<? extends ErrorDescription> current = r.getVerifiedSpans(problems);
 
                 if (current == null) {
                     //XXX: warn?
