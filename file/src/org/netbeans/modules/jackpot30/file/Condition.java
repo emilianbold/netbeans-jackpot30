@@ -24,7 +24,7 @@ public abstract class Condition {
         this.not = not;
     }
 
-    public abstract boolean holds(HintContext ctx);
+    public abstract boolean holds(HintContext ctx, boolean global);
 
     @Override
     public abstract String toString();
@@ -43,9 +43,11 @@ public abstract class Condition {
         }
 
         @Override
-        public boolean holds(HintContext ctx) {
-            if (!not) {
-                return true; //positive instanceof conditions should be fullfilled automatically
+        public boolean holds(HintContext ctx, boolean global) {
+            if (global && !not) {
+                //if this is a global condition, not == false, then the computation should always lead to true
+                //note that ctx.getVariables().get(variable) might even by null (implicit this)
+                return true;
             }
 
             TreePath boundTo = ctx.getVariables().get(variable);
@@ -53,12 +55,12 @@ public abstract class Condition {
             TypeElement jlObject = ctx.getInfo().getElements().getTypeElement("java.lang.Object");
             TypeMirror designedType = ctx.getInfo().getTreeUtilities().parseType(constraint, jlObject);
 
-            return !ctx.getInfo().getTypes().isSubtype(realType, designedType);
+            return not ^ ctx.getInfo().getTypes().isSubtype(realType, designedType);
         }
 
         @Override
         public String toString() {
-            return "(INSTANCEOF " + variable + "/" + constraint + ")";
+            return "(INSTANCEOF " + (not ? "!" : "") + variable + "/" + constraint + ")";
         }
 
     }
@@ -77,7 +79,7 @@ public abstract class Condition {
         }
 
         @Override
-        public boolean holds(HintContext ctx) {
+        public boolean holds(HintContext ctx, boolean global) {
             return mic.invokeMethod(ctx, methodName, params) ^ not;
         }
 

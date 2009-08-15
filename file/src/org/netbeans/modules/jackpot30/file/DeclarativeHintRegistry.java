@@ -53,6 +53,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
@@ -163,8 +164,9 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             List<DeclarativeFix> fixes = new LinkedList<DeclarativeFix>();
 
-            for (int[] fixRange : hint.fixes) {
-                fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1])));
+            for (FixTextDescription fix : hint.fixes) {
+                int[] fixRange = fix.fixSpan;
+                fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1]), fix.conditions));
             }
 
             f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, fixes));

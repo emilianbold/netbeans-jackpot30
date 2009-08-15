@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
 import org.netbeans.modules.parsing.api.Embedding;
@@ -77,7 +78,8 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
             result.add(snapshot.create(hint.textStart, hint.textEnd - hint.textStart, "text/x-java"));
             result.add(snapshot.create(SNIPPET_PATTERN_SUFFIX, "text/x-java"));
 
-            for (int[] fixes : hint.fixes) {
+            for (FixTextDescription f : hint.fixes) {
+                int[] fixes = f.fixSpan;
                 result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART1.replaceAll("\\{0\\}", "" + (index++)), "text/x-java"));
                 result.add(snapshot.create(builder.toString(), "text/x-java"));
                 result.add(snapshot.create(SNIPPET_PATTERN_PREFIX_PART2, "text/x-java"));

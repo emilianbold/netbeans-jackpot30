@@ -13,6 +13,7 @@ import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import static org.junit.Assert.*;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
@@ -126,6 +127,20 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                     Arrays.asList("private boolean test(Variable v) {return false;}"));
     }
 
+    public void testConditionOnFix() {
+        Map<String, ParameterKind> m = new LinkedHashMap<String, ParameterKind>();
+
+        m.put("a", ParameterKind.STRING_LITERAL);
+        m.put("$2", ParameterKind.VARIABLE);
+        m.put("$1", ParameterKind.VARIABLE);
+
+        performTest("'test': $1 + $2 => 1 + 1 :: test(\"a\", $2, $1);;",
+                    StringHintDescription.create("$1 + $2 ")
+                                         .addTos(new StringFixDescription(" 1 + 1 ")
+                                                 .addCondition(new MethodInvocation(false, "test", m, null)))
+                                         .setDisplayName("test"));
+    }
+
     protected void setUp() throws Exception {
         SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
         
@@ -184,12 +199,12 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         private String displayName;
         private final String text;
         private final List<String> conditions;
-        private final List<String> to;
+        private final List<StringFixDescription> to;
 
         private StringHintDescription(String text) {
             this.text = text;
             this.conditions = new LinkedList<String>();
-            this.to = new LinkedList<String>();
+            this.to = new LinkedList<StringFixDescription>();
         }
 
         public static StringHintDescription create(String text) {
@@ -203,8 +218,15 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                 r = r.addCondition(c);
             }
 
-            for (int[] range : desc.fixes) {
-                r = r.addTos(code.substring(range[0], range[1]));
+            for (FixTextDescription fix : desc.fixes) {
+                int[] range = fix.fixSpan;
+                final StringFixDescription sfd = new StringFixDescription(code.substring(range[0], range[1]));
+
+                for (Condition c : fix.conditions) {
+                    sfd.addCondition(c);
+                }
+
+                r = r.addTos(sfd);
             }
 
             return r.setDisplayName(desc.displayName);
@@ -216,6 +238,13 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         }
 
         public StringHintDescription addTos(String... to) {
+            for (String t : to) {
+                this.to.add(new StringFixDescription(t));
+            }
+            return this;
+        }
+
+        public StringHintDescription addTos(StringFixDescription... to) {
             this.to.addAll(Arrays.asList(to));
             return this;
         }
@@ -264,6 +293,51 @@ public class DeclarativeHintsParserTest extends NbTestCase {
             return "<" + String.valueOf(displayName) + ":" + text + ":" + conditions + ":" + to + ">";
         }
 
+    }
+
+    private static final class StringFixDescription {
+        private final String to;
+        private final List<String> conditions = new LinkedList<String>();
+
+        public StringFixDescription(String to) {
+            this.to = to;
+        }
+
+        public StringFixDescription addCondition(Condition c) {
+            conditions.add(c.toString());
+            return this;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            final StringFixDescription other = (StringFixDescription) obj;
+            if ((this.to == null) ? (other.to != null) : !this.to.equals(other.to)) {
+                return false;
+            }
+            if (this.conditions != other.conditions && (this.conditions == null || !this.conditions.equals(other.conditions))) {
+                return false;
+            }
+            return true;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 5;
+            hash = 53 * hash + (this.to != null ? this.to.hashCode() : 0);
+            hash = 53 * hash + (this.conditions != null ? this.conditions.hashCode() : 0);
+            return hash;
+        }
+
+        @Override
+        public String toString() {
+            return "<" + to + ":" + conditions + ">";
+        }
     }
 
 }

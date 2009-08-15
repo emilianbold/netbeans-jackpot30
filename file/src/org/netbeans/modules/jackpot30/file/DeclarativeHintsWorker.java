@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.file;
 import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.modules.jackpot30.spi.HintContext;
@@ -79,18 +80,24 @@ class DeclarativeHintsWorker implements Worker {
 
     public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
         for (Condition c : conditions) {
-            if (!c.holds(ctx)) {
+            if (!c.holds(ctx, true)) {
                 return null;
             }
         }
         
-        Fix[] editorFixes = new Fix[fixes.size()];
+        List<Fix> editorFixes = new LinkedList<Fix>();
 
-        for (int cntr = 0; cntr < fixes.size(); cntr++) {
-            editorFixes[cntr] = JavaFix.rewriteFix(ctx.getInfo(), fixes.get(cntr).getDisplayName(), ctx.getPath(), fixes.get(cntr).getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/);
+        OUTER: for (DeclarativeFix fix : fixes) {
+            for (Condition c : fix.getConditions()) {
+                if (!c.holds(ctx, false)) {
+                    continue OUTER;
+                }
+            }
+
+            editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/));
         }
 
-        ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, editorFixes);
+        ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, editorFixes.toArray(new Fix[0]));
 
         if (ed == null) {
             return null;

@@ -144,7 +144,7 @@ public class DeclarativeHintsParser {
             parseConditions(conditions);
         }
 
-        List<int[]> targets = new LinkedList<int[]>();
+        List<FixTextDescription> targets = new LinkedList<FixTextDescription>();
 
         while (id() == LEADS_TO && !eof) {
             nextToken();
@@ -159,12 +159,14 @@ public class DeclarativeHintsParser {
             }
 
             int targetEnd = input.offset();
+            int[] span = new int[] {targetStart, targetEnd};
+            List<Condition> fixConditions = new LinkedList<Condition>();
 
-            targets.add(new int[] {targetStart, targetEnd});
-            
             if (id() == DOUBLE_COLON) {
-                parseCondition(new LinkedList<Condition>());
+                parseConditions(fixConditions);
             }
+
+            targets.add(new FixTextDescription(span, fixConditions));
         }
 
         hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, targets));
@@ -308,9 +310,9 @@ public class DeclarativeHintsParser {
         public final int textStart;
         public final int textEnd;
         public final List<Condition> conditions;
-        public final List<int[]> fixes;
+        public final List<FixTextDescription> fixes;
 
-        public HintTextDescription(String displayName, int textStart, int textEnd, List<Condition> conditions, List<int[]> fixes) {
+        public HintTextDescription(String displayName, int textStart, int textEnd, List<Condition> conditions, List<FixTextDescription> fixes) {
             this.displayName = displayName;
             this.textStart = textStart;
             this.textEnd = textEnd;
@@ -318,5 +320,15 @@ public class DeclarativeHintsParser {
             this.fixes = fixes;
         }
 
+    }
+
+    public static final class FixTextDescription {
+        public final int[] fixSpan;
+        public final List<Condition> conditions;
+
+        public FixTextDescription(int[] fixSpan, List<Condition> conditions) {
+            this.fixSpan = fixSpan;
+            this.conditions = conditions;
+        }
     }
 }
