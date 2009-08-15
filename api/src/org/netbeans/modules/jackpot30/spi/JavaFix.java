@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.javadoc.Tag;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.VariableTree;
 import java.io.IOException;
@@ -169,6 +170,26 @@ public abstract class JavaFix {
         }
 
         CharSequence wildcardTreeName = Utilities.getWildcardTreeName(bt.getStatements().get(0));
+
+        if (wildcardTreeName == null) {
+            return false;
+        }
+
+        return wildcardTreeName.toString().startsWith("$$");
+    }
+
+    private static boolean isFakeClass(Tree t) {
+        if (!(t instanceof ClassTree)) {
+            return false;
+        }
+
+        ClassTree ct = (ClassTree) t;
+
+        if (ct.getMembers().isEmpty()) {
+            return false;
+        }
+
+        CharSequence wildcardTreeName = Utilities.getWildcardTreeName(ct.getMembers().get(0));
 
         if (wildcardTreeName == null) {
             return false;
@@ -401,7 +422,7 @@ public abstract class JavaFix {
 
             Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1]);
 
-            if (!isFakeBlock(parsed) && (tp.getLeaf().getKind() != Kind.BLOCK || !parametersMulti.containsKey("$$1$") || parsed.getKind() == Kind.BLOCK)) {
+            if (!isFakeBlock(parsed) && !isFakeClass(parsed) && (tp.getLeaf().getKind() != Kind.BLOCK || !parametersMulti.containsKey("$$1$") || parsed.getKind() == Kind.BLOCK)) {
                 wc.rewrite(tp.getLeaf(), parsed);
             } else {
                 if (isFakeBlock(parsed)) {
@@ -425,6 +446,27 @@ public abstract class JavaFix {
                     } else {
                         wc.rewrite(tp.getLeaf(), wc.getTreeMaker().Block(statements, false));
                     }
+                } else if (isFakeClass(parsed)) {
+                    TreePath parent = tp.getParentPath();
+                    List<? extends Tree> members = ((ClassTree) parsed).getMembers();
+
+                    members = members.subList(1, members.size());
+
+                    assert parent.getLeaf().getKind() == Kind.CLASS;
+                    
+                    List<Tree> newMembers = new LinkedList<Tree>();
+
+                    ClassTree ct = (ClassTree) parent.getLeaf();
+                    
+                    for (Tree t : ct.getMembers()) {
+                        if (t == tp.getLeaf()) {
+                            newMembers.addAll(members);
+                        } else {
+                            newMembers.add(t);
+                        }
+                    }
+
+                    wc.rewrite(parent.getLeaf(), wc.getTreeMaker().Class(ct.getModifiers(), ct.getSimpleName(), ct.getTypeParameters(), ct.getExtendsClause(), ct.getImplementsClause(), newMembers));
                 } else {
                     List<StatementTree> newStatements = new LinkedList<StatementTree>();
 

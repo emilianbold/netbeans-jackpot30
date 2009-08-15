@@ -52,6 +52,38 @@ public class UtilitiesTest extends TestBase {
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
     }
 
+    public void testParseAndAttributeMethod() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.singletonMap("$1", info.getTreeUtilities().parseType("int", info.getTopLevelElements().get(0))));
+        String methodCode = "private int test(int i) { return i; }";
+        Tree result = Utilities.parseAndAttribute(info, methodCode, s);
+
+        assertEquals(Kind.METHOD, result.getKind());
+        assertEquals(methodCode.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " ").trim());
+    }
+
+    public void testParseAndAttributeMultipleClassMembers() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.singletonMap("$1", info.getTreeUtilities().parseType("int", info.getTopLevelElements().get(0))));
+        String code = "private int i; private int getI() { return i; } private void setI(int i) { this.i = i; }";
+        Tree result = Utilities.parseAndAttribute(info, code, s);
+
+        String golden = "class $ {\n" +
+                        "    $$1$;\n" +
+                        "    private int i;\n" +
+                        "    private int getI() {\n" +
+                        "        return i;\n" +
+                        "    }\n" +
+                        "    private void setI(int i) {\n" +
+                        "        this.i = i;\n" +
+                        "    }\n" +
+                        "}";
+        
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " ").trim());
+    }
+
     public void testToHumanReadableTime() {
         long time = 202;
         assertEquals(    "5s", Utilities.toHumanReadableTime(time +=           5 * 1000));

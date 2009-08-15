@@ -54,14 +54,17 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.NewArrayTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
@@ -70,6 +73,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -83,6 +87,7 @@ import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
@@ -235,16 +240,17 @@ public class Utilities {
         TreeFactory make = TreeFactory.instance(c);
         Tree patternTree = !isStatement(pattern) ? jti.parseExpression(pattern, new SourcePositions[1]) : null;
         boolean expression = true;
+        boolean classMember = false;
 
-        if (patternTree == null || patternTree.getKind() == Kind.ERRONEOUS || (patternTree.getKind() == Kind.IDENTIFIER && ((IdentifierTree) patternTree).getName().contentEquals("<error>"))) { //TODO: <error>...
-            patternTree = jti.parseStatement("{" + pattern + "}", new SourcePositions[1]);
+        if (patternTree == null || isErrorTree(patternTree)) {
+            Tree currentPatternTree = jti.parseStatement("{" + pattern + "}", new SourcePositions[1]);
 
-            assert patternTree.getKind() == Kind.BLOCK : patternTree.getKind();
+            assert currentPatternTree.getKind() == Kind.BLOCK : currentPatternTree.getKind();
 
-            List<? extends StatementTree> statements = ((BlockTree) patternTree).getStatements();
+            List<? extends StatementTree> statements = ((BlockTree) currentPatternTree).getStatements();
 
             if (statements.size() == 1) {
-                patternTree = statements.get(0);
+                currentPatternTree = statements.get(0);
             } else {
                 List<StatementTree> newStatements = new LinkedList<StatementTree>();
 
@@ -252,42 +258,70 @@ public class Utilities {
                 newStatements.addAll(statements);
                 newStatements.add(make.ExpressionStatement(make.Identifier("$$2$")));
 
-                patternTree = make.Block(newStatements, false);
+                currentPatternTree = make.Block(newStatements, false);
+            }
+
+            currentPatternTree = fixTree(c, currentPatternTree);
+
+            if (containsError(currentPatternTree)) {
+                //maybe a class member?
+                Tree classPatternTree = jti.parseExpression("new Object() {" + pattern + "}", new SourcePositions[1]);
+
+                classPatternTree = fixTree(c, classPatternTree);
+                
+                if (!containsError(classPatternTree)) {
+                    patternTree = classPatternTree;
+                    classMember = true;
+                } else {
+                    patternTree = currentPatternTree;
+                }
+            } else {
+                patternTree = currentPatternTree;
             }
             
             expression = false;
+        } else {
+            patternTree = fixTree(c, patternTree);
         }
 
-        FixTree fixTree = new FixTree();
+        int syntheticOffset = 0;
 
-        //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
-        //but sometimes no CompilationUnitTree (e.g. during BatchApply):
-        CompilationUnitTree cut = make.CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
+        if (scope != null) {
+            assert info != null;
 
-        fixTree.attach(c, new ImportAnalysis2(c), cut, null);
+            TypeMirror type = info.getTreeUtilities().attributeTree(patternTree, scope);
 
-        patternTree = fixTree.translate(patternTree);
+            if (isError(type) && expression) {
+                //maybe type?
+                if (Utilities.isPureMemberSelect(patternTree, false) && info.getElements().getTypeElement(pattern) != null) {
+                    Tree var = info.getTreeUtilities().parseExpression(pattern + ".class;", new SourcePositions[1]);
 
-        if (scope == null) {
-            return patternTree;
-        }
+                    type = info.getTreeUtilities().attributeTree(var, scope);
 
-        assert info != null;
+                    Tree typeTree = ((MemberSelectTree) var).getExpression();
 
-        TypeMirror type = info.getTreeUtilities().attributeTree(patternTree, scope);
-
-        if (isError(type) && expression) {
-            //maybe type?
-            if (Utilities.isPureMemberSelect(patternTree, false) && info.getElements().getTypeElement(pattern) != null) {
-                Tree var = info.getTreeUtilities().parseExpression(pattern + ".class;", new SourcePositions[1]);
-
-                type = info.getTreeUtilities().attributeTree(var, scope);
-
-                Tree typeTree = ((MemberSelectTree) var).getExpression();
-
-                if (!isError(info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), typeTree)))) {
-                    patternTree = typeTree;
+                    if (!isError(info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), typeTree)))) {
+                        patternTree = typeTree;
+                    }
                 }
+            }
+
+            syntheticOffset = 1;
+        }
+
+        if (classMember) {
+            List<? extends Tree> members = ((NewClassTree) patternTree).getClassBody().getMembers();
+
+            if (members.size() > 1 + syntheticOffset) {
+                ModifiersTree mt = make.Modifiers(EnumSet.noneOf(Modifier.class));
+                List<Tree> newMembers = new LinkedList<Tree>();
+
+                newMembers.add(make.ExpressionStatement(make.Identifier("$$1$")));
+                newMembers.addAll(members.subList(syntheticOffset, members.size()));
+
+                patternTree = make.Class(mt, "$", Collections.<TypeParameterTree>emptyList(), null, Collections.<Tree>emptyList(), newMembers);
+            } else {
+                patternTree = members.get(0 + syntheticOffset);
             }
         }
 
@@ -305,7 +339,42 @@ public class Utilities {
     private static boolean isStatement(String pattern) {
         return pattern.trim().endsWith(";");
     }
+
+    private static boolean isErrorTree(Tree t) {
+        return t.getKind() == Kind.ERRONEOUS || (t.getKind() == Kind.IDENTIFIER && ((IdentifierTree) t).getName().contentEquals("<error>")); //TODO: <error>...
+    }
     
+    private static boolean containsError(Tree t) {
+        return new TreeScanner<Boolean, Void>() {
+            @Override
+            public Boolean scan(Tree node, Void p) {
+                if (node != null && isErrorTree(node)) {
+                    return true;
+                }
+                return super.scan(node, p) ==Boolean.TRUE;
+            }
+            @Override
+            public Boolean reduce(Boolean r1, Boolean r2) {
+                return r1 == Boolean.TRUE || r2 == Boolean.TRUE;
+            }
+        }.scan(t, null);
+    }
+    
+    private static Tree fixTree(Context c, Tree patternTree) {
+        TreeFactory make = TreeFactory.instance(c);
+        FixTree fixTree = new FixTree();
+
+        //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
+        //but sometimes no CompilationUnitTree (e.g. during BatchApply):
+        CompilationUnitTree cut = make.CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
+        ImportAnalysis2 ia = new ImportAnalysis2(c);
+
+        ia.setImports(Collections.<ImportTree>emptyList());
+        fixTree.attach(c, ia, cut, null);
+
+        return fixTree.translate(patternTree);
+    }
+
     private static final class FixTree extends ImmutableTreeTranslator {
 
         @Override
