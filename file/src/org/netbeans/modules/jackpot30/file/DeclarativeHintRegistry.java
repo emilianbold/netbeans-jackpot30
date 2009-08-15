@@ -169,7 +169,17 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1]), fix.conditions, fix.options));
             }
 
-            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, fixes, hint.options));
+            String suppressWarnings = hint.options.get("suppress-warnings");
+            String primarySuppressWarningsKey = null;
+
+            if (suppressWarnings != null) {
+                String[] keys = suppressWarnings.split(",");
+                
+                f.addSuppressWarningsKeys(keys);
+                primarySuppressWarningsKey = keys[0];
+            }
+
+            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, fixes, hint.options, primarySuppressWarningsKey));
             f = f.setDisplayName(displayName);
 
             result.add(f.produce());

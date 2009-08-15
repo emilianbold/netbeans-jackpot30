@@ -2,6 +2,7 @@ package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.tree.Tree.Kind;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.util.Parameters;
@@ -16,12 +17,14 @@ public final class HintDescription {
     private final Kind triggerKind;
     private final PatternDescription triggerPattern;
     private final Worker worker;
+    private final List<String> suppressWarnings;
 
-    private HintDescription(String displayName, Kind triggerKind, PatternDescription triggerPattern, Worker worker) {
+    private HintDescription(String displayName, Kind triggerKind, PatternDescription triggerPattern, Worker worker, List<String> suppressWarnings) {
         this.displayName = displayName;
         this.triggerKind = triggerKind;
         this.triggerPattern = triggerPattern;
         this.worker = worker;
+        this.suppressWarnings = suppressWarnings;
     }
 
     //XXX: should not be public
@@ -49,12 +52,16 @@ public final class HintDescription {
         return displayName;
     }
 
-    static HintDescription create(String displayName, PatternDescription triggerPattern, Worker worker) {
-        return new HintDescription(displayName, null, triggerPattern, worker);
+    public List<String> getSuppressWarnings() {
+        return suppressWarnings;
     }
 
-    static HintDescription create(String displayName, Kind triggerKind, Worker worker) {
-        return new HintDescription(displayName, triggerKind, null, worker);
+    static HintDescription create(String displayName, PatternDescription triggerPattern, Worker worker, List<String> suppressWarnings) {
+        return new HintDescription(displayName, null, triggerPattern, worker, suppressWarnings);
+    }
+
+    static HintDescription create(String displayName, Kind triggerKind, Worker worker, List<String> suppressWarnings) {
+        return new HintDescription(displayName, triggerKind, null, worker, suppressWarnings);
     }
 
     @Override

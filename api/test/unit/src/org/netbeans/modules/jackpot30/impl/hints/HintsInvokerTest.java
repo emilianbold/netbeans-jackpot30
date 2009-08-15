@@ -458,6 +458,20 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                             "|package test;\n");
     }
 
+    public void testSuppressWarnings() throws Exception {
+        performAnalysisTest("test/Test.java",
+                            "|package test;\n" +
+                            "@SuppressWarnings(\"test\")\n" +
+                            "public class Test {\n" +
+                            "     public Test test;\n" +
+                            "     public String name;\n" +
+                            "     private void test() {\n" +
+                            "         Test t = null;\n" +
+                            "         String s = t.test.toString();\n" +
+                            "     }\n" +
+                            "}\n");
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -486,6 +500,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testMultiple2OneStatement2", test2Hint.get("testMultiple2OneStatement1"));
         test2Hint.put("testMemberSelectInsideMemberSelect", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$Test.test", Collections.<String, String>singletonMap("$Test", "test.Test"))).setWorker(new WorkerImpl("$Test.getTest()")).produce());
         test2Hint.put("testPackageInfo", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$Test.test", Collections.<String, String>singletonMap("$Test", "test.Test"))).setWorker(new WorkerImpl("$Test.getTest()")).produce());
+        test2Hint.put("testSuppressWarnings", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$Test.test", Collections.<String, String>singletonMap("$Test", "test.Test"))).setWorker(new WorkerImpl("$Test.getTest()")).addSuppressWarningsKeys("test").produce());
     }
 
     @Override

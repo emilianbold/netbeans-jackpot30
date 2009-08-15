@@ -84,6 +84,7 @@ import org.netbeans.api.java.source.support.EditorAwareJavaSourceTaskFactory;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.java.hints.spi.AbstractHint;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
@@ -252,9 +253,13 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                         continue;
                     }
                     
+                    Set<String> suppressedWarnings = new HashSet<String>(Utilities.findSuppressedWarnings(info, candidate));
                     HintContext c = new HintContext(info, AbstractHint.HintSeverity.WARNING, candidate, verified.variables, verified.multiVariables, verified.variables2Names, problems);
 
                     for (HintDescription hd : patternHints.get(d)) {
+                        if (!Collections.disjoint(suppressedWarnings, hd.getSuppressWarnings()))
+                            continue;
+                        
                         Collection<? extends ErrorDescription> workerErrors = hd.getWorker().createErrors(c);
 
                         if (workerErrors != null) {

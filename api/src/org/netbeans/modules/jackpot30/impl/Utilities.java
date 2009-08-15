@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.impl;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ErroneousTree;
 import com.sun.source.tree.ExpressionStatementTree;
@@ -51,11 +52,13 @@ import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -67,15 +70,22 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.AnnotationValueVisitor;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.JavaFileObject;
@@ -455,4 +465,108 @@ public class Utilities {
     public static void waitScanFinished() throws InterruptedException {
         SourceUtils.waitScanFinished();
     }
+
+    public static Set<? extends String> findSuppressedWarnings(CompilationInfo info, TreePath path) {
+        //TODO: cache?
+        Set<String> keys = new HashSet<String>();
+
+        while (path != null) {
+            Tree leaf = path.getLeaf();
+
+            switch (leaf.getKind()) {
+                case METHOD:
+                    handleSuppressWarnings(info, path, ((MethodTree) leaf).getModifiers(), keys);
+                    break;
+                case CLASS:
+                    handleSuppressWarnings(info, path, ((ClassTree) leaf).getModifiers(), keys);
+                    break;
+                case VARIABLE:
+                    handleSuppressWarnings(info, path, ((VariableTree) leaf).getModifiers(), keys);
+                    break;
+            }
+
+            path = path.getParentPath();
+        }
+
+        return Collections.unmodifiableSet(keys);
+    }
+
+    private static void handleSuppressWarnings(CompilationInfo info, TreePath path, ModifiersTree modifiers, final Set<String> keys) {
+        Element el = info.getTrees().getElement(path);
+
+        if (el == null) {
+            return ;
+        }
+
+        for (AnnotationMirror am : el.getAnnotationMirrors()) {
+            Name fqn = ((TypeElement) am.getAnnotationType().asElement()).getQualifiedName();
+            
+            if (!fqn.contentEquals("java.lang.SuppressWarnings")) {
+                continue;
+            }
+
+            for (Entry<? extends ExecutableElement, ? extends AnnotationValue> e : am.getElementValues().entrySet()) {
+                if (!e.getKey().getSimpleName().contentEquals("value"))
+                    continue;
+
+                e.getValue().accept(new AnnotationValueVisitor<Void, Void>() {
+                    public Void visit(AnnotationValue av, Void p) {
+                        av.accept(this, p);
+                        return null;
+                    }
+                    public Void visit(AnnotationValue av) {
+                        av.accept(this, null);
+                        return null;
+                    }
+                    public Void visitBoolean(boolean b, Void p) {
+                        return null;
+                    }
+                    public Void visitByte(byte b, Void p) {
+                        return null;
+                    }
+                    public Void visitChar(char c, Void p) {
+                        return null;
+                    }
+                    public Void visitDouble(double d, Void p) {
+                        return null;
+                    }
+                    public Void visitFloat(float f, Void p) {
+                        return null;
+                    }
+                    public Void visitInt(int i, Void p) {
+                        return null;
+                    }
+                    public Void visitLong(long i, Void p) {
+                        return null;
+                    }
+                    public Void visitShort(short s, Void p) {
+                        return null;
+                    }
+                    public Void visitString(String s, Void p) {
+                        keys.add(s);
+                        return null;
+                    }
+                    public Void visitType(TypeMirror t, Void p) {
+                        return null;
+                    }
+                    public Void visitEnumConstant(VariableElement c, Void p) {
+                        return null;
+                    }
+                    public Void visitAnnotation(AnnotationMirror a, Void p) {
+                        return null;
+                    }
+                    public Void visitArray(List<? extends AnnotationValue> vals, Void p) {
+                        for (AnnotationValue av : vals) {
+                            av.accept(this, p);
+                        }
+                        return null;
+                    }
+                    public Void visitUnknown(AnnotationValue av, Void p) {
+                        return null;
+                    }
+                }, null);
+            }
+        }
+    }
+
 }

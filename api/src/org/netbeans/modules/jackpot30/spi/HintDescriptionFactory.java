@@ -1,6 +1,10 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.tree.Tree.Kind;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
 
@@ -14,6 +18,7 @@ public class HintDescriptionFactory {
     private       Kind triggerKind;
     private       PatternDescription triggerPattern;
     private       Worker worker;
+    private final List<String> suppressWarningsKeys = new LinkedList<String>();
     private       boolean finished;
 
     private HintDescriptionFactory() {
@@ -51,11 +56,16 @@ public class HintDescriptionFactory {
         return this;
     }
 
+    public HintDescriptionFactory addSuppressWarningsKeys(String... keys) {
+        this.suppressWarningsKeys.addAll(Arrays.asList(keys));
+        return this;
+    }
+
     public HintDescription produce() {
         if (this.triggerKind == null) {
-            return HintDescription.create(displayName, triggerPattern, worker);
+            return HintDescription.create(displayName, triggerPattern, worker, Collections.unmodifiableList(suppressWarningsKeys));
         } else {
-            return HintDescription.create(displayName, triggerKind, worker);
+            return HintDescription.create(displayName, triggerKind, worker, Collections.unmodifiableList(suppressWarningsKeys));
         }
     }
     
