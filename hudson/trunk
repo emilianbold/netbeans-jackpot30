@@ -40,6 +40,3 @@ ant -Ddist.base=$DIST_BASE -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbean
 mkdir -p build/server
 (cp server/do-indexing server/indexer/dist; cd server/indexer/dist/; zip -r ../../../build/server/indexer.zip *)
 (cd server/web.api/dist/; zip -r ../../../build/server/web.api.zip *)
-
-echo -e '--- !ditz.rubyforge.org,2008-03-06/config\nissue_dir: issues' >.ditz-config
-ditz html build/issues

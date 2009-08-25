@@ -5,7 +5,6 @@
 .*/nbproject/private
 ^nbproject/private$
 ^nbbuild$
-^.ditz-config$
 ^external$
 \.old$
 ^server/lib$
