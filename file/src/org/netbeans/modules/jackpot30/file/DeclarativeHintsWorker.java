@@ -63,13 +63,15 @@ class DeclarativeHintsWorker implements Worker {
 
     private final String displayName;
     private final List<Condition> conditions;
+    private final String imports;
     private final List<DeclarativeFix> fixes;
     private final Map<String, String> options;
     private final String primarySuppressWarningsKey;
 
-    public DeclarativeHintsWorker(String displayName, List<Condition> conditions, List<DeclarativeFix> fixes, Map<String, String> options, String primarySuppressWarningsKey) {
+    public DeclarativeHintsWorker(String displayName, List<Condition> conditions, String imports, List<DeclarativeFix> fixes, Map<String, String> options, String primarySuppressWarningsKey) {
         this.displayName = displayName;
         this.conditions = conditions;
+        this.imports = imports;
         this.fixes = fixes;
         this.options = options;
         this.primarySuppressWarningsKey = primarySuppressWarningsKey;
@@ -104,7 +106,7 @@ class DeclarativeHintsWorker implements Worker {
             reportErrorWarning(ctx, fix.getOptions());
 
             //XXX: empty/noop fixes should not be realized:
-            editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/));
+            editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/, imports));
         }
 
         if (primarySuppressWarningsKey != null && primarySuppressWarningsKey.length() > 0) {

@@ -242,7 +242,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                     constraints.put(e.getKey(), info.getTreeUtilities().parseType(e.getValue(), info.getElements().getTypeElement("java.lang.Object")));
                 }
 
-                Pattern p = Pattern.compile(info, occ.getKey(), constraints);
+                Pattern p = Pattern.compile(info, occ.getKey(), constraints, d.getImports());
                 TreePath toplevel = new TreePath(info.getCompilationUnit());
                 TreePath patt = new TreePath(toplevel, p.getPattern());
 

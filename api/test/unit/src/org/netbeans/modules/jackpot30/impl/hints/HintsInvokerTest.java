@@ -44,6 +44,7 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.lang.reflect.Method;
 import java.net.URI;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -491,6 +492,47 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testImports1() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         new java.util.LinkedList();\n" +
+                       "     }" +
+                       "}\n",
+                       "4:9-4:35:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "import java.util.ArrayList;\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         new ArrayList();\n" +
+                       "     }" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testImports2() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "import java.util.LinkedList;\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         LinkedList l;\n" +
+                       "     }" +
+                       "}\n",
+                       "4:20-4:21:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "import java.util.ArrayList;\n" +
+                       "import java.util.LinkedList;\n" +
+                       "public class Test {\n" +
+                       "     private void test() {\n" +
+                       "         ArrayList l;\n" +
+                       "     }" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -521,6 +563,8 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testPackageInfo", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$Test.test", Collections.<String, String>singletonMap("$Test", "test.Test"))).setWorker(new WorkerImpl("$Test.getTest()")).produce());
         test2Hint.put("testSuppressWarnings", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$Test.test", Collections.<String, String>singletonMap("$Test", "test.Test"))).setWorker(new WorkerImpl("$Test.getTest()")).addSuppressWarningsKeys("test").produce());
         test2Hint.put("testRewriteOneToMultipleClassMembers", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("private int i;", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("private int i; public int getI() { return i; }")).produce());
+        test2Hint.put("testImports1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("new LinkedList()", Collections.<String, String>emptyMap(), "import java.util.LinkedList;")).setWorker(new WorkerImpl("new ArrayList()", "import java.util.ArrayList;\n")).produce());
+        test2Hint.put("testImports2", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("LinkedList $0;", Collections.<String, String>emptyMap(), "import java.util.LinkedList;")).setWorker(new WorkerImpl("ArrayList $0;", "import java.util.ArrayList;\n")).produce());
     }
 
     @Override
@@ -556,6 +600,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
     private static final class WorkerImpl implements Worker {
 
         private final String fix;
+        private final Collection<String> imports;
 
         public WorkerImpl() {
             this(null);
@@ -563,6 +608,14 @@ public class HintsInvokerTest extends TreeRuleTestBase {
 
         public WorkerImpl(String fix) {
             this.fix = fix;
+            this.imports = Collections.emptyList();
+        }
+
+        public WorkerImpl(String fix, String firstImport, String... imports) {
+            this.fix = fix;
+            this.imports = new LinkedList<String>();
+            this.imports.add(firstImport);
+            this.imports.addAll(Arrays.asList(imports));
         }
 
         public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
@@ -573,7 +626,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
             List<Fix> fixes = new LinkedList<Fix>();
 
             if (fix != null) {
-                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), "Rewrite", ctx.getPath(), fix, ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), /*XXX*/Collections.<String, TypeMirror>emptyMap()));
+                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), "Rewrite", ctx.getPath(), fix, ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), /*XXX*/Collections.<String, TypeMirror>emptyMap(), imports.toArray(new String[0])));
             }
             
             return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "HINT", fixes.toArray(new Fix[0])));

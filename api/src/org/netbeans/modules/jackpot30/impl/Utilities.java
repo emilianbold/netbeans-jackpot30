@@ -423,9 +423,21 @@ public class Utilities {
     private static long inc;
 
     public static Scope constructScope(CompilationInfo info, Map<String, TypeMirror> constraints) {
+        return constructScope(info, constraints, Collections.<String>emptyList());
+    }
+
+    public static Scope constructScope(CompilationInfo info, Map<String, TypeMirror> constraints, Iterable<? extends String> auxiliaryImports) {
         StringBuilder clazz = new StringBuilder();
 
-        clazz.append("package $; public class $" + (inc++) + "{");
+        clazz.append("package $;");
+
+        for (String i : auxiliaryImports) {
+            clazz.append(i);
+        }
+
+        long count = inc++;
+
+        clazz.append("public class $" + count + "{");
 
         for (Entry<String, TypeMirror> e : constraints.entrySet()) {
             if (e.getValue() != null) {
@@ -446,7 +458,7 @@ public class Utilities {
 
         Log.instance(context).nerrors = 0;
 
-        JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/t.java").toURI(), System.currentTimeMillis(), clazz.toString());
+        JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/t" + count + ".java").toURI(), System.currentTimeMillis(), clazz.toString());
 
         try {
             Iterable<? extends CompilationUnitTree> parsed = jti.parse(jfo);

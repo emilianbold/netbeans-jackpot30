@@ -55,6 +55,7 @@ import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
@@ -138,8 +139,9 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
         TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
         List<HintDescription> result = new LinkedList<HintDescription>();
+        Result parsed = new DeclarativeHintsParser().parse(spec, ts);
 
-        for (HintTextDescription hint : new DeclarativeHintsParser().parse(spec, ts).hints) {
+        for (HintTextDescription hint : parsed.hints) {
             HintDescriptionFactory f = HintDescriptionFactory.create();
             String displayName;
 
@@ -160,7 +162,9 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 constraints.put(i.variable, i.constraint);
             }
 
-            f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints));
+            String imports = parsed.importsBlock != null ? spec.substring(parsed.importsBlock[0], parsed.importsBlock[1]) : "";
+            
+            f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints, imports));
 
             List<DeclarativeFix> fixes = new LinkedList<DeclarativeFix>();
 
@@ -179,7 +183,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 primarySuppressWarningsKey = keys[0];
             }
 
-            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, fixes, hint.options, primarySuppressWarningsKey));
+            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, hint.options, primarySuppressWarningsKey));
             f = f.setDisplayName(displayName);
 
             result.add(f.produce());

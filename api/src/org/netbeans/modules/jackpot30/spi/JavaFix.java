@@ -43,6 +43,7 @@ import com.sun.javadoc.Tag;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.VariableTree;
 import java.io.IOException;
 import java.util.Collection;
@@ -56,6 +57,7 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -126,7 +128,7 @@ public abstract class JavaFix {
         return handle.getFileObject();
     }
 
-    public static Fix rewriteFix(CompilationInfo info, String displayName, TreePath what, final String to, Map<String, TreePath> parameters, Map<String, Collection<? extends TreePath>> parametersMulti, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints) {
+    public static Fix rewriteFix(CompilationInfo info, String displayName, TreePath what, final String to, Map<String, TreePath> parameters, Map<String, Collection<? extends TreePath>> parametersMulti, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints, String... imports) {
         final Map<String, TreePathHandle> params = new HashMap<String, TreePathHandle>();
 
         for (Entry<String, TreePath> e : parameters.entrySet()) {
@@ -155,7 +157,7 @@ public abstract class JavaFix {
             displayName = defaultFixDisplayName(info, parameters, to);
         }
 
-        return toEditorFix(new JavaFixRealImpl(info, what, displayName, to, params, paramsMulti, parameterNames, constraintsHandles));
+        return toEditorFix(new JavaFixRealImpl(info, what, displayName, to, params, paramsMulti, parameterNames, constraintsHandles, Arrays.asList(imports)));
     }
 
     private static boolean isFakeBlock(Tree t) {
@@ -351,7 +353,20 @@ public abstract class JavaFix {
     private static boolean isStaticElement(Element el) {
         if (el == null) return false;
 
-        return el.getModifiers().contains(Modifier.STATIC);
+        if (el.getModifiers().contains(Modifier.STATIC)) {
+            //XXX:
+            if (!el.getKind().isClass() && !el.getKind().isInterface()) {
+                return false;
+            }
+            
+            return true;
+        }
+
+        if (el.getKind().isClass() || el.getKind().isInterface()) {
+            return el.getEnclosingElement().getKind() == ElementKind.PACKAGE;
+        }
+
+        return false;
     }
 
     public interface UpgradeUICallback {
@@ -364,9 +379,10 @@ public abstract class JavaFix {
         private final Map<String, Collection<TreePathHandle>> paramsMulti;
         private final Map<String, String> parameterNames;
         private final Map<String, TypeMirrorHandle<?>> constraintsHandles;
+        private final Iterable<? extends String> imports;
         private final String to;
 
-        public JavaFixRealImpl(CompilationInfo info, TreePath what, String displayName, String to, Map<String, TreePathHandle> params, Map<String, Collection<TreePathHandle>> paramsMulti, final Map<String, String> parameterNames, Map<String, TypeMirrorHandle<?>> constraintsHandles) {
+        public JavaFixRealImpl(CompilationInfo info, TreePath what, String displayName, String to, Map<String, TreePathHandle> params, Map<String, Collection<TreePathHandle>> paramsMulti, final Map<String, String> parameterNames, Map<String, TypeMirrorHandle<?>> constraintsHandles, Iterable<? extends String> imports) {
             super(info, what);
             
             this.displayName = displayName;
@@ -375,6 +391,7 @@ public abstract class JavaFix {
             this.paramsMulti = paramsMulti;
             this.parameterNames = parameterNames;
             this.constraintsHandles = constraintsHandles;
+            this.imports = imports;
         }
 
         @Override
@@ -420,7 +437,7 @@ public abstract class JavaFix {
                 constraints.put(c.getKey(), c.getValue().resolve(wc));
             }
 
-            Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1]);
+            Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1], imports);
 
             if (!isFakeBlock(parsed) && !isFakeClass(parsed) && (tp.getLeaf().getKind() != Kind.BLOCK || !parametersMulti.containsKey("$$1$") || parsed.getKind() == Kind.BLOCK)) {
                 wc.rewrite(tp.getLeaf(), parsed);
@@ -496,6 +513,12 @@ public abstract class JavaFix {
                     if (variableName != null) {
                         wc.rewrite(node, wc.getTreeMaker().Identifier(variableName));
                         return null;
+                    }
+
+                    Element e = wc.getTrees().getElement(getCurrentPath());
+
+                    if (e != null && isStaticElement(e)) {
+                        wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
                     }
 
                     return super.visitIdentifier(node, p);

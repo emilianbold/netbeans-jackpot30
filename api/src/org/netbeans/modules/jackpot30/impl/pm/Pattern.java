@@ -79,16 +79,16 @@ public class Pattern {
         Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
         pattern = parseOutTypesFromPattern(info, pattern, constraints);
 
-        return compile(info, pattern, constraints);
+        return compile(info, pattern, constraints, Collections.<String>emptyList());
     }
 
-    public static Pattern compile(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints) {
-        return compile(info, pattern, Collections.<String>emptyList(), constraints);
+    public static Pattern compile(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints, Iterable<? extends String> imports) {
+        return compile(info, pattern, Collections.<String>emptyList(), constraints, imports);
     }
 
-    public static Pattern compile(CompilationInfo info, String pattern, Iterable<String> antipatterns, Map<String, TypeMirror> constraints) {
+    public static Pattern compile(CompilationInfo info, String pattern, Iterable<String> antipatterns, Map<String, TypeMirror> constraints, Iterable<? extends String> imports) {
         Scope[] scope = new Scope[1];
-        Tree patternTree = parseAndAttribute(info, pattern, constraints, scope);
+        Tree patternTree = parseAndAttribute(info, pattern, constraints, scope, imports);
 
         List<Tree> antipatternsTrees = new LinkedList<Tree>();
 
@@ -155,8 +155,8 @@ public class Pattern {
         return filtered.toString();
     }
 
-    public static Tree parseAndAttribute(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints, Scope[] scope) {
-        scope[0] = Utilities.constructScope(info, constraints);
+    public static Tree parseAndAttribute(CompilationInfo info, String pattern, Map<String, TypeMirror> constraints, Scope[] scope, Iterable<? extends String> imports) {
+        scope[0] = Utilities.constructScope(info, constraints, imports);
 
         if (scope[0] == null) {
             return null;

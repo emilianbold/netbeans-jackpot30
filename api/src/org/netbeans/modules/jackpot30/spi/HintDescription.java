@@ -40,7 +40,9 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.tree.Tree.Kind;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -112,17 +114,20 @@ public final class HintDescription {
         
         private final String pattern;
         private final Map<String, String> constraints;
+        private final Iterable<? extends String> imports;
 
-        private PatternDescription(String pattern, Map<String, String> constraints) {
+        private PatternDescription(String pattern, Map<String, String> constraints, String... imports) {
             this.pattern = pattern;
             this.constraints = constraints;
+            this.imports = Arrays.asList(imports);
         }
 
-        public static PatternDescription create(String pattern, Map<String, String> constraints) {
+        public static PatternDescription create(String pattern, Map<String, String> constraints, String... imports) {
             Parameters.notNull("pattern", pattern);
             Parameters.notNull("constraints", constraints);
+            Parameters.notNull("imports", imports);
             
-            return new PatternDescription(pattern, constraints);
+            return new PatternDescription(pattern, constraints, imports);
         }
         
         @Override
@@ -159,6 +164,11 @@ public final class HintDescription {
         //XXX: should not be public:
         public Map<String, String> getConstraints() {
             return constraints;
+        }
+
+        //XXX: should not be public:
+        public Iterable<? extends String> getImports() {
+            return imports;
         }
     }
 
