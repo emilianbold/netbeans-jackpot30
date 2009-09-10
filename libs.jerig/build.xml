@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- You may freely edit this file. See harness/README in the NetBeans platform -->
+<!-- for some information on what you could do (e.g. targets to override). -->
+<!-- If you delete this file and reopen the project it will be recreated. -->
+<project name="org.netbeans.modules.jeriglib" default="netbeans" basedir=".">
+    <description>Builds, tests, and runs the project org.netbeans.modules.jeriglib.</description>
+    <import file="nbproject/build-impl.xml"/>
+    <target name="files-init" depends="projectized-common.files-init">
+        <mkdir dir="external" />
+        <get src="http://kenai.com/projects/jackpot30/downloads/download/external/jerig-36929ddc99ff.zip" dest="external/jerig-36929ddc99ff.zip" usetimestamp="true"/>
+        <unzip src="external/jerig-36929ddc99ff.zip" dest="external" overwrite="false" />
+        <mkdir dir="${cluster}/modules/ext" />
+        <copy  todir="${cluster}/modules/ext">
+            <fileset dir="external" includes="*.jar" />
+        </copy>
+    </target>
+
+    <target name="test" />
+    <target name="test-coverage" />
+    <target name="coverage-report" />
+    <target name="findbugs" />
+</project>

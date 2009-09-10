@@ -6,6 +6,7 @@
 ^nbproject/private$
 ^nbbuild$
 ^external$
+.*/external$
 \.old$
 ^server/lib$
 .*/nbproject-.*/private.xml
