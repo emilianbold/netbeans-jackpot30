@@ -51,7 +51,9 @@ import com.sun.source.util.TreeScanner;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UnsupportedEncodingException;
 import java.util.Collection;
+import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -341,7 +343,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                 Input i = normalizeInput(t, goDeeper, null);
                 try {
                     ctx.getOut().write('(');
-                    ctx.getOut().write('@' + i.kind.ordinal());
+                    ctx.getOut().write(kind2Encoded.get(i.kind));
                     if (i.name == null) {
                         treeKinds.add(i.kind.name());
                     } else {
@@ -392,7 +394,7 @@ public class NFABasedBulkSearch extends BulkSearch {
             if (read == '(') {
                 read = encoded.read(); //kind
 
-                Kind k = Kind.values()[read - '@'];
+                Kind k = encoded2Kind.get((read << 8) + encoded.read());
 
                 read = encoded.read();
 
@@ -449,6 +451,35 @@ public class NFABasedBulkSearch extends BulkSearch {
         }
 
         return false;
+    }
+
+    private static final Map<Kind, byte[]> kind2Encoded;
+    private static final Map<Integer, Kind> encoded2Kind;
+
+    static {
+        kind2Encoded = new EnumMap<Kind, byte[]>(Kind.class);
+        encoded2Kind = new HashMap<Integer, Kind>();
+
+        for (Kind k : Kind.values()) {
+            String enc = Integer.toHexString(k.ordinal());
+
+            if (enc.length() < 2) {
+                enc = "0" + enc;
+            }
+
+            try {
+                final byte[] bytes = enc.getBytes("UTF-8");
+
+                assert bytes.length == 2;
+
+                kind2Encoded.put(k, bytes);
+
+
+                encoded2Kind.put((bytes[0] << 8) + bytes[1], k);
+            } catch (UnsupportedEncodingException ex) {
+                throw new IllegalStateException(ex);
+            }
+        }
     }
 
     public static class BulkPatternImpl extends BulkPattern {

@@ -65,6 +65,7 @@ import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
@@ -74,6 +75,7 @@ import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -81,6 +83,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -93,6 +96,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.JavaCompiler.CompilationTask;
 import javax.tools.JavaFileObject;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
@@ -112,7 +116,6 @@ import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
-import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
@@ -650,4 +653,197 @@ public class Utilities {
         }
     }
 
+    public static Tree generalizePattern(CompilationInfo info, TreePath original) {
+        return generalizePattern(JavaSourceAccessor.getINSTANCE().getJavacTask(info), original);
+    }
+
+    public static Tree generalizePattern(CompilationTask task, TreePath original) {
+        JavacTaskImpl jti = (JavacTaskImpl) task;
+        com.sun.tools.javac.util.Context c = jti.getContext();
+        TreeFactory make = TreeFactory.instance(c);
+        Trees javacTrees = Trees.instance(task);
+        GeneralizePattern gp = new GeneralizePattern(javacTrees, make);
+
+        gp.scan(original, null);
+
+        GeneralizePatternITT itt = new GeneralizePatternITT(gp.tree2Variable);
+
+        //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
+        //but sometimes no CompilationUnitTree (e.g. during BatchApply):
+        CompilationUnitTree cut = TreeFactory.instance(c).CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
+
+        itt.attach(c, new NoImports(c), cut, null);
+
+        return itt.translate(original.getLeaf());
+    }
+
+    public static Tree generalizePattern(CompilationInfo info, TreePath original, int firstStatement, int lastStatement) {
+        JavacTaskImpl jti = JavaSourceAccessor.getINSTANCE().getJavacTask(info);
+        com.sun.tools.javac.util.Context c = jti.getContext();
+        TreeFactory make = TreeFactory.instance(c);
+        Tree translated = Utilities.generalizePattern(jti, original);
+
+        assert translated.getKind() == Kind.BLOCK;
+
+        List<StatementTree> newStatements = new LinkedList<StatementTree>();
+        BlockTree block = (BlockTree) translated;
+
+        if (firstStatement != lastStatement) {
+            newStatements.add(make.ExpressionStatement(make.Identifier("$s0$")));
+            newStatements.addAll(block.getStatements().subList(firstStatement, lastStatement + 1));
+            newStatements.add(make.ExpressionStatement(make.Identifier("$s1$")));
+
+            translated = make.Block(newStatements, block.isStatic());
+        } else {
+            translated = block.getStatements().get(firstStatement);
+        }
+
+        return translated;
+    }
+
+    private static final class GeneralizePattern extends TreePathScanner<Void, Void> {
+
+        public final Map<Tree, Tree> tree2Variable = new HashMap<Tree, Tree>();
+        private final Map<Element, String> element2Variable = new HashMap<Element, String>();
+        private final Trees javacTrees;
+        private final TreeFactory make;
+
+        private int currentVariableIndex = 0;
+
+        public GeneralizePattern(Trees javacTrees, TreeFactory make) {
+            this.javacTrees = javacTrees;
+            this.make = make;
+        }
+
+        private @NonNull String getVariable(@NonNull Element el) {
+            String var = element2Variable.get(el);
+
+            if (var == null) {
+                element2Variable.put(el, var = "$" + currentVariableIndex++);
+            }
+
+            return var;
+        }
+
+        private boolean shouldBeGeneralized(@NonNull Element el) {
+            if (el.getModifiers().contains(Modifier.PRIVATE)) {
+                return true;
+            }
+
+            switch (el.getKind()) {
+                case LOCAL_VARIABLE:
+                case EXCEPTION_PARAMETER:
+                case PARAMETER:
+                    return true;
+            }
+
+            return false;
+        }
+
+        @Override
+        public Void visitIdentifier(IdentifierTree node, Void p) {
+            Element e = javacTrees.getElement(getCurrentPath());
+
+            if (e != null && shouldBeGeneralized(e)) {
+                tree2Variable.put(node, make.Identifier(getVariable(e)));
+            }
+
+            return super.visitIdentifier(node, p);
+        }
+
+        @Override
+        public Void visitVariable(VariableTree node, Void p) {
+            Element e = javacTrees.getElement(getCurrentPath());
+
+            if (e != null && shouldBeGeneralized(e)) {
+                VariableTree nue = make.Variable(node.getModifiers(), getVariable(e), node.getType(), node.getInitializer());
+
+                tree2Variable.put(node, nue);
+            }
+
+            return super.visitVariable(node, p);
+        }
+
+    }
+
+    private static final class GeneralizePatternITT extends ImmutableTreeTranslator {
+
+        private final Map<Tree, Tree> tree2Variable;
+
+        public GeneralizePatternITT(Map<Tree, Tree> tree2Variable) {
+            this.tree2Variable = tree2Variable;
+        }
+
+        @Override
+        public Tree translate(Tree tree) {
+            Tree var = tree2Variable.remove(tree);
+
+            if (var != null) {
+                return super.translate(var);
+            }
+
+            return super.translate(tree);
+        }
+
+    }
+
+    private static final class NoImports extends ImportAnalysis2 {
+
+        public NoImports(Context env) {
+            super(env);
+        }
+
+        @Override
+        public void classEntered(ClassTree clazz) {}
+
+        @Override
+        public void classLeft() {}
+
+        @Override
+        public ExpressionTree resolveImport(MemberSelectTree orig, Element element) {
+            return orig;
+        }
+
+        @Override
+        public void setCompilationUnit(CompilationUnitTree cut) {}
+
+        private List<? extends ImportTree> imports;
+
+        @Override
+        public void setImports(List<? extends ImportTree> importsToAdd) {
+            this.imports = importsToAdd;
+        }
+
+        @Override
+        public List<? extends ImportTree> getImports() {
+            return this.imports;
+        }
+
+        @Override
+        public void setPackage(ExpressionTree packageNameTree) {}
+
+    }
+
+    public static long patternValue(Tree pattern) {
+        class VisitorImpl extends TreeScanner<Void, Void> {
+            private int value;
+            @Override
+            public Void scan(Tree node, Void p) {
+                if (node != null) value++;
+                return super.scan(node, p);
+            }
+            @Override
+            public Void visitIdentifier(IdentifierTree node, Void p) {
+                if (node.getName().toString().startsWith("$")) value--;
+                
+                return super.visitIdentifier(node, p);
+            }
+        }
+
+        VisitorImpl vi = new VisitorImpl();
+
+        vi.scan(pattern, null);
+
+        return vi.value;
+    }
 }

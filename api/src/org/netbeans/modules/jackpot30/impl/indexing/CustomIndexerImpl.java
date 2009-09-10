@@ -42,14 +42,15 @@ package org.netbeans.modules.jackpot30.impl.indexing;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Set;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
-import org.netbeans.modules.jackpot30.impl.pm.TreeSerializer;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
@@ -64,8 +65,11 @@ import org.openide.util.Exceptions;
  */
 public class CustomIndexerImpl extends CustomIndexer {
 
+    public static final Set<URL> indices = new HashSet<URL>(); //XXX
+    
     @Override
     protected void index(Iterable<? extends Indexable> files, Context context) {
+        indices.add(context.getRootURI());
         final IndexWriter[] w = new IndexWriter[1];
         
         try {
@@ -87,11 +91,11 @@ public class CustomIndexerImpl extends CustomIndexer {
             w[0] = Index.get(context.getRootURI()).openForWriting();
 
             JavaSource.create(cpInfo, toIndex).runUserActionTask(new Task<CompilationController>() {
-                public void run(CompilationController cc) throws Exception {
-                    if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
+                public void run(final CompilationController cc) throws Exception {
+                    if (cc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
                         return ;
 
-                    w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit());
+                    w[0].record(cc, cc.getFileObject().getURL(), cc.getCompilationUnit());
                 }
             }, true);
         } catch (IOException ex) {
@@ -156,7 +160,11 @@ public class CustomIndexerImpl extends CustomIndexer {
         }
 
         @Override
-        public void rootsRemoved(Iterable<? extends URL> removedRoots) {}
+        public void rootsRemoved(Iterable<? extends URL> removedRoots) {
+            for (URL u : removedRoots) {
+                indices.remove(u);
+            }
+        }
         
     }
 

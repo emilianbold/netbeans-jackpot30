@@ -44,9 +44,11 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
+import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
@@ -86,11 +88,17 @@ public class StandaloneIndexer {
         assert tool != null;
 
         StandardJavaFileManager m = tool.getStandardFileManager(null, null, null);
+
+        m.setLocation(StandardLocation.CLASS_PATH, Collections.<File>emptyList());
+        m.setLocation(StandardLocation.SOURCE_PATH, Collections.<File>emptyList());
+        
         Iterable<? extends JavaFileObject> fos = m.getJavaFileObjects(source);
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, null, Arrays.asList("-bootclasspath",  bootPath), null, fos);
         CompilationUnitTree cut = ct.parse().iterator().next();
 
-        w.record(source.toURI().toURL(), cut);
+        ct.analyze(ct.enter(Collections.singletonList(cut)));
+
+        w.record(ct, source.toURI().toURL(), cut);
     }
     
 }

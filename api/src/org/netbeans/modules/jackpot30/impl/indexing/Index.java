@@ -40,6 +40,12 @@
 package org.netbeans.modules.jackpot30.impl.indexing;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.Trees;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -48,13 +54,23 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.Reader;
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.SortedMap;
+import java.util.TreeMap;
+import javax.tools.JavaCompiler.CompilationTask;
 import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -71,10 +87,19 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
+import org.codeviation.commons.patterns.Caches;
+import org.codeviation.commons.patterns.Factory;
+import org.codeviation.lutz.Lutz.SuppressIndexing;
+import org.codeviation.pojson.Pojson.SuppressStoring;
+import org.codeviation.strast.IndexingStorage;
+import org.codeviation.strast.Strast;
 import org.netbeans.api.annotations.common.CheckForNull;
+import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
+import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.openide.util.Exceptions;
 
 /**
@@ -207,18 +232,27 @@ public class Index {
             return null;
         }
     }
-    
+
     public class IndexWriter {
 
         private final org.apache.lucene.index.IndexWriter luceneWriter;
+        private final IndexingStorage s;
 
         public IndexWriter() throws IOException {
             luceneWriter = new org.apache.lucene.index.IndexWriter(new File(cacheRoot, "fulltext"), new StandardAnalyzer());
+            s = Strast.createIndexingStorage(new File(cacheRoot, "duplicates/objects"), new File(cacheRoot, "duplicates/index"));
         }
 
-        public void record(URL source, CompilationUnitTree cut) throws IOException {
+        public void record(final CompilationInfo info, URL source, final CompilationUnitTree cut) throws IOException {
+            record(JavaSourceAccessor.getINSTANCE().getJavacTask(info), source, cut);
+        }
+
+        public void record(final CompilationTask task, URL source, final CompilationUnitTree cut) throws IOException {
             String relative = source.getPath().substring(stripLength);
             OutputStream out = null;
+            File generalizedFile = new File(new File(cacheRoot, "generalized"), relative);
+            generalizedFile.getParentFile().mkdirs();
+            final OutputStream genout = new FileOutputStream(generalizedFile);
             EncodingContext ec = null;
             
             try {
@@ -227,6 +261,58 @@ public class Index {
                 cacheFile.getParentFile().mkdirs();
 
                 out = new FileOutputStream(cacheFile);
+
+                final List<Collection<Data>> data = new ArrayList<Collection<Data>>();
+                final Map<String, Integer> key2Index = new HashMap<String, Integer>();
+                final org.codeviation.commons.patterns.Cache<Integer, String> cache = Caches.permanent(new Factory<Integer, String>() {
+                    public Integer create(String key) {
+                        int index = data.size();
+
+                        data.add(new LinkedList<Data>());
+                        key2Index.put(key, index);
+                        
+                        return index;
+                    }
+                });
+                
+                final SourcePositions sp = Trees.instance(task).getSourcePositions();
+
+                new TreePathScanner<Void, Void>() {
+                    @Override
+                    public Void scan(Tree tree, Void p) {
+                        if (tree == null) return null;
+                        if (getCurrentPath() != null) {
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            final EncodingContext ec = new BulkSearch.EncodingContext(baos);
+                            Tree generalizedPattern = Utilities.generalizePattern(task, new TreePath(getCurrentPath(), tree));
+                            long value = Utilities.patternValue(generalizedPattern);
+                            if (value >= MINIMAL_VALUE) {
+                                BulkSearch.getDefault().encode( generalizedPattern, ec);
+                                try {
+                                    final String text = new String(baos.toByteArray(), "UTF-8") + ":" + value;
+                                    Integer i = cache.create(text);
+
+                                    data.get(i).add(new Data(sp.getStartPosition(cut, tree), sp.getEndPosition(cut, tree), tree.toString(), value));
+                                } catch (UnsupportedEncodingException ex) {
+                                    Exceptions.printStackTrace(ex);
+                                }
+                            }
+                        }
+                        return super.scan(tree, p);
+                    }
+                }.scan(cut, null);
+
+                final DuplicatesIndexRecord r = new DuplicatesIndexRecord();
+                r.data = key2Index.keySet();
+                r.key2Index = key2Index;
+                r.index2Data = new MultiData[data.size()];
+
+                for (int c = 0; c < data.size(); c++) {
+                    r.index2Data[c] = new MultiData(data.get(c).toArray(new Data[0]));
+                }
+                
+                s.put(r, relative.split("/"));
+
                 ec = new EncodingContext(out);
 
                 BulkSearch.getDefault().encode(cut, ec);
@@ -244,6 +330,9 @@ public class Index {
                 if (out != null) {
                     out.close();
                 }
+                if (genout != null) {
+                    genout.close();
+                }
             }
         }
 
@@ -260,6 +349,7 @@ public class Index {
         public void close() throws IOException {
             luceneWriter.optimize();
             luceneWriter.close();
+            s.close();
         }
     }
 
@@ -280,5 +370,41 @@ public class Index {
 
             return new Token(t, 0, t.length());
         }
+    }
+
+    private static final int MINIMAL_VALUE = 5;
+
+    @Strast.Index(value="di")
+    public static class DuplicatesIndexRecord {
+        @SuppressStoring
+        public Set<String> data;
+        @SuppressIndexing
+        public Map<String, Integer> key2Index;
+        @SuppressIndexing
+        public MultiData[] index2Data;
+    }
+
+    public static class MultiData {
+        public Data[] data;
+
+        public MultiData() {}
+
+        public MultiData(Data[] data) {
+            this.data = data;
+        }
+    }
+
+    public static class Data {
+        public Data() {}
+        public Data(long start, long end, String text, long value) {
+            this.start = start;
+            this.end = end;
+            this.text = text;
+            this.value = value;
+        }
+        public long start;
+        public long end;
+        public String text;
+        public long value;
     }
 }

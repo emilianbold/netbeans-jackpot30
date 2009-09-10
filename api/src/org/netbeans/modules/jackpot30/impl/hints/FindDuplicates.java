@@ -40,35 +40,18 @@
 package org.netbeans.modules.jackpot30.impl.hints;
 
 import com.sun.source.tree.BlockTree;
-import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.IdentifierTree;
-import com.sun.source.tree.ImportTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
-import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreePathScanner;
-import com.sun.tools.javac.api.JavacTaskImpl;
-import com.sun.tools.javac.util.Context;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 import javax.swing.SwingUtilities;
-import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.source.CancellableTask;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -80,13 +63,10 @@ import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.support.CaretAwareJavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.SelectionAwareJavaSourceTaskFactory;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.refactoring.FindDuplicatesRefactoringUI;
 import org.netbeans.modules.java.hints.introduce.IntroduceHint;
-import org.netbeans.modules.java.source.JavaSourceAccessor;
-import org.netbeans.modules.java.source.builder.TreeFactory;
-import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
-import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
 import org.netbeans.modules.refactoring.spi.ui.UI;
 import org.netbeans.spi.editor.hints.ChangeInfo;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -95,7 +75,6 @@ import org.netbeans.spi.editor.hints.Fix;
 import org.netbeans.spi.editor.hints.HintsController;
 import org.netbeans.spi.editor.hints.Severity;
 import org.openide.filesystems.FileObject;
-import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -157,9 +136,9 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
                 return null; //XXX
             }
 
-            return generalizePattern(info, selection, statementSpan);
+            return Utilities.generalizePattern(info, selection, statementSpan[0], statementSpan[1]);
         } else {
-            return generalizePattern(info, selection, null);
+            return Utilities.generalizePattern(info, selection);
         }
     }
 
@@ -213,167 +192,6 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
 
     static TreePathHandle selectionForStatementsHack(CompilationInfo info, int start, int end, int[] outSpan)  {
         return IntroduceHint.validateSelectionForIntroduceMethod(info, start, end, outSpan);
-    }
-
-    static Tree generalizePattern(CompilationInfo info, TreePath original, int[] statementSpan) {
-        JavacTaskImpl jti = JavaSourceAccessor.getINSTANCE().getJavacTask(info);
-        Context c = jti.getContext();
-        TreeFactory make = TreeFactory.instance(c);
-        GeneralizePattern gp = new GeneralizePattern(info, make);
-
-        gp.scan(original, null);
-
-        GeneralizePatternITT itt = new GeneralizePatternITT(gp.tree2Variable);
-
-        //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
-        //but sometimes no CompilationUnitTree (e.g. during BatchApply):
-        CompilationUnitTree cut = TreeFactory.instance(c).CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
-
-        itt.attach(c, new NoImports(c), cut, null);
-
-        Tree translated = itt.translate(original.getLeaf());
-
-        if (statementSpan != null) {
-            assert translated.getKind() == Kind.BLOCK;
-
-            List<StatementTree> newStatements = new LinkedList<StatementTree>();
-            BlockTree block = (BlockTree) translated;
-
-            if (statementSpan[0] != statementSpan[1]) {
-                newStatements.add(make.ExpressionStatement(make.Identifier("$s0$")));
-                newStatements.addAll(block.getStatements().subList(statementSpan[0], statementSpan[1] + 1));
-                newStatements.add(make.ExpressionStatement(make.Identifier("$s1$")));
-
-                translated = make.Block(newStatements, block.isStatic());
-            } else {
-                translated = block.getStatements().get(statementSpan[0]);
-            }
-        }
-
-        return translated;
-    }
-
-    private static final class GeneralizePattern extends TreePathScanner<Void, Void> {
-
-        private final Map<Tree, Tree> tree2Variable = new HashMap<Tree, Tree>();
-        private final Map<Element, String> element2Variable = new HashMap<Element, String>();
-        private final CompilationInfo info;
-        private final TreeFactory make;
-
-        private int currentVariableIndex = 0;
-
-        public GeneralizePattern(CompilationInfo info, TreeFactory make) {
-            this.info = info;
-            this.make = make;
-        }
-
-        private @NonNull String getVariable(@NonNull Element el) {
-            String var = element2Variable.get(el);
-
-            if (var == null) {
-                element2Variable.put(el, var = "$" + currentVariableIndex++);
-            }
-
-            return var;
-        }
-
-        private boolean shouldBeGeneralized(@NonNull Element el) {
-            if (el.getModifiers().contains(Modifier.PRIVATE)) {
-                return true;
-            }
-
-            switch (el.getKind()) {
-                case LOCAL_VARIABLE:
-                case EXCEPTION_PARAMETER:
-                case PARAMETER:
-                    return true;
-            }
-
-            return false;
-        }
-        
-        @Override
-        public Void visitIdentifier(IdentifierTree node, Void p) {
-            Element e = info.getTrees().getElement(getCurrentPath());
-
-            if (e != null && shouldBeGeneralized(e)) {
-                tree2Variable.put(node, make.Identifier(getVariable(e)));
-            }
-            
-            return super.visitIdentifier(node, p);
-        }
-
-        @Override
-        public Void visitVariable(VariableTree node, Void p) {
-            Element e = info.getTrees().getElement(getCurrentPath());
-
-            if (e != null && shouldBeGeneralized(e)) {
-                VariableTree nue = make.Variable(node.getModifiers(), getVariable(e), node.getType(), node.getInitializer());
-                
-                tree2Variable.put(node, nue);
-            }
-            
-            return super.visitVariable(node, p);
-        }
-
-    }
-
-    private static final class GeneralizePatternITT extends ImmutableTreeTranslator {
-
-        private final Map<Tree, Tree> tree2Variable;
-
-        public GeneralizePatternITT(Map<Tree, Tree> tree2Variable) {
-            this.tree2Variable = tree2Variable;
-        }
-
-        @Override
-        public Tree translate(Tree tree) {
-            Tree var = tree2Variable.remove(tree);
-
-            if (var != null) {
-                return super.translate(var);
-            }
-            
-            return super.translate(tree);
-        }
-
-    }
-
-    private static final class NoImports extends ImportAnalysis2 {
-
-        public NoImports(Context env) {
-            super(env);
-        }
-
-        @Override
-        public void classEntered(ClassTree clazz) {}
-
-        @Override
-        public void classLeft() {}
-
-        @Override
-        public ExpressionTree resolveImport(MemberSelectTree orig, Element element) {
-            return orig;
-        }
-
-        @Override
-        public void setCompilationUnit(CompilationUnitTree cut) {}
-
-        private List<? extends ImportTree> imports;
-        
-        @Override
-        public void setImports(List<? extends ImportTree> importsToAdd) {
-            this.imports = importsToAdd;
-        }
-
-        @Override
-        public List<? extends ImportTree> getImports() {
-            return this.imports;
-        }
-
-        @Override
-        public void setPackage(ExpressionTree packageNameTree) {}
-
     }
 
     @ServiceProvider(service=JavaSourceTaskFactory.class)
