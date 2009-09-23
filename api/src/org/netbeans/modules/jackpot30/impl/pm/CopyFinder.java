@@ -33,6 +33,7 @@ import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.CatchTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.DoWhileLoopTree;
@@ -57,6 +58,7 @@ import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.ThrowTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
@@ -583,11 +585,21 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //    public Boolean visitCase(CaseTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
-//
-//    public Boolean visitCatch(CatchTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
-//
+
+    public Boolean visitCatch(CatchTree node, TreePath p) {
+        if (p == null) {
+            super.visitCatch(node, p);
+            return false;
+        }
+
+        CatchTree ef = (CatchTree) p.getLeaf();
+
+        if (!scan(node.getParameter(), ef.getParameter(), p))
+            return false;
+
+        return scan(node.getBlock(), ef.getBlock(), p);
+    }
+
 //    public Boolean visitClass(ClassTree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
@@ -877,9 +889,24 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
 
-//    public Boolean visitTry(TryTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitTry(TryTree node, TreePath p) {
+        if (p == null) {
+            super.visitTry(node, p);
+            return false;
+        }
+
+        TryTree at = (TryTree) p.getLeaf();
+
+        if (!scan(node.getBlock(), at.getBlock(), p)) {
+            return false;
+        }
+
+        if (!checkLists(node.getCatches(), at.getCatches(), p)) {
+            return false;
+        }
+
+        return scan(node.getFinallyBlock(), at.getFinallyBlock(), p);
+    }
 
     public Boolean visitParameterizedType(ParameterizedTypeTree node, TreePath p) {
         if (p == null)

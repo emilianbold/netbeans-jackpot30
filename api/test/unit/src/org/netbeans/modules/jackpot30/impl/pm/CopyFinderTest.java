@@ -343,6 +343,21 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              true);
     }
 
+    public void testTryCatch() throws Exception {
+        performVariablesTest("package test; import java.io.*; public class Test { public void test() { InputStream ins = null; try { ins = new FileInputStream(\"\"); } catch (IOException e) { e.printStackTrace(); } finally {ins.close();} } }",
+                             "try {$stmts$;} catch (java.io.IOException $e) {$e.printStackTrace();} finally {$finally$}",
+                             new Pair[] {
+                                   new Pair<String, int[]>("$e", new int[] {176 - 31 - 2, 189 - 31 - 2}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, int[]>("$stmts$", new int[] {134 - 31, 166 - 31 - 2}),
+                                  new Pair<String, int[]>("$finally$", new int[] {225 - 31 - 2, 237 - 31 - 2}),
+                             },
+                             new Pair[] {
+                                  new Pair<String, String>("$e", "e"),
+                             });
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }
