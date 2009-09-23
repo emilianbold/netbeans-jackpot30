@@ -123,12 +123,13 @@ public class ComputeDuplicates {
         CONT: for (Frequency f : getFieldValueFrequencies(r, "data", FieldConversion.NONE)) {
             if (f.frequency > 1) {
                 for (Iterator<String> it = of2.iterator(); it.hasNext(); )  {
-                    String n = it.next();
+                    String n = stripValue(it.next());
+                    String fValue = stripValue(f.value);
 
-                    if (n.contains(f.value)) {
+                    if (n.contains(fValue)) {
                         continue CONT;
                     }
-                    if (f.value.contains(n)) {
+                    if (fValue.contains(n)) {
                         it.remove();
                     }
                 }
@@ -191,6 +192,10 @@ public class ComputeDuplicates {
         }
         while (terms.next());
         return values;
+    }
+
+    private static String stripValue(String encoded) {
+        return encoded.substring(0, encoded.lastIndexOf(':'));
     }
 
     public static final class DuplicateDescription {

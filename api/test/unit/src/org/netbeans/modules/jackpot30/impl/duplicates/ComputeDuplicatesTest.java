@@ -37,22 +37,16 @@
  * Portions Copyrighted 2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.impl.indexing;
+package org.netbeans.modules.jackpot30.impl.duplicates;
 
-import java.net.URL;
-import java.util.Arrays;
-import java.util.HashSet;
-import java.util.Set;
-import org.netbeans.api.java.classpath.ClassPath;
-import org.netbeans.api.java.source.ClasspathInfo;
-import org.netbeans.api.java.source.CompilationController;
-import org.netbeans.api.java.source.JavaSource;
-import org.netbeans.api.java.source.SourceUtilsTestUtil;
-import org.netbeans.api.java.source.Task;
+import java.util.HashMap;
+import java.util.Map;
+import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.DuplicateDescription;
+import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.Span;
+import org.netbeans.modules.jackpot30.impl.indexing.IndexTestBase;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
-import org.netbeans.spi.java.classpath.support.ClassPathSupport;
-import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
+import static org.junit.Assert.*;
 
 import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.writeFilesAndWaitForScan;
 
@@ -60,42 +54,39 @@ import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.wri
  *
  * @author lahvac
  */
-public class IndexTest extends IndexTestBase {
+public class ComputeDuplicatesTest extends IndexTestBase {
 
-    public IndexTest(String name) {
+    public ComputeDuplicatesTest(String name) {
         super(name);
     }
 
-    public void testMultiplePatternsIndexing() throws Exception {
+    public void testDuplicateDuplicates() throws Exception {
         writeFilesAndWaitForScan(src,
                                  new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
-                                 new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
+                                 new File("test/Test2.java", "package test; public class Test2 { private int a; private void test() { java.io.File f = null; f.isDirectory(); } }"));
 
-        String[] patterns = new String[] {
-            "$1.isDirectory()",
-            "new ImageIcon($1)"
-        };
-
-        verifyIndex(patterns, "test/Test1.java", "test/Test2.java");
+        verifyDuplicates("test/Test1.java",
+                         "private void test() { java.io.File f = null; f.isDirectory(); }",
+                         "test/Test2.java",
+                         "private void test() { java.io.File f = null; f.isDirectory(); }");
     }
 
-    private void verifyIndex(final String[] patterns, String... containedIn) throws Exception {
-        ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
-        ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),
-                                                    EMPTY,
-                                                    EMPTY);
+    private void verifyDuplicates(String... fileAndDuplicateCode) throws Exception {
+        Map<String, String> duplicatesGolden = new HashMap<String, String>();
 
-        final Set<String> real = new HashSet<String>();
-        
-        JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
-            public void run(CompilationController parameter) throws Exception {
-                real.addAll(Index.get(src.getURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
+        for (int cntr = 0; cntr < fileAndDuplicateCode.length; cntr += 2) {
+            duplicatesGolden.put(fileAndDuplicateCode[cntr], fileAndDuplicateCode[cntr + 1]);
+        }
+
+        Map<String, String> duplicatesReal = new HashMap<String, String>();
+
+        for (DuplicateDescription dd : new ComputeDuplicates().computeDuplicatesForAllOpenedProjects()) {
+            for (Span s : dd.dupes) {
+                duplicatesReal.put(FileUtil.getRelativePath(src, s.file), s.span.getText());
             }
-        }, true);
+        }
 
-        Set<String> golden = new HashSet<String>(Arrays.asList(containedIn));
-
-        assertEquals(golden, real);
+        assertEquals(duplicatesGolden, duplicatesReal);
     }
 
 }

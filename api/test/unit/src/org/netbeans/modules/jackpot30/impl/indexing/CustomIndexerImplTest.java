@@ -41,26 +41,18 @@ package org.netbeans.modules.jackpot30.impl.indexing;
 
 import java.net.URL;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.netbeans.api.java.classpath.ClassPath;
-import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.Task;
-import org.netbeans.core.startup.Main;
-import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
-import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
-import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
-import org.netbeans.modules.parsing.impl.indexing.Util;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 
 import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.writeFilesAndWaitForScan;
 
@@ -68,22 +60,10 @@ import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.wri
  *
  * @author lahvac
  */
-public class CustomIndexerImplTest extends NbTestCase {
+public class CustomIndexerImplTest extends IndexTestBase {
 
     public CustomIndexerImplTest(String name) {
         super(name);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
-        Main.initializeURLFactory();
-        org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
-        prepareTest();
-        Util.allMimeTypes = Collections.singleton("text/x-java");
-        GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {ClassPathSupport.createClassPath(src)});
-        RepositoryUpdater.getDefault().start(true);
-        super.setUp();
     }
 
     public void testIndexing() throws Exception {
@@ -108,18 +88,6 @@ public class CustomIndexerImplTest extends NbTestCase {
         verifyIndex("new ImageIcon($1)", "test/Test1.java");
     }
     
-    private FileObject src;
-
-    private void prepareTest() throws Exception {
-        FileObject workdir = SourceUtilsTestUtil.makeScratchDir(this);
-
-        src = FileUtil.createFolder(workdir, "src");
-
-        FileObject cache = FileUtil.createFolder(workdir, "cache");
-
-        CacheFolder.setCacheFolder(cache);
-    }
-
     private void verifyIndex(final String pattern, String... containedIn) throws Exception {
         ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
         ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),

@@ -41,61 +41,59 @@ package org.netbeans.modules.jackpot30.impl.indexing;
 
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.core.startup.Main;
+import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
+import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
+import org.netbeans.modules.parsing.impl.indexing.Util;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
-
-import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.writeFilesAndWaitForScan;
+import org.openide.filesystems.FileUtil;
 
 /**
  *
  * @author lahvac
  */
-public class IndexTest extends IndexTestBase {
+public abstract class IndexTestBase extends NbTestCase {
 
-    public IndexTest(String name) {
+    public IndexTestBase(String name) {
         super(name);
     }
 
-    public void testMultiplePatternsIndexing() throws Exception {
-        writeFilesAndWaitForScan(src,
-                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
-                                 new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
-
-        String[] patterns = new String[] {
-            "$1.isDirectory()",
-            "new ImageIcon($1)"
-        };
-
-        verifyIndex(patterns, "test/Test1.java", "test/Test2.java");
+    @Override
+    protected void setUp() throws Exception {
+        SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
+        Main.initializeURLFactory();
+        org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
+        prepareTest();
+        Util.allMimeTypes = Collections.singleton("text/x-java");
+        GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {ClassPathSupport.createClassPath(src)});
+        RepositoryUpdater.getDefault().start(true);
+        super.setUp();
     }
 
-    private void verifyIndex(final String[] patterns, String... containedIn) throws Exception {
-        ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
-        ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),
-                                                    EMPTY,
-                                                    EMPTY);
+    protected FileObject src;
 
-        final Set<String> real = new HashSet<String>();
-        
-        JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
-            public void run(CompilationController parameter) throws Exception {
-                real.addAll(Index.get(src.getURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
-            }
-        }, true);
+    private void prepareTest() throws Exception {
+        FileObject workdir = SourceUtilsTestUtil.makeScratchDir(this);
 
-        Set<String> golden = new HashSet<String>(Arrays.asList(containedIn));
+        src = FileUtil.createFolder(workdir, "src");
 
-        assertEquals(golden, real);
+        FileObject cache = FileUtil.createFolder(workdir, "cache");
+
+        CacheFolder.setCacheFolder(cache);
     }
 
 }
