@@ -31,9 +31,9 @@
         <download url="http://repo2.maven.org/maven2/asm/asm-all/3.1/asm-all-3.1.jar" target="jersey-1.1/asm-all-3.1.jar"/>
         <download url="http://repo2.maven.org/maven2/asm/asm-all/3.1/asm-all-3.1-sources.jar" target="jersey-1.1/asm-all-3.1-sources.jar"/>
 
-        <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.3.2/lucene-core-2.3.2.jar" target="lucene-2.3.2/lucene-core-2.3.2.jar" />
-        <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.3.2/lucene-core-2.3.2-javadoc.jar" target="lucene-2.3.2/lucene-core-2.3.2-javadoc.jar" />
-        <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.3.2/lucene-core-2.3.2-sources.jar" target="lucene-2.3.2/lucene-core-2.3.2-sources.jar" />
+        <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.4.1/lucene-core-2.4.1.jar" target="lucene-2.4.1/lucene-core-2.4.1.jar" />
+        <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.4.1/lucene-core-2.4.1-javadoc.jar" target="lucene-2.4.1/lucene-core-2.4.1-javadoc.jar" />
+        <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.4.1/lucene-core-2.4.1-sources.jar" target="lucene-2.4.1/lucene-core-2.4.1-sources.jar" />
 
         <download url="http://repo1.maven.org/maven2/junit/junit/4.5/junit-4.5.jar" target="junit_4/junit-4.5.jar" />
         <download url="http://dfn.dl.sourceforge.net/sourceforge/junit/junit4.5.zip" target="junit_4/junit-4.5-api.zip" />
