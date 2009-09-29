@@ -51,6 +51,7 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.NewArrayTree;
@@ -67,6 +68,9 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import java.io.File;
@@ -83,7 +87,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -762,6 +765,19 @@ public class Utilities {
             }
 
             return super.visitVariable(node, p);
+        }
+
+        @Override
+        public Void visitNewClass(NewClassTree node, Void p) {
+            //XXX:
+            List<? extends ExpressionTree> arguments = node.getArguments();
+
+            if (!arguments.isEmpty() && arguments.get(0).getKind() == Kind.OTHER) {
+                tree2Variable.put(node, make.Identifier("$" + currentVariableIndex++));
+                return null;
+            }
+
+            return super.visitNewClass(node, p);
         }
 
     }

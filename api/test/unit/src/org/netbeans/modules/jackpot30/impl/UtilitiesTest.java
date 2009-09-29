@@ -42,8 +42,11 @@ package org.netbeans.modules.jackpot30.impl;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.util.TreePath;
+import com.sun.tools.javac.tree.JCTree;
 import java.util.Collections;
 import javax.lang.model.type.TypeMirror;
+import org.netbeans.modules.java.source.pretty.VeryPretty;
 
 /**
  *
@@ -128,6 +131,44 @@ public class UtilitiesTest extends TestBase {
         assertEquals(    "5s", Utilities.toHumanReadableTime(time +=           5 * 1000));
         assertEquals(  "3m5s", Utilities.toHumanReadableTime(time +=      3 * 60 * 1000));
         assertEquals("7h3m5s", Utilities.toHumanReadableTime(time += 7 * 60 * 60 * 1000));
+    }
+
+    public void testGeneralization() throws Exception {
+        performGeneralizationTest("package test;\n" +
+                                  "public class Test {\n" +
+                                  "    class Inner {\n" +
+                                  "        Inner(int i) {}\n" +
+                                  "    }\n" +
+                                  "    public static void main(String[] args) {\n" +
+                                  "        int i = 1;\n" +
+                                  "        Test c = null;\n" +
+                                  "        c.new Inner(i++) {};\n" +
+                                  "    }\n" +
+                                  "}\n",
+                                  "package test;\n" +
+                                  "public class Test {\n" +
+                                  "    class Inner {\n" +
+                                  "        Inner(int $0) { }\n" +
+                                  "    }\n" +
+                                  "    public static void main(String[] $1) {\n" +
+                                  "        int $2 = 1;\n" +
+                                  "        Test $3 = null;\n" +
+                                  "        $4;\n" + //XXX
+                                  "    }\n" +
+                                  "}\n");
+    }
+    private void performGeneralizationTest(String code, String generalized) throws Exception {
+        prepareTest("test/Test.java", code);
+
+        Tree generalizedTree = Utilities.generalizePattern(info, new TreePath(info.getCompilationUnit()));
+        VeryPretty vp = new VeryPretty(info);
+
+        vp.print((JCTree) generalizedTree);
+
+        String repr = vp.toString();
+
+        assertEquals(generalized.replaceAll("[ \n\t]+", " "),
+                     repr.replaceAll("[ \n\t]+", " "));
     }
 
 }
