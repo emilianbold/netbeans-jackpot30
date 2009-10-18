@@ -57,6 +57,7 @@ import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.queries.SourceLevelQuery;
+import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 
 /**
@@ -116,6 +117,16 @@ public class Context {
         return tm.getKind();
     }
 
+    public @CheckForNull String name(@NonNull Variable variable) {
+        final Element e = ctx.getInfo().getTrees().getElement(getSingleVariable(ctx, variable));
+
+        if (e == null) {
+            return null;
+        }
+
+        return e.getSimpleName().toString();
+    }
+
     public @CheckForNull Variable parent(@NonNull Variable variable) {
         TreePath tp = ctx.getVariables().get(variable.variableName);
 
@@ -136,6 +147,14 @@ public class Context {
         }
         
         return new Variable(variableName);
+    }
+
+    public void createRenamed(@NonNull Variable from, @NonNull Variable to, @NonNull String newName) {
+        //TODO: check (the variable should not exist)
+        ctx.getVariableNames().put(to.variableName, newName);
+        TreePath origVariablePath = ctx.getVariables().get(from.variableName);
+        TreePath newVariablePath = new TreePath(origVariablePath.getParentPath(), Hacks.createRenameTree(origVariablePath.getLeaf(), newName));
+        ctx.getVariables().put(to.variableName, newVariablePath);
     }
 
     public boolean isNullLiteral(@NonNull Variable var) {

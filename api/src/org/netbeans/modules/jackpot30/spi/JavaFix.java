@@ -212,7 +212,11 @@ public abstract class JavaFix {
             int startPos = (int) sp.getStartPosition(info.getCompilationUnit(), t);
             int endPos = (int) sp.getEndPosition(info.getCompilationUnit(), t);
 
-            stringsForVariables.put(e.getKey(), info.getText().substring(startPos, endPos));
+            if (startPos >= 0 && endPos >= 0) {
+                stringsForVariables.put(e.getKey(), info.getText().substring(startPos, endPos));
+            } else {
+                stringsForVariables.put(e.getKey(), "");
+            }
         }
 
         if (!stringsForVariables.containsKey("$this")) {
@@ -506,9 +510,19 @@ public abstract class JavaFix {
                     String name = node.getName().toString();
                     TreePath tp = parameters.get(name);
 
-                    if (tp != null && !parameterNames.containsKey(name)) {
-                        wc.rewrite(node, tp.getLeaf());
-                        return null;
+                    if (tp != null) {
+                        if (tp.getLeaf() instanceof Hacks.RenameTree) {
+                            Hacks.RenameTree rt = (Hacks.RenameTree) tp.getLeaf();
+                            Tree nue = wc.getTreeMaker().setLabel(rt.originalTree, rt.newName);
+
+                            wc.rewrite(node, nue);
+
+                            return null;
+                        }
+                        if (!parameterNames.containsKey(name)) {
+                            wc.rewrite(node, tp.getLeaf());
+                            return null;
+                        }
                     }
 
                     String variableName = parameterNames.get(name);

@@ -43,8 +43,12 @@ import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Scope;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCErroneous;
+import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import java.io.ByteArrayOutputStream;
@@ -69,6 +73,7 @@ import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.ClassPath.Entry;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -198,5 +203,23 @@ public class Hacks {
         }
 
         return result;
+    }
+
+
+    public static Tree createRenameTree(@NonNull Tree originalTree, @NonNull String newName) {
+        return new RenameTree(originalTree, newName);
+    }
+
+    static final class RenameTree extends JCErroneous {
+
+        final Tree originalTree;
+        final String newName;
+
+        public RenameTree(@NonNull Tree originalTree, @NonNull String newName) {
+            super(com.sun.tools.javac.util.List.<JCTree>nil());
+            this.originalTree = originalTree;
+            this.newName = newName;
+        }
+
     }
 }
