@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl;
 
+import com.sun.source.tree.IfTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
@@ -122,7 +123,36 @@ public class UtilitiesTest extends TestBase {
                         "        this.i = i;\n" +
                         "    }\n" +
                         "}";
-        
+
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " ").trim());
+    }
+
+    public void testParseAndAttributeFieldModifiersVariable() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        String code = "$mods$ java.lang.String $name;";
+        Tree result = Utilities.parseAndAttribute(info, code, s);
+
+//        String golden = "$mods$ java.lang.String $name";
+        String golden = "$mods$java.lang.String $name";
+
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " ").trim());
+    }
+
+    public void testParseAndAttributeIfWithParenthetised() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        String code = "if ($c) { $1$; System.err.println('a'); $2$; }";
+        Tree result = Utilities.parseAndAttribute(info, code, s);
+
+        IfTree it = (IfTree) result;
+
+        assertEquals(Kind.PARENTHESIZED, it.getCondition().getKind());
+
+        String golden = "if ($c) { $1$; System.err.println('a'); $2$; }";
+
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " ").trim());
     }
 

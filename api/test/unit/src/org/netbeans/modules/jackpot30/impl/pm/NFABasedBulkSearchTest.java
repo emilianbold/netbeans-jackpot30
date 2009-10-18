@@ -61,7 +61,8 @@ public class NFABasedBulkSearchTest extends BulkSearchTestPerformer {
 //    public static TestSuite suite() {
 //        NbTestSuite r = new NbTestSuite();
 //
-//        r.addTest(new NFABasedBulkSearchTest("testSerialization"));
+//        r.addTest(new NFABasedBulkSearchTest("testField1"));
+//        r.addTest(new NFABasedBulkSearchTest("testField2"));
 //
 //        return r;
 //    }

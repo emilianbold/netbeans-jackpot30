@@ -305,6 +305,28 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testField1() throws Exception {
+        String code = "package test;\n" +
+                       "public class Test {\n" +
+                       "     String name = null;\n" +
+                       "}\n";
+
+        performTest(code,
+                    Collections.singletonMap("$modifiers$ java.lang.String $name = $initializer;", Arrays.asList("String name = null;")),
+                    Collections.<String>emptyList());
+    }
+
+    public void testField2() throws Exception {
+        String code = "package test;\n" +
+                       "public class Test {\n" +
+                       "     private String name = null;\n" +
+                       "}\n";
+
+        performTest(code,
+                    Collections.singletonMap("$modifiers$ java.lang.String $name = $initializer;", Arrays.asList("private String name = null;")),
+                    Collections.<String>emptyList());
+    }
+
     private long measure(String baseCode, String toInsert, int repetitions, String pattern) throws Exception {
         int pos = baseCode.indexOf('|');
 

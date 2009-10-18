@@ -406,6 +406,20 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              });
     }
 
+    public void testModifiers() throws Exception {
+        performVariablesTest("package test; public class Test { private String s; }",
+                             "$mods$ java.lang.String $name;",
+                             new Pair[] {
+                                 new Pair<String, int[]>("$name", new int[] {65 - 31, 82 - 31}),
+                                 new Pair<String, int[]>("$mods$", new int[] {65 - 31, 72 - 31}), //XXX: shouldn't this be a multi-variable?
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                                  new Pair<String, String>("$name", "s"),
+                             });
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }

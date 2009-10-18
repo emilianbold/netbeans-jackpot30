@@ -51,7 +51,6 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.NewArrayTree;
@@ -68,14 +67,25 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTaskImpl;
-import com.sun.tools.javac.code.Flags;
-import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
+import com.sun.tools.javac.main.JavaCompiler;
+import com.sun.tools.javac.parser.EndPosParser;
+import com.sun.tools.javac.parser.JavacParser;
+import com.sun.tools.javac.parser.Lexer;
+import com.sun.tools.javac.parser.Parser;
+import com.sun.tools.javac.parser.ParserFactory;
+import com.sun.tools.javac.parser.Scanner;
+import com.sun.tools.javac.parser.Token;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.JCTree.JCModifiers;
+import com.sun.tools.javac.tree.JCTree.JCStatement;
+import com.sun.tools.javac.util.CancelService;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
+import com.sun.tools.javac.util.Names;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.CharBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -99,6 +109,9 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler.CompilationTask;
 import javax.tools.JavaFileObject;
 import org.netbeans.api.annotations.common.CheckForNull;
@@ -249,43 +262,61 @@ public class Utilities {
         boolean classMember = false;
 
         if (patternTree == null || isErrorTree(patternTree)) {
-            Tree currentPatternTree = jti.parseStatement("{" + pattern + "}", new SourcePositions[1]);
+            Log log = Log.instance(c);
+            DiagnosticListener<? super JavaFileObject> old = log.getDiagnosticListener();
+            DiagnosticCollector<JavaFileObject> dc = new DiagnosticCollector<JavaFileObject>();
+            
+            log.setDiagnosticListener(dc);
 
-            assert currentPatternTree.getKind() == Kind.BLOCK : currentPatternTree.getKind();
+            try {
+                Tree currentPatternTree = parseStatement(c, "{" + pattern + "}", new SourcePositions[1]);
 
-            List<? extends StatementTree> statements = ((BlockTree) currentPatternTree).getStatements();
+                assert currentPatternTree.getKind() == Kind.BLOCK : currentPatternTree.getKind();
 
-            if (statements.size() == 1) {
-                currentPatternTree = statements.get(0);
-            } else {
-                List<StatementTree> newStatements = new LinkedList<StatementTree>();
+                List<? extends StatementTree> statements = ((BlockTree) currentPatternTree).getStatements();
 
-                newStatements.add(make.ExpressionStatement(make.Identifier("$$1$")));
-                newStatements.addAll(statements);
-                newStatements.add(make.ExpressionStatement(make.Identifier("$$2$")));
+                if (statements.size() == 1) {
+                    currentPatternTree = statements.get(0);
+                } else {
+                    List<StatementTree> newStatements = new LinkedList<StatementTree>();
 
-                currentPatternTree = make.Block(newStatements, false);
-            }
+                    newStatements.add(make.ExpressionStatement(make.Identifier("$$1$")));
+                    newStatements.addAll(statements);
+                    newStatements.add(make.ExpressionStatement(make.Identifier("$$2$")));
 
-            currentPatternTree = fixTree(c, currentPatternTree);
+                    currentPatternTree = make.Block(newStatements, false);
+                }
 
-            if (containsError(currentPatternTree)) {
-                //maybe a class member?
-                Tree classPatternTree = jti.parseExpression("new Object() {" + pattern + "}", new SourcePositions[1]);
+                currentPatternTree = fixTree(c, currentPatternTree);
 
-                classPatternTree = fixTree(c, classPatternTree);
-                
-                if (!containsError(classPatternTree)) {
-                    patternTree = classPatternTree;
-                    classMember = true;
+                boolean hasErrors = false;
+
+                for (Diagnostic d : dc.getDiagnostics()) {
+                    if (d.getKind() == Diagnostic.Kind.ERROR && !"compiler.err.not.stmt".contentEquals(d.getCode())) {
+                        hasErrors = true;
+                    }
+                }
+
+                if (hasErrors || containsError(currentPatternTree)) {
+                    //maybe a class member?
+                    Tree classPatternTree = parseExpression(c, "new Object() {" + pattern + "}", new SourcePositions[1]);
+
+                    classPatternTree = fixTree(c, classPatternTree);
+
+                    if (!containsError(classPatternTree)) {
+                        patternTree = classPatternTree;
+                        classMember = true;
+                    } else {
+                        patternTree = currentPatternTree;
+                    }
                 } else {
                     patternTree = currentPatternTree;
                 }
-            } else {
-                patternTree = currentPatternTree;
+
+                expression = false;
+            } finally {
+                log.setDiagnosticListener(old);
             }
-            
-            expression = false;
         } else {
             patternTree = fixTree(c, patternTree);
         }
@@ -365,7 +396,7 @@ public class Utilities {
             }
         }.scan(t, null);
     }
-    
+
     private static Tree fixTree(Context c, Tree patternTree) {
         TreeFactory make = TreeFactory.instance(c);
         FixTree fixTree = new FixTree();
@@ -404,6 +435,50 @@ public class Utilities {
             return super.translate(tree);
         }
 
+    }
+
+    private static JCStatement parseStatement(Context context, CharSequence stmt, SourcePositions[] pos) {
+        if (stmt == null || (pos != null && pos.length != 1))
+            throw new IllegalArgumentException();
+        JavaCompiler compiler = JavaCompiler.instance(context);
+        JavaFileObject prev = compiler.log.useSource(null);
+        try {
+            CharBuffer buf = CharBuffer.wrap((stmt+"\u0000").toCharArray(), 0, stmt.length());
+            ParserFactory factory = ParserFactory.instance(context);
+            Scanner.Factory scannerFactory = Scanner.Factory.instance(context);
+            Names names = Names.instance(context);
+            Parser parser = new JackpotJavacParser(factory, scannerFactory.newScanner(buf), false, false, CancelService.instance(context), names);
+            if (parser instanceof JavacParser) {
+//                if (pos != null)
+//                    pos[0] = new ParserSourcePositions((JavacParser)parser);
+                return parser.parseStatement();
+            }
+            return null;
+        } finally {
+            compiler.log.useSource(prev);
+        }
+    }
+
+    private static JCExpression parseExpression(Context context, CharSequence expr, SourcePositions[] pos) {
+        if (expr == null || (pos != null && pos.length != 1))
+            throw new IllegalArgumentException();
+        JavaCompiler compiler = JavaCompiler.instance(context);
+        JavaFileObject prev = compiler.log.useSource(null);
+        try {
+            CharBuffer buf = CharBuffer.wrap((expr+"\u0000").toCharArray(), 0, expr.length());
+            ParserFactory factory = ParserFactory.instance(context);
+            Scanner.Factory scannerFactory = Scanner.Factory.instance(context);
+            Names names = Names.instance(context);
+            Parser parser = new JackpotJavacParser(factory, scannerFactory.newScanner(buf), false, false, CancelService.instance(context), names);
+            if (parser instanceof JavacParser) {
+//                if (pos != null)
+//                    pos[0] = new ParserSourcePositions((JavacParser)parser);
+                return parser.parseExpression();
+            }
+            return null;
+        } finally {
+            compiler.log.useSource(prev);
+        }
     }
 
     public static @CheckForNull CharSequence getWildcardTreeName(@NonNull Tree t) {
@@ -882,4 +957,36 @@ public class Utilities {
         return false;
     }
 
+    private static class JackpotJavacParser extends EndPosParser {
+
+        public JackpotJavacParser(ParserFactory fac,
+                         Lexer S,
+                         boolean keepDocComments,
+                         boolean keepLineMap,
+                         CancelService cancelService,
+                         Names names) {
+            super(fac, S, keepDocComments, keepLineMap, cancelService);
+
+            anonScopes.push(new AnonScope(names.empty, -1));
+        }
+
+        @Override
+        protected JCModifiers modifiersOpt(JCModifiers partial) {
+            if (S.token() == Token.IDENTIFIER) {
+                String ident = S.stringVal();
+
+                if (Utilities.isMultistatementWildcard(ident)) {
+                    com.sun.tools.javac.util.Name name = S.name();
+
+                    S.nextToken();
+
+                    return new ModifiersWildcard(name, F.Ident(name));
+                }
+            }
+
+            return super.modifiersOpt(partial);
+        }
+
+
+    }
 }

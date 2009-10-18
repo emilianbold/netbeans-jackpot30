@@ -583,6 +583,48 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testChangeFieldType1() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "public class Test {\n" +
+                       "     private String name = null;\n" +
+                       "}\n",
+                       "2:20-2:24:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "public class Test {\n" +
+                       "     private CharSequence name = null;\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testChangeFieldType2() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "public class Test {\n" +
+                       "     String name = null;\n" +
+                       "}\n",
+                       "2:12-2:16:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "public class Test {\n" +
+                       "     CharSequence name = null;\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testChangeFieldType3() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "public class Test {\n" +
+                       "     private static final String name = \"test\".substring(0, 4);\n" +
+                       "}\n",
+                       "2:33-2:37:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "public class Test {\n" +
+                       "     private static final CharSequence name = \"test\".substring(0, 4);\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -618,6 +660,9 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testMultiParameters", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("java.util.Arrays.asList($1$)", Collections.<String,String>emptyMap())).setWorker(new WorkerImpl("java.util.Arrays.asList(\"d\", $1$)")).produce());
         test2Hint.put("testTypeParametersMethod", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("java.util.Arrays.<$T>asList($1$)", Collections.<String,String>emptyMap())).setWorker(new WorkerImpl("java.util.Arrays.<$T>asList(\"d\", $1$)")).produce());
         test2Hint.put("testTypeParametersNewClass", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("new java.util.HashSet<$T1$>(java.util.Arrays.<$T$>asList($1$))", Collections.<String,String>emptyMap())).setWorker(new WorkerImpl("new java.util.HashSet<$T1$>(java.util.Arrays.<$T$>asList(\"d\", $1$))")).produce());
+        test2Hint.put("testChangeFieldType1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$modifiers$ java.lang.String $name = $initializer;", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("$modifiers$ java.lang.CharSequence $name = $initializer;")).produce());
+        test2Hint.put("testChangeFieldType2", test2Hint.get("testChangeFieldType1"));
+        test2Hint.put("testChangeFieldType3", test2Hint.get("testChangeFieldType1"));
     }
 
     @Override

@@ -545,7 +545,7 @@ public class NFABasedBulkSearch extends BulkSearch {
         @Override
         public int hashCode() {
             int hash = 7;
-            hash = 47 * hash + this.kind.hashCode();
+            hash = 47 * hash + (this.kind != null ? this.kind.hashCode() : 17);
             hash = 47 * hash + (this.name != null ? this.name.hashCode() : 0);
             hash = 47 * hash + (this.end ? 1 : 0);
             return hash;
