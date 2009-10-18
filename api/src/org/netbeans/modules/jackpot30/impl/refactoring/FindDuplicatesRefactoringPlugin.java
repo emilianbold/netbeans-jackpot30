@@ -55,7 +55,7 @@ import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
 import org.netbeans.modules.refactoring.spi.SimpleRefactoringElementImplementation;
 import org.netbeans.spi.editor.hints.ErrorDescription;
-import org.openide.cookies.EditCookie;
+import org.openide.cookies.EditorCookie;
 import org.openide.cookies.LineCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.loaders.DataObject;
@@ -136,7 +136,7 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
             LineCookie lc = d.getLookup().lookup(LineCookie.class);
             
             if (spans == null) {
-                EditCookie ec = d.getLookup().lookup(EditCookie.class);
+                EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
                 CloneableEditorSupport ces = (CloneableEditorSupport) ec;
 
                 spans = new LinkedList<PositionBounds>();
