@@ -43,7 +43,10 @@ import com.sun.javadoc.Tag;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.VariableTree;
 import java.io.IOException;
 import java.util.Collection;
@@ -589,27 +592,60 @@ public abstract class JavaFix {
                 }
                 @Override
                 public Void visitBlock(BlockTree node, Void p) {
-                    List<StatementTree> nueStatement = new LinkedList<StatementTree>();
-
-                    for (StatementTree t : node.getStatements()) {
-                        if (Utilities.isMultistatementWildcardTree(t)) {
-                            Collection<TreePath> embedded = parametersMulti.get(Utilities.getWildcardTreeName(t).toString());
-
-                            if (embedded != null) {
-                                for (TreePath tp : embedded) {
-                                    nueStatement.add((StatementTree) tp.getLeaf());
-                                }
-                            }
-                        } else {
-                            nueStatement.add(t);
-                        }
-                    }
-
+                    List<? extends StatementTree> nueStatement = resolveMultiParameters(node.getStatements());
                     BlockTree nue = wc.getTreeMaker().Block(nueStatement, node.isStatic());
 
                     wc.rewrite(node, nue);
 
                     return super.visitBlock(nue, p);
+                }
+                @Override
+                public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
+                    List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
+                    List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
+                    MethodInvocationTree nue = wc.getTreeMaker().MethodInvocation(typeArgs, node.getMethodSelect(), args);
+
+                    wc.rewrite(node, nue);
+
+                    return super.visitMethodInvocation(nue, p);
+                }
+                @Override
+                public Void visitNewClass(NewClassTree node, Void p) {
+                    List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
+                    List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
+                    NewClassTree nue = wc.getTreeMaker().NewClass(node.getEnclosingExpression(), typeArgs, node.getIdentifier(), args, node.getClassBody());
+
+                    wc.rewrite(node, nue);
+                    return super.visitNewClass(nue, p);
+                }
+                @Override
+                public Void visitParameterizedType(ParameterizedTypeTree node, Void p) {
+                    List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
+                    ParameterizedTypeTree nue = wc.getTreeMaker().ParameterizedType(node.getType(), typeArgs);
+
+                    wc.rewrite(node, nue);
+                    return super.visitParameterizedType(node, p);
+                }
+                private <T extends Tree> List<T> resolveMultiParameters(List<T> list) {
+                    if (!Utilities.containsMultistatementTrees(list)) return list;
+
+                    List<T> result = new LinkedList<T>();
+
+                    for (T t : list) {
+                        if (Utilities.isMultistatementWildcardTree(t)) {
+                            Collection<TreePath> embedded = parametersMulti.get(Utilities.getWildcardTreeName(t).toString());
+
+                            if (embedded != null) {
+                                for (TreePath tp : embedded) {
+                                    result.add((T) tp.getLeaf());
+                                }
+                            }
+                        } else {
+                            result.add(t);
+                        }
+                    }
+
+                    return result;
                 }
             }.scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
         }

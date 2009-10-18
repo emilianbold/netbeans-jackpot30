@@ -413,6 +413,15 @@ public class Utilities {
             return identTree.getName().toString();
         }
 
+        if (t.getKind() == Kind.IDENTIFIER) {
+            IdentifierTree identTree = (IdentifierTree) t;
+            String name = identTree.getName().toString();
+
+            if (name.startsWith("$")) {
+                return name;
+            }
+        }
+
         return null;
     }
 
@@ -420,7 +429,7 @@ public class Utilities {
         return name.charAt(name.length() - 1) == '$';
     }
 
-    public static boolean isMultistatementWildcardTree(StatementTree tree) {
+    public static boolean isMultistatementWildcardTree(Tree tree) {
         CharSequence name = Utilities.getWildcardTreeName(tree);
 
         return name != null && Utilities.isMultistatementWildcard(name);
@@ -862,4 +871,15 @@ public class Utilities {
 
         return vi.value;
     }
+
+    public static boolean containsMultistatementTrees(List<? extends Tree> statements) {
+        for (Tree t : statements) {
+            if (Utilities.isMultistatementWildcardTree(t)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
 }

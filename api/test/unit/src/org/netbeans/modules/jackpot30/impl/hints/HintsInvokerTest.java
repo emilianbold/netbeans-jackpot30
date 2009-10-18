@@ -533,6 +533,56 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testMultiParameters() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "import java.util.Arrays;\n" +
+                       "public class Test {\n" +
+                       "     { Arrays.asList(\"a\", \"b\", \"c\"); }\n" +
+                       "}\n",
+                       "3:14-3:20:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "import java.util.Arrays;\n" +
+                       "public class Test {\n" +
+                       "     { Arrays.asList(\"d\", \"a\", \"b\", \"c\"); }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testTypeParametersMethod() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "import java.util.Arrays;\n" +
+                       "public class Test {\n" +
+                       "     { Arrays.<String>asList(\"a\", \"b\", \"c\"); }\n" +
+                       "}\n",
+                       "3:22-3:28:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "import java.util.Arrays;\n" +
+                       "public class Test {\n" +
+                       "     { Arrays.<String>asList(\"d\", \"a\", \"b\", \"c\"); }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
+    public void testTypeParametersNewClass() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "import java.util.Arrays;\n" +
+                       "import java.util.HashSet;\n" +
+                       "public class Test {\n" +
+                       "     { new HashSet<String>(Arrays.<String>asList(\"a\", \"b\", \"c\")); }\n" +
+                       "}\n",
+                       "4:7-4:64:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "import java.util.Arrays;\n" +
+                       "import java.util.HashSet;\n" +
+                       "public class Test {\n" +
+                       "     { new HashSet<String>(Arrays.<String>asList(\"d\", \"a\", \"b\", \"c\")); }\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -565,6 +615,9 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testRewriteOneToMultipleClassMembers", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("private int i;", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("private int i; public int getI() { return i; }")).produce());
         test2Hint.put("testImports1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("new LinkedList()", Collections.<String, String>emptyMap(), "import java.util.LinkedList;")).setWorker(new WorkerImpl("new ArrayList()", "import java.util.ArrayList;\n")).produce());
         test2Hint.put("testImports2", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("LinkedList $0;", Collections.<String, String>emptyMap(), "import java.util.LinkedList;")).setWorker(new WorkerImpl("ArrayList $0;", "import java.util.ArrayList;\n")).produce());
+        test2Hint.put("testMultiParameters", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("java.util.Arrays.asList($1$)", Collections.<String,String>emptyMap())).setWorker(new WorkerImpl("java.util.Arrays.asList(\"d\", $1$)")).produce());
+        test2Hint.put("testTypeParametersMethod", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("java.util.Arrays.<$T>asList($1$)", Collections.<String,String>emptyMap())).setWorker(new WorkerImpl("java.util.Arrays.<$T>asList(\"d\", $1$)")).produce());
+        test2Hint.put("testTypeParametersNewClass", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("new java.util.HashSet<$T1$>(java.util.Arrays.<$T$>asList($1$))", Collections.<String,String>emptyMap())).setWorker(new WorkerImpl("new java.util.HashSet<$T1$>(java.util.Arrays.<$T$>asList(\"d\", $1$))")).produce());
     }
 
     @Override

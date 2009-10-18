@@ -54,16 +54,28 @@ public class REBasedBulkSearchTest extends BulkSearchTestPerformer {
         return new REBasedBulkSearch();
     }
 
+    @Override
     public void testSynchronizedAndMultiStatementVariables() throws Exception {
         //XXX
     }
 
+    @Override
     public void testJackpot30_2() throws Exception {
         //XXX
     }
 
     @Override
     public void testIdentifierInPureMemberSelect() throws Exception {
+        //XXX
+    }
+
+    @Override
+    public void testMultiParameter2() throws Exception {
+        //XXX
+    }
+
+    @Override
+    public void testTypeParameter() throws Exception {
         //XXX
     }
 

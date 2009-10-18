@@ -160,7 +160,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                         return null;
                     }
 
-                    if (t instanceof StatementTree/*XXX*/ && Utilities.isMultistatementWildcardTree((StatementTree) t)) {
+                    if (Utilities.isMultistatementWildcardTree(t)) {
                         int target = nextState[0]++;
 
                         setBit(transitionTable, Key.create(currentState[0], new Input(Kind.IDENTIFIER, "$", false)), target);

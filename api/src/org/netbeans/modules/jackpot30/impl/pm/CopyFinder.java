@@ -418,6 +418,10 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             return one == other;
         }
 
+        if (Utilities.containsMultistatementTrees(other)) {
+            return checkListsWithMultistatementTrees(one, 0, other, 0, otherOrigin);
+        }
+
         if (one.size() != other.size())
             return false;
         
@@ -479,18 +483,8 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
         return result && scan(node.getRightOperand(), bt.getRightOperand(), p);
     }
 
-    private static boolean containsMultistatementTrees(List<? extends StatementTree> statements) {
-        for (StatementTree t : statements) {
-            if (Utilities.isMultistatementWildcardTree(t)) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     //TODO: currently, only the first matching combination is found:
-    private boolean checkListsWithMultistatementTrees(List<? extends StatementTree> real, int realOffset, List<? extends StatementTree> pattern, int patternOffset, TreePath p) {
+    private boolean checkListsWithMultistatementTrees(List<? extends Tree> real, int realOffset, List<? extends Tree> pattern, int patternOffset, TreePath p) {
         while (realOffset < real.size() && patternOffset < pattern.size() && !Utilities.isMultistatementWildcardTree(pattern.get(patternOffset))) {
             if (!scan(real.get(realOffset), pattern.get(patternOffset), p)) {
                 return false;
@@ -508,7 +502,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             if (patternOffset + 1 == pattern.size()) {
                 List<TreePath> tps = new LinkedList<TreePath>();
 
-                for (StatementTree t : real.subList(realOffset, real.size())) {
+                for (Tree t : real.subList(realOffset, real.size())) {
                     tps.add(new TreePath(getCurrentPath(), t));
                 }
 
@@ -571,10 +565,6 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             return false;
         }
 
-        if (containsMultistatementTrees(at.getStatements())) {
-            return checkListsWithMultistatementTrees(node.getStatements(), 0, at.getStatements(), 0, p);
-        }
-        
         return checkLists(node.getStatements(), at.getStatements(), p);
     }
 

@@ -202,12 +202,6 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
-    public void XtestMultiVariablesInMethodInvocation1() throws Exception {
-        performTest("package test; public class Test { public static void test() { test(); } }",
-                    Collections.singletonMap("test.Test.test($params$)", Arrays.asList("test()")),
-                    Collections.<String>emptyList());
-    }
-
     public void testTwoPatterns() throws Exception {
         Map<String, List<String>> contained = new HashMap<String, List<String>>();
 
@@ -291,6 +285,24 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
         long doubleSize = measure(code, "\na(\"\");", 2 * rep, pattern);
 
         assertTrue("baseline=" + baseline + ", actual=" + String.valueOf(doubleSize), doubleSize <= 4 * baseline);
+    }
+
+    public void testMultiParameter1() throws Exception {
+        performTest("package test; public class Test { { java.util.Arrays.asList(\"a\", \"b\", \"c\"); } }",
+                    Collections.singletonMap("java.util.Arrays.asList($params$)", Arrays.asList("java.util.Arrays.asList(\"a\", \"b\", \"c\")")),
+                    Collections.<String>emptyList());
+    }
+
+    public void testMultiParameter2() throws Exception {
+        performTest("package test; public class Test { { java.util.Arrays.asList(); } }",
+                    Collections.singletonMap("java.util.Arrays.asList($params$)", Arrays.asList("java.util.Arrays.asList()")),
+                    Collections.<String>emptyList());
+    }
+
+    public void testTypeParameter() throws Exception {
+        performTest("package test; public class Test { { java.util.Arrays.<String>asList(); } }",
+                    Collections.singletonMap("java.util.Arrays.<$1>asList($params$)", Arrays.asList("java.util.Arrays.<String>asList()")),
+                    Collections.<String>emptyList());
     }
 
     private long measure(String baseCode, String toInsert, int repetitions, String pattern) throws Exception {

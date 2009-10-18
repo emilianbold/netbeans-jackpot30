@@ -358,6 +358,54 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              });
     }
 
+    public void testMultiParameters1() throws Exception {
+        performVariablesTest("package test; public class Test { { java.util.Arrays.asList(\"a\", \"b\", \"c\"); }",
+                             "java.util.Arrays.asList($1$)",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                                new Pair<String, int[]>("$1$", new int[] {60, 63, 65, 68, 70, 73}),
+                             },
+                             new Pair[] {
+                             });
+    }
+
+    public void testMultiParameters2() throws Exception {
+        performVariablesTest("package test; public class Test { { java.util.Arrays.asList(new String(\"a\"), \"b\", \"c\"); }",
+                             "java.util.Arrays.asList(new String(\"a\"), $1$)",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                                new Pair<String, int[]>("$1$", new int[] {77, 80, 82, 85}),
+                             },
+                             new Pair[] {
+                             });
+    }
+
+    public void testMultiParameters3() throws Exception {
+        performVariablesTest("package test; public class Test { { java.util.Arrays.asList(); }",
+                             "java.util.Arrays.asList($1$)",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                                new Pair<String, int[]>("$1$", new int[] {}),
+                             },
+                             new Pair[] {
+                             });
+    }
+
+    public void testTypeParameters() throws Exception {
+        performVariablesTest("package test; public class Test { { java.util.Arrays.<String>asList(\"a\", \"b\"); }",
+                             "java.util.Arrays.<$1>asList($1$)",
+                             new Pair[] {
+                                   new Pair<String, int[]>("$1", new int[] {85 - 31, 91 - 31}),
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             });
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }
