@@ -93,7 +93,7 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
     }
 
     public Problem prepare(RefactoringElementsBag refactoringElements) {
-        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope());
+        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), refactoring.getFolder());
 
         for (Iterable<? extends Resource> it :candidates.projectId2Resources.values()) {
             for (Resource r : it) {

@@ -42,10 +42,12 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 import java.awt.Component;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.io.File;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +57,9 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
+import javax.swing.JFileChooser;
 import javax.swing.JList;
+import javax.swing.JTextField;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -65,6 +69,7 @@ import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.openide.util.NbPreferences;
 import org.openide.util.Union2;
 
 /**
@@ -98,7 +103,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
         allHints.setModel(all);
         selectedHints.setModel(selected);
-        pattern.getDocument().addDocumentListener(new DocumentListener() {
+        DocumentListener dl = new DocumentListener() {
             public void insertUpdate(DocumentEvent e) {
                 parent.stateChanged(new ChangeEvent(FindDuplicatesRefactoringPanel.this));
             }
@@ -106,14 +111,19 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
                 parent.stateChanged(new ChangeEvent(FindDuplicatesRefactoringPanel.this));
             }
             public void changedUpdate(DocumentEvent e) {}
-        });
+        };
+        pattern.getDocument().addDocumentListener(dl);
         ItemListener ilImpl = new ItemListener() {
             public void itemStateChanged(ItemEvent e) {
                 parent.stateChanged(new ChangeEvent(FindDuplicatesRefactoringPanel.this));
+                updateFolderSelectionPanel();
             }
         };
         scope.addItemListener(ilImpl);
         verify.addItemListener(ilImpl);
+        folderCombo.addItemListener(ilImpl);
+
+        ((JTextField) folderCombo.getEditor().getEditorComponent()).getDocument().addDocumentListener(dl);
 
         if (!allowVerify) {
             verify.setVisible(false);
@@ -121,7 +131,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         
         DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
 
-        for (Scope s : EnumSet.of(Scope.ALL_OPENED_PROJECTS)) {
+        for (Scope s : EnumSet.of(Scope.ALL_OPENED_PROJECTS, Scope.GIVEN_FOLDER)) {
             dcbm.addElement(s);
         }
         
@@ -129,6 +139,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         scope.setRenderer(new RendererImpl());
 
         enableDisable();
+        updateFolderSelectionPanel();
 
         this.changeListener = parent;
     }
@@ -163,6 +174,10 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         removeAllHints = new javax.swing.JButton();
         knowPatterns = new javax.swing.JRadioButton();
         customPattern = new javax.swing.JRadioButton();
+        jPanel1 = new javax.swing.JPanel();
+        folderLabel = new javax.swing.JLabel();
+        folderCombo = new javax.swing.JComboBox();
+        folderChooser = new javax.swing.JButton();
 
         setLayout(new java.awt.GridBagLayout());
 
@@ -203,7 +218,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         org.openide.awt.Mnemonics.setLocalizedText(verify, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.verify.text")); // NOI18N
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 6;
+        gridBagConstraints.gridy = 7;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.weightx = 1.0;
@@ -356,6 +371,43 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.insets = new java.awt.Insets(18, 0, 0, 0);
         add(customPattern, gridBagConstraints);
+
+        jPanel1.setLayout(new java.awt.GridBagLayout());
+
+        org.openide.awt.Mnemonics.setLocalizedText(folderLabel, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.folderLabel.text")); // NOI18N
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 0, 0, 6);
+        jPanel1.add(folderLabel, gridBagConstraints);
+
+        folderCombo.setEditable(true);
+        folderCombo.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 6);
+        jPanel1.add(folderCombo, gridBagConstraints);
+
+        org.openide.awt.Mnemonics.setLocalizedText(folderChooser, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.folderChooser.text")); // NOI18N
+        folderChooser.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                folderChooserActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 0);
+        jPanel1.add(folderChooser, gridBagConstraints);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 6;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.insets = new java.awt.Insets(6, 24, 0, 0);
+        add(jPanel1, gridBagConstraints);
     }// </editor-fold>//GEN-END:initComponents
 
     private void addHintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addHintActionPerformed
@@ -397,6 +449,19 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     private void knowPatternsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_knowPatternsActionPerformed
         enableDisable();
     }//GEN-LAST:event_knowPatternsActionPerformed
+
+    private void folderChooserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_folderChooserActionPerformed
+        JFileChooser c = new JFileChooser();
+
+        c.setSelectedFile(new File(getSelectedFolder()));
+        c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        c.setMultiSelectionEnabled(false);
+        c.setApproveButtonText("Select");
+
+        if (c.showDialog(this, null) == JFileChooser.APPROVE_OPTION) {
+            setSelectedFolder(c.getSelectedFile().getAbsolutePath());
+        }
+    }//GEN-LAST:event_folderChooserActionPerformed
 
     private void enableDisable() {
         setEnabled(knownPatternsPanel, knowPatterns.isSelected());
@@ -474,13 +539,71 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         this.verify.setSelected(verify);
     }
 
+    private void updateFolderSelectionPanel() {
+        boolean enabled = scope.getSelectedItem() == Scope.GIVEN_FOLDER;
+
+        folderCombo.setEnabled(enabled);
+        folderChooser.setEnabled(enabled);
+    }
+
+    public String getSelectedFolder() {
+        return ((JTextField) folderCombo.getEditor().getEditorComponent()).getText();
+    }
+
+    public void setSelectedFolder(String folder) {
+        folderCombo.setSelectedItem(folder);
+    }
+
+    private static final String FOLDERS_COMBO_KEY = FindDuplicatesRefactoringPanel.class.getName().replace('.', '/') + "/foldersCombo";
+
+    void initializeFoldersCombo() {
+        String folders = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).get(FOLDERS_COMBO_KEY, "");
+        DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
+
+        for (String f : folders.split(";")) { //TODO: escape :
+            dcbm.addElement(f);
+        }
+
+        folderCombo.setModel(dcbm);
+        if (dcbm.getSize() > 0)
+            folderCombo.setSelectedIndex(0);
+    }
+
+    void saveFoldersCombo() {
+        Set<String> data = new LinkedHashSet<String>();
+
+        data.add((String) folderCombo.getSelectedItem());
+
+        for (int cntr = 0; cntr < folderCombo.getModel().getSize(); cntr++) {
+            String f = (String) folderCombo.getModel().getElementAt(cntr);
+
+            data.add(f);
+        }
+
+        StringBuilder persistent = new StringBuilder();
+
+        for (String d : data) {
+            if (persistent.length() > 0) {
+                persistent.append(";");
+            }
+
+            persistent.append(d);
+        }
+
+        NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).put(FOLDERS_COMBO_KEY, persistent.toString());
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton addAllHints;
     private javax.swing.JButton addHint;
     private javax.swing.JList allHints;
     private javax.swing.JLabel allHintsLabel;
     private javax.swing.JRadioButton customPattern;
+    private javax.swing.JButton folderChooser;
+    private javax.swing.JComboBox folderCombo;
+    private javax.swing.JLabel folderLabel;
     private javax.swing.JLabel jLabel2;
+    private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
@@ -520,6 +643,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         SCOPE_DISPLAY_NAMES = new EnumMap<Scope, String>(Scope.class);
         SCOPE_DISPLAY_NAMES.put(Scope.ALL_OPENED_PROJECTS, "All Opened Projects");
         SCOPE_DISPLAY_NAMES.put(Scope.ALL_REMOTE_PROJECTS, "All Remote Projects");
+        SCOPE_DISPLAY_NAMES.put(Scope.GIVEN_FOLDER, "Selected Folder");
     }
     
 }

@@ -118,6 +118,11 @@ public class BatchSearch {
                 todo = NbCollections.checkedSetByCopy(new HashSet<Object>(Arrays.asList(parameters)), FileObject.class, true);
 
                 return findOccurrencesLocal(patterns, knownSourceRoots, todo);
+            case GIVEN_FOLDER:
+                knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
+                todo = Collections.singleton((FileObject) parameters[0]);
+
+                return findOccurrencesLocal(patterns, knownSourceRoots, todo);
             default:
                 throw new UnsupportedOperationException(scope.name());
         }
@@ -331,7 +336,8 @@ public class BatchSearch {
     public enum Scope {
         ALL_OPENED_PROJECTS,
         GIVEN_SOURCE_ROOTS,
-        ALL_REMOTE_PROJECTS;
+        ALL_REMOTE_PROJECTS,
+        GIVEN_FOLDER;
     }
 
     public static final class BatchResult {

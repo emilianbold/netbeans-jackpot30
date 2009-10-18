@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.Component;
+import java.io.File;
 import java.util.Collections;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.annotations.common.NonNull;
@@ -51,6 +52,8 @@ import org.netbeans.modules.refactoring.api.AbstractRefactoring;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.spi.ui.CustomRefactoringPanel;
 import org.netbeans.modules.refactoring.spi.ui.RefactoringUI;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.HelpCtx;
 import org.openide.util.Union2;
 
@@ -58,6 +61,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
 
     private volatile @NonNull Union2<String, Iterable<? extends HintDescription>> pattern;
     private volatile @NonNull Scope scope;
+    private volatile @NullAllowed String folder;
     private volatile boolean verify;
 
     private final boolean query;
@@ -97,13 +101,16 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
 
     public CustomRefactoringPanel getPanel(final ChangeListener parent) {
         return new CustomRefactoringPanel() {
-            public void initialize() {}
+            public void initialize() {
+                panel.initializeFoldersCombo();
+            }
             public Component getComponent() {
                 if (panel == null) {
                     panel = new FindDuplicatesRefactoringPanel(parent, query);
                     panel.setPattern(FindDuplicatesRefactoringUI.this.pattern);
                     panel.setScope(scope);
                     panel.setVerify(verify);
+                    panel.setSelectedFolder(folder);
                 }
 
                 return panel;
@@ -115,11 +122,15 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
         pattern = panel.getPattern();
         scope   = panel.getScope();
         verify  = panel.getVerify();
+        folder  = panel.getSelectedFolder();
+        panel.saveFoldersCombo();
         return null;
     }
 
     public Problem checkParameters() {
         Union2<String, Iterable<? extends HintDescription>> pattern = panel != null ? panel.getPattern() : this.pattern;
+        Scope scope = panel != null ? panel.getScope() : this.scope;
+        String selectedFolder = panel != null ? panel.getSelectedFolder() : this.folder;
 
         if (pattern.hasFirst()) {
             if (pattern.first() == null) {
@@ -132,6 +143,10 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
             if (!pattern.second().iterator().hasNext()) {
                 return new Problem(true, "No pattern specified");
             }
+        }
+
+        if (scope == Scope.GIVEN_FOLDER && findFolderFileObject(selectedFolder) == null) {
+            return new Problem(true, "Specified folder not found");
         }
         return null;
     }
@@ -158,6 +173,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
             r.setPattern(hints);
             r.setScope(scope);
             r.setVerify(verify);
+            r.setFolder(findFolderFileObject(folder));
 
             return r;
         }
@@ -166,12 +182,23 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
 
         r.setPattern(hints);
         r.setScope(scope);
+        r.setFolder(findFolderFileObject(folder));
 
         return r;
     }
 
     public HelpCtx getHelpCtx() {
         return new HelpCtx("jackpot30.pattern.format");
+    }
+
+    private FileObject findFolderFileObject(String folder) {
+        if (folder == null) return null;
+
+        File file = new File(folder);
+
+        if (!file.exists()) return null;
+
+        return FileUtil.toFileObject(FileUtil.normalizeFile(file));
     }
 
 }

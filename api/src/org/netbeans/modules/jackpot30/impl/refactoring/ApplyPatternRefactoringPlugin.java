@@ -80,7 +80,7 @@ public class ApplyPatternRefactoringPlugin implements RefactoringPlugin {
     }
 
     public Problem prepare(RefactoringElementsBag refactoringElements) {
-        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope());
+        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), refactoring.getFolder());
         Collection<MessageImpl> problems = new LinkedList<MessageImpl>();
         Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, /*XXX*/new AtomicBoolean(), problems);
 
