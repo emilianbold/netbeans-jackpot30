@@ -219,7 +219,7 @@ public class BatchSearch {
 
     private static void recursive(FileObject file, Collection<FileObject> collected) {
         if (file.isData()) {
-            if (/*???:*/"java".equals(file.getExt()) || "text/x-java".equals(FileUtil.getMIMEType(file))) {
+            if (/*???:*/"java".equals(file.getExt()) || "text/x-java".equals(FileUtil.getMIMEType(file, "text/x-java"))) {
                 collected.add(file);
             }
         } else {
