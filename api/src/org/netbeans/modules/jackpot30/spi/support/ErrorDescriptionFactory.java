@@ -102,7 +102,15 @@ public class ErrorDescriptionFactory {
             case VARIABLE:
                 return context.getInfo().getTreeUtilities().findNameSpan((VariableTree) tree);
             case MEMBER_SELECT:
-                return context.getInfo().getTreeUtilities().findNameSpan((MemberSelectTree) tree);
+                //XXX:
+                MemberSelectTree mst = (MemberSelectTree) tree;
+                int[] span = context.getInfo().getTreeUtilities().findNameSpan(mst);
+
+                if (span == null) {
+                    int end = (int) context.getInfo().getTrees().getSourcePositions().getEndPosition(context.getInfo().getCompilationUnit(), tree);
+                    span = new int[] {end - mst.getIdentifier().length(), end};
+                }
+                return span;
             case METHOD_INVOCATION:
                 return computeNameSpan(((MethodInvocationTree) tree).getMethodSelect(), context);
             default:
