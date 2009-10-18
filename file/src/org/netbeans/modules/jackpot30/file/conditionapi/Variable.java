@@ -46,10 +46,16 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 public class Variable {
 
     final String variableName;
+    final int    index;
 
     //XXX: should not be public!!!!!!!!!!!!!!!!!
     public Variable(String variableName) {
+        this(variableName, -1);
+    }
+
+    Variable(String variableName, int index) {
         this.variableName = variableName;
+        this.index = index;
     }
 
 }

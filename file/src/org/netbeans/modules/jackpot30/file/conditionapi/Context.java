@@ -41,14 +41,19 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.LinkedList;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.queries.SourceLevelQuery;
@@ -92,13 +97,23 @@ public class Context {
     }
 
     public @CheckForNull ElementKind elementKind(@NonNull Variable variable) {
-        final Element e = ctx.getInfo().getTrees().getElement(ctx.getVariables().get(variable.variableName));
+        final Element e = ctx.getInfo().getTrees().getElement(getSingleVariable(ctx, variable));
 
         if (e == null) {
             return null;
         }
 
         return e.getKind();
+    }
+
+    public @CheckForNull TypeKind typeKind(@NonNull Variable variable) {
+        final TypeMirror tm = ctx.getInfo().getTrees().getTypeMirror(getSingleVariable(ctx, variable));
+
+        if (tm == null) {
+            return null;
+        }
+
+        return tm.getKind();
     }
 
     public @CheckForNull Variable parent(@NonNull Variable variable) {
@@ -129,6 +144,23 @@ public class Context {
         return varPath.getLeaf().getKind() == Kind.NULL_LITERAL;
     }
 
+    public @NonNull Iterable<? extends Variable> getIndexedVariables(@NonNull Variable multiVariable) {
+        Collection<? extends TreePath> paths = ctx.getMultiVariables().get(multiVariable.variableName);
+
+        if (paths == null) {
+            throw new IllegalArgumentException("TODO: explanation");
+        }
+
+        Collection<Variable> result = new LinkedList<Variable>();
+        int index = 0;
+
+        for (TreePath tp : paths) {
+            result.add(new Variable(multiVariable.variableName, index++));
+        }
+
+        return result;
+    }
+
     static Iterable<? extends TreePath> getVariable(HintContext ctx, Variable v) {
         if (isMultistatementWildcard(v.variableName)) {
             return ctx.getMultiVariables().get(v.variableName);
@@ -140,5 +172,14 @@ public class Context {
     //XXX: copied from jackpot30.impl.Utilities:
     private static boolean isMultistatementWildcard(/*@NonNull */CharSequence name) {
         return name.charAt(name.length() - 1) == '$';
+    }
+
+    //TODO: check if correct variable is provided:
+    private static TreePath getSingleVariable(HintContext ctx, Variable v) {
+        if (v.index == (-1)) {
+            return ctx.getVariables().get(v.variableName);
+        } else {
+            return new ArrayList<TreePath>(ctx.getMultiVariables().get(v.variableName)).get(v.index);
+        }
     }
 }
