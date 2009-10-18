@@ -63,6 +63,7 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.VariableAssignments;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
@@ -420,6 +421,32 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              });
     }
 
+    public void testVariableIsFullPattern1() throws Exception {
+        performVariablesTest("package test; public class Test { private int a; {System.err.println(a);} }",
+                             "$v{int}",
+                             new Pair[] {
+                                 new Pair<String, int[]>("$v", new int[] {100 - 31, 101 - 31}),
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             });
+    }
+
+    public void testVariableIsFullPattern2() throws Exception {
+        performVariablesTest("package test; public class Test { private int a; {System.err.println(a);} }",
+                             "$v{int}",
+                             new Pair[] {
+                                 new Pair<String, int[]>("$v", new int[] {100 - 31, 101 - 31}),
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             false,
+                             true);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }
@@ -429,10 +456,33 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
     }
 
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, int[]>[] multiStatementPos, Pair<String, String>[] duplicatesNames, boolean noOccurrences) throws Exception {
+        performVariablesTest(code, pattern, duplicatesPos, multiStatementPos, duplicatesNames, noOccurrences, false);
+    }
+
+    protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, int[]>[] multiStatementPos, Pair<String, String>[] duplicatesNames, boolean noOccurrences, boolean useBulkSearch) throws Exception {
         prepareTest(code, -1);
 
         Pattern patternObj = Pattern.compile(info, pattern);
-        Map<TreePath, VariableAssignments> result = CopyFinder.computeDuplicates(info, new TreePath(new TreePath(info.getCompilationUnit()), patternObj.getPattern()), new TreePath(info.getCompilationUnit()), new AtomicBoolean(), patternObj.getConstraints());
+        TreePath patternPath = new TreePath(new TreePath(info.getCompilationUnit()), patternObj.getPattern());
+        Map<TreePath, VariableAssignments> result;
+        
+        if (useBulkSearch) {
+            result = new HashMap<TreePath, VariableAssignments>();
+            
+            BulkPattern bulkPattern = BulkSearch.getDefault().create(info, pattern);
+            
+            for (Entry<String, Collection<TreePath>> e : BulkSearch.getDefault().match(info, info.getCompilationUnit(), bulkPattern).entrySet()) {
+                for (TreePath tp : e.getValue()) {
+                    VariableAssignments vars = CopyFinder.computeVariables(info, patternPath, tp, new AtomicBoolean(), patternObj.getConstraints());
+
+                    if (vars != null) {
+                        result.put(tp, vars);
+                    }
+                }
+            }
+        } else {
+            result = CopyFinder.computeDuplicates(info, patternPath, new TreePath( info.getCompilationUnit()), new AtomicBoolean(), patternObj.getConstraints());
+        }
 
         if (noOccurrences) {
             assertEquals(0, result.size());

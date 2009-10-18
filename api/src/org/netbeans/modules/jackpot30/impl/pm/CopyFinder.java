@@ -65,6 +65,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.TreeScanner;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -89,7 +90,7 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
  *
  * @author Jan Lahoda
  */
-public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
+public class CopyFinder extends TreeScanner<Boolean, TreePath> {
 
     private final TreePath searchingFor;
     private final CompilationInfo info;
@@ -230,6 +231,21 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
     }
 
     private static final Set<TypeKind> IGNORE_KINDS = EnumSet.of(TypeKind.EXECUTABLE, TypeKind.PACKAGE);
+
+    private TreePath currentPath;
+
+    protected TreePath getCurrentPath() {
+        return currentPath;
+    }
+
+    protected Boolean scan(TreePath path, TreePath param) {
+        currentPath = path.getParentPath();
+        try {
+            return scan(path.getLeaf(), param);
+        } finally {
+            currentPath = null;
+        }
+    }
     
     @Override
     public Boolean scan(Tree node, TreePath p) {
@@ -247,7 +263,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
                 if (variables2Names.containsKey(ident)) {
                     return ((IdentifierTree) node).getName().toString().equals(variables2Names.get(ident));
                 }
-                
+
                 TreePath currentPath = new TreePath(getCurrentPath(), node);
                 TypeMirror designed = designedTypeHack != null ? designedTypeHack.get(ident) : null;//info.getTrees().getTypeMirror(p);
 
@@ -298,7 +314,7 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             boolean result = superScan(node, p) == Boolean.TRUE;
 
             if (result) {
-                if (p == searchingFor && node != searchingFor) {
+                if (p == searchingFor && node != searchingFor && allowGoDeeper) {
                     this.result.put(new TreePath(getCurrentPath(), node), new VariableAssignments(variables, multiVariables, variables2Names));
                     variables = new HashMap<String, TreePath>();
                     multiVariables = new HashMap<String, Collection<? extends TreePath>>();
@@ -341,9 +357,17 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
 
     private Boolean superScan(Tree node, TreePath p) {
         if (p == null) {
-            return super.scan(node, p);
+            return doSuperScan(node, p);
         }
         
+        if (p.getLeaf().getKind() == Kind.IDENTIFIER) {
+            String ident = ((IdentifierTree) p.getLeaf()).getName().toString();
+
+            if (ident.startsWith("$")) {
+                return scan(node, p);
+            }
+        }
+
         if (p.getLeaf().getKind() == Kind.BLOCK && node.getKind() != Kind.BLOCK /*&& p.getLeaf() != searchingFor.getLeaf()*/) {
             BlockTree bt = (BlockTree) p.getLeaf();
 
@@ -384,9 +408,20 @@ public class CopyFinder extends TreePathScanner<Boolean, TreePath> {
             return false;
         }
 
-        return super.scan(node, p);
+        return doSuperScan(node, p);
     }
 
+    private Boolean doSuperScan(Tree node, TreePath p) {
+        if (node == null) return null;
+        TreePath prev = currentPath;
+        try {
+            currentPath = new TreePath(currentPath, node);
+            return super.scan(node, p);
+        } finally {
+            currentPath = prev;
+        }
+    }
+    
     private Boolean scan(Tree node, Tree p, TreePath pOrigin) {
         if (node == null || p == null)
             return node == p;

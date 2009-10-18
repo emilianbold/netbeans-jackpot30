@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.TypeMirror;
+import junit.framework.TestSuite;
 import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -60,6 +61,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.junit.NbTestSuite;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
@@ -84,6 +86,12 @@ public class HintsInvokerTest extends TreeRuleTestBase {
     public HintsInvokerTest(String name) {
         super(name);
     }
+
+//    public static TestSuite suite() {
+//        NbTestSuite r = new NbTestSuite();
+//        r.addTest(new HintsInvokerTest("testPatternVariable1"));
+//        return r;
+//    }
 
     public void testPattern1() throws Exception {
         performAnalysisTest("test/Test.java",
@@ -625,6 +633,22 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testIdentifier() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "public class Test {\n" +
+                       "     private int l;" +
+                       "     {System.err.println(l);}\n" +
+                       "}\n",
+                       "2:44-2:45:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "public class Test {\n" +
+                       "     private int l;" +
+                       "     {System.err.println(2);}\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -663,6 +687,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testChangeFieldType1", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$modifiers$ java.lang.String $name = $initializer;", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl("$modifiers$ java.lang.CharSequence $name = $initializer;")).produce());
         test2Hint.put("testChangeFieldType2", test2Hint.get("testChangeFieldType1"));
         test2Hint.put("testChangeFieldType3", test2Hint.get("testChangeFieldType1"));
+        test2Hint.put("testIdentifier", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$i", Collections.<String, String>singletonMap("$i", "int"))).setWorker(new WorkerImpl("2")).produce());
     }
 
     @Override
