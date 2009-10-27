@@ -967,7 +967,7 @@ public class Utilities {
                          Names names) {
             super(fac, S, keepDocComments, keepLineMap, cancelService);
 
-            anonScopes.push(new AnonScope(names.empty, -1));
+            newAnonScope(names.empty, -1);
         }
 
         @Override
