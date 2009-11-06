@@ -12,9 +12,6 @@
         <condition property="hasLaTeX2HTML">
             <available file="latex2html" filepath="${ENV.PATH}" />
         </condition>
-        <fail unless="hasLaTeX2HTML">
-            The latex2html is required to build this module.
-        </fail>
     </target>
 
     <target name="compile-help" depends="help-init" if="hasLaTeX2HTML">
