@@ -51,6 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.text.Document;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -68,6 +70,7 @@ import org.netbeans.api.project.Sources;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
+import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -81,6 +84,8 @@ import org.openide.util.Exceptions;
  */
 public class BatchUtilities {
 
+    private static final Logger LOG = Logger.getLogger(BatchUtilities.class.getName());
+    
     public static Collection<? extends ModificationResult> applyFixes(BatchResult candidates, ProgressHandleWrapper progress, AtomicBoolean cancel, Collection<? super MessageImpl> problems) {
         Map<FileObject, Collection<ErrorDescription>> file2eds = new HashMap<FileObject, Collection<ErrorDescription>>();
         
@@ -120,7 +125,12 @@ public class BatchUtilities {
                 }
 
                 if (ed.getFixes().getFixes().size() != 1) {
-                    throw new IllegalStateException();//TODO: should be problem
+                    if (ed.getFixes().getFixes().isEmpty()) {
+                        problems.add(new MessageImpl(MessageKind.WARNING, "No fix for: " + ed.getDescription() + " at " + positionToString(ed) + "."));
+                        continue;
+                    }
+                    
+                    problems.add(new MessageImpl(MessageKind.WARNING, "More than one fix for: " + ed.getDescription() + " at " + positionToString(ed) + ", only the first one will be used."));
                 }
 
                 Fix f = ed.getFixes().getFixes().get(0);
@@ -135,6 +145,15 @@ public class BatchUtilities {
         }
 
         return BatchUtilities.performFastFixes(file2Fixes, progress, cancel);
+    }
+
+    private static String positionToString(ErrorDescription ed) {
+        try {
+            return ed.getFile().getNameExt() + ":" + ed.getRange().getBegin().getLine();
+        } catch (IOException ex) {
+            LOG.log(Level.FINE, null, ex);
+            return ed.getFile().getNameExt();
+        }
     }
 
     public static void removeUnusedImports(Collection<? extends FileObject> files) throws IOException {
