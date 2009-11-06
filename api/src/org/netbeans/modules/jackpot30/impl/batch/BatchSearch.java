@@ -104,22 +104,23 @@ public class BatchSearch {
             }
         }
 
-        Set<FileObject> knownSourceRoots;
+        Set<FileObject> knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
         Set<FileObject> todo;
         
         switch (scope) {
             case ALL_OPENED_PROJECTS:
-                knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
-                todo = new HashSet<FileObject>(knownSourceRoots);
+                todo = new HashSet<FileObject>();
+
+                for (ClassPath source : GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)) {
+                    todo.addAll(Arrays.asList(source.getRoots()));
+                }
                 
                 return findOccurrencesLocal(patterns, knownSourceRoots, todo);
             case GIVEN_SOURCE_ROOTS:
-                knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
                 todo = NbCollections.checkedSetByCopy(new HashSet<Object>(Arrays.asList(parameters)), FileObject.class, true);
 
                 return findOccurrencesLocal(patterns, knownSourceRoots, todo);
             case GIVEN_FOLDER:
-                knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
                 todo = Collections.singleton((FileObject) parameters[0]);
 
                 return findOccurrencesLocal(patterns, knownSourceRoots, todo);
