@@ -88,4 +88,11 @@ public final class DefaultRuleUtilities {
         return context.isNullLiteral(var);
     }
     
+    public boolean matches(String pattern) {
+        Variable current = context.variableForName("$_");
+
+        assert current != null;
+
+        return matcher.matches(current, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
+    }
 }

@@ -86,6 +86,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.CharBuffer;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -97,6 +98,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.AnnotationValueVisitor;
@@ -119,6 +122,8 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.platform.JavaPlatform;
 import org.netbeans.api.java.platform.JavaPlatformManager;
+import org.netbeans.api.java.queries.SourceForBinaryQuery;
+import org.netbeans.api.java.queries.SourceForBinaryQuery.Result2;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.SourceUtils;
@@ -132,6 +137,8 @@ import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileStateInvalidException;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
@@ -237,7 +244,28 @@ public class Utilities {
             }
         }
 
-        ClassPath cp = ClassPathSupport.createProxyClassPath(cps.toArray(new ClassPath[cps.size()]));
+        Set<FileObject> roots = new HashSet<FileObject>();
+
+        for (ClassPath cp : cps) {
+            for (FileObject r : cp.getRoots()) {
+                Result2 src;
+
+                try {
+                    src = SourceForBinaryQuery.findSourceRoots2(r.getURL());
+                } catch (FileStateInvalidException ex) {
+                    Logger.getLogger(Utilities.class.getName()).log(Level.FINE, null, ex);
+                    src = null;
+                }
+
+                if (src != null && src.preferSources()) {
+                    roots.addAll(Arrays.asList(src.getRoots()));
+                } else {
+                    roots.add(r);
+                }
+            }
+        }
+
+        ClassPath cp = ClassPathSupport.createClassPath(roots.toArray(new FileObject[0]));
 
         for (ClassPathBasedHintProvider p : Lookup.getDefault().lookupAll(ClassPathBasedHintProvider.class)) {
             result.addAll(p.computeHints(cp));
