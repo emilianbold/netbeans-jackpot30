@@ -64,6 +64,7 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.ClasspathInfo;
+import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
@@ -235,56 +236,7 @@ public class BatchSearch {
         }
     }
     
-    public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources, Collection<? super MessageImpl> problems) {
-        Set<Container> containers = new HashSet<Container>();
-
-        for (Resource r : resources) {
-            containers.add(r.container);
-        }
-
-        Collection<FileObject> rootsToRegister = new LinkedList<FileObject>();
-        Collection<? extends URL> knownSourceRoots = PathRegistry.getDefault().getSources();
-
-        for (Container c : containers) {
-            if (!c.isLocal()) {
-                continue;
-            }
-            
-            FileObject root = ((LocalContainer) c).localFO;
-            
-            try {
-                if (knownSourceRoots.contains(root.getURL())) {
-                    continue;
-                }
-            } catch (FileStateInvalidException ex) {
-                Exceptions.printStackTrace(ex);
-                continue;
-            }
-            
-            rootsToRegister.add(root);
-        }
-
-        ClassPath toRegister = !rootsToRegister.isEmpty() ? ClassPathSupport.createClassPath(rootsToRegister.toArray(new FileObject[0])) : null;
-
-        if (toRegister != null) {
-            GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {toRegister});
-            try {
-                Utilities.waitScanFinished();
-            } catch (InterruptedException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-        }
-
-        try {
-            return getVerifiedSpansImpl(resources, problems);
-        } finally {
-            if (toRegister != null) {
-                GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {toRegister});
-            }
-        }
-    }
-    
-    private static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpansImpl(Iterable<? extends Resource> resources, final Collection<? super MessageImpl> problems) {
+    public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources, final Collection<? super MessageImpl> problems) {
         Collection<FileObject> files = new LinkedList<FileObject>();
         final Map<FileObject, Resource> file2Resource = new HashMap<FileObject, Resource>();
         final Map<Resource, Iterable<? extends ErrorDescription>> resource2Errors = new HashMap<Resource, Iterable<? extends ErrorDescription>>();
@@ -306,28 +258,50 @@ public class BatchSearch {
         }
 
         Map<ClasspathInfo, Collection<FileObject>> cp2Files = BatchUtilities.sortFiles(files);
+        Set<ClassPath> toRegisterSet = new HashSet<ClassPath>();
 
-        for (Entry<ClasspathInfo, Collection<FileObject>> e : cp2Files.entrySet()) {
+        for (ClasspathInfo cpInfo : cp2Files.keySet()) {
+            toRegisterSet.add(cpInfo.getClassPath(PathKind.SOURCE));
+        }
+
+        ClassPath[] toRegister = !toRegisterSet.isEmpty() ? toRegisterSet.toArray(new ClassPath[0]) : null;
+
+        if (toRegister != null) {
+            GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, toRegister);
             try {
-                JavaSource.create(e.getKey(), e.getValue()).runUserActionTask(new Task<CompilationController>() {
-                    public void run(CompilationController parameter) throws Exception {
-                        if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
-                            return ;
-                        
-                        Resource r = file2Resource.get(parameter.getFileObject());
-                        Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = new HashMap<PatternDescription, List<HintDescription>>();
-                        Map<Kind, List<HintDescription>> sortedHintsKinds = new HashMap<Kind, List<HintDescription>>();
-
-                        RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
-
-                        List<ErrorDescription> hints = new HintsInvoker().computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
-
-                        r.setVerifiedSpans(hints);
-                        resource2Errors.put(r, hints);
-                    }
-                }, true);
-            } catch (IOException ex) {
+                Utilities.waitScanFinished();
+            } catch (InterruptedException ex) {
                 Exceptions.printStackTrace(ex);
+            }
+        }
+
+        try {
+            for (Entry<ClasspathInfo, Collection<FileObject>> e : cp2Files.entrySet()) {
+                try {
+                    JavaSource.create(e.getKey(), e.getValue()).runUserActionTask(new Task<CompilationController>() {
+                        public void run(CompilationController parameter) throws Exception {
+                            if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
+                                return ;
+
+                            Resource r = file2Resource.get(parameter.getFileObject());
+                            Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = new HashMap<PatternDescription, List<HintDescription>>();
+                            Map<Kind, List<HintDescription>> sortedHintsKinds = new HashMap<Kind, List<HintDescription>>();
+
+                            RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
+
+                            List<ErrorDescription> hints = new HintsInvoker().computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
+
+                            r.setVerifiedSpans(hints);
+                            resource2Errors.put(r, hints);
+                        }
+                    }, true);
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+        } finally {
+            if (toRegister != null) {
+                GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, toRegister);
             }
         }
 

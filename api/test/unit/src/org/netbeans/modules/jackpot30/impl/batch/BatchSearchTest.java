@@ -55,6 +55,8 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.api.java.classpath.GlobalPathRegistryEvent;
+import org.netbeans.api.java.classpath.GlobalPathRegistryListener;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
@@ -216,13 +218,86 @@ public class BatchSearchTest extends NbTestCase {
         assertEquals(verifiedGolden, verifiedOutput);
     }
 
+    public void testBatchSearchForceIndexingOfProperDirectory() throws Exception {
+        FileObject data = FileUtil.createFolder(workdir, "data");
+        FileObject dataSrc1 = FileUtil.createFolder(data, "src1");
+        FileObject dataSrc2 = FileUtil.createFolder(data, "src2");
+        writeFilesAndWaitForScan(dataSrc1,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
+        writeFilesAndWaitForScan(dataSrc2,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { Test2 f = null; f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { public boolean isDirectory() {return false} }"));
+
+        ClassPathProviderImpl.setSourceRoots(Arrays.asList(dataSrc1, dataSrc2));
+
+        Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory() :: $1 instanceof test.Test2 ;;");
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, data);
+        Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
+
+        for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
+            Collection<String> resourcesRepr = new LinkedList<String>();
+
+            for (Resource r : e.getValue()) {
+                resourcesRepr.add(r.getRelativePath());
+            }
+
+            output.put(e.getKey().toDebugString(), resourcesRepr);
+        }
+
+        Map<String, Iterable<String>> golden = new HashMap<String, Iterable<String>>();
+
+        golden.put(data.getURL().toExternalForm(), Arrays.asList("src1/test/Test1.java", "src2/test/Test1.java"));
+
+        assertEquals(golden, output);
+
+        //check verification:
+        Map<String, Iterable<String>> verifiedOutput = new HashMap<String, Iterable<String>>();
+        final Set<FileObject> added = new HashSet<FileObject>();
+        final Set<FileObject> removed = new HashSet<FileObject>();
+        
+        GlobalPathRegistry.getDefault().addGlobalPathRegistryListener(new GlobalPathRegistryListener() {
+            public void pathsAdded(GlobalPathRegistryEvent event) {
+                for (ClassPath cp : event.getChangedPaths()) {
+                    added.addAll(Arrays.asList(cp.getRoots()));
+                }
+            }
+            public void pathsRemoved(GlobalPathRegistryEvent event) {
+                for (ClassPath cp : event.getChangedPaths()) {
+                    removed.addAll(Arrays.asList(cp.getRoots()));
+                }
+            }
+        });
+
+        for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
+            Collection<String> resourcesRepr = new LinkedList<String>();
+
+            for (Resource r : e.getValue()) {
+                for (ErrorDescription ed : r.getVerifiedSpans(new LinkedList<MessageImpl>())) {
+                    resourcesRepr.add(ed.toString());
+                }
+            }
+
+            verifiedOutput.put(e.getKey().toDebugString(), resourcesRepr);
+        }
+
+        Map<String, Iterable<String>> verifiedGolden = new HashMap<String, Iterable<String>>();
+
+        verifiedGolden.put(data.getURL().toExternalForm(), Arrays.asList("0:82-0:93:verifier:TODO: No display name", "0:75-0:86:verifier:TODO: No display name"));
+
+        assertEquals(verifiedGolden, verifiedOutput);
+        assertEquals(new HashSet<FileObject>(Arrays.asList(dataSrc1, dataSrc2)), added);
+        assertEquals(new HashSet<FileObject>(Arrays.asList(dataSrc1, dataSrc2)), removed);
+    }
+
+    private FileObject workdir;
     private FileObject src1;
     private FileObject src2;
     private FileObject src3;
     private FileObject empty;
 
     private void prepareTest() throws Exception {
-        FileObject workdir = SourceUtilsTestUtil.makeScratchDir(this);
+        workdir = SourceUtilsTestUtil.makeScratchDir(this);
 
         src1 = FileUtil.createFolder(workdir, "src1");
         src2 = FileUtil.createFolder(workdir, "src2");
