@@ -10,6 +10,7 @@
     
     <target name="-init" depends="suite.-init">
         <copy file="${nbplatform.active.dir}/java3/modules/org-netbeans-modules-java-source.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/platform11/core/org-openide-filesystems.jar" todir="server/lib" />
     </target>
     
     <target name="findbugs" depends="-init">
