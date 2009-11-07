@@ -45,6 +45,8 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collections;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
@@ -93,7 +95,10 @@ public class StandaloneIndexer {
         m.setLocation(StandardLocation.SOURCE_PATH, Collections.<File>emptyList());
         
         Iterable<? extends JavaFileObject> fos = m.getJavaFileObjects(source);
-        JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, null, Arrays.asList("-bootclasspath",  bootPath), null, fos);
+        DiagnosticListener<JavaFileObject> devNull = new DiagnosticListener<JavaFileObject>() {
+            public void report(Diagnostic<? extends JavaFileObject> diagnostic) {}
+        };
+        JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, devNull, Arrays.asList("-bootclasspath",  bootPath), null, fos);
         CompilationUnitTree cut = ct.parse().iterator().next();
 
         ct.analyze(ct.enter(Collections.singletonList(cut)));
