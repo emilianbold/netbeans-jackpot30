@@ -70,6 +70,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.tools.JavaCompiler.CompilationTask;
 import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
@@ -326,6 +328,10 @@ public class Index {
                 doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
 
                 luceneWriter.addDocument(doc);
+            } catch (ThreadDeath td) {
+                throw td;
+            } catch (Throwable t) {
+                Logger.getLogger(Index.class.getName()).log(Level.WARNING, null, t);
             } finally {
                 if (out != null) {
                     out.close();
