@@ -222,7 +222,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                     if (i.name == null) {
                         patternKinds.add(i.kind.name());
                     } else {
-                        if (!"$".equals(i.name) && !Utilities.isPureMemberSelect(t, true))
+                        if (!"$".equals(i.name) && !Utilities.isPureMemberSelect(t, false))
                             patternIdentifiers.add(i.name);
                     }
 

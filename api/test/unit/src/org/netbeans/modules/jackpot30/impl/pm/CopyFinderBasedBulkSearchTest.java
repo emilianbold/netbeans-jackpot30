@@ -65,6 +65,11 @@ public class CopyFinderBasedBulkSearchTest extends BulkSearchTestPerformer {
     }
 
     @Override
+    public void testPatternEncodingAndIdentifiers() throws Exception {
+        //XXX
+    }
+
+    @Override
     public void testNoExponentialTimeComplexity() throws Exception {
         //XXX
     }

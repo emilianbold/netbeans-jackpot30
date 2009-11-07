@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -383,6 +384,18 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
         boolean matches = createSearch().matches(new ByteArrayInputStream(out.toByteArray()), createSearch().create(info, "{ $p$; $T $v; if($a) $v = $b; else $v = $c; $q$; }"));
 
         assertTrue(matches);
+    }
+
+    public void testPatternEncodingAndIdentifiers() throws Exception {
+        String text = "package test; public class Test { }";
+
+        prepareTest("test/Test.java", text);
+
+        BulkPattern bp = createSearch().create(info, "$0.isDirectory()");
+
+        assertEquals(Arrays.asList(new HashSet<String>(Arrays.asList("isDirectory"))), bp.getIdentifiers());
+        //TODO: the actual code for kinds differs for NFABased search and REBased search:
+//        assertEquals(Arrays.asList(new HashSet<String>(Arrays.asList(Kind.METHOD_INVOCATION.name()))), bp.getKinds());
     }
 
     protected abstract BulkSearch createSearch();
