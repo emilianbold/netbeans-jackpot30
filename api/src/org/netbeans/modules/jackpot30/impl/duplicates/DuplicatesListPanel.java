@@ -64,6 +64,7 @@ import org.netbeans.spi.editor.highlighting.HighlightsLayerFactory;
 import org.netbeans.spi.editor.highlighting.ZOrder;
 import org.netbeans.spi.editor.highlighting.support.OffsetsBag;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
+import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
@@ -76,9 +77,12 @@ import org.openide.util.lookup.ServiceProvider;
  */
 public class DuplicatesListPanel extends javax.swing.JPanel {
     private final Collection<? extends DuplicateDescription> dupes;
+    private final int commonPrefixLength;
 
     public DuplicatesListPanel(Collection<? extends DuplicateDescription> dupes) {
         this.dupes = dupes;
+        this.commonPrefixLength = computeCommonPrefixLen(dupes);
+        
         initComponents();
 
         left.setContentType("text/x-java");
@@ -87,13 +91,20 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
         right.setContentType("text/x-java");
         right.putClientProperty(DuplicatesListPanel.class, new OffsetsBag(right.getDocument()));
 
-        jList1.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+        leftList.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
             public void valueChanged(ListSelectionEvent arg0) {
-                setDiff((DuplicateDescription) jList1.getSelectedValue());
+                setDiff((DuplicateDescription) leftList.getSelectedValue());
+                rightList.setSelectedValue(leftList.getSelectedValue(), false);
             }
         });
 
-        jList1.setSelectedIndex(0);
+        rightList.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            public void valueChanged(ListSelectionEvent arg0) {
+                leftList.setSelectedValue(rightList.getSelectedValue(), false);
+            }
+        });
+
+        leftList.setSelectedIndex(0);
     }
 
     /** This method is called from within the constructor to
@@ -110,8 +121,10 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
         left = new javax.swing.JEditorPane();
         jScrollPane3 = new javax.swing.JScrollPane();
         right = new javax.swing.JEditorPane();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        jList1 = new javax.swing.JList();
+        jScrollPane4 = new javax.swing.JScrollPane();
+        jSplitPane2 = new BalancedSplitPane();
+        rightList = new javax.swing.JList();
+        leftList = new javax.swing.JList();
 
         jScrollPane2.setViewportView(left);
 
@@ -121,28 +134,37 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
 
         jSplitPane1.setRightComponent(jScrollPane3);
 
-        jList1.setModel(createListModel());
-        jList1.setCellRenderer(new RendererImpl());
-        jScrollPane1.setViewportView(jList1);
+        jSplitPane2.setDividerLocation(250);
+        jSplitPane2.setDividerSize(1);
+
+        rightList.setModel(createListModel());
+        rightList.setCellRenderer(new RendererImpl(false));
+        jSplitPane2.setRightComponent(rightList);
+
+        leftList.setModel(createListModel());
+        leftList.setCellRenderer(new RendererImpl(true));
+        jSplitPane2.setLeftComponent(leftList);
+
+        jScrollPane4.setViewportView(jSplitPane2);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+            .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(jSplitPane1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jSplitPane1, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 390, Short.MAX_VALUE)
+                    .addComponent(jScrollPane4, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 390, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 91, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 173, Short.MAX_VALUE)
+                .addComponent(jScrollPane4, javax.swing.GroupLayout.PREFERRED_SIZE, 76, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jSplitPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 206, Short.MAX_VALUE)
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -158,7 +180,33 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
         return dlm;
     }
 
-    private Component old;
+    private static int computeCommonPrefixLen(Collection<? extends DuplicateDescription> dupes) {
+        String commonPrefix = null;
+
+        for (DuplicateDescription dd : dupes) {
+            for (Span s : dd.dupes) {
+                commonPrefix = computeCommonPrefix(commonPrefix, s.file);
+            }
+        }
+
+        return commonPrefix != null ? commonPrefix.length() : 0;
+    }
+
+    private static String computeCommonPrefix(String origCommonPrefix, FileObject file) {
+        String name = FileUtil.getFileDisplayName(file);
+
+        if (origCommonPrefix == null) return name;
+
+        int len = Math.min(origCommonPrefix.length(), name.length());
+
+        for (int cntr = 0; cntr < len; cntr++) {
+            if (origCommonPrefix.charAt(cntr) != name.charAt(cntr)) {
+                return origCommonPrefix.substring(0, cntr);
+            }
+        }
+
+        return origCommonPrefix;
+    }
     
     private void setDiff(DuplicateDescription dd) {
         setSpan(left, dd.dupes.get(0));
@@ -193,11 +241,15 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
 
     private static final AttributeSet HIGHLIGHT = AttributesUtilities.createImmutable(StyleConstants.Background, new Color(0xDF, 0xDF, 0xDF, 0xff));
 
-    private static final class RendererImpl extends DefaultListCellRenderer {
+    private final class RendererImpl extends DefaultListCellRenderer {
+        private final boolean left;
+        public RendererImpl(boolean left) {
+            this.left = left;
+        }
         @Override
         public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
             DuplicateDescription dd = (DuplicateDescription) value;
-            String name = FileUtil.getFileDisplayName(dd.dupes.get(0).file) + "/" + FileUtil.getFileDisplayName(dd.dupes.get(1).file);
+            String name = left ? FileUtil.getFileDisplayName(dd.dupes.get(0).file).substring(commonPrefixLength) : FileUtil.getFileDisplayName(dd.dupes.get(1).file).substring(commonPrefixLength);
 
             return super.getListCellRendererComponent(list, name, index, isSelected, cellHasFocus);
         }
@@ -247,13 +299,15 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JList jList1;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JSplitPane jSplitPane1;
+    private javax.swing.JSplitPane jSplitPane2;
     private javax.swing.JEditorPane left;
+    private javax.swing.JList leftList;
     private javax.swing.JEditorPane right;
+    private javax.swing.JList rightList;
     // End of variables declaration//GEN-END:variables
 
 }
