@@ -106,7 +106,7 @@ public class RulesManager {
         ClasspathInfo cpInfo = info.getClasspathInfo();
         List<ClassPath> cps = new LinkedList<ClassPath>();
         
-        //ignoring bootclasspath for now
+        cps.add(cpInfo.getClassPath(PathKind.BOOT));
         cps.add(cpInfo.getClassPath(PathKind.COMPILE));
         cps.add(cpInfo.getClassPath(PathKind.SOURCE));
 
