@@ -84,7 +84,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     public FindDuplicatesRefactoringPanel(final ChangeListener parent, boolean allowVerify) {
         Set<ClassPath> cps = new HashSet<ClassPath>();
 
-        //TODO: bootclasspath?
+        cps.addAll(GlobalPathRegistry.getDefault().getPaths(ClassPath.BOOT));
         cps.addAll(GlobalPathRegistry.getDefault().getPaths(ClassPath.COMPILE));
         cps.addAll(GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE));
         
