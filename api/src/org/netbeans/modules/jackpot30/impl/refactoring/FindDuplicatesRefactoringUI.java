@@ -86,11 +86,11 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     }
 
     public String getName() {
-        return query ? "Look for Duplicates" : "Apply Pattern";
+        return query ? "Find Pattern Occurrences" : "Apply Pattern";
     }
 
     public String getDescription() {
-        return query ? "Look for Duplicates" : "Apply Pattern";
+        return query ? "Find Pattern Occurrences" : "Apply Pattern";
     }
 
     public boolean isQuery() {
