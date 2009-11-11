@@ -48,8 +48,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
@@ -74,65 +74,81 @@ import org.openide.util.lookup.ServiceProvider;
 public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHintProvider {
 
     public Collection<? extends HintDescription> computeHints() {
+        return readHints(findGlobalFiles());
+    }
+
+    public Collection<? extends HintDescription> computeHints(ClassPath cp) {
+        return readHints(findFiles(cp));
+    }
+
+    private List<HintDescription> readHints(Iterable<? extends FileObject> files) {
+        List<HintDescription> result = new LinkedList<HintDescription>();
+
+        for (FileObject f : files) {
+            result.addAll(parseHintFile(f));
+        }
+
+        return result;
+    }
+    
+    public static Collection<? extends FileObject> findAllFiles() {
+        List<FileObject> files = new LinkedList<FileObject>();
+
+        files.addAll(findGlobalFiles());
+        files.addAll(findFiles(GlobalPathRegistry.getDefault().getPaths(ClassPath.BOOT)));
+        files.addAll(findFiles(GlobalPathRegistry.getDefault().getPaths(ClassPath.COMPILE)));
+        files.addAll(findFiles(GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)));
+
+        return files;
+    }
+
+    private static Collection<? extends FileObject> findFiles(Iterable<? extends ClassPath> cps) {
+        List<FileObject> result = new LinkedList<FileObject>();
+
+        for (ClassPath cp : cps) {
+            result.addAll(findFiles(cp));
+        }
+
+        return result;
+    }
+
+    private static Collection<? extends FileObject> findFiles(ClassPath cp) {
+        List<FileObject> result = new LinkedList<FileObject>();
+
+        for (FileObject folder : cp.findAllResources("META-INF/upgrade")) {
+            result.addAll(findFiles(folder));
+        }
+
+        return result;
+    }
+
+    private static Collection<? extends FileObject> findGlobalFiles() {
         FileObject folder = FileUtil.getConfigFile("org-netbeans-modules-java-hints/declarative");
 
         if (folder == null) {
             return Collections.emptyList();
         }
 
-        List<HintDescription> result = new LinkedList<HintDescription>();
-        
-        readHintsFromFolder(folder, result);
-
-        return result;
+        return findFiles(folder);
     }
 
-    public Collection<? extends HintDescription> computeHints(ClassPath cp) {
-        List<HintDescription> result = new LinkedList<HintDescription>();
+    private static Collection<? extends FileObject> findFiles(FileObject folder) {
+        List<FileObject> result = new LinkedList<FileObject>();
         
-        for (FileObject folder : cp.findAllResources("META-INF/upgrade")) {
-            readHintsFromFolder(folder, result);
-        }
-
-        return result;
-    }
-
-    private void readHintsFromFolder(FileObject folder, List<HintDescription> result) {
         for (FileObject f : folder.getChildren()) {
             if (!"hint".equals(f.getExt())) {
                 continue;
             }
-            result.addAll(parseHintFile(f));
+            result.add(f);
         }
+
+        return result;
     }
-    
+
     public static List<HintDescription> parseHintFile(FileObject file) {
-        StringBuilder sb = new StringBuilder();
+        String spec = Utilities.readFile(file);
 
-        Reader r = null;
-        
-        try {
-            r = new InputStreamReader(file.getInputStream(), "UTF-8");
-
-            int read;
-
-            while ((read = r.read()) != (-1)) {
-                sb.append((char) read);
-            }
-
-            return parseHints(sb.toString());
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-            return Collections.emptyList();
-        } finally {
-            if (r != null) {
-                try {
-                    r.close();
-                } catch (IOException ex) {
-                    Exceptions.printStackTrace(ex);
-                }
-            }
-        }
+        return spec != null ? parseHints(spec) : Collections.<HintDescription>emptyList();
     }
 
     public static List<HintDescription> parseHints(String spec) {

@@ -37,35 +37,45 @@
  * Portions Copyrighted 2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.spi;
+package org.netbeans.modules.jackpot30.file.debugging;
 
-import com.sun.source.tree.Scope;
-import com.sun.source.tree.Tree;
-import com.sun.source.util.TreePath;
-import java.util.Collections;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.lang.model.type.TypeMirror;
-import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
+import org.netbeans.api.lexer.TokenHierarchy;
+import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintTokenId;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
 
 /**
  *
- * @author lahvac
+ * @author Jan Lahoda
  */
-public class MatcherUtilities {
+public class HintWrapper {
 
-    public static boolean matches(@NonNull HintContext ctx, @NonNull TreePath variable, @NonNull String pattern) {
-        return matches(ctx, variable, pattern, false);
+    public final String spec;
+    public final Result res;
+    public final HintTextDescription desc;
+
+    private HintWrapper(String spec, Result res, HintTextDescription desc) {
+        this.spec = spec;
+        this.res = res;
+        this.desc = desc;
     }
 
-    //fillInVariables is a hack to allow declarative hint debugging
-    public static boolean matches(@NonNull HintContext ctx, @NonNull TreePath variable, @NonNull String pattern, boolean fillInVariables) {
-        Scope s = Utilities.constructScope(ctx.getInfo(), Collections.<String, TypeMirror>emptyMap());
-        Tree  patternTree = Utilities.parseAndAttribute(ctx.getInfo(), pattern, s);
-        TreePath patternTreePath = new TreePath(new TreePath(ctx.getInfo().getCompilationUnit()), patternTree);
-        
-        return CopyFinder.isDuplicate(ctx.getInfo(), patternTreePath, variable, true, ctx.getVariables(), fillInVariables, new AtomicBoolean()/*XXX*/);
+    public static Collection<? extends HintWrapper> parse(String spec) {
+        TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
+        TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
+        List<HintWrapper> result = new LinkedList<HintWrapper>();
+        Result parsed = new DeclarativeHintsParser().parse(spec, ts);
+
+        for (HintTextDescription d : parsed.hints) {
+            result.add(new HintWrapper(spec, parsed, d));
+        }
+
+        return result;
     }
 
 }

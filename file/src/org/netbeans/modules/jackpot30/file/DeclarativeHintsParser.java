@@ -188,9 +188,10 @@ public class DeclarativeHintsParser {
         maybeParseOptions(ruleOptions);
 
         List<Condition> conditions = new LinkedList<Condition>();
+        List<int[]> conditionsSpans = new LinkedList<int[]>();
 
         if (id() == DOUBLE_COLON) {
-            parseConditions(conditions);
+            parseConditions(conditions, conditionsSpans);
         }
 
         List<FixTextDescription> targets = new LinkedList<FixTextDescription>();
@@ -216,25 +217,27 @@ public class DeclarativeHintsParser {
 
             int[] span = new int[] {targetStart, targetEnd};
             List<Condition> fixConditions = new LinkedList<Condition>();
+            List<int[]> fixConditionSpans = new LinkedList<int[]>();
 
             if (id() == DOUBLE_COLON) {
-                parseConditions(fixConditions);
+                parseConditions(fixConditions, fixConditionSpans);
             }
 
-            targets.add(new FixTextDescription(span, fixConditions, fixOptions));
+            targets.add(new FixTextDescription(span, fixConditions, fixConditionSpans, fixOptions));
         }
 
-        hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, targets, ruleOptions));
+        hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, conditionsSpans, targets, ruleOptions));
     }
     
-    private void parseConditions(List<Condition> conditions) {
+    private void parseConditions(List<Condition> conditions, List<int[]> spans) {
         do {
             nextToken();
-            parseCondition(conditions);
+            parseCondition(conditions, spans);
         } while (id() == AND && !eof);
     }
 
-    private void parseCondition(List<Condition> conditions) {
+    private void parseCondition(List<Condition> conditions, List<int[]> spans) {
+        int conditionStart = input.offset();
         boolean not = false;
 
         if (id() == NOT) {
@@ -261,6 +264,7 @@ public class DeclarativeHintsParser {
             int typeEnd = input.offset();
 
             conditions.add(new Instanceof(not, name, text.subSequence(typeStart, typeEnd).toString(), new int[] {typeStart, typeEnd}));
+            spans.add(new int[] {conditionStart, typeEnd});
             return ;
         }
 
@@ -277,6 +281,7 @@ public class DeclarativeHintsParser {
 
             if (mi != null) {
                 conditions.add(mi);
+                spans.add(new int[]{conditionStart, end});
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
@@ -406,14 +411,16 @@ public class DeclarativeHintsParser {
         public final int textStart;
         public final int textEnd;
         public final List<Condition> conditions;
+        public final List<int[]> conditionSpans;
         public final List<FixTextDescription> fixes;
         public final Map<String, String> options;
 
-        public HintTextDescription(String displayName, int textStart, int textEnd, List<Condition> conditions, List<FixTextDescription> fixes, Map<String, String> options) {
+        public HintTextDescription(String displayName, int textStart, int textEnd, List<Condition> conditions, List<int[]> conditionSpans, List<FixTextDescription> fixes, Map<String, String> options) {
             this.displayName = displayName;
             this.textStart = textStart;
             this.textEnd = textEnd;
             this.conditions = conditions;
+            this.conditionSpans = conditionSpans;
             this.fixes = fixes;
             this.options = options;
         }
@@ -423,11 +430,13 @@ public class DeclarativeHintsParser {
     public static final class FixTextDescription {
         public final int[] fixSpan;
         public final List<Condition> conditions;
+        public final List<int[]> conditionSpans;
         public final Map<String, String> options;
 
-        public FixTextDescription(int[] fixSpan, List<Condition> conditions, Map<String, String> options) {
+        public FixTextDescription(int[] fixSpan, List<Condition> conditions, List<int[]> conditionSpans, Map<String, String> options) {
             this.fixSpan = fixSpan;
             this.conditions = conditions;
+            this.conditionSpans = conditionSpans;
             this.options = options;
         }
     }

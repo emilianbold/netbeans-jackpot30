@@ -37,35 +37,47 @@
  * Portions Copyrighted 2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.spi;
+package org.netbeans.modules.jackpot30.file;
 
-import com.sun.source.tree.Scope;
-import com.sun.source.tree.Tree;
-import com.sun.source.util.TreePath;
-import java.util.Collections;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.lang.model.type.TypeMirror;
-import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import org.openide.filesystems.FileObject;
+import org.openide.util.Exceptions;
 
 /**
  *
- * @author lahvac
+ * @author Jan Lahoda
  */
-public class MatcherUtilities {
+public class Utilities {
 
-    public static boolean matches(@NonNull HintContext ctx, @NonNull TreePath variable, @NonNull String pattern) {
-        return matches(ctx, variable, pattern, false);
-    }
+    public static String readFile(FileObject file) {
+        StringBuilder sb = new StringBuilder();
 
-    //fillInVariables is a hack to allow declarative hint debugging
-    public static boolean matches(@NonNull HintContext ctx, @NonNull TreePath variable, @NonNull String pattern, boolean fillInVariables) {
-        Scope s = Utilities.constructScope(ctx.getInfo(), Collections.<String, TypeMirror>emptyMap());
-        Tree  patternTree = Utilities.parseAndAttribute(ctx.getInfo(), pattern, s);
-        TreePath patternTreePath = new TreePath(new TreePath(ctx.getInfo().getCompilationUnit()), patternTree);
-        
-        return CopyFinder.isDuplicate(ctx.getInfo(), patternTreePath, variable, true, ctx.getVariables(), fillInVariables, new AtomicBoolean()/*XXX*/);
+        Reader r = null;
+
+        try {
+            r = new InputStreamReader(file.getInputStream(), "UTF-8");
+
+            int read;
+
+            while ((read = r.read()) != (-1)) {
+                sb.append((char) read);
+            }
+
+            return sb.toString();
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+            return null;
+        } finally {
+            if (r != null) {
+                try {
+                    r.close();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+        }
     }
 
 }

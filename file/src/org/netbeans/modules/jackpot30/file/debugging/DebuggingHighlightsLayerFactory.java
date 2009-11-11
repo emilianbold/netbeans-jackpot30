@@ -37,35 +37,37 @@
  * Portions Copyrighted 2009 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.spi;
+package org.netbeans.modules.jackpot30.file.debugging;
 
-import com.sun.source.tree.Scope;
-import com.sun.source.tree.Tree;
-import com.sun.source.util.TreePath;
-import java.util.Collections;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.lang.model.type.TypeMirror;
-import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
+import javax.swing.text.Document;
+import org.netbeans.spi.editor.highlighting.HighlightsLayer;
+import org.netbeans.spi.editor.highlighting.HighlightsLayerFactory;
+import org.netbeans.spi.editor.highlighting.ZOrder;
+import org.netbeans.spi.editor.highlighting.support.OffsetsBag;
 
 /**
  *
- * @author lahvac
+ * @author Jan Lahoda
  */
-public class MatcherUtilities {
+public class DebuggingHighlightsLayerFactory implements HighlightsLayerFactory {
 
-    public static boolean matches(@NonNull HintContext ctx, @NonNull TreePath variable, @NonNull String pattern) {
-        return matches(ctx, variable, pattern, false);
+    public HighlightsLayer[] createLayers(Context context) {
+        return new HighlightsLayer[] {
+            HighlightsLayer.create(DebuggingHighlightsLayerFactory.class.getName(),
+                                   ZOrder.SYNTAX_RACK,
+                                   true,
+                                   getBag(context.getDocument()))
+        };
     }
 
-    //fillInVariables is a hack to allow declarative hint debugging
-    public static boolean matches(@NonNull HintContext ctx, @NonNull TreePath variable, @NonNull String pattern, boolean fillInVariables) {
-        Scope s = Utilities.constructScope(ctx.getInfo(), Collections.<String, TypeMirror>emptyMap());
-        Tree  patternTree = Utilities.parseAndAttribute(ctx.getInfo(), pattern, s);
-        TreePath patternTreePath = new TreePath(new TreePath(ctx.getInfo().getCompilationUnit()), patternTree);
-        
-        return CopyFinder.isDuplicate(ctx.getInfo(), patternTreePath, variable, true, ctx.getVariables(), fillInVariables, new AtomicBoolean()/*XXX*/);
+    public static OffsetsBag getBag(Document doc) {
+        OffsetsBag bag = (OffsetsBag) doc.getProperty(DebuggingHighlightsLayerFactory.class);
+
+        if (bag == null) {
+            doc.putProperty(DebuggingHighlightsLayerFactory.class, bag = new OffsetsBag(doc));
+        }
+
+        return bag;
     }
 
 }
