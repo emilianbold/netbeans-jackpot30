@@ -246,6 +246,10 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                   "0:10-0:26:error:Cannot resolve method");
     }
 
+    public void testVarArgs1() throws Exception {
+        performErrorGatheringTest("$a + $b :: test($a, \"a\", \"b\");;");
+    }
+
     protected void setUp() throws Exception {
         SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
         
@@ -500,6 +504,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
     public static final class TestConditionClass {
         public boolean test(String s, Variable v1, Variable v2) { return false; }
         public boolean test(Variable var, Modifier mod, SourceVersion sv) { return false; }
-    }
+        public boolean test(Variable var, String... strings) { return false; }
+   }
 
 }

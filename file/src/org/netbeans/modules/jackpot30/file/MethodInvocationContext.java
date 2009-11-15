@@ -40,11 +40,13 @@
 package org.netbeans.modules.jackpot30.file;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -96,40 +98,87 @@ public class MethodInvocationContext {
             }
         }
 
+        Method varArgMethod = null;
+        
         for (Class<?> clazz : ruleUtilities) {
-            try {
-                return clazz.getDeclaredMethod(methodName, paramTypes.toArray(new Class<?>[0]));
-            } catch (IllegalArgumentException ex) {
-                //TODO: should only log evenually:
-                Exceptions.printStackTrace(ex);
-            } catch (NoSuchMethodException ex) {
-                //TODO: should log evenually:
-            } catch (SecurityException ex) {
-                //TODO: should only log evenually:
-                Exceptions.printStackTrace(ex);
+            OUTER: for (Method m : clazz.getDeclaredMethods()) {
+                if (methodName.equals(m.getName())) {
+                    Class<?>[] p = m.getParameterTypes();
+                    int c = 0;
+                    Iterator<Class<?>> it = paramTypes.iterator();
+
+                    for ( ; it.hasNext() && c < p.length; ) {
+                        Class<?> paramClass = it.next();
+                        Class<?> declaredClass = p[c++];
+
+                        if (declaredClass.equals(paramClass))
+                            continue;
+
+                        if (   m.isVarArgs()
+                            && declaredClass.isArray()
+                            && declaredClass.getComponentType().equals(paramClass)
+                            && c == p.length) {
+                            while (it.hasNext()) {
+                                if (!paramClass.equals(it.next())) {
+                                    continue OUTER;
+                                }
+                            }
+
+                            break;
+                        }
+
+                        continue OUTER;
+                    }
+
+                    if (!it.hasNext() && c == p.length) {
+                        if (!m.isVarArgs()) {
+                            return m;
+                        }
+                        if (varArgMethod == null) {
+                            varArgMethod = m;
+                        }
+                    }
+                }
             }
         }
 
-        return null;
+        return varArgMethod;
     }
 
     public boolean invokeMethod(HintContext ctx, @NonNull Method method, Map<? extends String, ? extends ParameterKind> params) {
         Collection<Object> paramValues = new LinkedList<Object>();
+        int i = 0;
+        Collection<Object> vararg = null;
 
         for (Entry<? extends String, ? extends ParameterKind> e : params.entrySet()) {
+            if (++i == method.getParameterTypes().length && method.isVarArgs()) {
+                vararg = new LinkedList<Object>();
+            }
+            Object toAdd;
             switch ((ParameterKind) e.getValue()) {
                 case VARIABLE:
-                    paramValues.add(new Variable(e.getKey())); //TODO: security/safety
+                    toAdd = new Variable(e.getKey()); //TODO: security/safety
                     break;
                 case STRING_LITERAL:
-                    paramValues.add(e.getKey());
+                    toAdd = e.getKey();
                     break;
                 case ENUM_CONSTANT:
                     Enum<?> constant = loadEnumConstant(e.getKey());
 
-                    paramValues.add(constant);
+                    toAdd = constant;
                     break;
+                default:
+                    throw new IllegalStateException();
             }
+
+            (vararg != null ? vararg : paramValues).add(toAdd);
+        }
+
+        if (method.isVarArgs()) {
+            Object[] arr = (Object[]) Array.newInstance(method.getParameterTypes()[method.getParameterTypes().length - 1].getComponentType(), vararg.size());
+
+            vararg.toArray(arr);
+            paramValues.add(arr);
         }
 
         Context context = new Context(ctx);
