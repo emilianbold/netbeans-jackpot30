@@ -39,6 +39,8 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -47,7 +49,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import javax.lang.model.SourceVersion;
+import javax.lang.model.element.Modifier;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
+import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
@@ -57,6 +62,8 @@ import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescrip
 import static org.junit.Assert.*;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
+import org.netbeans.modules.jackpot30.file.conditionapi.Variable;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 
@@ -70,7 +77,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         super(name);
     }
 
-    public void testSimpleParse() {
+    public void testSimpleParse() throws Exception {
         performTest(" 1 + 1 :: $1 instanceof something && $test instanceof somethingelse => 1 + 1;; ",
                     StringHintDescription.create(" 1 + 1 ")
                                          .addCondition(new Instanceof(false, "$1", " something ", new int[2]))
@@ -78,7 +85,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .addTos(" 1 + 1"));
     }
 
-    public void testParseDisplayName() {
+    public void testParseDisplayName() throws Exception {
         performTest("'test': 1 + 1 :: $1 instanceof something && $test instanceof somethingelse => 1 + 1;; ",
                     StringHintDescription.create(" 1 + 1 ")
                                          .addCondition(new Instanceof(false, "$1", " something ", new int[2]))
@@ -87,7 +94,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test"));
     }
 
-    public void testMultiple() {
+    public void testMultiple() throws Exception {
         performTest("'test': 1 + 1 => 1 + 1;; 'test2': 1 + 1 => 1 + 1;;",
                     StringHintDescription.create(" 1 + 1 ")
                                          .addTos(" 1 + 1")
@@ -97,7 +104,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test2"));
     }
 
-    public void testMethodInvocationCondition1() {
+    public void testMethodInvocationCondition1() throws Exception {
         Map<String, ParameterKind> m = new LinkedHashMap<String, ParameterKind>();
 
         m.put("a", ParameterKind.STRING_LITERAL);
@@ -111,7 +118,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test"));
     }
 
-    public void testMethodInvocationCondition2() {
+    public void testMethodInvocationCondition2() throws Exception {
         Map<String, ParameterKind> m = new LinkedHashMap<String, ParameterKind>();
 
         m.put("$1", ParameterKind.VARIABLE);
@@ -125,7 +132,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test"));
     }
 
-    public void testNegation() {
+    public void testNegation() throws Exception {
         Map<String, ParameterKind> m = new LinkedHashMap<String, ParameterKind>();
 
         m.put("$1", ParameterKind.VARIABLE);
@@ -139,7 +146,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test"));
     }
 
-    public void testComments1() {
+    public void testComments1() throws Exception {
         performTest("/**/'test': /**/1 /**/+ 1//\n =>/**/ 1 + 1/**/;; //\n'test2': /**/1 + 1 =>//\n 1/**/ + 1;;",
                     StringHintDescription.create("1 /**/+ 1//\n ")
                                          .addTos(" 1 + 1/**/")
@@ -149,7 +156,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                          .setDisplayName("test2"));
     }
 
-    public void testParserSanity1() {
+    public void testParserSanity1() throws Exception {
         String code = "'Use of assert'://\n" +
                       "   assert /**/ $1 : $2; :: //\n $1 instanceof boolean && $2 instanceof java.lang.Object\n" +
                       "=> if (!$1) throw new /**/ IllegalStateException($2);\n" +
@@ -157,7 +164,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         performParserSanityTest(code);
     }
 
-    public void testJavaBlocks() {
+    public void testJavaBlocks() throws Exception {
         performTest("<?import java.util.List;?> /**/'test': List $l; :: test($_)\n => List $l; ;; <?private boolean test(Variable v) {return false;}?>",
                     "import java.util.List;",
                     Arrays.asList(StringHintDescription.create(" List $l; ")
@@ -167,7 +174,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                     Arrays.asList("private boolean test(Variable v) {return false;}"));
     }
 
-    public void testConditionOnFix() {
+    public void testConditionOnFix() throws Exception {
         Map<String, ParameterKind> m = new LinkedHashMap<String, ParameterKind>();
 
         m.put("a", ParameterKind.STRING_LITERAL);
@@ -207,7 +214,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         assertEquals(golden, result);
     }
 
-    public void testParseOptionsInContext() {
+    public void testParseOptionsInContext() throws Exception {
         Map<String, ParameterKind> m = new LinkedHashMap<String, ParameterKind>();
 
         m.put("a", ParameterKind.STRING_LITERAL);
@@ -228,25 +235,40 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testOptionsSanity() throws Exception {
+        String code = "<!key=value>'test': $1 + $2 <!key1=value1>=> 1 + 1 <!key2=value2>:: test(\"a\", $2, $1);;";
+
+        performParserSanityTest(code);
+    }
+
+    public void testError1() throws Exception {
+        performErrorGatheringTest("$a + $b :: unknown($a, $b);;",
+                                  "0:10-0:26:error:Cannot resolve method");
+    }
+
     protected void setUp() throws Exception {
         SourceUtilsTestUtil.prepareTest(new String[0], new Object[0]);
         
         FileObject dir = SourceUtilsTestUtil.makeScratchDir(this);
         
         System.setProperty("netbeans.user", FileUtil.toFile(dir).getAbsolutePath());
+        
+        DeclarativeHintsParser.auxConditionClasses = new Class[] {TestConditionClass.class};
     }
     
-    private void performTest(String code, StringHintDescription... golden) {
+    private void performTest(String code, StringHintDescription... golden) throws Exception {
         performTest(code, Collections.<String, String>emptyMap(), null, Arrays.asList(golden), Collections.<String>emptyList());
     }
 
-    private void performTest(String code, String goldenImportsBlock, Collection<StringHintDescription> goldenHints, Collection<String> goldenBlocks) {
+    private void performTest(String code, String goldenImportsBlock, Collection<StringHintDescription> goldenHints, Collection<String> goldenBlocks) throws Exception {
         performTest(code, Collections.<String, String>emptyMap(), goldenImportsBlock, goldenHints, goldenBlocks);
     }
 
-    private void performTest(String code, Map<String, String> goldenGlobalOptions, String goldenImportsBlock, Collection<StringHintDescription> goldenHints, Collection<String> goldenBlocks) {
+    private void performTest(String code, Map<String, String> goldenGlobalOptions, String goldenImportsBlock, Collection<StringHintDescription> goldenHints, Collection<String> goldenBlocks) throws Exception {
         TokenHierarchy<?> h = TokenHierarchy.create(code, DeclarativeHintTokenId.language());
-        Result parsed = new DeclarativeHintsParser().parse(code, h.tokenSequence(DeclarativeHintTokenId.language()));
+        FileObject file = FileUtil.createData(new File(getWorkDir(), "Test.java"));
+        TestUtilities.copyStringToFile(file, code);
+        Result parsed = new DeclarativeHintsParser().parse(file, code, h.tokenSequence(DeclarativeHintTokenId.language()));
         List<StringHintDescription> real = new LinkedList<StringHintDescription>();
 
         for (HintTextDescription hint : parsed.hints) {
@@ -276,7 +298,24 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         }
     }
 
-    private void performParserSanityTest(String code) {
+    private void performErrorGatheringTest(String code, String... errors) throws Exception {
+        TokenHierarchy<?> h = TokenHierarchy.create(code, DeclarativeHintTokenId.language());
+        FileObject file = FileUtil.createData(new File(getWorkDir(), "Test.java"));
+        TestUtilities.copyStringToFile(file, code);
+        Result parsed = new DeclarativeHintsParser().parse(file, code, h.tokenSequence(DeclarativeHintTokenId.language()));
+        List<String> actualError = new LinkedList<String>();
+
+        for (ErrorDescription ed : parsed.errors) {
+            actualError.add(ed.toString());
+        }
+
+        assertEquals(Arrays.asList(errors), actualError);
+    }
+
+    private void performParserSanityTest(String code) throws Exception {
+        FileObject file = FileUtil.createData(new File(getWorkDir(), "Test.java"));
+        TestUtilities.copyStringToFile(file, code);
+
         for (int cntr = 0; cntr < code.length(); cntr++) {
             String currentpath = code.substring(0, cntr);
 
@@ -284,7 +323,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
             
             TokenHierarchy<?> h = TokenHierarchy.create(currentpath, DeclarativeHintTokenId.language());
 
-            new DeclarativeHintsParser().parse(currentpath, h.tokenSequence(DeclarativeHintTokenId.language()));
+            new DeclarativeHintsParser().parse(file, currentpath, h.tokenSequence(DeclarativeHintTokenId.language()));
         }
     }
 
@@ -456,6 +495,11 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         public String toString() {
             return "<" + to + ":" + conditions + ":" + options + ">";
         }
+    }
+
+    public static final class TestConditionClass {
+        public boolean test(String s, Variable v1, Variable v2) { return false; }
+        public boolean test(Variable var, Modifier mod, SourceVersion sv) { return false; }
     }
 
 }

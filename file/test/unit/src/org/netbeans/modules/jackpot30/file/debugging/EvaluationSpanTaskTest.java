@@ -160,7 +160,7 @@ public class EvaluationSpanTaskTest extends NbTestCase {
         
         prepareTest("test/Test.java", codeSplit[0] + codeSplit[1] + codeSplit[2]);
         
-        Collection<? extends HintWrapper> w = HintWrapper.parse(sb.toString());
+        Collection<? extends HintWrapper> w = HintWrapper.parse(info.getFileObject(), sb.toString());
 
         List<int[]> passedActual = new LinkedList<int[]>();
         List<int[]> failedActual = new LinkedList<int[]>();

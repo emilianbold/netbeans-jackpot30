@@ -48,6 +48,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.lexer.TokenHierarchy;
@@ -145,17 +147,17 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         return result;
     }
 
-    public static List<HintDescription> parseHintFile(FileObject file) {
+    public static List<HintDescription> parseHintFile(@NonNull FileObject file) {
         String spec = Utilities.readFile(file);
 
-        return spec != null ? parseHints(spec) : Collections.<HintDescription>emptyList();
+        return spec != null ? parseHints(file, spec) : Collections.<HintDescription>emptyList();
     }
 
-    public static List<HintDescription> parseHints(String spec) {
+    public static List<HintDescription> parseHints(@NullAllowed FileObject file, String spec) {
         TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
         TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
         List<HintDescription> result = new LinkedList<HintDescription>();
-        Result parsed = new DeclarativeHintsParser().parse(spec, ts);
+        Result parsed = new DeclarativeHintsParser().parse(file, spec, ts);
 
         for (HintTextDescription hint : parsed.hints) {
             HintDescriptionFactory f = HintDescriptionFactory.create();

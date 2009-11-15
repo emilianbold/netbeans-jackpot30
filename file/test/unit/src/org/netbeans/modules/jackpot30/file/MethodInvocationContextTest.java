@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.Test;
@@ -56,7 +57,8 @@ public class MethodInvocationContextTest {
         MethodInvocationContext mic = new MethodInvocationContext();
 
         mic.setCode("", Arrays.asList("public boolean test() {return false;}"));
-        assertFalse(mic.invokeMethod(null, "test", Collections.<String, ParameterKind>emptyMap()));
+        Method m =mic.linkMethod("test", Collections.<String, ParameterKind>emptyMap());
+        assertFalse(mic.invokeMethod(null, m, Collections.<String, ParameterKind>emptyMap()));
     }
 
     @Test

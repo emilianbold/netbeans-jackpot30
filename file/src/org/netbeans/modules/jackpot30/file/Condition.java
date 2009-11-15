@@ -46,6 +46,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.modules.jackpot30.spi.HintContext;
@@ -109,6 +110,7 @@ public abstract class Condition {
         private final String methodName;
         private final Map<? extends String, ? extends ParameterKind> params;
         private final MethodInvocationContext mic;
+        private final AtomicReference<Method> toCall = new AtomicReference<Method>();
 
         public MethodInvocation(boolean not, String methodName, Map<? extends String, ? extends ParameterKind> params, MethodInvocationContext mic) {
             super(not);
@@ -119,7 +121,22 @@ public abstract class Condition {
 
         @Override
         public boolean holds(HintContext ctx, boolean global) {
-            return mic.invokeMethod(ctx, methodName, params) ^ not;
+            if (toCall.get() == null) {
+                //not linked yet?
+                if (!link()) {
+                    throw new IllegalStateException();
+                }
+            }
+
+            return mic.invokeMethod(ctx, toCall.get(), params) ^ not;
+        }
+
+        boolean link() {
+            Method m = mic.linkMethod(methodName, params);
+
+            toCall.set(m);
+
+            return m != null;
         }
 
         @Override
@@ -134,4 +151,20 @@ public abstract class Condition {
         }
     }
 
+    public static final class False extends Condition {
+
+        public False() {
+            super(false);
+        }
+
+        @Override
+        public boolean holds(HintContext ctx, boolean global) {
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return "(FALSE)";
+        }
+    }
 }

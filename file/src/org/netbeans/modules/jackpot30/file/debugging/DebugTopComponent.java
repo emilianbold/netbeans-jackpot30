@@ -125,7 +125,7 @@ public final class DebugTopComponent extends TopComponent {
             String spec = Utilities.readFile(selected);
 
             code.setText(spec);
-            hints = HintWrapper.parse(spec);
+            hints = HintWrapper.parse(selected, spec);
         }
     }//GEN-LAST:event_filesActionPerformed
 

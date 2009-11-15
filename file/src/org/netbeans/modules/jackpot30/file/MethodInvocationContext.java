@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.platform.JavaPlatform;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
@@ -76,50 +77,28 @@ public class MethodInvocationContext {
         ruleUtilities.add(DefaultRuleUtilities.class);
     }
 
-    public boolean invokeMethod(HintContext ctx, String methodName, Map<? extends String, ? extends ParameterKind> params) {
+    public Method linkMethod(String methodName, Map<? extends String, ? extends ParameterKind> params) {
         Collection<Class<?>> paramTypes = new LinkedList<Class<?>>();
-        Collection<Object> paramValues = new LinkedList<Object>();
 
         for (Entry<? extends String, ? extends ParameterKind> e : params.entrySet()) {
             switch ((ParameterKind) e.getValue()) {
                 case VARIABLE:
                     paramTypes.add(Variable.class);
-                    paramValues.add(new Variable(e.getKey())); //TODO: security/safety
                     break;
                 case STRING_LITERAL:
                     paramTypes.add(String.class);
-                    paramValues.add(e.getKey());
                     break;
                 case ENUM_CONSTANT:
                     Enum<?> constant = loadEnumConstant(e.getKey());
 
                     paramTypes.add(constant.getDeclaringClass());
-                    paramValues.add(constant);
                     break;
             }
         }
 
-        Context context = new Context(ctx);
-        Matcher matcher = new Matcher(ctx);
-
         for (Class<?> clazz : ruleUtilities) {
             try {
-                Method m = clazz.getDeclaredMethod(methodName, paramTypes.toArray(new Class<?>[0]));
-                Constructor<?> c = clazz.getDeclaredConstructor(Context.class, Matcher.class);
-
-                m.setAccessible(true);
-                c.setAccessible(true);
-                
-                Object instance = c.newInstance(context, matcher);
-
-                return (Boolean) m.invoke(instance, paramValues.toArray(new Object[0]));
-            } catch (InstantiationException ex) {
-                Exceptions.printStackTrace(ex);
-            } catch (InvocationTargetException ex) {
-                Exceptions.printStackTrace(ex);
-            } catch (IllegalAccessException ex) {
-                //TODO: should only log evenually:
-                Exceptions.printStackTrace(ex);
+                return clazz.getDeclaredMethod(methodName, paramTypes.toArray(new Class<?>[0]));
             } catch (IllegalArgumentException ex) {
                 //TODO: should only log evenually:
                 Exceptions.printStackTrace(ex);
@@ -131,8 +110,54 @@ public class MethodInvocationContext {
             }
         }
 
+        return null;
+    }
 
-        throw new IllegalStateException(methodName + " not found. Parameter types: " + paramTypes.toString());
+    public boolean invokeMethod(HintContext ctx, @NonNull Method method, Map<? extends String, ? extends ParameterKind> params) {
+        Collection<Object> paramValues = new LinkedList<Object>();
+
+        for (Entry<? extends String, ? extends ParameterKind> e : params.entrySet()) {
+            switch ((ParameterKind) e.getValue()) {
+                case VARIABLE:
+                    paramValues.add(new Variable(e.getKey())); //TODO: security/safety
+                    break;
+                case STRING_LITERAL:
+                    paramValues.add(e.getKey());
+                    break;
+                case ENUM_CONSTANT:
+                    Enum<?> constant = loadEnumConstant(e.getKey());
+
+                    paramValues.add(constant);
+                    break;
+            }
+        }
+
+        Context context = new Context(ctx);
+        Matcher matcher = new Matcher(ctx);
+
+        Class<?> clazz = method.getDeclaringClass();
+        try {
+            Constructor<?> c = clazz.getDeclaredConstructor(Context.class, Matcher.class);
+
+            method.setAccessible(true);
+            c.setAccessible(true);
+
+            Object instance = c.newInstance(context, matcher);
+
+            return (Boolean) method.invoke(instance, paramValues.toArray(new Object[0]));
+        } catch (InstantiationException ex) {
+            throw new IllegalStateException(ex);
+        } catch (InvocationTargetException ex) {
+            throw new IllegalStateException(ex);
+        } catch (IllegalAccessException ex) {
+            throw new IllegalStateException(ex);
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalStateException(ex);
+        } catch (NoSuchMethodException ex) {
+            throw new IllegalStateException(ex);
+        } catch (SecurityException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
     
     private static Enum<?> loadEnumConstant(String fqn) {

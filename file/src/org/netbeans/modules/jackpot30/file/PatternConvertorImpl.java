@@ -53,7 +53,7 @@ public class PatternConvertorImpl extends PatternConvertor {
 
     @Override
     protected Iterable<? extends HintDescription> parseString(String code) {
-        List<HintDescription> hints = DeclarativeHintRegistry.parseHints(code);
+        List<HintDescription> hints = DeclarativeHintRegistry.parseHints(null, code);
 
         if (hints.isEmpty()) {
             return null;

@@ -36,48 +36,58 @@
  *
  * Portions Copyrighted 2009 Sun Microsystems, Inc.
  */
-
-package org.netbeans.modules.jackpot30.file.debugging;
+package org.netbeans.modules.jackpot30.file.idebinding;
 
 import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
-import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.api.lexer.TokenHierarchy;
-import org.netbeans.api.lexer.TokenSequence;
-import org.netbeans.modules.jackpot30.file.DeclarativeHintTokenId;
+import java.util.Collections;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser;
-import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
-import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
-import org.openide.filesystems.FileObject;
+import org.netbeans.modules.parsing.api.Snapshot;
+import org.netbeans.modules.parsing.spi.Parser.Result;
+import org.netbeans.modules.parsing.spi.ParserResultTask;
+import org.netbeans.modules.parsing.spi.Scheduler;
+import org.netbeans.modules.parsing.spi.SchedulerEvent;
+import org.netbeans.modules.parsing.spi.SchedulerTask;
+import org.netbeans.modules.parsing.spi.TaskFactory;
+import org.netbeans.spi.editor.hints.HintsController;
 
 /**
  *
- * @author Jan Lahoda
+ * @author lahvac
  */
-public class HintWrapper {
+public class HintsTask extends ParserResultTask<Result> {
 
-    public final String spec;
-    public final Result res;
-    public final HintTextDescription desc;
+    @Override
+    public void run(Result result, SchedulerEvent event) {
+        DeclarativeHintsParser.Result res = ParserImpl.getResult(result);
 
-    private HintWrapper(String spec, Result res, HintTextDescription desc) {
-        this.spec = spec;
-        this.res = res;
-        this.desc = desc;
+        if (res == null) return ;
+
+        HintsController.setErrors(result.getSnapshot().getSource().getFileObject(),
+                                  HintsTask.class.getName(),
+                                  res.errors);
     }
 
-    public static Collection<? extends HintWrapper> parse(@NonNull FileObject file, String spec) {
-        TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
-        TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
-        List<HintWrapper> result = new LinkedList<HintWrapper>();
-        Result parsed = new DeclarativeHintsParser().parse(file, spec, ts);
+    @Override
+    public int getPriority() {
+        return 100;
+    }
 
-        for (HintTextDescription d : parsed.hints) {
-            result.add(new HintWrapper(spec, parsed, d));
+    @Override
+    public Class<? extends Scheduler> getSchedulerClass() {
+        return Scheduler.EDITOR_SENSITIVE_TASK_SCHEDULER;
+    }
+
+    @Override
+    public void cancel() {
+    }
+
+    public static final class FactoryImpl extends TaskFactory {
+
+        @Override
+        public Collection<? extends SchedulerTask> create(Snapshot snapshot) {
+            return Collections.singleton(new HintsTask());
         }
-
-        return result;
+        
     }
 
 }

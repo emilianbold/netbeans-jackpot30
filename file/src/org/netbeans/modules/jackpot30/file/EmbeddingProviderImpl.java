@@ -70,7 +70,7 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
 
         result.add(snapshot.create(GLOBAL_PATTERN_PACKAGE, "text/x-java"));
 
-        Result parsed = new DeclarativeHintsParser().parse(snapshot.getText(), ts);
+        Result parsed = new DeclarativeHintsParser().parse(snapshot.getSource().getFileObject(), snapshot.getText(), ts);
 
         if (parsed.importsBlock != null) {
             result.add(snapshot.create(parsed.importsBlock[0], parsed.importsBlock[1] - parsed.importsBlock[0], "text/x-java"));

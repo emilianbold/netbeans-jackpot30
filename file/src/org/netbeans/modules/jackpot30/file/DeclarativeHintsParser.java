@@ -48,7 +48,9 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -58,6 +60,7 @@ import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.platform.JavaPlatform;
 import org.netbeans.api.java.source.ClasspathInfo;
@@ -66,11 +69,14 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.lexer.Token;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.file.Condition.False;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
+import org.netbeans.spi.editor.hints.Severity;
 
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
@@ -83,7 +89,11 @@ import static org.netbeans.modules.jackpot30.file.DeclarativeHintTokenId.*;
  */
 public class DeclarativeHintsParser {
 
+    //used by tests:
+    static Class<?>[] auxConditionClasses;
+
     private static final class Impl {
+    private final FileObject file;
     private final CharSequence text;
     private final TokenSequence<DeclarativeHintTokenId> input;
     private final Map<String, String> options = new HashMap<String, String>();
@@ -94,11 +104,17 @@ public class DeclarativeHintsParser {
     private final List<int[]> blocksSpan = new LinkedList<int[]>();
     private final List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
     private final MethodInvocationContext mic;
+    private final Map<MethodInvocation, int[]> allMIConditions = new IdentityHashMap<MethodInvocation, int[]>();
 
-    private Impl(CharSequence text, TokenSequence<DeclarativeHintTokenId> input) {
+    private Impl(FileObject file, CharSequence text, TokenSequence<DeclarativeHintTokenId> input) {
+        this.file = file;
         this.text = text;
         this.input = input;
         this.mic = new MethodInvocationContext();
+
+        if (auxConditionClasses != null) {
+            this.mic.ruleUtilities.addAll(Arrays.asList(auxConditionClasses));
+        }
     }
 
     private boolean nextToken() {
@@ -147,11 +163,22 @@ public class DeclarativeHintsParser {
                     blocksCode.add(text);
                     blocksSpan.add(span);
                 }
-            } else {
-                maybeParseOptions(options);
-                parseRule();
-                wasFirstRule = true;
             }
+
+            wasFirstRule = true;
+        }
+
+        mic.setCode(importsBlockCode, blocksCode);
+        input.moveStart();
+        eof = false;
+        
+        while (nextToken()) {
+            if (id() == JAVA_BLOCK) {
+                continue;
+            }
+            
+            maybeParseOptions(options);
+            parseRule();
         }
     }
 
@@ -280,8 +307,19 @@ public class DeclarativeHintsParser {
             MethodInvocation mi = resolve(mic, text.subSequence(start, end).toString(), not);
 
             if (mi != null) {
-                conditions.add(mi);
-                spans.add(new int[]{conditionStart, end});
+                Condition c = mi;
+                int[] span = new int[]{conditionStart, end};
+
+                if (!mi.link()) {
+                    if (file != null) {
+                        errors.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "Cannot resolve method", file, span[0], span[1]));
+                    }
+                    
+                    c = new False();
+                }
+
+                conditions.add(c);
+                spans.add(span);
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
@@ -294,7 +332,11 @@ public class DeclarativeHintsParser {
 
         String opts = token().text().toString();
 
-        parseOptions(opts.substring(2, opts.length() - 1), to);
+        if (opts.length() > 2) {
+            parseOptions(opts.substring(2, opts.length() - 1), to);
+        } else {
+            //XXX: produce error
+        }
 
         nextToken();
     }
@@ -328,13 +370,12 @@ public class DeclarativeHintsParser {
             return what;
     }
     
-    public Result parse(CharSequence text, TokenSequence<DeclarativeHintTokenId> ts) {
-        Impl i = new Impl(text, ts);
+    public Result parse(@NullAllowed FileObject file, CharSequence text, TokenSequence<DeclarativeHintTokenId> ts) {
+        Impl i = new Impl(file, text, ts);
 
         i.parseInput();
-        i.mic.setCode(i.importsBlockCode, i.blocksCode);
 
-        return new Result(i.options, i.importsBlockSpan, i.hints, i.blocksSpan);
+        return new Result(i.options, i.importsBlockSpan, i.hints, i.blocksSpan, i.errors);
     }
 
     private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
@@ -396,12 +437,14 @@ public class DeclarativeHintsParser {
         public final int[] importsBlock;
         public final List<HintTextDescription> hints;
         public final List<int[]> blocks;
+        public final List<ErrorDescription> errors;
 
-        public Result(Map<String, String> options, int[] importsBlock, List<HintTextDescription> hints, List<int[]> blocks) {
+        public Result(Map<String, String> options, int[] importsBlock, List<HintTextDescription> hints, List<int[]> blocks, List<ErrorDescription> errors) {
             this.options = options;
             this.importsBlock = importsBlock;
             this.hints = hints;
             this.blocks = blocks;
+            this.errors = errors;
         }
 
     }
