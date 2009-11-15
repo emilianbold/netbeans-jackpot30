@@ -146,6 +146,10 @@ public class TestPerformer {
                 for (Fix f : ed.getFixes().getFixes()) {
                     currentResults.add(getFixResult(src, f));
                 }
+
+                if (ed.getFixes().getFixes().isEmpty()) {
+                    currentResults.add(ed.getDescription() + ":" + ed.getRange().getText() + "\n");
+                }
             }
         }
 
