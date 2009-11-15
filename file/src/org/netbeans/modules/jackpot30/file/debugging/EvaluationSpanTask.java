@@ -123,10 +123,12 @@ public class EvaluationSpanTask implements CancellableTask<CompilationInfo> {
         
         for (HintWrapper d : hints) {
             Map<String, TreePath> variables = new HashMap<String, TreePath>();
+            Map<String, Collection<? extends TreePath>> multiVariables = new HashMap<String, Collection<? extends TreePath>>();
+            Map<String, String> variableNames = new HashMap<String, String>();
 
             variables.put("$_", tp);
 
-            HintContext ctx = new HintContext(info, HintSeverity.ERROR, tp, variables, Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
+            HintContext ctx = new HintContext(info, HintSeverity.ERROR, tp, variables, multiVariables, variableNames);
             String pattern = d.spec.substring(d.desc.textStart, d.desc.textEnd);
 
             boolean matches = MatcherUtilities.matches(ctx, tp, pattern, true);

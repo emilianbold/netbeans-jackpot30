@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.util.TreePath;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.regex.Pattern;
 import org.netbeans.modules.jackpot30.impl.TestBase;
@@ -64,7 +65,7 @@ public class MatcherUtilitiesTest extends TestBase {
         prepareTest("test/Test.java", code);
 
         TreePath tp = info.getTreeUtilities().pathFor(pos);
-        HintContext ctx = HintContext.create(info, HintSeverity.ERROR, tp, Collections.<String, TreePath>emptyMap(), null, null);
+        HintContext ctx = HintContext.create(info, HintSeverity.ERROR, tp, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
 
         assertTrue(MatcherUtilities.matches(ctx, ctx.getPath().getParentPath(), "$0 = $_"));
     }
@@ -78,7 +79,7 @@ public class MatcherUtilitiesTest extends TestBase {
         prepareTest("test/Test.java", code);
 
         TreePath tp = info.getTreeUtilities().pathFor(pos);
-        HintContext ctx = HintContext.create(info, HintSeverity.ERROR, tp, Collections.<String, TreePath>emptyMap(), null, null);
+        HintContext ctx = HintContext.create(info, HintSeverity.ERROR, tp, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
 
         assertTrue(MatcherUtilities.matches(ctx, ctx.getPath().getParentPath(), "$1 $0 = $_;"));
     }

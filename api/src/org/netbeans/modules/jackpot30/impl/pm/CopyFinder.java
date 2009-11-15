@@ -85,6 +85,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.spi.HintContext;
 
 /**
  *
@@ -155,10 +156,10 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
     }
 
     public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, AtomicBoolean cancel) {
-        return isDuplicate(info, one, second, fullElementVerify, Collections.<String, TreePath>emptyMap(), false, cancel);
+        return isDuplicate(info, one, second, fullElementVerify, null, false, cancel);
     }
 
-    public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, Map<String, TreePath> inVariables, boolean fillInVariables, AtomicBoolean cancel) {
+    public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, HintContext inVariables, boolean fillInVariables, AtomicBoolean cancel) {
         if (one.getLeaf().getKind() != second.getLeaf().getKind()) {
             return false;
         }
@@ -172,10 +173,16 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
             }
         };
 
-        if (fillInVariables) {
-            f.variables = inVariables;
-        } else {
-            f.variables.putAll(inVariables);
+        if (inVariables != null) {
+            if (fillInVariables) {
+                f.variables = inVariables.getVariables();
+                f.variables2Names = inVariables.getVariableNames();
+                f.multiVariables = inVariables.getMultiVariables();
+            } else {
+                f.variables.putAll(inVariables.getVariables());
+                f.variables2Names.putAll(inVariables.getVariableNames());
+                f.multiVariables.putAll(inVariables.getMultiVariables());
+            }
         }
         
         f.allowGoDeeper = false;

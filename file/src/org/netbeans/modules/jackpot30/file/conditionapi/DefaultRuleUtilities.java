@@ -77,7 +77,7 @@ public final class DefaultRuleUtilities {
             return false;
         }
         
-        return matcher.matches(parent, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
+        return matcher.matchesAny(parent, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
     }
 
     public boolean elementKindMatches(Variable variable, ElementKind kind) {
@@ -93,6 +93,14 @@ public final class DefaultRuleUtilities {
 
         assert current != null;
 
-        return matcher.matches(current, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
+        return matchesAny(current, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
+    }
+
+    public boolean matchesAny(Variable var, String... patterns) {
+        return matcher.matchesAny(var, patterns);
+    }
+
+    public boolean containsAny(Variable var, String... patterns) {
+        return matcher.containsAny(var, patterns);
     }
 }

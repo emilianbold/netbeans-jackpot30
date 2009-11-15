@@ -65,7 +65,7 @@ public class MatcherUtilities {
         Tree  patternTree = Utilities.parseAndAttribute(ctx.getInfo(), pattern, s);
         TreePath patternTreePath = new TreePath(new TreePath(ctx.getInfo().getCompilationUnit()), patternTree);
         
-        return CopyFinder.isDuplicate(ctx.getInfo(), patternTreePath, variable, true, ctx.getVariables(), fillInVariables, new AtomicBoolean()/*XXX*/);
+        return CopyFinder.isDuplicate(ctx.getInfo(), patternTreePath, variable, true, ctx, fillInVariables, new AtomicBoolean()/*XXX*/);
     }
 
 }

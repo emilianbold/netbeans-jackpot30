@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import java.util.Collections;
 import javax.lang.model.element.Element;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.modules.jackpot30.spi.HintContext;
@@ -61,7 +62,54 @@ public final class Matcher {
     }
 
     public boolean matches(@NonNull Variable var, @NonNull String pattern) {
-        return MatcherUtilities.matches(ctx, ctx.getVariables().get(var.variableName), pattern);
+        return matchesAny(var, pattern);
+    }
+
+    public boolean matchesAny(@NonNull Variable var, @NonNull String /*of @NonNull*/... patterns) {
+        TreePath path = ctx.getVariables().get(var.variableName);
+        Iterable<? extends TreePath> paths = path != null ? Collections.singletonList(path) : ctx.getMultiVariables().get(var.variableName);
+
+        if (paths == null) return false;
+
+        for (String pattern : patterns) {
+            for (TreePath toSearch : paths) {
+                if (MatcherUtilities.matches(ctx, toSearch, pattern)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public boolean containsAny(@NonNull Variable var, @NonNull final String /*of @NonNull*/... patterns) {
+        TreePath path = ctx.getVariables().get(var.variableName);
+        Iterable<? extends TreePath> paths = path != null ? Collections.singletonList(path) : ctx.getMultiVariables().get(var.variableName);
+        final boolean[] result = new boolean[1];
+
+        if (paths == null) return false;
+
+        for (TreePath toSearch : paths) {
+            //XXX:
+            new TreePathScanner<Void, Void>() {
+                @Override
+                public Void scan(Tree tree, Void p) {
+                    if (tree == null) return null;
+
+                    TreePath tp = new TreePath(getCurrentPath(), tree);
+
+                    for (String pattern : patterns) {
+                        if (MatcherUtilities.matches(ctx, tp, pattern)) {
+                            result[0] = true;
+                        }
+                    }
+
+                    return super.scan(tree, p);
+                }
+            }.scan(toSearch, null);
+        }
+
+        return result[0];
     }
 
     public boolean referencedIn(@NonNull Variable variable, @NonNull Variable in) {
