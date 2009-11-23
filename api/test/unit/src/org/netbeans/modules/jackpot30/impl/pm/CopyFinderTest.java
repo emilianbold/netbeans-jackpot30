@@ -460,6 +460,84 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              true);
     }
 
+    public void testVerifySameTrees1() throws Exception {
+        performVariablesTest("package test; public class Test { { if (true) { System.err.println(); } else { System.err.println(); System.err.println(); } } }",
+                             "if ($c) $s; else $s;",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
+
+    public void testVerifySameTreesMultiVariables1() throws Exception {
+        performVariablesTest("package test; public class Test { { if (true) { System.err.println(); System.err.println(); } else { System.err.println(); System.err.println(); System.err.println(); } } }",
+                             "if ($c) { $s$;} else { $s$; }",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
+
+    public void testVerifySameTreesMultiVariables2() throws Exception {
+        performVariablesTest("package test; public class Test { { if (true) { System.err.println(1); System.err.println(); } else System.err.println(1); } }",
+                             "if ($c) { System.err.println(1); $s2$; } else { System.err.println(1); $s2$; }",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
+
+    public void testVerifySameTreesMultiVariables3() throws Exception {
+        performVariablesTest("package test; public class Test { { if (true) { System.err.println(); System.err.println(1); } else System.err.println(1); } }",
+                             "if ($c) { $s1$; System.err.println(1); } else { $s1$; System.err.println(1); }",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
+
+    public void XtestVerifySameTreesMultiVariables4() throws Exception {
+        performVariablesTest("package test; public class Test { { if (true) { System.err.println(); System.err.println(1); System.err.println(); } else System.err.println(1); } }",
+                             "if ($c) { $s1$; System.err.println(1); $s2$; } else { $s1$; System.err.println(1); $s2$; }",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
+
+    public void testVerifySameTreesMultiVariables5() throws Exception {
+        performVariablesTest("package test; public class Test { { if (true) { System.err.println(1); } else System.err.println(2); } }",
+                             "if ($c) { $s$; } else { $s$; }",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
+    
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }

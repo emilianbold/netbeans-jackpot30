@@ -70,6 +70,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -318,9 +319,22 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
             String ident = Utilities.getWildcardTreeName(p.getLeaf()).toString();
 
             if (ident.startsWith("$") && StatementTree.class.isAssignableFrom(node.getKind().asInterface())) {
-                TreePath currentPath = new TreePath(getCurrentPath(), node);
-                variables.put(ident, currentPath);
-                return true;
+                TreePath original = variables.get(ident);
+
+                if (original == null) {
+                    TreePath currentPath = new TreePath(getCurrentPath(), node);
+                    
+                    variables.put(ident, currentPath);
+                    return true;
+                } else {
+                    boolean oldAllowGoDeeper = allowGoDeeper;
+
+                    try {
+                        return scan(node, original);
+                    } finally {
+                        allowGoDeeper = oldAllowGoDeeper;
+                    }
+                }
             }
         }
 
@@ -389,7 +403,8 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
             switch (bt.getStatements().size()) {
                 case 1:
                     if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))) {
-                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(0)).toString(), Collections.singletonList(new TreePath(getCurrentPath(), node)));
+                        if (!validateMultiVariable(bt.getStatements().get(0), Collections.singletonList(new TreePath(getCurrentPath(), node))))
+                                return false;
                         return true;
                     }
                     
@@ -397,12 +412,14 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                     break;
                 case 2:
                     if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))) {
-                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(0)).toString(), Collections.<TreePath>emptyList());
+                        if (!validateMultiVariable(bt.getStatements().get(0), Collections.<TreePath>emptyList()))
+                                return false;
                         p = new TreePath(p, bt.getStatements().get(1));
                         break;
                     }
                     if (Utilities.isMultistatementWildcardTree(bt.getStatements().get(1))) {
-                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(1)).toString(), Collections.<TreePath>emptyList());
+                        if (!validateMultiVariable(bt.getStatements().get(1), Collections.<TreePath>emptyList()))
+                                return false;
                         p = new TreePath(p, bt.getStatements().get(0));
                         break;
                     }
@@ -410,8 +427,10 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                 case 3:
                     if (   Utilities.isMultistatementWildcardTree(bt.getStatements().get(0))
                         && Utilities.isMultistatementWildcardTree(bt.getStatements().get(2))) {
-                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(0)).toString(), Collections.<TreePath>emptyList());
-                        multiVariables.put(Utilities.getWildcardTreeName(bt.getStatements().get(2)).toString(), Collections.<TreePath>emptyList());
+                        if (!validateMultiVariable(bt.getStatements().get(0), Collections.<TreePath>emptyList()))
+                                return false;
+                        if (!validateMultiVariable(bt.getStatements().get(2), Collections.<TreePath>emptyList()))
+                                return false;
                         p = new TreePath(p, bt.getStatements().get(1));
                         break;
                     }
@@ -533,6 +552,31 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
         return result && scan(node.getRightOperand(), bt.getRightOperand(), p);
     }
 
+    private boolean validateMultiVariable(Tree t, List<? extends TreePath> tps) {
+        String name = Utilities.getWildcardTreeName(t).toString();
+        Collection<? extends TreePath> original = this.multiVariables.get(name);
+
+        if (original == null) {
+            this.multiVariables.put(name, tps);
+            return true;
+        } else {
+            if (tps.size() != original.size()) {
+                return false;
+            }
+
+            Iterator<? extends TreePath> orig = original.iterator();
+            Iterator<? extends TreePath> current = tps.iterator();
+
+            while (orig.hasNext() && current.hasNext()) {
+                if (!scan(current.next(), orig.next())) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
     //TODO: currently, only the first matching combination is found:
     private boolean checkListsWithMultistatementTrees(List<? extends Tree> real, int realOffset, List<? extends Tree> pattern, int patternOffset, TreePath p) {
         while (realOffset < real.size() && patternOffset < pattern.size() && !Utilities.isMultistatementWildcardTree(pattern.get(patternOffset))) {
@@ -556,8 +600,7 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                     tps.add(new TreePath(getCurrentPath(), t));
                 }
 
-                multiVariables.put(Utilities.getWildcardTreeName(pattern.get(patternOffset)).toString(), tps);
-                return true;
+                return validateMultiVariable(pattern.get(patternOffset), tps);
             }
             
             List<TreePath> tps = new LinkedList<TreePath>();
@@ -572,8 +615,7 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                 this.variables2Names = new HashMap<String, String>(variables2Names);
 
                 if (checkListsWithMultistatementTrees(real, realOffset, pattern, patternOffset + 1, p)) {
-                    this.multiVariables.put(Utilities.getWildcardTreeName(pattern.get(patternOffset)).toString(), tps);
-                    return true;
+                    return validateMultiVariable(pattern.get(patternOffset), tps);
                 }
 
                 this.variables = variables;
