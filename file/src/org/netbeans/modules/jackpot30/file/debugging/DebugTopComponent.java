@@ -72,6 +72,9 @@ public final class DebugTopComponent extends TopComponent {
         setName(NbBundle.getMessage(DebugTopComponent.class, "CTL_DebugTopComponent"));
         setToolTipText(NbBundle.getMessage(DebugTopComponent.class, "HINT_DebugTopComponent"));
 //        setIcon(ImageUtilities.loadImage(ICON_PATH, true));
+        
+        code.setEditorKit(MimeLookup.getLookup("text/x-javahints").lookup(EditorKit.class));
+        code.getDocument().putProperty("mimeType", "text/x-javahints");
     }
 
     /** This method is called from within the constructor to
@@ -189,8 +192,6 @@ public final class DebugTopComponent extends TopComponent {
     @Override
     public void componentOpened() {
         hints = Collections.emptyList();
-        code.setEditorKit(MimeLookup.getLookup("text/x-javahints").lookup(EditorKit.class));
-        code.getDocument().putProperty("mimeType", "text/x-javahints");
 
         DefaultComboBoxModel dlm = new DefaultComboBoxModel();
 
