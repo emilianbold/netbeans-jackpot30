@@ -39,12 +39,14 @@
 package org.netbeans.modules.jackpot30.file.debugging;
 
 import java.awt.Component;
+import java.awt.Rectangle;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.logging.Logger;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JList;
+import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.EditorKit;
 import org.netbeans.api.editor.mimelookup.MimeLookup;
@@ -57,6 +59,7 @@ import org.netbeans.modules.jackpot30.file.DeclarativeHintRegistry;
 import org.netbeans.modules.jackpot30.file.Utilities;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
 
 @ConvertAsProperties(dtd = "-//org.netbeans.modules.jackpot30.file.debugging//Debug//EN",
 autostore = false)
@@ -128,6 +131,17 @@ public final class DebugTopComponent extends TopComponent {
             String spec = Utilities.readFile(selected);
 
             code.setText(spec);
+
+            try {
+                Rectangle r = code.modelToView(0);
+
+                if (r != null) {
+                    code.scrollRectToVisible(r);
+                }
+            } catch (BadLocationException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+            
             hints = HintWrapper.parse(selected, spec);
         }
     }//GEN-LAST:event_filesActionPerformed
