@@ -166,7 +166,8 @@ public class EvaluationSpanTaskTest extends NbTestCase {
         List<int[]> failedActual = new LinkedList<int[]>();
 
         EvaluationSpanTask.computeHighlights(info,
-                                             new int[] {codeSplit[0].length(), codeSplit[0].length() + codeSplit[1].length()},
+                                             codeSplit[0].length(),
+                                             codeSplit[0].length() + codeSplit[1].length(),
                                              w,
                                              passedActual,
                                              failedActual);

@@ -42,6 +42,9 @@ package org.netbeans.modules.jackpot30.file.debugging;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import java.awt.Color;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -53,28 +56,91 @@ import javax.swing.text.AttributeSet;
 import javax.swing.text.Document;
 import javax.swing.text.StyleConstants;
 import org.netbeans.api.editor.settings.AttributesUtilities;
-import org.netbeans.api.java.source.CancellableTask;
+import org.netbeans.api.java.source.ClasspathInfo;
+import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.api.java.source.JavaSource.Phase;
-import org.netbeans.api.java.source.JavaSource.Priority;
-import org.netbeans.api.java.source.JavaSourceTaskFactory;
-import org.netbeans.api.java.source.support.SelectionAwareJavaSourceTaskFactory;
+import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.Task;
+import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintTokenId;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
+import org.netbeans.modules.jackpot30.file.test.TestTokenId;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
 import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
+import org.netbeans.modules.parsing.api.Snapshot;
+import org.netbeans.modules.parsing.spi.CursorMovedSchedulerEvent;
+import org.netbeans.modules.parsing.spi.Parser.Result;
+import org.netbeans.modules.parsing.spi.ParserResultTask;
+import org.netbeans.modules.parsing.spi.Scheduler;
+import org.netbeans.modules.parsing.spi.SchedulerEvent;
+import org.netbeans.modules.parsing.spi.SchedulerTask;
+import org.netbeans.modules.parsing.spi.TaskFactory;
 import org.netbeans.spi.editor.highlighting.support.OffsetsBag;
 import org.openide.filesystems.FileObject;
-import org.openide.util.lookup.ServiceProvider;
+import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
 
 /**
  *
  * @author Jan Lahoda
  */
-public class EvaluationSpanTask implements CancellableTask<CompilationInfo> {
+public class EvaluationSpanTask extends ParserResultTask<Result> {
 
-    public void run(CompilationInfo info) throws Exception {
+    @Override
+    public void run(Result result, SchedulerEvent event) {
+        if (!(event instanceof CursorMovedSchedulerEvent)) {
+            return ;
+        }
+
+        CursorMovedSchedulerEvent evt = (CursorMovedSchedulerEvent) event;
+        final CompilationInfo[] info = new CompilationInfo[] {CompilationInfo.get(result)};
+        int start = evt.getMarkOffset();
+        int end   = evt.getCaretOffset();
+
+        if (info[0] == null) {
+            TokenSequence<TestTokenId> ts = result.getSnapshot().getTokenHierarchy().tokenSequence(TestTokenId.language());
+
+            if (ts == null) return ;
+
+            ts.move(evt.getCaretOffset());
+            if (!ts.moveNext() || ts.token().id() != TestTokenId.JAVA_CODE) return ;
+
+            int tokenStart = ts.offset();
+            int tokenEnd = ts.offset() + ts.token().length();
+
+            if (evt.getCaretOffset() < tokenStart || tokenEnd < evt.getCaretOffset()) return ;
+            if (evt.getMarkOffset() < tokenStart || tokenEnd < evt.getMarkOffset()) return ;
+
+            start -= ts.offset();
+            end -= ts.offset();
+
+            Writer out;
+
+            try {
+                FileObject file = FileUtil.createMemoryFileSystem().getRoot().createData("Test.java");
+                out = new OutputStreamWriter(file.getOutputStream(), "UTF-8");
+                out.write(ts.token().text().toString());
+                out.close();//XXX: finally!
+                ClasspathInfo cpInfo = ClasspathInfo.create(file);
+                JavaSource.create(cpInfo, file).runUserActionTask(new Task<CompilationController>() {
+
+                    public void run(CompilationController parameter) throws Exception {
+                        parameter.toPhase(JavaSource.Phase.RESOLVED);
+                        info[0] = parameter;
+                    }
+                }, true);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+                return ;
+            }
+        }
+
+        if (info[0] == null) {
+            return ;//??
+        }
+
         DebugTopComponent c = DebugTopComponent.getExistingInstance();
 
         if (c == null) return ;
@@ -86,8 +152,9 @@ public class EvaluationSpanTask implements CancellableTask<CompilationInfo> {
         List<int[]> passed = new LinkedList<int[]>();
         List<int[]> failed = new LinkedList<int[]>();
 
-        computeHighlights(info,
-                          SelectionAwareJavaSourceTaskFactory.getLastSelection(info.getFileObject()),
+        computeHighlights(info[0],
+                          start,
+                          end,
                           c.getHints(),
                           passed,
                           failed);
@@ -106,16 +173,22 @@ public class EvaluationSpanTask implements CancellableTask<CompilationInfo> {
     }
 
     static void computeHighlights(CompilationInfo info,
-                                  int[] selectionSpan,
+                                  int selectionStart,
+                                  int selectionEnd,
                                   Collection<? extends HintWrapper> hints,
                                   List<int[]> passed,
                                   List<int[]> failed) {
         if (hints.isEmpty()) return ;
 
-        if (selectionSpan == null || selectionSpan[0] == selectionSpan[1])
+        if (selectionStart == selectionEnd)
             return ;
 
-        TreePath tp = validateSelection(info, selectionSpan[0], selectionSpan[1]);
+        int t = Math.min(selectionStart, selectionEnd);
+
+        selectionEnd = Math.max(selectionStart, selectionEnd);
+        selectionStart = t;
+
+        TreePath tp = validateSelection(info, selectionStart, selectionEnd);
 
         if (tp == null) {
             return ;
@@ -193,17 +266,20 @@ public class EvaluationSpanTask implements CancellableTask<CompilationInfo> {
         //XXX
     }
 
-    @ServiceProvider(service=JavaSourceTaskFactory.class)
-    public static final class FactoryImpl extends SelectionAwareJavaSourceTaskFactory {
+    @Override
+    public int getPriority() {
+        return 1000;
+    }
 
-        public FactoryImpl() {
-            super(Phase.RESOLVED, Priority.BELOW_NORMAL);
-        }
+    @Override
+    public Class<? extends Scheduler> getSchedulerClass() {
+        return Scheduler.CURSOR_SENSITIVE_TASK_SCHEDULER;
+    }
 
+    public static final class FactoryImpl extends TaskFactory {
         @Override
-        protected CancellableTask<CompilationInfo> createTask(FileObject file) {
-            return new EvaluationSpanTask();
+        public Collection<? extends SchedulerTask> create(Snapshot snapshot) {
+            return Collections.singleton(new EvaluationSpanTask());
         }
-
     }
 }
