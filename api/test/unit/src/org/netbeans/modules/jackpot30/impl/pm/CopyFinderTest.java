@@ -447,6 +447,19 @@ public class CopyFinderTest extends NbTestCase {// extends org.netbeans.modules.
                              true);
     }
 
+    public void testNoCCEForVariableName() throws Exception {
+        performVariablesTest("package test; public class Test { { int[] arr = null; int a; arr[a] = 0;} }",
+                             "int $a; $a = 0;",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
+
     protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, String>[] duplicatesNames) throws Exception {
         performVariablesTest(code, pattern, duplicatesPos, new Pair[0], duplicatesNames);
     }

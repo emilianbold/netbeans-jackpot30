@@ -273,7 +273,10 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
 
             if (ident.startsWith("$")) {
                 if (variables2Names.containsKey(ident)) {
-                    return ((IdentifierTree) node).getName().toString().equals(variables2Names.get(ident));
+                    if (node.getKind() == Kind.IDENTIFIER)
+                        return ((IdentifierTree) node).getName().toString().equals(variables2Names.get(ident));
+                    else
+                        return false; //correct?
                 }
 
                 TreePath currentPath = new TreePath(getCurrentPath(), node);
