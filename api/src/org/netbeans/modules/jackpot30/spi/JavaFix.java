@@ -83,10 +83,10 @@ import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ProjectUtils;
-import org.netbeans.modules.apisupport.project.NbModuleProject;
-import org.netbeans.modules.apisupport.project.ProjectXMLManager;
-import org.netbeans.modules.apisupport.project.spi.NbModuleProvider;
-import org.netbeans.modules.apisupport.project.ui.customizer.ModuleDependency;
+//import org.netbeans.modules.apisupport.project.NbModuleProject;
+//import org.netbeans.modules.apisupport.project.ProjectXMLManager;
+//import org.netbeans.modules.apisupport.project.spi.NbModuleProvider;
+//import org.netbeans.modules.apisupport.project.ui.customizer.ModuleDependency;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
 import org.netbeans.modules.jackpot30.impl.pm.Pattern;
@@ -289,67 +289,67 @@ public abstract class JavaFix {
     }
 
     private static void resolveNbModuleDependencies(Project currentProject, Project referedProject, SpecificationVersion sv, UpgradeUICallback callback) throws IllegalArgumentException {
-        NbModuleProvider currentNbModule = currentProject.getLookup().lookup(NbModuleProvider.class);
-
-        if (currentNbModule == null) {
-            return ;
-        }
-
-        NbModuleProvider referedNbModule = referedProject.getLookup().lookup(NbModuleProvider.class);
-
-        if (referedNbModule == null) {
-            return ;
-        }
-
-        try {
-            NbModuleProject currentNbModuleProject = currentProject.getLookup().lookup(NbModuleProject.class);
-
-            if (currentNbModuleProject == null) {
-                return ;
-            }
-            
-            ProjectXMLManager m = new ProjectXMLManager(currentNbModuleProject);
-            ModuleDependency dep = null;
-
-            for (ModuleDependency md : m.getDirectDependencies()) {
-                if (referedNbModule.getCodeNameBase().equals(md.getModuleEntry().getCodeNameBase())) {
-                    dep = md;
-                    break;
-                }
-            }
-
-            if (dep == null) {
-                return ;
-            }
-
-            if (dep.getSpecificationVersion() == null) {
-                return ;
-            }
-
-            SpecificationVersion currentDep = new SpecificationVersion(dep.getSpecificationVersion());
-
-            if (currentDep == null || currentDep.compareTo(sv) < 0) {
-                String upgradeText = NbBundle.getMessage(JavaFix.class,
-                                                         "LBL_UpdateDependencyQuestion",
-                                                         new Object[] {
-                                                            ProjectUtils.getInformation(referedProject).getDisplayName(),
-                                                            currentDep.toString()
-                                                         });
-
-                if (callback.shouldUpgrade(upgradeText)) {
-                    ModuleDependency nue = new ModuleDependency(dep.getModuleEntry(),
-                                                                dep.getReleaseVersion(),
-                                                                sv.toString(),
-                                                                dep.hasCompileDependency(),
-                                                                dep.hasImplementationDepedendency());
-                    
-                    m.editDependency(dep, nue);
-                    ProjectManager.getDefault().saveProject(currentProject);
-                }
-            }
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-        }
+//        NbModuleProvider currentNbModule = currentProject.getLookup().lookup(NbModuleProvider.class);
+//
+//        if (currentNbModule == null) {
+//            return ;
+//        }
+//
+//        NbModuleProvider referedNbModule = referedProject.getLookup().lookup(NbModuleProvider.class);
+//
+//        if (referedNbModule == null) {
+//            return ;
+//        }
+//
+//        try {
+//            NbModuleProject currentNbModuleProject = currentProject.getLookup().lookup(NbModuleProject.class);
+//
+//            if (currentNbModuleProject == null) {
+//                return ;
+//            }
+//
+//            ProjectXMLManager m = new ProjectXMLManager(currentNbModuleProject);
+//            ModuleDependency dep = null;
+//
+//            for (ModuleDependency md : m.getDirectDependencies()) {
+//                if (referedNbModule.getCodeNameBase().equals(md.getModuleEntry().getCodeNameBase())) {
+//                    dep = md;
+//                    break;
+//                }
+//            }
+//
+//            if (dep == null) {
+//                return ;
+//            }
+//
+//            if (dep.getSpecificationVersion() == null) {
+//                return ;
+//            }
+//
+//            SpecificationVersion currentDep = new SpecificationVersion(dep.getSpecificationVersion());
+//
+//            if (currentDep == null || currentDep.compareTo(sv) < 0) {
+//                String upgradeText = NbBundle.getMessage(JavaFix.class,
+//                                                         "LBL_UpdateDependencyQuestion",
+//                                                         new Object[] {
+//                                                            ProjectUtils.getInformation(referedProject).getDisplayName(),
+//                                                            currentDep.toString()
+//                                                         });
+//
+//                if (callback.shouldUpgrade(upgradeText)) {
+//                    ModuleDependency nue = new ModuleDependency(dep.getModuleEntry(),
+//                                                                dep.getReleaseVersion(),
+//                                                                sv.toString(),
+//                                                                dep.hasCompileDependency(),
+//                                                                dep.hasImplementationDepedendency());
+//
+//                    m.editDependency(dep, nue);
+//                    ProjectManager.getDefault().saveProject(currentProject);
+//                }
+//            }
+//        } catch (IOException ex) {
+//            Exceptions.printStackTrace(ex);
+//        }
     }
 
     @SuppressWarnings("deprecation")
