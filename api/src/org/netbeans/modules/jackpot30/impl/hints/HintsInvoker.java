@@ -90,6 +90,7 @@ import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.VariableAssignments;
 import org.netbeans.modules.jackpot30.impl.pm.Pattern;
+import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
@@ -239,7 +240,7 @@ public class HintsInvoker implements CancellableTask<CompilationInfo> {
                 Map<String, TypeMirror> constraints = new HashMap<String, TypeMirror>();
 
                 for (Entry<String, String> e : d.getConstraints().entrySet()) {
-                    constraints.put(e.getKey(), info.getTreeUtilities().parseType(e.getValue(), info.getElements().getTypeElement("java.lang.Object")));
+                    constraints.put(e.getKey(), Hacks.parseFQNType(info, e.getValue()));
                 }
 
                 Pattern p = Pattern.compile(info, occ.getKey(), constraints, d.getImports());

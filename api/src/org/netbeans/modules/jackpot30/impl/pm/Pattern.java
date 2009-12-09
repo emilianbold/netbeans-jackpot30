@@ -50,11 +50,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder.VariableAssignments;
+import org.netbeans.modules.jackpot30.spi.Hacks;
 
 /**XXX: cancelability!
  *
@@ -132,8 +132,6 @@ public class Pattern {
     }
     
     private static String parseOutTypesFromPattern(CompilationInfo info, String pattern, Map<String, TypeMirror> variablesToTypes) {
-        //XXX:
-        TypeElement scope = (TypeElement) info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), info.getCompilationUnit().getTypeDecls().get(0)));
         java.util.regex.Pattern p = java.util.regex.Pattern.compile("(\\$.)(\\{([^}]*)\\})?");
         StringBuffer filtered = new StringBuffer();
         Matcher m = p.matcher(pattern);
@@ -147,7 +145,7 @@ public class Pattern {
             String type = m.group(3);
 
             filtered.append(var);
-            variablesToTypes.put(var, type != null ? info.getTreeUtilities().parseType(type, scope) : null);
+            variablesToTypes.put(var, type != null ? Hacks.parseFQNType(info, type) : null);
         }
 
         filtered.append(pattern.substring(i));

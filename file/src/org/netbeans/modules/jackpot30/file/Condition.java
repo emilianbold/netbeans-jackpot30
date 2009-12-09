@@ -49,6 +49,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.openide.util.Exceptions;
 
@@ -92,8 +93,7 @@ public abstract class Condition {
 
             TreePath boundTo = ctx.getVariables().get(variable);
             TypeMirror realType = ctx.getInfo().getTrees().getTypeMirror(boundTo);
-            TypeElement jlObject = ctx.getInfo().getElements().getTypeElement("java.lang.Object");
-            TypeMirror designedType = ctx.getInfo().getTreeUtilities().parseType(constraint, jlObject);
+            TypeMirror designedType = Hacks.parseFQNType(ctx.getInfo(), constraint);
 
             return not ^ ctx.getInfo().getTypes().isSubtype(realType, designedType);
         }
