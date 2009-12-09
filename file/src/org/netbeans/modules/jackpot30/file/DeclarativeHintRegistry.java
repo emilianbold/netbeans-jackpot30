@@ -42,12 +42,20 @@ package org.netbeans.modules.jackpot30.file;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.MissingResourceException;
+import java.util.Properties;
+import java.util.ResourceBundle;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -64,8 +72,10 @@ import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
+import org.openide.util.NbBundle;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -154,6 +164,19 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
     }
 
     public static List<HintDescription> parseHints(@NullAllowed FileObject file, String spec) {
+        ResourceBundle bundle;
+
+        try {
+            ClassLoader l = new URLClassLoader(new URL[] {file.getParent().getURL()});
+
+            bundle = NbBundle.getBundle("Bundle", Locale.getDefault(), l);
+        } catch (FileStateInvalidException ex) {
+            bundle = null;
+        } catch (MissingResourceException ex) {
+            //TODO: log?
+            bundle = null;
+        }
+        
         TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
         TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
         List<HintDescription> result = new LinkedList<HintDescription>();
@@ -161,13 +184,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
         for (HintTextDescription hint : parsed.hints) {
             HintDescriptionFactory f = HintDescriptionFactory.create();
-            String displayName;
-
-            if (hint.displayName != null) {
-                displayName = hint.displayName;
-            } else {
-                displayName = "TODO: No display name";
-            }
+            String displayName = resolveDisplayName(file, bundle, hint.displayName, true, "TODO: No display name");
 
             Map<String, String> constraints = new HashMap<String, String>();
             
@@ -188,7 +205,8 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             for (FixTextDescription fix : hint.fixes) {
                 int[] fixRange = fix.fixSpan;
-                fixes.add(DeclarativeFix.create(null, spec.substring(fixRange[0], fixRange[1]), fix.conditions, fix.options));
+                String fixDisplayName = resolveDisplayName(file, bundle, fix.displayName, false, null);
+                fixes.add(DeclarativeFix.create(fixDisplayName, spec.substring(fixRange[0], fixRange[1]), fix.conditions, fix.options));
             }
 
             String suppressWarnings = hint.options.get("suppress-warnings");
@@ -208,6 +226,36 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         }
 
         return result;
+    }
+
+    private static @NonNull String resolveDisplayName(@NonNull FileObject hintFile, @NullAllowed ResourceBundle bundle, String displayNameSpec, boolean fallbackToFileName, String def) {
+        if (bundle != null) {
+            if (displayNameSpec == null) {
+                if (!fallbackToFileName) {
+                    return def;
+                }
+                
+                String dnKey = "DN_" + hintFile.getName();
+                try {
+                    return bundle.getString(dnKey);
+                } catch (MissingResourceException e) {
+                    Logger.getLogger(DeclarativeHintRegistry.class.getName()).log(Level.FINE, null, e);
+                    return def;
+                }
+            }
+
+            if (displayNameSpec.startsWith("#")) {
+                String dnKey = "DN_" + displayNameSpec.substring(1);
+                try {
+                    return bundle.getString(dnKey);
+                } catch (MissingResourceException e) {
+                    Logger.getLogger(DeclarativeHintRegistry.class.getName()).log(Level.FINE, null, e);
+                    return "XXX: missing display name key in the bundle (key=" + dnKey + ")";
+                }
+            }
+        }
+
+        return displayNameSpec != null ? displayNameSpec : def;
     }
 
 }

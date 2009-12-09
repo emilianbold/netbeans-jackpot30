@@ -226,6 +226,15 @@ public class DeclarativeHintsParser {
         while (id() == LEADS_TO && !eof) {
             nextToken();
 
+            String fixDisplayName = null;
+
+            if (token().id() == DeclarativeHintTokenId.DISPLAY_NAME) {
+                fixDisplayName = token().text().toString();
+                fixDisplayName = fixDisplayName.substring(1, displayName.length() - 2);
+
+                nextToken();
+            }
+
             int targetStart = input.offset();
 
             while (   id() != LEADS_TO
@@ -250,7 +259,7 @@ public class DeclarativeHintsParser {
                 parseConditions(fixConditions, fixConditionSpans);
             }
 
-            targets.add(new FixTextDescription(span, fixConditions, fixConditionSpans, fixOptions));
+            targets.add(new FixTextDescription(fixDisplayName, span, fixConditions, fixConditionSpans, fixOptions));
         }
 
         hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, conditionsSpans, targets, ruleOptions));
@@ -471,12 +480,14 @@ public class DeclarativeHintsParser {
     }
 
     public static final class FixTextDescription {
+        public final String displayName;
         public final int[] fixSpan;
         public final List<Condition> conditions;
         public final List<int[]> conditionSpans;
         public final Map<String, String> options;
 
-        public FixTextDescription(int[] fixSpan, List<Condition> conditions, List<int[]> conditionSpans, Map<String, String> options) {
+        public FixTextDescription(String displayName, int[] fixSpan, List<Condition> conditions, List<int[]> conditionSpans, Map<String, String> options) {
+            this.displayName = displayName;
             this.fixSpan = fixSpan;
             this.conditions = conditions;
             this.conditionSpans = conditionSpans;
