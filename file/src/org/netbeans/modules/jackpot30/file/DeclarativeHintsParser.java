@@ -230,7 +230,7 @@ public class DeclarativeHintsParser {
 
             if (token().id() == DeclarativeHintTokenId.DISPLAY_NAME) {
                 fixDisplayName = token().text().toString();
-                fixDisplayName = fixDisplayName.substring(1, displayName.length() - 2);
+                fixDisplayName = fixDisplayName.substring(1, fixDisplayName.length() - 2);
 
                 nextToken();
             }
