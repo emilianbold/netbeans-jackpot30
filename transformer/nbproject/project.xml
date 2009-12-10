@@ -83,6 +83,10 @@
                         <code-name-base>org.netbeans.core.startup</code-name-base>
                     </test-dependency>
                     <test-dependency>
+                        <code-name-base>org.netbeans.libs.junit4</code-name-base>
+                        <compile-dependency/>
+                    </test-dependency>
+                    <test-dependency>
                         <code-name-base>org.netbeans.modules.classfile</code-name-base>
                     </test-dependency>
                     <test-dependency>
@@ -117,6 +121,7 @@
                     </test-dependency>
                     <test-dependency>
                         <code-name-base>org.netbeans.modules.nbjunit</code-name-base>
+                        <recursive/>
                         <compile-dependency/>
                     </test-dependency>
                     <test-dependency>
