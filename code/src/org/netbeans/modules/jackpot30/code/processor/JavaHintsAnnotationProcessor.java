@@ -42,8 +42,10 @@ package org.netbeans.modules.jackpot30.code.processor;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.StringWriter;
@@ -57,6 +59,8 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
@@ -83,10 +87,20 @@ import org.openide.util.lookup.ServiceProvider;
 @ServiceProvider(service=Processor.class)
 public class JavaHintsAnnotationProcessor extends AbstractProcessor {
 
+    private static final Logger LOG = Logger.getLogger(JavaHintsAnnotationProcessor.class.getName());
+    
+    private final Set<String> hintTypes = new HashSet<String>();
+    private final Set<String> compileTimeHintTypes = new HashSet<String>();
+    
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        generateTypeList("org.netbeans.modules.jackpot30.code.spi.Hint", roundEnv, "hints");
-        generateTypeList("org.netbeans.modules.jackpot30.code.spi.TriggerCompileTime", roundEnv, "compile-time");
+        if (!roundEnv.processingOver()) {
+            generateTypeList("org.netbeans.modules.jackpot30.code.spi.Hint", roundEnv, hintTypes);
+            generateTypeList("org.netbeans.modules.jackpot30.code.spi.TriggerCompileTime", roundEnv, compileTimeHintTypes);
+        } else {
+            generateTypeFile(hintTypes, "hints");
+            generateTypeFile(compileTimeHintTypes, "compile-time");
+        }
 
         if (true) return false;
         
@@ -131,23 +145,48 @@ public class JavaHintsAnnotationProcessor extends AbstractProcessor {
         return false;
     }
 
-    protected void generateTypeList(String annotationName, RoundEnvironment roundEnv, String fileName) {
+    private void generateTypeList(String annotationName, RoundEnvironment roundEnv, Set<String> hintTypes) {
         TypeElement hint = processingEnv.getElementUtils().getTypeElement(annotationName);
-        Set<String> hintTypes = new HashSet<String>();
         for (Element method : roundEnv.getElementsAnnotatedWith(hint)) {
             TypeElement enclosing = (TypeElement) method.getEnclosingElement();
-            hintTypes.add(enclosing.getQualifiedName().toString());
+            hintTypes.add(processingEnv.getElementUtils().getBinaryName(enclosing).toString());
+        }
+    }
+
+    private void generateTypeFile(Set<String> types, String fileName) {
+        Set<String> toWrite = new HashSet<String>(types);
+
+        BufferedReader r = null;
+
+        try {
+            FileObject source = processingEnv.getFiler().getResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/nb-hints/" + fileName);
+            
+            r = new BufferedReader(new InputStreamReader(source.openInputStream(), "UTF-8"));
+
+            String line;
+
+            while ((line = r.readLine()) != null) {
+                toWrite.add(line);
+            }
+        } catch (IOException ex) {
+            //ok.
+            LOG.log(Level.FINE, null, ex);
+        } finally {
+            if (r != null) {
+                try {
+                    r.close();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
         }
 
-        if (hintTypes.isEmpty()) {
-            return ;
-        }
-        
         PrintWriter w = null;
         try {
+
             FileObject fo = processingEnv.getFiler().createResource(StandardLocation.CLASS_OUTPUT, "", "META-INF/nb-hints/" + fileName);
             w = new PrintWriter(new OutputStreamWriter(fo.openOutputStream(), "UTF-8"));
-            for (String ht : hintTypes) {
+            for (String ht : toWrite) {
                 w.println(ht);
             }
         } catch (IOException ex) {
