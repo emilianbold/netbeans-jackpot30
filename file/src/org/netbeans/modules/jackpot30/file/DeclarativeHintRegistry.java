@@ -167,9 +167,13 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         ResourceBundle bundle;
 
         try {
-            ClassLoader l = new URLClassLoader(new URL[] {file.getParent().getURL()});
+            if (file != null) {
+                ClassLoader l = new URLClassLoader(new URL[] {file.getParent().getURL()});
 
-            bundle = NbBundle.getBundle("Bundle", Locale.getDefault(), l);
+                bundle = NbBundle.getBundle("Bundle", Locale.getDefault(), l);
+            } else {
+                bundle = null;
+            }
         } catch (FileStateInvalidException ex) {
             bundle = null;
         } catch (MissingResourceException ex) {
