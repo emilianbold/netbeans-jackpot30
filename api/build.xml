@@ -12,6 +12,9 @@
         <fileset dir="${nbplatform.active.dir}">
             <filename name="java*/modules/ext/javac*.jar"/>
         </fileset>
+        <fileset dir="${java.home}/../Classes" erroronmissingdir="false">
+            <include name="*.jar"/>
+        </fileset>
     </pathconvert>
     <echo message="${retouche.javac}"/>
     <condition property="bootclasspath.mac" value="${retouche.javac}">
