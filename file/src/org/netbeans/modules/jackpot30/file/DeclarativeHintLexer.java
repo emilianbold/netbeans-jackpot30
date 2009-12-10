@@ -87,25 +87,6 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         }
 
         while (read != LexerInput.EOF) {
-            Matcher dnMatcher = DISPLAY_NAME_RE.matcher(input.readText());
-
-            if (dnMatcher.find()) {
-                int start = dnMatcher.start();
-
-                if (start == 0) {
-                    return fact.createToken(DeclarativeHintTokenId.DISPLAY_NAME);
-                }
-
-                if (whitespaceLength == start) {
-                    input.backup(input.readLength() - whitespaceLength);
-                    return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
-                }
-
-                input.backup(input.readLength() - start);
-
-                return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
-            }
-
             Matcher variableMatcher = VARIABLE_RE.matcher(input.readText());
 
             if (variableMatcher.find()) {
@@ -122,7 +103,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                     if (read != LexerInput.EOF) {
                         input.backup(1);
                     }
-                    
+
                     return fact.createToken(DeclarativeHintTokenId.VARIABLE);
                 }
 
@@ -139,23 +120,11 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
             if (input.readLength() > 1) {
                 String inputString = input.readText().toString();
                 
-                Token t = testToken(inputString.substring(input.readLength() - 2), whitespaceLength);
-
-                if (t != null) {
-                    return t;
-                }
-
-                if (input.readLength() >= "instanceof".length()) {
-                    t = testToken(inputString.substring(input.readLength() - "instanceof".length()), whitespaceLength);
-
-                    if (t != null) {
-                        return t;
-                    }
-                }
-
                 for (Entry<String, DeclarativeHintTokenId> e : BLOCK_TOKEN_START.entrySet()) {
-                    if (!inputString.endsWith(e.getKey()))
+                    if (!inputString.substring(0, inputString.length() - 1).endsWith(e.getKey()))
                         continue;
+
+                    input.backup(1);
                     
                     Token<DeclarativeHintTokenId> preread = resolvePrereadText(e.getKey().length(), whitespaceLength);
 
@@ -165,15 +134,22 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
                     return readBlockToken(e.getValue(), BLOCK_TOKEN_END.get(e.getValue()));
                 }
-            }
+                
+                Token t = testToken(inputString, whitespaceLength, false);
 
-            Token<DeclarativeHintTokenId> t = testToken(String.valueOf((char) read), whitespaceLength);
+                if (t != null) {
+                    return t;
+                }
 
-            if (t != null) {
-                return t;
             }
 
             read = input.read();
+        }
+
+        Token t = testToken(input.readText().toString(), whitespaceLength, true);
+
+        if (t != null) {
+            return t;
         }
 
         return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
@@ -185,24 +161,50 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
     public void release() {}
 
-    private Token<DeclarativeHintTokenId> testToken(String toTest, int whitespaceLength) {
-        if (TOKENS.containsKey(toTest)) {
-            Token<DeclarativeHintTokenId> t = resolvePrereadText(toTest.length(), whitespaceLength);
+    private Token<DeclarativeHintTokenId> testToken(String toTest, int whitespaceLength, boolean eof) {
+        if (toTest.length() < 2 && !eof) return null;
 
-            if (t != null) {
-                return t;
-            } else {
-                return fact.createToken(TOKENS.get(toTest));
+        DeclarativeHintTokenId id = null;
+        int backup = (-1);
+        int add = eof ? 0 : 1;
+        String snip = toTest.substring(0, toTest.length() - add);
+        
+        for (Entry<String, DeclarativeHintTokenId> e : TOKENS.entrySet()) {
+            if (snip.endsWith(e.getKey()) && backup < e.getKey().length() + 1) {
+                id = e.getValue();
+                backup = e.getKey().length() + 1;
+                continue;
+            }
+
+            if (!eof) {
+                for (int c = 1; c <= e.getKey().length(); c++) {
+                    if (toTest.endsWith(e.getKey().substring(e.getKey().length() - c))) {
+                        return null;
+                    }
+                }
             }
         }
 
-        return null;
+        if (id == null) {
+            return null;
+        }
+
+        Token<DeclarativeHintTokenId> t = resolvePrereadText(backup, whitespaceLength);
+
+        if (t != null) {
+            return t;
+        } else {
+            if (!eof)
+                input.backup(1);
+            
+            return fact.createToken(id);
+        }
     }
 
     private Token<DeclarativeHintTokenId> resolvePrereadText(int backupLength, int whitespaceLength) {
         if (whitespaceLength > 0) {
-            if (input.readLength() == whitespaceLength + backupLength) {
-                input.backup(input.readLength() - whitespaceLength);
+            if (input.readLengthEOF() == whitespaceLength + backupLength) {
+                input.backup(input.readLengthEOF() - whitespaceLength);
 
                 return fact.createToken(DeclarativeHintTokenId.WHITESPACE);
             } else {
@@ -211,7 +213,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                 return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
             }
         } else {
-            if (input.readLength() == backupLength) {
+            if (input.readLengthEOF() == backupLength) {
                 return null;
             } else {
                 input.backup(backupLength);
@@ -245,6 +247,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         map.put(";;", DeclarativeHintTokenId.DOUBLE_SEMICOLON);
         map.put("%%", DeclarativeHintTokenId.DOUBLE_PERCENT);
         map.put("instanceof", DeclarativeHintTokenId.INSTANCEOF);
+        map.put(":", DeclarativeHintTokenId.COLON);
 
         TOKENS = Collections.unmodifiableMap(map);
 
@@ -254,6 +257,8 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         blockStartMap.put("//", DeclarativeHintTokenId.LINE_COMMENT);
         blockStartMap.put("<?", DeclarativeHintTokenId.JAVA_BLOCK);
         blockStartMap.put("<!", DeclarativeHintTokenId.OPTIONS);
+        blockStartMap.put("'", DeclarativeHintTokenId.CHAR_LITERAL);
+        blockStartMap.put("\"", DeclarativeHintTokenId.STRING_LITERAL);
 
         BLOCK_TOKEN_START = Collections.unmodifiableMap(blockStartMap);
 
@@ -263,6 +268,8 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         blockEndMap.put(DeclarativeHintTokenId.LINE_COMMENT, "\n");
         blockEndMap.put(DeclarativeHintTokenId.JAVA_BLOCK, "?>");
         blockEndMap.put(DeclarativeHintTokenId.OPTIONS, ">");
+        blockEndMap.put(DeclarativeHintTokenId.CHAR_LITERAL, "'");
+        blockEndMap.put(DeclarativeHintTokenId.STRING_LITERAL, "\"");
 
         BLOCK_TOKEN_END = Collections.unmodifiableMap(blockEndMap);
     }

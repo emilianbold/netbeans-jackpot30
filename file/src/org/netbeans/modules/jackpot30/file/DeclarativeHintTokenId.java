@@ -39,7 +39,6 @@
 
 package org.netbeans.modules.jackpot30.file;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import org.netbeans.api.lexer.InputAttributes;
@@ -58,7 +57,8 @@ import org.netbeans.spi.lexer.LexerRestartInfo;
  */
 public enum DeclarativeHintTokenId implements TokenId {
 
-    DISPLAY_NAME("string"),
+    CHAR_LITERAL("character"),
+    STRING_LITERAL("string"),
     COLON("operator"),
     DOUBLE_COLON("operator"),
     LEADS_TO("operator"),

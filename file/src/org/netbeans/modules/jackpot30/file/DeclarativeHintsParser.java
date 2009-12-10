@@ -130,7 +130,7 @@ public class DeclarativeHintsParser {
     }
 
     private boolean eof;
-        
+
     private Token<DeclarativeHintTokenId> token() {
         return input.token();
     }
@@ -183,16 +183,7 @@ public class DeclarativeHintsParser {
     }
 
     private void parseRule() {
-        String displayName = null;
-
-        if (token().id() == DeclarativeHintTokenId.DISPLAY_NAME) {
-            displayName = token().text().toString();
-
-            displayName = displayName.substring(1, displayName.length() - 2);
-            
-            nextToken();
-        }
-
+        String displayName = parseDisplayName();
         int patternStart = input.offset();
         
         while (   id() != LEADS_TO
@@ -226,14 +217,7 @@ public class DeclarativeHintsParser {
         while (id() == LEADS_TO && !eof) {
             nextToken();
 
-            String fixDisplayName = null;
-
-            if (token().id() == DeclarativeHintTokenId.DISPLAY_NAME) {
-                fixDisplayName = token().text().toString();
-                fixDisplayName = fixDisplayName.substring(1, fixDisplayName.length() - 2);
-
-                nextToken();
-            }
+            String fixDisplayName = parseDisplayName();
 
             int targetStart = input.offset();
 
@@ -348,6 +332,25 @@ public class DeclarativeHintsParser {
         }
 
         nextToken();
+    }
+    
+    private String parseDisplayName() {
+        if (token().id() == DeclarativeHintTokenId.CHAR_LITERAL || token().id() == DeclarativeHintTokenId.STRING_LITERAL) {
+            Token<DeclarativeHintTokenId> t = token();
+
+            if (input.moveNext()) {
+                if (input.token().id() == DeclarativeHintTokenId.COLON) {
+                    String displayName = t.text().subSequence(1, t.text().length() - 1).toString();
+
+                    nextToken();
+                    return displayName;
+                } else {
+                    input.movePrevious();
+                }
+            }
+        }
+
+        return null;
     }
     }
 

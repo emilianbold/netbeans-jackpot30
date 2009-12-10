@@ -62,11 +62,13 @@ public class DeclarativeHintLexerTest {
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
         assertNextTokenEquals(ts, WHITESPACE, " ");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "\'test\':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "\'test\'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, WHITESPACE, " ");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "\'fix\':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "\'fix\'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
 
@@ -148,12 +150,14 @@ public class DeclarativeHintLexerTest {
         String text = "'test': 1 + 1 => 1 + 1;;'test2': 1 + 1 => 1 + 1;;";
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test2'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
@@ -171,20 +175,22 @@ public class DeclarativeHintLexerTest {
 
         assertFalse(ts.moveNext());
     }
-    
+
     @Test
     public void testComments1() {
         String text = "/*=>*/'test': 1 + 1 => 1 + 1;;/*;;*/'test2': 1 + 1 => 1 + 1;;";
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
         assertNextTokenEquals(ts, BLOCK_COMMENT, "/*=>*/");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
         assertNextTokenEquals(ts, BLOCK_COMMENT, "/*;;*/");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test2'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
@@ -199,13 +205,15 @@ public class DeclarativeHintLexerTest {
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
         assertNextTokenEquals(ts, LINE_COMMENT, "//=>\n");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
         assertNextTokenEquals(ts, LINE_COMMENT, "//;;\n");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test2'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
@@ -219,14 +227,16 @@ public class DeclarativeHintLexerTest {
         String text = "'test': 1 /*=>;;::*/+ 1 => 1 + 1;;'test2': 1 + 1 => 1 + 1;;";
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 ");
         assertNextTokenEquals(ts, BLOCK_COMMENT, "/*=>;;::*/");
         assertNextTokenEquals(ts, JAVA_SNIPPET, "+ 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test2'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
@@ -252,12 +262,13 @@ public class DeclarativeHintLexerTest {
         }
     }
 
-//    @Test
+    @Test
     public void testDisplayNameWithKeyword() {
         String text = "'test instanceof':";
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test instanceof':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test instanceof'");
+        assertNextTokenEquals(ts, COLON, ":");
 
         assertFalse(ts.moveNext());
     }
@@ -268,13 +279,15 @@ public class DeclarativeHintLexerTest {
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
         assertNextTokenEquals(ts, JAVA_BLOCK, "<?import java.util.List;?>");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
         assertNextTokenEquals(ts, JAVA_BLOCK, "<?private boolean doTest() {return false;}?>");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test2':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test2'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
@@ -289,7 +302,8 @@ public class DeclarativeHintLexerTest {
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
         assertNextTokenEquals(ts, OPTIONS, "<!option1=\"value1,value2\",option2=true>");
-        assertNextTokenEquals(ts, DISPLAY_NAME, "'test':");
+        assertNextTokenEquals(ts, CHAR_LITERAL, "'test'");
+        assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, OPTIONS, "<!option1=\"value1,value2\",option2=true>");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
