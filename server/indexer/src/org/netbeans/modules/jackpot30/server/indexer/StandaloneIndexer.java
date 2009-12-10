@@ -52,6 +52,7 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
 
@@ -63,25 +64,26 @@ public class StandaloneIndexer {
 
     public static void index(File root) throws IOException {
         IndexWriter w = Index.get(root.toURI().toURL()).openForWriting();
+        DuplicatesIndex.IndexWriter dw = DuplicatesIndex.get(root.toURI().toURL()).openForWriting();
 
         try {
-            new StandaloneIndexer().doIndex(w, root);
+            new StandaloneIndexer().doIndex(w, dw, root);
         } finally {
             w.close();
         }
     }
 
-    private void doIndex(IndexWriter w, File fileOrDir) throws IOException {
+    private void doIndex(IndexWriter w, DuplicatesIndex.IndexWriter dw, File fileOrDir) throws IOException {
         if (fileOrDir.isDirectory()) {
             for (File f : fileOrDir.listFiles()) {
-                doIndex(w, f);
+                doIndex(w, dw, f);
             }
         } else {
-            indexFile(w, fileOrDir);
+            indexFile(w, dw, fileOrDir);
         }
     }
 
-    private void indexFile(IndexWriter w, File source) throws IOException {
+    private void indexFile(IndexWriter w, DuplicatesIndex.IndexWriter dw, File source) throws IOException {
         if (!source.getName().endsWith(".java"))
             return ;
         
@@ -104,6 +106,7 @@ public class StandaloneIndexer {
         ct.analyze(ct.enter(Collections.singletonList(cut)));
 
         w.record(ct, source.toURI().toURL(), cut);
+        dw.record(ct, source.toURI().toURL(), cut);
     }
     
 }

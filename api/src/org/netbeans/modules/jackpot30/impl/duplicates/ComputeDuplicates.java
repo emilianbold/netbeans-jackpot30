@@ -44,6 +44,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -65,15 +66,16 @@ import org.codeviation.strast.IndexingStorage;
 import org.codeviation.strast.Strast;
 import org.codeviation.strast.model.Frequency;
 import org.netbeans.api.annotations.common.CheckForNull;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomIndexerImpl;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex.Data;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex.DuplicatesIndexRecord;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex.MultiData;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
-import org.netbeans.modules.jackpot30.impl.indexing.CustomIndexerImpl;
-import org.netbeans.modules.jackpot30.impl.indexing.Index.Data;
-import org.netbeans.modules.jackpot30.impl.indexing.Index.DuplicatesIndexRecord;
-import org.netbeans.modules.jackpot30.impl.indexing.Index.MultiData;
-import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.loaders.DataObject;
 import org.openide.loaders.DataObjectNotFoundException;
@@ -90,13 +92,27 @@ import org.openide.util.Exceptions;
 public class ComputeDuplicates {
 
     public Collection<? extends DuplicateDescription> computeDuplicatesForAllOpenedProjects() throws IOException {
+        Set<URL> urls = new HashSet<URL>();
+
+        for (ClassPath cp : GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)) {
+            for (ClassPath.Entry e : cp.entries()) {
+                urls.add(e.getURL());
+            }
+        }
+
+        return computeDuplicates(urls);
+    }
+
+    public Collection<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs) throws IOException {
         List<IndexReader> readers = new LinkedList<IndexReader>();
         Map<IndexingStorage, FileObject> storages = new IdentityHashMap<IndexingStorage, FileObject>();
         
-        for (URL u : CustomIndexerImpl.indices) { //XXX: synchronization
+        for (URL u : forURLs) {
             try {
-                FileObject fd = CacheFolder.getDataFolder(u);
-                File cacheRoot = new File(FileUtil.toFile(fd), Cache.NAME + "/" + Cache.VERSION);
+                //TODO: needs to be removed for server mode
+                DuplicatesCustomIndexerImpl.updateIndex(u); //TODO: show updating progress to the user
+                
+                File cacheRoot = Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(u);
 
                 if (new File(cacheRoot, "duplicates/objects").exists()) {
                     IndexingStorage s = Strast.createIndexingStorage(new File(cacheRoot, "duplicates/objects"), new File(cacheRoot, "duplicates/index"));

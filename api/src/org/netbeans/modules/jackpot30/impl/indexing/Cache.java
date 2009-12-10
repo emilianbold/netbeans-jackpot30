@@ -62,22 +62,38 @@ import org.openide.filesystems.FileUtil;
  */
 public class Cache {
 
-    public static File standaloneCacheRoot;
-    
-    public static final String NAME = "jackpot30"; //NOI18N
     public static final int VERSION = 1;
 
-    public static File findCacheRoot(URL sourceRoot) throws IOException {
+    private static File standaloneCacheRoot;
+    private static Map<String, Cache> name2Cache = new HashMap<String, Cache>();
+
+    public static Cache findCache(String indexName) {
+        Cache cache = name2Cache.get(indexName);
+
+        if (cache == null) {
+            name2Cache.put(indexName, cache = new Cache(indexName));
+        }
+
+        return cache;
+    }
+
+    private final String name;
+
+    private Cache(String name) {
+        this.name = name;
+    }
+    
+    public File findCacheRoot(URL sourceRoot) throws IOException {
         if (standaloneCacheRoot != null) {
-            return getDataFolder(sourceRoot);
+            return getDataFolder(sourceRoot, name);
         } else {
             return findCacheRootNB(sourceRoot);
         }
     }
 
-    private static File findCacheRootNB(URL sourceRoot) throws IOException {
+    private File findCacheRootNB(URL sourceRoot) throws IOException {
         FileObject indexBaseFolder = CacheFolder.getDataFolder(sourceRoot);
-        String path = SPIAccessor.getInstance().getIndexerPath(NAME, VERSION);
+        String path = SPIAccessor.getInstance().getIndexerPath(name, VERSION);
         FileObject indexFolder = FileUtil.createFolder(indexBaseFolder, path);
         return FileUtil.toFile(indexFolder);
     }
@@ -148,7 +164,7 @@ public class Cache {
         }
     }
 
-    public static synchronized File getDataFolder (final URL root) throws IOException {
+    private static synchronized File getDataFolder (final URL root, String name) throws IOException {
         loadSegments ();
         final String rootName = root.toExternalForm();
         String slice = invertedSegments.get (rootName);
@@ -162,10 +178,10 @@ public class Cache {
             storeSegments ();
         }
         final File folder = standaloneCacheRoot;
-        return new File(folder, slice);
+        return new File(new File(folder, slice), name);
     }
 
-    public static synchronized File getCacheFolder () {
+    private static synchronized File getCacheFolder () {
         return standaloneCacheRoot;
     }
 
