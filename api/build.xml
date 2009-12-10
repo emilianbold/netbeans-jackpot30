@@ -6,4 +6,15 @@
     <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.api.</description>
     <import file="nbproject/build-impl.xml"/>
     <import file="${suite.dir}/findbugs-import.xml"/>
+
+    <!-- Mac -->
+    <pathconvert property="retouche.javac">
+        <fileset dir="${nbplatform.active.dir}">
+            <filename name="java*/modules/ext/javac*.jar"/>
+        </fileset>
+    </pathconvert>
+    <echo message="${retouche.javac}"/>
+    <condition property="bootclasspath.mac" value="${retouche.javac}">
+        <os family="mac"/>
+    </condition>
 </project>
