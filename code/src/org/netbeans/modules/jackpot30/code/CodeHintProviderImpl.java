@@ -110,14 +110,8 @@ public class CodeHintProviderImpl implements HintProvider {
             for (String c : classes) {
                 try {
                     Class clazz = l.loadClass(c);
-
-                    for (Method m : clazz.getDeclaredMethods()) {
-                        Hint hint = m.getAnnotation(Hint.class);
-
-                        if (hint != null) {
-                            processMethod(result, hint, m);
-                        }
-                    }
+                    
+                    processClass(clazz, result);
                 } catch (ClassNotFoundException ex) {
                     Exceptions.printStackTrace(ex);
                 }
@@ -128,7 +122,7 @@ public class CodeHintProviderImpl implements HintProvider {
 
         return result;
     }
-    
+
     private static ClassLoader findLoader() {
         ClassLoader l = Lookup.getDefault().lookup(ClassLoader.class);
 
@@ -137,6 +131,15 @@ public class CodeHintProviderImpl implements HintProvider {
         }
 
         return l;
+    }
+
+    public static void processClass(Class<?> clazz, List<HintDescription> result) throws SecurityException {
+        for (Method m : clazz.getDeclaredMethods()) {
+            Hint hint = m.getAnnotation(Hint.class);
+            if (hint != null) {
+                processMethod(result, hint, m);
+            }
+        }
     }
 
     static void processMethod(List<HintDescription> hints, Hint hint, Method m) {
