@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.impl.indexing;
 import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.TestUtilities;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomIndexerImpl.FactoryImpl;
 import org.netbeans.modules.jackpot30.impl.indexing.CustomIndexerImpl.CustomIndexerFactoryImpl;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.openide.filesystems.FileObject;
@@ -78,7 +79,7 @@ public class IndexingTestUtils {
     @ServiceProvider(service=MimeDataProvider.class)
     public static final class MimeDataProviderImpl implements MimeDataProvider {
 
-        private static final Lookup INDEXER = Lookups.fixed(new CustomIndexerFactoryImpl());
+        private static final Lookup INDEXER = Lookups.fixed(new CustomIndexerFactoryImpl(), new FactoryImpl());
 
         public Lookup getLookup(MimePath mimePath) {
             if ("text/x-java".equals(mimePath.getPath())) {

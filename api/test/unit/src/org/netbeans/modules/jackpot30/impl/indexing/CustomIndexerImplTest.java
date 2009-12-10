@@ -82,7 +82,8 @@ public class CustomIndexerImplTest extends IndexTestBase {
         verifyIndex("new ImageIcon($1)", "test/Test1.java", "test/Test2.java");
         
         writeFilesAndWaitForScan(src,
-                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); new javax.swing.ImageIcon(null); } }"));
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); new javax.swing.ImageIcon(null); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { }"));
 
         verifyIndex("$1.isDirectory()", "test/Test1.java");
         verifyIndex("new ImageIcon($1)", "test/Test1.java");

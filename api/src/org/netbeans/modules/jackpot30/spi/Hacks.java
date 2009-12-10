@@ -227,8 +227,15 @@ public class Hacks {
 
     public static @CheckForNull TypeMirror parseFQNType(@NonNull CompilationInfo info, @NonNull String spec) {
         TypeElement jlObject = info.getElements().getTypeElement("java.lang.Object");
+        
         //XXX:
-        TypeElement scope = info.getTopLevelElements().iterator().next();
+        TypeElement scope;
+
+        if (info.getTopLevelElements().isEmpty()) {
+            scope = jlObject;
+        } else {
+            scope = info.getTopLevelElements().iterator().next();
+        }
         //XXX end
         
         return info.getTreeUtilities().parseType(spec, /*XXX: jlObject*/scope);
