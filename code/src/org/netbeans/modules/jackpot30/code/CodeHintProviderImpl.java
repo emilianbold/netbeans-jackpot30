@@ -58,6 +58,7 @@ import java.util.Set;
 import org.netbeans.modules.jackpot30.code.spi.Constraint;
 import org.netbeans.modules.jackpot30.code.spi.Hint;
 import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;
+import org.netbeans.modules.jackpot30.code.spi.TriggerPatterns;
 import org.netbeans.modules.jackpot30.code.spi.TriggerTreeKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
@@ -164,10 +165,22 @@ public class CodeHintProviderImpl implements HintProvider {
     private static void processPatternHint(List<HintDescription> hints, Hint hint, Method m) {
         TriggerPattern patternTrigger = m.getAnnotation(TriggerPattern.class);
 
-        if (patternTrigger == null) {
+        if (patternTrigger != null) {
+            processPatternHint(hints, patternTrigger, hint, m);
             return ;
         }
 
+        TriggerPatterns patternTriggers = m.getAnnotation(TriggerPatterns.class);
+
+        if (patternTriggers != null) {
+            for (TriggerPattern pattern : patternTriggers.value()) {
+                processPatternHint(hints, pattern, hint, m);
+            }
+            return ;
+        }
+    }
+
+    private static void processPatternHint(List<HintDescription> hints, TriggerPattern patternTrigger, Hint hint, Method m) {
         String pattern = patternTrigger.value();
         Map<String, String> constraints = new HashMap<String, String>();
 
