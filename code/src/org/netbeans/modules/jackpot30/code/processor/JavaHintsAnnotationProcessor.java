@@ -71,7 +71,13 @@ import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
@@ -86,7 +92,7 @@ import org.openide.util.lookup.ServiceProvider;
 @SupportedAnnotationTypes("org.netbeans.modules.jackpot30.code.spi.*")
 @ServiceProvider(service=Processor.class)
 public class JavaHintsAnnotationProcessor extends AbstractProcessor {
-
+    
     private static final Logger LOG = Logger.getLogger(JavaHintsAnnotationProcessor.class.getName());
     
     private final Set<String> hintTypes = new HashSet<String>();
@@ -147,7 +153,8 @@ public class JavaHintsAnnotationProcessor extends AbstractProcessor {
 
     private void generateTypeList(String annotationName, RoundEnvironment roundEnv, Set<String> hintTypes) {
         TypeElement hint = processingEnv.getElementUtils().getTypeElement(annotationName);
-        for (Element method : roundEnv.getElementsAnnotatedWith(hint)) {
+        for (ExecutableElement method : ElementFilter.methodsIn(roundEnv.getElementsAnnotatedWith(hint))) {
+            if (!verifyMethodAcceptable(method)) continue;
             TypeElement enclosing = (TypeElement) method.getEnclosingElement();
             hintTypes.add(processingEnv.getElementUtils().getBinaryName(enclosing).toString());
         }
@@ -196,6 +203,54 @@ public class JavaHintsAnnotationProcessor extends AbstractProcessor {
                 w.close();
             }
         }
+    }
+
+    static final String ERR_RETURN_TYPE = "The return type must be either org.netbeans.spi.editor.hints.ErrorDescription or java.util.List<org.netbeans.spi.editor.hints.ErrorDescription>";
+    static final String ERR_PARAMETERS = "The method must have exactly one parameter of type org.netbeans.modules.jackpot30.spi.HintContext";
+    static final String ERR_MUST_BE_STATIC = "The method must be static";
+
+    private boolean verifyMethodAcceptable(ExecutableElement method) {
+        StringBuilder error = new StringBuilder();
+        Elements elements = processingEnv.getElementUtils();
+        TypeElement errDesc = elements.getTypeElement("org.netbeans.spi.editor.hints.ErrorDescription");
+        TypeElement juList = elements.getTypeElement("java.util.List");
+        TypeElement hintCtx = elements.getTypeElement("org.netbeans.modules.jackpot30.spi.HintContext");
+
+        if (errDesc == null || juList == null || hintCtx == null) {
+            return true;
+        }
+
+        Types types = processingEnv.getTypeUtils();
+        TypeMirror errDescType = errDesc.asType(); //no type params, no need to erasure
+        TypeMirror juListErrDesc = types.getDeclaredType(juList, errDescType);
+        TypeMirror ret = method.getReturnType();
+
+        if (!types.isSameType(ret, errDescType) && !types.isSameType(ret, juListErrDesc)) {
+            error.append(ERR_RETURN_TYPE);
+            error.append("\n");
+        }
+
+        if (method.getParameters().size() != 1 || !types.isSameType(method.getParameters().get(0).asType(), hintCtx.asType())) {
+            error.append(ERR_PARAMETERS);
+            error.append("\n");
+        }
+
+        if (!method.getModifiers().contains(Modifier.STATIC)) {
+            error.append(ERR_MUST_BE_STATIC);
+            error.append("\n");
+        }
+
+        if (error.length() == 0) {
+            return true;
+        }
+
+        if (error.charAt(error.length() - 1) == '\n') {
+            error.delete(error.length() - 1, error.length());
+        }
+
+        processingEnv.getMessager().printMessage(Kind.ERROR, error.toString(), method);
+
+        return false;
     }
 
     private static final class HintsClassLoader extends ClassLoader {

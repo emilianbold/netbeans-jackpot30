@@ -80,7 +80,7 @@ public class JavaHintsAnnotationProcessorTest extends NbTestCase {
                                                 "public class Test {",
                                                 "    @Hint(\"test\")",
                                                 "    @TriggerPattern(\"a\")",
-                                                "    public ErrorDescription test(HintContext ctx) {",
+                                                "    public static ErrorDescription test(HintContext ctx) {",
                                                 "        return null;",
                                                 "    }",
                                                 "}");
@@ -107,7 +107,7 @@ public class JavaHintsAnnotationProcessorTest extends NbTestCase {
                                                 "public class Test {",
                                                 "    @Hint(\"test\")",
                                                 "    @TriggerPattern(\"a\")",
-                                                "    public ErrorDescription test(HintContext ctx) {",
+                                                "    public static ErrorDescription test(HintContext ctx) {",
                                                 "        return null;",
                                                 "    }",
                                                 "}");
@@ -123,7 +123,7 @@ public class JavaHintsAnnotationProcessorTest extends NbTestCase {
                                                 "public class Other {",
                                                 "    @Hint(\"test2\")",
                                                 "    @TriggerPattern(\"a\")",
-                                                "    public ErrorDescription test(HintContext ctx) {",
+                                                "    public static ErrorDescription test(HintContext ctx) {",
                                                 "        return null;",
                                                 "    }",
                                                 "}");
@@ -134,6 +134,141 @@ public class JavaHintsAnnotationProcessorTest extends NbTestCase {
         Set<String> hintClasses = new HashSet<String>(Arrays.asList(hints.split("\n")));
 
         assertEquals(new HashSet<String>(Arrays.asList("test.Test", "test.Other")), hintClasses);
+    }
+
+    public void testErrorsReported() throws Exception {
+        clearWorkDir();
+        File src = new File(getWorkDir(), "src");
+        File dest = new File(getWorkDir(), "classes");
+
+        AnnotationProcessorTestUtils.makeSource(src,
+                                                "test.Test",
+                                                "import org.netbeans.modules.jackpot30.code.spi.Hint;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;",
+                                                "import org.netbeans.modules.jackpot30.spi.HintContext;",
+                                                "import org.netbeans.spi.editor.hints.ErrorDescription;",
+                                                "public class Test {",
+                                                "    @Hint(\"test\")",
+                                                "    @TriggerPattern(\"a\")",
+                                                "    public static void test(HintContext ctx) {",
+                                                "        return ;",
+                                                "    }",
+                                                "}");
+
+        assertErrors(JavaHintsAnnotationProcessor.ERR_RETURN_TYPE, src, dest, "Test");
+
+        AnnotationProcessorTestUtils.makeSource(src,
+                                                "test.Test",
+                                                "import java.util.List;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.Hint;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;",
+                                                "import org.netbeans.modules.jackpot30.spi.HintContext;",
+                                                "import org.netbeans.spi.editor.hints.ErrorDescription;",
+                                                "public class Test {",
+                                                "    @Hint(\"test\")",
+                                                "    @TriggerPattern(\"a\")",
+                                                "    public static List<String> test(HintContext ctx) {",
+                                                "        return null;",
+                                                "    }",
+                                                "}");
+
+        assertErrors(JavaHintsAnnotationProcessor.ERR_RETURN_TYPE, src, dest, "Test");
+
+        AnnotationProcessorTestUtils.makeSource(src,
+                                                "test.Test",
+                                                "import org.netbeans.modules.jackpot30.code.spi.Hint;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;",
+                                                "import org.netbeans.modules.jackpot30.spi.HintContext;",
+                                                "import org.netbeans.spi.editor.hints.ErrorDescription;",
+                                                "public class Test {",
+                                                "    @Hint(\"test\")",
+                                                "    @TriggerPattern(\"a\")",
+                                                "    public static ErrorDescription test(HintContext ctx, int i) {",
+                                                "        return null;",
+                                                "    }",
+                                                "}");
+
+        assertErrors(JavaHintsAnnotationProcessor.ERR_PARAMETERS, src, dest, "Test");
+
+        AnnotationProcessorTestUtils.makeSource(src,
+                                                "test.Test",
+                                                "import org.netbeans.modules.jackpot30.code.spi.Hint;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;",
+                                                "import org.netbeans.modules.jackpot30.spi.HintContext;",
+                                                "import org.netbeans.spi.editor.hints.ErrorDescription;",
+                                                "public class Test {",
+                                                "    @Hint(\"test\")",
+                                                "    @TriggerPattern(\"a\")",
+                                                "    public static ErrorDescription test() {",
+                                                "        return null;",
+                                                "    }",
+                                                "}");
+
+        assertErrors(JavaHintsAnnotationProcessor.ERR_PARAMETERS, src, dest, "Test");
+
+        AnnotationProcessorTestUtils.makeSource(src,
+                                                "test.Test",
+                                                "import java.util.List;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.Hint;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;",
+                                                "import org.netbeans.modules.jackpot30.spi.HintContext;",
+                                                "import org.netbeans.spi.editor.hints.ErrorDescription;",
+                                                "public class Test {",
+                                                "    @Hint(\"test\")",
+                                                "    @TriggerPattern(\"a\")",
+                                                "    public List<ErrorDescription> test(HintContext ctx) {",
+                                                "        return null;",
+                                                "    }",
+                                                "}");
+
+        assertErrors(JavaHintsAnnotationProcessor.ERR_MUST_BE_STATIC, src, dest, "Test");
+
+        AnnotationProcessorTestUtils.makeSource(src,
+                                                "test.Test",
+                                                "import org.netbeans.modules.jackpot30.code.spi.Hint;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;",
+                                                "import org.netbeans.modules.jackpot30.spi.HintContext;",
+                                                "import org.netbeans.spi.editor.hints.ErrorDescription;",
+                                                "public class Test {",
+                                                "    @Hint(\"test\")",
+                                                "    @TriggerPattern(\"a\")",
+                                                "    public static ErrorDescription test(HintContext ctx) {",
+                                                "        return null;",
+                                                "    }",
+                                                "}");
+
+        assertErrors(null, src, dest, "Test");
+
+        AnnotationProcessorTestUtils.makeSource(src,
+                                                "test.Test",
+                                                "import java.util.List;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.Hint;",
+                                                "import org.netbeans.modules.jackpot30.code.spi.TriggerPattern;",
+                                                "import org.netbeans.modules.jackpot30.spi.HintContext;",
+                                                "import org.netbeans.spi.editor.hints.ErrorDescription;",
+                                                "public class Test {",
+                                                "    @Hint(\"test\")",
+                                                "    @TriggerPattern(\"a\")",
+                                                "    public static List<ErrorDescription> test(HintContext ctx) {",
+                                                "        return null;",
+                                                "    }",
+                                                "}");
+
+        assertErrors(null, src, dest, "Test");
+    }
+
+    private void assertErrors(String golden, File src, File dest, String className) {
+        ByteArrayOutputStream errors = new ByteArrayOutputStream();
+
+        AnnotationProcessorTestUtils.runJavac(src, className, dest, null, errors);
+        String realErrors = new String(errors.toByteArray());
+
+        if (golden == null) {
+            assertEquals(realErrors, "", realErrors);
+            return ;
+        }
+        
+        assertTrue(realErrors, realErrors.contains(golden));
     }
     
 }
