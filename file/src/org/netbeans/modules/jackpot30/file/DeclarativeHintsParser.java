@@ -395,6 +395,7 @@ public class DeclarativeHintsParser {
         final String[] methodName = new String[1];
         final Map<String, ParameterKind> params = new LinkedHashMap<String, ParameterKind>();
         JavaSource.create(ClasspathInfo.create(JavaPlatform.getDefault().getBootstrapLibraries(), EMPTY, EMPTY)).runUserActionTask(new Task<CompilationController>() {
+            @SuppressWarnings("fallthrough")
             public void run(CompilationController parameter) throws Exception {
                 ExpressionTree et = parameter.getTreeUtilities().parseExpression(invocation, new SourcePositions[1]);
 

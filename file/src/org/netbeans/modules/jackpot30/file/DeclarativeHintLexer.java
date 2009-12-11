@@ -135,7 +135,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                     return readBlockToken(e.getValue(), BLOCK_TOKEN_END.get(e.getValue()));
                 }
                 
-                Token t = testToken(inputString, whitespaceLength, false);
+                Token<DeclarativeHintTokenId> t = testToken(inputString, whitespaceLength, false);
 
                 if (t != null) {
                     return t;
@@ -146,7 +146,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
             read = input.read();
         }
 
-        Token t = testToken(input.readText().toString(), whitespaceLength, true);
+        Token<DeclarativeHintTokenId> t = testToken(input.readText().toString(), whitespaceLength, true);
 
         if (t != null) {
             return t;

@@ -113,9 +113,9 @@ public class JavaHintsAnnotationProcessor extends AbstractProcessor {
         ClassLoader l = new HintsClassLoader(JavaHintsAnnotationProcessor.class.getClassLoader(), processingEnv.getFiler(), processingEnv.getMessager());
 
         try {
-            Class rmClass = Class.forName("org.netbeans.modules.javahints.pm.RulesManager", true, l);
+            Class<?> rmClass = Class.forName("org.netbeans.modules.javahints.pm.RulesManager", true, l);
             Object rm = rmClass.getConstructor(ClassLoader.class, String.class).newInstance(l, "META-INF/nb-hints/compile-time");
-            Class hiClass = Class.forName("org.netbeans.modules.javahints.pm.HintsInvoker", true, l);
+            Class<?> hiClass = Class.forName("org.netbeans.modules.javahints.pm.HintsInvoker", true, l);
             Method computeHints = hiClass.getDeclaredMethod("computeHints", URI.class, ProcessingEnvironment.class, CompilationUnitTree.class, rmClass);
             Set<CompilationUnitTree> cuts = new HashSet<CompilationUnitTree>();
 

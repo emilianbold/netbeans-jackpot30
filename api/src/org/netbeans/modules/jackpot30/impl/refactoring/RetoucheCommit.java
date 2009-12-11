@@ -58,7 +58,7 @@ import org.openide.util.Exceptions;
  */
 
 public class RetoucheCommit implements Transaction {
-    ArrayList<BackupFacility.Handle> ids = new ArrayList();
+    ArrayList<BackupFacility.Handle> ids = new ArrayList<BackupFacility.Handle>();
     private boolean commited = false;
     Collection<ModificationResult> results;
     private Set<File> newFiles;

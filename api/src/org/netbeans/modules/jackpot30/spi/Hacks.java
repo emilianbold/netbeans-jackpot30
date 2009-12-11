@@ -99,10 +99,10 @@ public class Hacks {
         clazz.append("package $$;\n");
 
         for (String i : importedClasses) {
-            clazz.append("import " + i + ";\n");
+            clazz.append("import ").append(i).append(";\n");
         }
 
-        clazz.append("public class $" + (inc++) + "{");
+        clazz.append("public class $").append(inc++).append("{");
 
         clazz.append("private void test() {\n");
         clazz.append("}\n");
@@ -158,7 +158,7 @@ public class Hacks {
 
         final Map<String, ByteArrayOutputStream> class2BAOS = new HashMap<String, ByteArrayOutputStream>();
 
-        JavaFileManager jfm = new ForwardingJavaFileManager(sjfm) {
+        JavaFileManager jfm = new ForwardingJavaFileManager<JavaFileManager>(sjfm) {
             @Override
             public JavaFileObject getJavaFileForOutput(Location location, String className, Kind kind, FileObject sibling) throws IOException {
                 final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
