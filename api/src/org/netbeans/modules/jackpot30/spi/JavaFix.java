@@ -504,164 +504,186 @@ public abstract class JavaFix {
                 }
             }
 
-            new TreePathScanner<Void, Void>() {
-                @Override
-                public Void visitIdentifier(IdentifierTree node, Void p) {
-                    String name = node.getName().toString();
-                    TreePath tp = parameters.get(name);
+            new ReplaceParameters(wc, callback, parameters, parametersMulti, parameterNames).scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
+        }
+    }
 
-                    if (tp != null) {
-                        if (tp.getLeaf() instanceof Hacks.RenameTree) {
-                            Hacks.RenameTree rt = (Hacks.RenameTree) tp.getLeaf();
-                            Tree nue = wc.getTreeMaker().setLabel(rt.originalTree, rt.newName);
+    private static class ReplaceParameters extends TreePathScanner<Void, Void> {
 
-                            wc.rewrite(node, nue);
+        private final WorkingCopy wc;
+        private final UpgradeUICallback callback;
+        private final Map<String, TreePath> parameters;
+        private final Map<String, Collection<TreePath>> parametersMulti;
+        private final Map<String, String> parameterNames;
 
-                            return null;
-                        }
-                        if (!parameterNames.containsKey(name)) {
-                            wc.rewrite(node, tp.getLeaf());
-                            return null;
-                        }
-                    }
+        public ReplaceParameters(WorkingCopy wc, UpgradeUICallback callback, Map<String, TreePath> parameters, Map<String, Collection<TreePath>> parametersMulti, Map<String, String> parameterNames) {
+            this.parameters = parameters;
+            this.wc = wc;
+            this.callback = callback;
+            this.parametersMulti = parametersMulti;
+            this.parameterNames = parameterNames;
+        }
 
-                    String variableName = parameterNames.get(name);
+        @Override
+        public Void visitIdentifier(IdentifierTree node, Void p) {
+            String name = node.getName().toString();
+            TreePath tp = parameters.get(name);
 
-                    if (variableName != null) {
-                        wc.rewrite(node, wc.getTreeMaker().Identifier(variableName));
+            if (tp != null) {
+                if (tp.getLeaf() instanceof Hacks.RenameTree) {
+                    Hacks.RenameTree rt = (Hacks.RenameTree) tp.getLeaf();
+                    Tree nue = wc.getTreeMaker().setLabel(rt.originalTree, rt.newName);
+
+                    wc.rewrite(node, nue);
+
+                    return null;
+                }
+                if (!parameterNames.containsKey(name)) {
+                    wc.rewrite(node, tp.getLeaf());
+                    return null;
+                }
+            }
+
+            String variableName = parameterNames.get(name);
+
+            if (variableName != null) {
+                wc.rewrite(node, wc.getTreeMaker().Identifier(variableName));
+                return null;
+            }
+
+            Element e = wc.getTrees().getElement(getCurrentPath());
+
+            if (e != null && isStaticElement(e)) {
+                wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
+            }
+
+            return super.visitIdentifier(node, p);
+        }
+
+        @Override
+        public Void visitMemberSelect(MemberSelectTree node, Void p) {
+            Element e = wc.getTrees().getElement(getCurrentPath());
+
+            if (e == null || (e.getKind() == ElementKind.CLASS && ((TypeElement) e).asType().getKind() == TypeKind.ERROR)) {
+                if (node.getExpression().getKind() == Kind.IDENTIFIER) {
+                    String name = ((IdentifierTree) node.getExpression()).getName().toString();
+
+                    if (name.startsWith("$") && parameters.get(name) == null) {
+                        //XXX: unbound variable, use identifier instead of member select - may cause problems?
+                        wc.rewrite(node, wc.getTreeMaker().Identifier(node.getIdentifier()));
                         return null;
                     }
-
-                    Element e = wc.getTrees().getElement(getCurrentPath());
-
-                    if (e != null && isStaticElement(e)) {
-                        wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
-                    }
-
-                    return super.visitIdentifier(node, p);
-                }
-                @Override
-                public Void visitMemberSelect(MemberSelectTree node, Void p) {
-                    Element e = wc.getTrees().getElement(getCurrentPath());
-
-                    if (e == null || (e.getKind() == ElementKind.CLASS && ((TypeElement) e).asType().getKind() == TypeKind.ERROR)) {
-                        if (node.getExpression().getKind() == Kind.IDENTIFIER) {
-                            String name = ((IdentifierTree) node.getExpression()).getName().toString();
-
-                            if (name.startsWith("$") && parameters.get(name) == null) {
-                                //XXX: unbound variable, use identifier instead of member select - may cause problems?
-                                wc.rewrite(node, wc.getTreeMaker().Identifier(node.getIdentifier()));
-                                return null;
-                            }
-                        }
-
-                        return super.visitMemberSelect(node, p);
-                    }
-
-                    //check correct dependency:
-                    checkDependency(wc, e, callback);
-
-                    if (isStaticElement(e)) {
-                        wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
-
-                        return null;
-                    } else {
-                        return super.visitMemberSelect(node, p);
-                    }
                 }
 
-                @Override
-                public Void visitVariable(VariableTree node, Void p) {
-                    String name = node.getName().toString();
+                return super.visitMemberSelect(node, p);
+            }
 
-                    if (name.startsWith("$")) {
-                        String nueName = parameterNames.get(name);
+            //check correct dependency:
+            checkDependency(wc, e, callback);
 
-                        if (nueName != null) {
-                            VariableTree nue = wc.getTreeMaker().Variable(node.getModifiers(), nueName, node.getType(), node.getInitializer());
+            if (isStaticElement(e)) {
+                wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
 
-                            wc.rewrite(node, nue);
+                return null;
+            } else {
+                return super.visitMemberSelect(node, p);
+            }
+        }
 
-                            return super.visitVariable(nue, p);
-                        }
-                    }
+        @Override
+        public Void visitVariable(VariableTree node, Void p) {
+            String name = node.getName().toString();
 
-                    return super.visitVariable(node, p);
-                }
+            if (name.startsWith("$")) {
+                String nueName = parameterNames.get(name);
 
-                @Override
-                public Void visitExpressionStatement(ExpressionStatementTree node, Void p) {
-                    CharSequence name = Utilities.getWildcardTreeName(node);
-
-                    if (name != null) {
-                        TreePath tp = parameters.get(name.toString());
-
-                        if (tp != null) {
-                            wc.rewrite(node, tp.getLeaf());
-                            return null;
-                        }
-                    }
-
-                    return super.visitExpressionStatement(node, p);
-                }
-                @Override
-                public Void visitBlock(BlockTree node, Void p) {
-                    List<? extends StatementTree> nueStatement = resolveMultiParameters(node.getStatements());
-                    BlockTree nue = wc.getTreeMaker().Block(nueStatement, node.isStatic());
+                if (nueName != null) {
+                    VariableTree nue = wc.getTreeMaker().Variable(node.getModifiers(), nueName, node.getType(), node.getInitializer());
 
                     wc.rewrite(node, nue);
 
-                    return super.visitBlock(nue, p);
+                    return super.visitVariable(nue, p);
                 }
-                @Override
-                public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
-                    List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
-                    List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
-                    MethodInvocationTree nue = wc.getTreeMaker().MethodInvocation(typeArgs, node.getMethodSelect(), args);
+            }
 
-                    wc.rewrite(node, nue);
+            return super.visitVariable(node, p);
+        }
 
-                    return super.visitMethodInvocation(nue, p);
+        @Override
+        public Void visitExpressionStatement(ExpressionStatementTree node, Void p) {
+            CharSequence name = Utilities.getWildcardTreeName(node);
+
+            if (name != null) {
+                TreePath tp = parameters.get(name.toString());
+
+                if (tp != null) {
+                    wc.rewrite(node, tp.getLeaf());
+                    return null;
                 }
-                @Override
-                public Void visitNewClass(NewClassTree node, Void p) {
-                    List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
-                    List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
-                    NewClassTree nue = wc.getTreeMaker().NewClass(node.getEnclosingExpression(), typeArgs, node.getIdentifier(), args, node.getClassBody());
+            }
 
-                    wc.rewrite(node, nue);
-                    return super.visitNewClass(nue, p);
-                }
-                @Override
-                public Void visitParameterizedType(ParameterizedTypeTree node, Void p) {
-                    List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
-                    ParameterizedTypeTree nue = wc.getTreeMaker().ParameterizedType(node.getType(), typeArgs);
+            return super.visitExpressionStatement(node, p);
+        }
 
-                    wc.rewrite(node, nue);
-                    return super.visitParameterizedType(node, p);
-                }
-                private <T extends Tree> List<T> resolveMultiParameters(List<T> list) {
-                    if (!Utilities.containsMultistatementTrees(list)) return list;
+        @Override
+        public Void visitBlock(BlockTree node, Void p) {
+            List<? extends StatementTree> nueStatement = resolveMultiParameters(node.getStatements());
+            BlockTree nue = wc.getTreeMaker().Block(nueStatement, node.isStatic());
 
-                    List<T> result = new LinkedList<T>();
+            wc.rewrite(node, nue);
 
-                    for (T t : list) {
-                        if (Utilities.isMultistatementWildcardTree(t)) {
-                            Collection<TreePath> embedded = parametersMulti.get(Utilities.getWildcardTreeName(t).toString());
+            return super.visitBlock(nue, p);
+        }
 
-                            if (embedded != null) {
-                                for (TreePath tp : embedded) {
-                                    result.add((T) tp.getLeaf());
-                                }
-                            }
-                        } else {
-                            result.add(t);
+        @Override
+        public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
+            List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
+            List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
+            MethodInvocationTree nue = wc.getTreeMaker().MethodInvocation(typeArgs, node.getMethodSelect(), args);
+
+            wc.rewrite(node, nue);
+
+            return super.visitMethodInvocation(nue, p);
+        }
+
+        @Override
+        public Void visitNewClass(NewClassTree node, Void p) {
+            List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
+            List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
+            NewClassTree nue = wc.getTreeMaker().NewClass(node.getEnclosingExpression(), typeArgs, node.getIdentifier(), args, node.getClassBody());
+
+            wc.rewrite(node, nue);
+            return super.visitNewClass(nue, p);
+        }
+
+        @Override
+        public Void visitParameterizedType(ParameterizedTypeTree node, Void p) {
+            List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
+            ParameterizedTypeTree nue = wc.getTreeMaker().ParameterizedType(node.getType(), typeArgs);
+
+            wc.rewrite(node, nue);
+            return super.visitParameterizedType(node, p);
+        }
+        private <T extends Tree> List<T> resolveMultiParameters(List<T> list) {
+            if (!Utilities.containsMultistatementTrees(list)) return list;
+
+            List<T> result = new LinkedList<T>();
+
+            for (T t : list) {
+                if (Utilities.isMultistatementWildcardTree(t)) {
+                    Collection<TreePath> embedded = parametersMulti.get(Utilities.getWildcardTreeName(t).toString());
+
+                    if (embedded != null) {
+                        for (TreePath tp : embedded) {
+                            result.add((T) tp.getLeaf());
                         }
                     }
-
-                    return result;
+                } else {
+                    result.add(t);
                 }
-            }.scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
+            }
+
+            return result;
         }
     }
 
