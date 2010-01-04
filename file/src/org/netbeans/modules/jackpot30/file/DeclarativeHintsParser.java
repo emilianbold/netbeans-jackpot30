@@ -63,6 +63,7 @@ import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.platform.JavaPlatform;
@@ -301,23 +302,19 @@ public class DeclarativeHintsParser {
         int end = input.offset();
 
         try {
-            MethodInvocation mi = resolve(mic, text.subSequence(start, end).toString(), not);
+            Condition mi = resolve(mic, text.subSequence(start, end).toString(), not, conditionStart, file, errors);
+            int[] span = new int[]{conditionStart, end};
 
-            if (mi != null) {
-                Condition c = mi;
-                int[] span = new int[]{conditionStart, end};
-
-                if (!mi.link()) {
-                    if (file != null) {
-                        errors.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "Cannot resolve method", file, span[0], span[1]));
-                    }
-                    
-                    c = new False();
+            if ((mi instanceof MethodInvocation) && !((MethodInvocation) mi).link()) {
+                if (file != null) {
+                    errors.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "Cannot resolve method", file, span[0], span[1]));
                 }
 
-                conditions.add(c);
-                spans.add(span);
+                mi = new False();
             }
+
+            conditions.add(mi);
+            spans.add(span);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         }
@@ -395,7 +392,7 @@ public class DeclarativeHintsParser {
     }
 
     private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
-    private static MethodInvocation resolve(MethodInvocationContext mic, final String invocation, final boolean not) throws IOException {
+    private static @NonNull Condition resolve(MethodInvocationContext mic, final String invocation, final boolean not, final int offset, final FileObject file, final List<ErrorDescription> errors) throws IOException {
         final String[] methodName = new String[1];
         final Map<String, ParameterKind> params = new LinkedHashMap<String, ParameterKind>();
         CodeSource codeSource = Modifier.class.getProtectionDomain().getCodeSource();
@@ -412,7 +409,8 @@ public class DeclarativeHintsParser {
         JavaSource.create(ClasspathInfo.create(cp, EMPTY, EMPTY)).runUserActionTask(new Task<CompilationController>() {
             @SuppressWarnings("fallthrough")
             public void run(CompilationController parameter) throws Exception {
-                ExpressionTree et = parameter.getTreeUtilities().parseExpression(invocation, new SourcePositions[1]);
+                SourcePositions[] positions = new SourcePositions[1];
+                ExpressionTree et = parameter.getTreeUtilities().parseExpression(invocation, positions);
 
                 if (et.getKind() != Kind.METHOD_INVOCATION) {
                     //XXX: report an error
@@ -443,7 +441,12 @@ public class DeclarativeHintsParser {
                             TreePath tp = parameter.getTrees().getPath(s.getEnclosingClass());
                             Element e = parameter.getTrees().getElement(new TreePath(tp, t));
 
-                            assert e.getKind() == ElementKind.ENUM_CONSTANT : e.getKind();
+                            if (e.getKind() != ElementKind.ENUM_CONSTANT) {
+                                int start = (int) positions[0].getStartPosition(null, t) + offset;
+                                int end = (int) positions[0].getEndPosition(null, t) + offset;
+                                errors.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "Cannot resolve enum constant", file, start, end));
+                                break;
+                            }
 
                             params.put(((TypeElement) e.getEnclosingElement()).getQualifiedName().toString() + "." + e.getSimpleName().toString(), ParameterKind.ENUM_CONSTANT);
                             break;
@@ -453,7 +456,7 @@ public class DeclarativeHintsParser {
         }, true);
 
         if (methodName[0] == null) {
-            return null;
+            return new False();
         }
         
         return new MethodInvocation(not, methodName[0], params, mic);

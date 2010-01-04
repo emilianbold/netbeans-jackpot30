@@ -246,6 +246,12 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                                   "0:10-0:26:error:Cannot resolve method");
     }
 
+    public void testError2() throws Exception {
+        performErrorGatheringTest("$a + $b :: sourceVersionGE(Foo.BAR);;",
+                                  "0:27-0:34:error:Cannot resolve enum constant",
+                                  "0:10-0:35:error:Cannot resolve method");
+    }
+
     public void testVarArgs1() throws Exception {
         performErrorGatheringTest("$a + $b :: test($a, \"a\", \"b\");;");
     }
