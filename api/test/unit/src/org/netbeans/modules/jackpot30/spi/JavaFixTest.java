@@ -39,11 +39,21 @@
 
 package org.netbeans.modules.jackpot30.spi;
 
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
+import java.util.Collection;
+import java.util.Collections;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
 import org.netbeans.modules.jackpot30.impl.TestBase;
+import org.netbeans.spi.editor.hints.Fix;
+import org.openide.LifecycleManager;
 import org.openide.modules.SpecificationVersion;
+import org.openide.util.MapFormat;
 
 /**
  *
@@ -124,5 +134,124 @@ public class JavaFixTest extends TestBase {
         ExecutableElement method = ElementFilter.methodsIn(te.getEnclosedElements()).iterator().next();
 
         return JavaFix.computeSpecVersion(info, method);
+    }
+
+    public void testArithmetic1() throws Exception {
+        performArithmeticTest("1 + 2", "3");
+        performArithmeticTest("1f + 2", "3.0F");
+        performArithmeticTest("1 + 2f", "3.0F");
+        performArithmeticTest("1.0 + 2f", "3.0");
+        performArithmeticTest("1 + 2.0", "3.0");
+        performArithmeticTest("1L + 2", "3L");
+    }
+
+    public void testArithmetic2() throws Exception {
+        performArithmeticTest("1 * 2", "2");
+        performArithmeticTest("1f * 2", "2.0F");
+        performArithmeticTest("1 * 2f", "2.0F");
+        performArithmeticTest("1.0 * 2f", "2.0");
+        performArithmeticTest("1 * 2.0", "2.0");
+        performArithmeticTest("1L * 2", "2L");
+    }
+
+    public void testArithmetic3() throws Exception {
+        performArithmeticTest("4 / 2", "2");
+        performArithmeticTest("4f / 2", "2.0F");
+        performArithmeticTest("4 / 2f", "2.0F");
+        performArithmeticTest("4.0 / 2f", "2.0");
+        performArithmeticTest("4 / 2.0", "2.0");
+        performArithmeticTest("4L / 2", "2L");
+    }
+
+    public void testArithmetic4() throws Exception {
+        performArithmeticTest("5 % 2", "1");
+        performArithmeticTest("5f % 2", "1.0F");
+        performArithmeticTest("5 % 2f", "1.0F");
+        performArithmeticTest("5.0 % 2f", "1.0");
+        performArithmeticTest("5 % 2.0", "1.0");
+        performArithmeticTest("5L % 2", "1L");
+    }
+
+    public void testArithmetic5() throws Exception {
+        performArithmeticTest("5 - 2", "3");
+        performArithmeticTest("5f - 2", "3.0F");
+        performArithmeticTest("5 - 2f", "3.0F");
+        performArithmeticTest("5.0 - 2f", "3.0");
+        performArithmeticTest("5 - 2.0", "3.0");
+        performArithmeticTest("5L - 2", "3L");
+    }
+
+    public void testArithmetic6() throws Exception {
+        performArithmeticTest("5 | 2", "7");
+        performArithmeticTest("5L | 2", "7L");
+        performArithmeticTest("5 | 2L", "7L");
+    }
+
+    public void testArithmetic7() throws Exception {
+        performArithmeticTest("5 & 4", "4");
+        performArithmeticTest("5L & 4", "4L");
+        performArithmeticTest("5 & 4L", "4L");
+    }
+
+    public void testArithmetic8() throws Exception {
+        performArithmeticTest("5 ^ 4", "1");
+        performArithmeticTest("5L ^ 4", "1L");
+        performArithmeticTest("5 ^ 4L", "1L");
+    }
+
+    public void testArithmetic9() throws Exception {
+        performArithmeticTest("5 << 2", "20");
+        performArithmeticTest("5L << 2", "20L");
+        performArithmeticTest("5 << 2L", "20L");
+    }
+
+    public void testArithmeticA() throws Exception {
+        performArithmeticTest("-20 >> 2", "-5");
+        performArithmeticTest("-20L >> 2", "-5L");
+        performArithmeticTest("-20 >> 2L", "-5L");
+    }
+
+    public void testArithmeticB() throws Exception {
+        performArithmeticTest("-20 >>> 2", "1073741819");
+    }
+
+    public void testArithmeticC() throws Exception {
+        performArithmeticTest("0 + -20", "-20");
+        performArithmeticTest("0 + +20", "20");
+    }
+
+    public void testArithmeticComplex() throws Exception {
+        performArithmeticTest("1 + 2 * 4 - 5", "4");
+        performArithmeticTest("1f + 2 * 4.0 - 5", "4.0");
+        performArithmeticTest("1L + 2 * 4 - 5", "4L");
+    }
+
+    private static final String ARITHMETIC = "public class Test { private Object o = __VAL__; }";
+    private void performArithmeticTest(String orig, String nue) throws Exception {
+        String code = replace("0");
+        
+        prepareTest("Test.java", code);
+        ClassTree clazz = (ClassTree) info.getCompilationUnit().getTypeDecls().get(0);
+        VariableTree variable = (VariableTree) clazz.getMembers().get(1);
+        ExpressionTree init = variable.getInitializer();
+        TreePath tp = new TreePath(new TreePath(new TreePath(new TreePath(info.getCompilationUnit()), clazz), variable), init);
+        Fix fix = JavaFix.rewriteFix(info, "A", tp, orig, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap(), Collections.<String, TypeMirror>emptyMap());
+        fix.implement();
+
+        String golden = replace(nue);
+        String out = doc.getText(0, doc.getLength());
+
+        assertEquals(golden, out);
+
+        LifecycleManager.getDefault().saveAll();
+    }
+
+    private static String replace(String val) {
+        MapFormat f = new MapFormat(Collections.singletonMap("VAL", val));
+
+        f.setLeftBrace("__");
+        f.setRightBrace("__");
+
+        return f.format(ARITHMETIC);
     }
 }

@@ -40,13 +40,16 @@
 package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.javadoc.Tag;
+import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import java.io.IOException;
 import java.util.Collection;
@@ -61,11 +64,13 @@ import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.lang.model.element.Element;
@@ -508,7 +513,9 @@ public abstract class JavaFix {
         }
     }
 
-    private static class ReplaceParameters extends TreePathScanner<Void, Void> {
+    private static final Set<Kind> NUMBER_LITERAL_KINDS = EnumSet.of(Kind.FLOAT_LITERAL, Kind.DOUBLE_LITERAL, Kind.INT_LITERAL, Kind.LONG_LITERAL);
+    
+    private static class ReplaceParameters extends TreePathScanner<Number, Void> {
 
         private final WorkingCopy wc;
         private final UpgradeUICallback callback;
@@ -525,7 +532,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitIdentifier(IdentifierTree node, Void p) {
+        public Number visitIdentifier(IdentifierTree node, Void p) {
             String name = node.getName().toString();
             TreePath tp = parameters.get(name);
 
@@ -540,6 +547,9 @@ public abstract class JavaFix {
                 }
                 if (!parameterNames.containsKey(name)) {
                     wc.rewrite(node, tp.getLeaf());
+                    if (NUMBER_LITERAL_KINDS.contains(tp.getLeaf().getKind())) {
+                        return (Number) ((LiteralTree) tp.getLeaf()).getValue();
+                    }
                     return null;
                 }
             }
@@ -561,7 +571,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitMemberSelect(MemberSelectTree node, Void p) {
+        public Number visitMemberSelect(MemberSelectTree node, Void p) {
             Element e = wc.getTrees().getElement(getCurrentPath());
 
             if (e == null || (e.getKind() == ElementKind.CLASS && ((TypeElement) e).asType().getKind() == TypeKind.ERROR)) {
@@ -591,7 +601,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitVariable(VariableTree node, Void p) {
+        public Number visitVariable(VariableTree node, Void p) {
             String name = node.getName().toString();
 
             if (name.startsWith("$")) {
@@ -610,7 +620,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitExpressionStatement(ExpressionStatementTree node, Void p) {
+        public Number visitExpressionStatement(ExpressionStatementTree node, Void p) {
             CharSequence name = Utilities.getWildcardTreeName(node);
 
             if (name != null) {
@@ -626,7 +636,200 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitBlock(BlockTree node, Void p) {
+        public Number visitLiteral(LiteralTree node, Void p) {
+            if (node.getValue() instanceof Number) {
+                return (Number) node.getValue();
+            }
+            
+            return super.visitLiteral(node, p);
+        }
+
+        @Override
+        public Number visitBinary(BinaryTree node, Void p) {
+            Number left  = scan(node.getLeftOperand(), p);
+            Number right = scan(node.getRightOperand(), p);
+
+            if (left != null && right != null) {
+                Number result = null;
+                switch (node.getKind()) {
+                    case MULTIPLY:
+                            if (left instanceof Double || right instanceof Double) {
+                                result = left.doubleValue() * right.doubleValue();
+                            } else if (left instanceof Float || right instanceof Float) {
+                                result = left.floatValue() * right.floatValue();
+                            } else if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() * right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() * right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case DIVIDE:
+                            if (left instanceof Double || right instanceof Double) {
+                                result = left.doubleValue() / right.doubleValue();
+                            } else if (left instanceof Float || right instanceof Float) {
+                                result = left.floatValue() / right.floatValue();
+                            } else if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() / right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() / right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case REMAINDER:
+                            if (left instanceof Double || right instanceof Double) {
+                                result = left.doubleValue() % right.doubleValue();
+                            } else if (left instanceof Float || right instanceof Float) {
+                                result = left.floatValue() % right.floatValue();
+                            } else if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() % right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() % right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case PLUS:
+                            if (left instanceof Double || right instanceof Double) {
+                                result = left.doubleValue() + right.doubleValue();
+                            } else if (left instanceof Float || right instanceof Float) {
+                                result = left.floatValue() + right.floatValue();
+                            } else if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() + right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() + right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+                            
+                    case MINUS:
+                            if (left instanceof Double || right instanceof Double) {
+                                result = left.doubleValue() - right.doubleValue();
+                            } else if (left instanceof Float || right instanceof Float) {
+                                result = left.floatValue() - right.floatValue();
+                            } else if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() - right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() - right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case LEFT_SHIFT:
+                            if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() << right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() << right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case RIGHT_SHIFT:
+                            if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() >> right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() >> right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case UNSIGNED_RIGHT_SHIFT:
+                            if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() >>> right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() >>> right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case AND:
+                            if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() & right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() & right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case XOR:
+                            if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() ^ right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() ^ right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+
+                    case OR:
+                            if (left instanceof Long || right instanceof Long) {
+                                result = left.longValue() | right.longValue();
+                            } else if (left instanceof Integer || right instanceof Integer) {
+                                result = left.intValue() | right.intValue();
+                            } else {
+                                throw new IllegalStateException("left=" + left.getClass() + ", right=" + right.getClass());
+                            }
+                            break;
+                }
+
+                if (result != null) {
+                    wc.rewrite(node, wc.getTreeMaker().Literal(result));
+
+                    return result;
+                }
+            }
+
+            return null;
+        }
+
+        @Override
+        public Number visitUnary(UnaryTree node, Void p) {
+            Number op  = scan(node.getExpression(), p);
+
+            if (op != null) {
+                Number result = null;
+                switch (node.getKind()) {
+                    case UNARY_MINUS:
+                            if (op instanceof Double) {
+                                result = -op.doubleValue();
+                            } else if (op instanceof Float) {
+                                result = -op.floatValue();
+                            } else if (op instanceof Long) {
+                                result = -op.longValue();
+                            } else if (op instanceof Integer) {
+                                result = -op.intValue();
+                            } else {
+                                throw new IllegalStateException("op=" + op.getClass());
+                            }
+                            break;
+                    case UNARY_PLUS:
+                        result = op;
+                        break;
+                }
+                
+                if (result != null) {
+                    wc.rewrite(node, wc.getTreeMaker().Literal(result));
+
+                    return result;
+                }
+            }
+
+            return super.visitUnary(node, p);
+        }
+
+        @Override
+        public Number visitBlock(BlockTree node, Void p) {
             List<? extends StatementTree> nueStatement = resolveMultiParameters(node.getStatements());
             BlockTree nue = wc.getTreeMaker().Block(nueStatement, node.isStatic());
 
@@ -636,7 +839,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitMethodInvocation(MethodInvocationTree node, Void p) {
+        public Number visitMethodInvocation(MethodInvocationTree node, Void p) {
             List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
             List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
             MethodInvocationTree nue = wc.getTreeMaker().MethodInvocation(typeArgs, node.getMethodSelect(), args);
@@ -647,7 +850,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitNewClass(NewClassTree node, Void p) {
+        public Number visitNewClass(NewClassTree node, Void p) {
             List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
             List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
             NewClassTree nue = wc.getTreeMaker().NewClass(node.getEnclosingExpression(), typeArgs, node.getIdentifier(), args, node.getClassBody());
@@ -657,7 +860,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        public Void visitParameterizedType(ParameterizedTypeTree node, Void p) {
+        public Number visitParameterizedType(ParameterizedTypeTree node, Void p) {
             List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
             ParameterizedTypeTree nue = wc.getTreeMaker().ParameterizedType(node.getType(), typeArgs);
 
