@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 1997-2007 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 1997-2009 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -47,9 +47,14 @@ import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
+import java.util.logging.Logger;
+import java.util.logging.Level;
 import java.util.regex.Pattern;
 import javax.swing.event.ChangeListener;
 import junit.framework.Assert;
@@ -59,16 +64,17 @@ import org.netbeans.api.java.queries.SourceForBinaryQuery;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.java.JavaDataLoader;
+import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.java.source.parsing.JavacParser;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
 import org.netbeans.modules.java.source.usages.IndexUtil;
 import org.netbeans.modules.parsing.api.indexing.IndexingManager;
+import org.netbeans.modules.parsing.impl.indexing.Util;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation;
 import org.netbeans.spi.java.queries.SourceLevelQueryImplementation;
-import org.openide.ErrorManager;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileSystem;
@@ -115,14 +121,21 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
     private static Object[] extraLookupContent = null;
     
     public static void prepareTest(String[] additionalLayers, Object[] additionalLookupContent) throws IOException, SAXException, PropertyVetoException {
-        URL[] layers = new URL[additionalLayers.length];
+        List<URL> layers = new LinkedList<URL>();
         
         for (int cntr = 0; cntr < additionalLayers.length; cntr++) {
-            layers[cntr] = Thread.currentThread().getContextClassLoader().getResource(additionalLayers[cntr]);
+            boolean found = false;
+
+            for (Enumeration<URL> en = Thread.currentThread().getContextClassLoader().getResources(additionalLayers[cntr]); en.hasMoreElements(); ) {
+                found = true;
+                layers.add(en.nextElement());
+            }
+
+            Assert.assertTrue(additionalLayers[cntr], found);
         }
         
         XMLFileSystem xmlFS = new XMLFileSystem();
-        xmlFS.setXmlUrls(layers);
+        xmlFS.setXmlUrls(layers.toArray(new URL[0]));
         
         FileSystem system = new MultiFileSystem(new FileSystem[] {FileUtil.createMemoryFileSystem(), xmlFS});
         
@@ -136,6 +149,13 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
         SourceUtilsTestUtil.setLookup(extraLookupContent, SourceUtilsTestUtil.class.getClassLoader());
         
         SourceUtilsTestUtil2.disableLocks();
+
+        if (Util.allMimeTypes == null) {
+            Util.allMimeTypes = new HashSet<String>();
+        }
+
+        Util.allMimeTypes.add("text/x-java");
+        org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
     }
     
     static {
@@ -157,7 +177,7 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
         System.arraycopy(extraLookupContent, 0, lookupContent, 4, extraLookupContent.length);
         
         lookupContent[0] = new TestProxyClassPathProvider(sourceRoot, buildRoot, classPathElements);
-        lookupContent[1] = new TestSourceForBinaryQuery(sourceRoot, classPathElements);
+        lookupContent[1] = new TestSourceForBinaryQuery(sourceRoot, buildRoot);
         lookupContent[2] = new TestSourceLevelQueryImplementation();
         lookupContent[3] = JavaDataLoader.findObject(JavaDataLoader.class, true);
         
@@ -181,6 +201,8 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
 
     private static List<URL> bootClassPath;
 
+    private static Logger log = Logger.getLogger(SourceUtilsTestUtil.class.getName());
+    
     public static synchronized List<URL> getBootClassPath() {
         if (bootClassPath == null) {
             try {
@@ -207,7 +229,8 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
                 
                 bootClassPath = urls;
             } catch (FileStateInvalidException e) {
-                ErrorManager.getDefault().notify(e);
+                if (log.isLoggable(Level.SEVERE))
+                    log.log(Level.SEVERE, e.getMessage(), e);
             }
         }
 
@@ -216,34 +239,34 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
 
     private static class TestSourceForBinaryQuery implements SourceForBinaryQueryImplementation {
         
-        private FileObject sourceRoot;
-        private List<FileObject> classPathElements;
+        private final FileObject sourceRoot;
+        private final FileObject buildRoot;
         
-        public TestSourceForBinaryQuery(FileObject sourceRoot, FileObject[] classPathElements) {
+        public TestSourceForBinaryQuery(FileObject sourceRoot, FileObject buildRoot) {
             this.sourceRoot = sourceRoot;
-            this.classPathElements = Arrays.asList(classPathElements);
+            this.buildRoot = buildRoot;
         }
         
         public SourceForBinaryQuery.Result findSourceRoots(URL binaryRoot) {
-            if (getBootClassPath().contains(binaryRoot))
-                return null;
+            FileObject f = URLMapper.findFileObject(binaryRoot);
 
-            if (classPathElements.contains(URLMapper.findFileObject(binaryRoot)))
-                return null;
+            if (buildRoot.equals(f)) {
+                return new SourceForBinaryQuery.Result() {
+                    public FileObject[] getRoots() {
+                        return new FileObject[] {
+                            sourceRoot,
+                        };
+                    }
 
-            return new SourceForBinaryQuery.Result() {
-                public FileObject[] getRoots() {
-                    return new FileObject[] {
-                        sourceRoot,
-                    };
-                }
-                
-                public void addChangeListener(ChangeListener l) {
-                }
-                
-                public void removeChangeListener(ChangeListener l) {
-                }
-            };
+                    public void addChangeListener(ChangeListener l) {
+                    }
+
+                    public void removeChangeListener(ChangeListener l) {
+                    }
+                };
+            }
+
+            return null;
         }
         
     }
@@ -369,7 +392,8 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
                 info.toPhase(this.phase);
                 this.info = info;
             } catch (IOException ioe) {
-                ErrorManager.getDefault().notify(ioe);
+                if (log.isLoggable(Level.SEVERE))
+                    log.log(Level.SEVERE, ioe.getMessage(), ioe);
             }
         }                
         
@@ -378,7 +402,7 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
     @ServiceProvider(service=MimeDataProvider.class)
     public static final class JavacParserProvider implements MimeDataProvider {
 
-        private Lookup javaLookup = Lookups.fixed(new JavacParserFactory());
+        private Lookup javaLookup = Lookups.fixed(new JavacParserFactory(), new JavaCustomIndexer.Factory());
 
         public Lookup getLookup(MimePath mimePath) {
             if (mimePath.getPath().endsWith(JavacParser.MIME_TYPE)) {
