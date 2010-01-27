@@ -19,7 +19,7 @@ download_and_unpack_cluster() {
     unzip -q ../download/*$TRUNK_ID-$1.zip || exit
 }
 
-for cluster in ide12 platform11 java3 harness nb6.8 apisupport1; do
+for cluster in ide platform java harness nb apisupport; do
     download_and_unpack_cluster $cluster;
 done
 
