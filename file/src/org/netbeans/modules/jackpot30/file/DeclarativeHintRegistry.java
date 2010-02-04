@@ -232,11 +232,11 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         return result;
     }
 
-    private static @NonNull String resolveDisplayName(@NonNull FileObject hintFile, @NullAllowed ResourceBundle bundle, String displayNameSpec, boolean fallbackToFileName, String def) {
+    private static @NonNull String resolveDisplayName(@NullAllowed FileObject hintFile, @NullAllowed ResourceBundle bundle, String displayNameSpec, boolean fallbackToFileName, String def) {
         if (bundle != null) {
             if (displayNameSpec == null) {
                 if (!fallbackToFileName) {
-                    return def;
+                    return null;
                 }
                 
                 String dnKey = "DN_" + hintFile.getName();
@@ -244,7 +244,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                     return bundle.getString(dnKey);
                 } catch (MissingResourceException e) {
                     Logger.getLogger(DeclarativeHintRegistry.class.getName()).log(Level.FINE, null, e);
-                    return def;
+                    return fileDefaultDisplayName(hintFile, def);
                 }
             }
 
@@ -259,7 +259,17 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             }
         }
 
-        return displayNameSpec != null ? displayNameSpec : def;
+        return displayNameSpec != null ? displayNameSpec
+                                       : fallbackToFileName ? fileDefaultDisplayName(hintFile, def)
+                                                            : def;
+    }
+
+    private static @NonNull String fileDefaultDisplayName(@NullAllowed FileObject hintFile, String def) {
+        if (hintFile == null) {
+            return def;
+        }
+
+        return hintFile.getName();
     }
 
 }
