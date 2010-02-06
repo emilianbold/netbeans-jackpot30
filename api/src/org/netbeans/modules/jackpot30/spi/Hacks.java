@@ -90,7 +90,7 @@ import org.openide.util.Exceptions;
  */
 public class Hacks {
 
-    //XXX: copied from Utilities, for declarative hints:
+    //XXX: copied from Utilities, for declarative hints, different import management:
     private static long inc;
 
     public static Scope constructScope(CompilationInfo info, String... importedClasses) {
@@ -150,8 +150,8 @@ public class Hacks {
 
     }
 
-    private static final String SOURCE_LEVEL = "1.6"; //TODO: could be possibly inferred from the current Java platform
-    
+    private static final String SOURCE_LEVEL = "1.5"; //TODO: could be possibly inferred from the current Java platform
+
     public static Map<String, byte[]> compile(ClassPath boot, ClassPath compile, final String code) throws IOException {
         StandardJavaFileManager sjfm = ToolProvider.getSystemJavaCompiler().getStandardFileManager(null, null, null);
 
@@ -181,7 +181,7 @@ public class Hacks {
                 return code;
             }
         };
-        ToolProvider.getSystemJavaCompiler().getTask(null, jfm, null, /*XXX:*/Arrays.asList("-source", SOURCE_LEVEL, "-target", SOURCE_LEVEL), null, Arrays.asList(file)).call();
+        ToolProvider.getSystemJavaCompiler().getTask(null, jfm, null, /*XXX:*/Arrays.asList("-source", SOURCE_LEVEL, "-target", SOURCE_LEVEL, "-proc:none"), null, Arrays.asList(file)).call();
 
         Map<String, byte[]> result = new HashMap<String, byte[]>();
 

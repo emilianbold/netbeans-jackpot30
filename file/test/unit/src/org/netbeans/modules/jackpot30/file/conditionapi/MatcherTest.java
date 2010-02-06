@@ -47,7 +47,6 @@ import java.util.Map;
 import java.util.regex.Pattern;
 import org.netbeans.modules.jackpot30.impl.TestBase;
 import org.netbeans.modules.jackpot30.spi.HintContext;
-import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 
 /**
  *
@@ -77,7 +76,7 @@ public class MatcherTest extends TestBase {
         variables.put("$1", var);
         Map<String, Collection<? extends TreePath>> multiVariables = new HashMap<String, Collection<? extends TreePath>>();
         multiVariables.put("$2$", Arrays.asList(tp));
-        HintContext ctx = HintContext.create(info, HintSeverity.ERROR, null, variables, multiVariables, null);
+        HintContext ctx = HintContext.create(info, null, null, variables, multiVariables, null);
 
         new Matcher(ctx).referencedIn(new Variable("$1"), new Variable("$2$"));
     }

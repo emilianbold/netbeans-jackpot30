@@ -40,18 +40,22 @@
 package org.netbeans.modules.jackpot30.impl.hints;
 
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Set;
+import javax.lang.model.type.ErrorType;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.swing.SwingUtilities;
+import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.CancellableTask;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -63,10 +67,10 @@ import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.support.CaretAwareJavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.SelectionAwareJavaSourceTaskFactory;
+import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.refactoring.FindDuplicatesRefactoringUI;
-import org.netbeans.modules.java.hints.introduce.IntroduceHint;
 import org.netbeans.modules.refactoring.spi.ui.UI;
 import org.netbeans.spi.editor.hints.ChangeInfo;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -187,11 +191,175 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
     private static final Set<TypeKind> NOT_ACCEPTED_TYPES = EnumSet.of(TypeKind.NONE, TypeKind.OTHER);
     
     static TreePath selectionForExpressionHack(CompilationInfo info, int start, int end) {
-        return IntroduceHint.validateSelection(info, start, end, NOT_ACCEPTED_TYPES);
+        return validateSelection(info, start, end, NOT_ACCEPTED_TYPES);
     }
 
     static TreePathHandle selectionForStatementsHack(CompilationInfo info, int start, int end, int[] outSpan)  {
-        return IntroduceHint.validateSelectionForIntroduceMethod(info, start, end, outSpan);
+        return validateSelectionForIntroduceMethod(info, start, end, outSpan);
+    }
+
+    private static final Set<JavaTokenId> WHITESPACES = EnumSet.of(JavaTokenId.WHITESPACE, JavaTokenId.BLOCK_COMMENT, JavaTokenId.LINE_COMMENT, JavaTokenId.JAVADOC_COMMENT);
+    static int[] ignoreWhitespaces(CompilationInfo ci, int start, int end) {
+        TokenSequence<JavaTokenId> ts = ci.getTokenHierarchy().tokenSequence(JavaTokenId.language());
+
+        if (ts == null) {
+            return new int[] {start, end};
+        }
+
+        ts.move(start);
+
+        if (ts.moveNext()) {
+            boolean wasMoveNext = true;
+
+            while (WHITESPACES.contains(ts.token().id()) && (wasMoveNext = ts.moveNext()))
+                ;
+
+            if (wasMoveNext && ts.offset() > start)
+                start = ts.offset();
+        }
+
+        ts.move(end);
+
+        while (ts.movePrevious() && WHITESPACES.contains(ts.token().id()) && ts.offset() < end)
+            end = ts.offset();
+
+        return new int[] {start, end};
+    }
+    
+    private static boolean isInsideClass(TreePath tp) {
+        while (tp != null) {
+            if (tp.getLeaf().getKind() == Kind.CLASS)
+                return true;
+
+            tp = tp.getParentPath();
+        }
+
+        return false;
+    }
+    
+    private static TreePath validateSelection(CompilationInfo ci, int start, int end, Set<TypeKind> ignoredTypes) {
+        TreePath tp = ci.getTreeUtilities().pathFor((start + end) / 2 + 1);
+
+        for ( ; tp != null; tp = tp.getParentPath()) {
+            Tree leaf = tp.getLeaf();
+
+            if (!ExpressionTree.class.isAssignableFrom(leaf.getKind().asInterface()))
+               continue;
+
+            long treeStart = ci.getTrees().getSourcePositions().getStartPosition(ci.getCompilationUnit(), leaf);
+            long treeEnd   = ci.getTrees().getSourcePositions().getEndPosition(ci.getCompilationUnit(), leaf);
+
+            if (treeStart != start || treeEnd != end) {
+                continue;
+            }
+
+            TypeMirror type = ci.getTrees().getTypeMirror(tp);
+
+            if (type != null && type.getKind() == TypeKind.ERROR) {
+                type = ci.getTrees().getOriginalType((ErrorType) type);
+            }
+
+            if (type == null || ignoredTypes.contains(type.getKind()))
+                continue;
+
+            if(tp.getLeaf().getKind() == Kind.ASSIGNMENT)
+                continue;
+
+            if (tp.getLeaf().getKind() == Kind.ANNOTATION)
+                continue;
+
+            if (!isInsideClass(tp))
+                return null;
+
+            TreePath candidate = tp;
+
+            tp = tp.getParentPath();
+
+            while (tp != null) {
+                switch (tp.getLeaf().getKind()) {
+                    case VARIABLE:
+                        VariableTree vt = (VariableTree) tp.getLeaf();
+                        if (vt.getInitializer() == leaf) {
+                            return candidate;
+                        } else {
+                            return null;
+                        }
+                    case NEW_CLASS:
+                        NewClassTree nct = (NewClassTree) tp.getLeaf();
+
+                        if (nct.getIdentifier().equals(candidate.getLeaf())) { //avoid disabling hint ie inside of anonymous class higher in treepath
+                            for (Tree p : nct.getArguments()) {
+                                if (p == leaf) {
+                                    return candidate;
+                                }
+                            }
+
+                            return null;
+                        }
+                }
+
+                leaf = tp.getLeaf();
+                tp = tp.getParentPath();
+            }
+
+            return candidate;
+        }
+
+        return null;
+    }
+
+    private static TreePathHandle validateSelectionForIntroduceMethod(CompilationInfo ci, int start, int end, int[] statementsSpan) {
+        int[] span = ignoreWhitespaces(ci, Math.min(start, end), Math.max(start, end));
+
+        start = span[0];
+        end   = span[1];
+
+        if (start >= end)
+            return null;
+
+        TreePath tpStart = ci.getTreeUtilities().pathFor(start);
+        TreePath tpEnd = ci.getTreeUtilities().pathFor(end);
+
+        if (tpStart.getLeaf() != tpEnd.getLeaf() || tpStart.getLeaf().getKind() != Kind.BLOCK) {
+            //??? not in the same block:
+            return null;
+        }
+
+        int from = -1;
+        int to   = -1;
+
+        BlockTree block = (BlockTree) tpStart.getLeaf();
+        int index = 0;
+
+        for (StatementTree s : block.getStatements()) {
+            long sStart = ci.getTrees().getSourcePositions().getStartPosition(ci.getCompilationUnit(), s);
+
+            if (sStart == start) {
+                from = index;
+            }
+
+            if (end < sStart && to == (-1)) {
+                to = index - 1;
+            }
+
+            index++;
+        }
+
+        if (from == (-1)) {
+            return null;
+        }
+
+        if (to == (-1))
+            to = block.getStatements().size() - 1;
+
+        if (to < from) {
+            return null;
+        }
+
+        statementsSpan[0] = from;
+        statementsSpan[1] = to;
+
+        return TreePathHandle.create(tpStart, ci);
     }
 
     @ServiceProvider(service=JavaSourceTaskFactory.class)

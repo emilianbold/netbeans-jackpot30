@@ -80,7 +80,7 @@ public class NFABasedBulkSearch extends BulkSearch {
     }
 
     @Override
-    public Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern patternIn, Map<String, Long> timeLog) {
+    public Map<String, Collection<TreePath>> match(CompilationInfo info, TreePath tree, BulkPattern patternIn, Map<String, Long> timeLog) {
         BulkPatternImpl pattern = (BulkPatternImpl) patternIn;
         
         final Map<String, Collection<TreePath>> occurringPatterns = new HashMap<String, Collection<TreePath>>();
@@ -320,7 +320,7 @@ public class NFABasedBulkSearch extends BulkSearch {
     }
 
     @Override
-    public boolean matches(CompilationInfo info, Tree tree, BulkPattern pattern) {
+    public boolean matches(CompilationInfo info, TreePath tree, BulkPattern pattern) {
         //XXX: performance
         return !match(info, tree, pattern).isEmpty();
     }

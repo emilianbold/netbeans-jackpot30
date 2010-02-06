@@ -72,7 +72,7 @@ public class REBasedBulkSearch extends BulkSearch {
     }
 
     @Override
-    public Map<String, Collection<TreePath>> match(CompilationInfo info, Tree tree, BulkPattern patternIn, Map<String, Long> timeLog) {
+    public Map<String, Collection<TreePath>> match(CompilationInfo info, TreePath tree, BulkPattern patternIn, Map<String, Long> timeLog) {
         REBasedBulkPattern pattern = (REBasedBulkPattern) patternIn;
         
         if (pattern.original.isEmpty()) {
@@ -80,7 +80,7 @@ public class REBasedBulkSearch extends BulkSearch {
         }
         
         Map<String, Collection<TreePath>> occurringPatterns = new HashMap<String, Collection<TreePath>>();
-        Result r = TreeSerializer.serializeText(tree);
+        Result r = TreeSerializer.serializeText(tree.getLeaf());
 
         if (timeLog != null) {
             timeLog.put("[C] Jackpot 3.0 Serialized Tree Size", (long) r.encoded.length());
@@ -140,9 +140,9 @@ public class REBasedBulkSearch extends BulkSearch {
     }
 
     @Override
-    public boolean matches(CompilationInfo info, Tree tree, BulkPattern patternIn) {
+    public boolean matches(CompilationInfo info, TreePath tree, BulkPattern patternIn) {
         REBasedBulkPattern pattern = (REBasedBulkPattern) patternIn;
-        Result r = TreeSerializer.serializeText(tree);
+        Result r = TreeSerializer.serializeText(tree.getLeaf());
 
         boolean contains = false;
 

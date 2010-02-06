@@ -63,12 +63,10 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition;
-import org.netbeans.modules.jackpot30.file.DeclarativeHintTokenId;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.test.TestTokenId;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
-import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.spi.CursorMovedSchedulerEvent;
 import org.netbeans.modules.parsing.spi.Parser.Result;
@@ -201,7 +199,7 @@ public class EvaluationSpanTask extends ParserResultTask<Result> {
 
             variables.put("$_", tp);
 
-            HintContext ctx = new HintContext(info, HintSeverity.ERROR, tp, variables, multiVariables, variableNames);
+            HintContext ctx = new HintContext(info, null, tp, variables, multiVariables, variableNames);
             String pattern = d.spec.substring(d.desc.textStart, d.desc.textEnd);
 
             boolean matches = MatcherUtilities.matches(ctx, tp, pattern, true);

@@ -36,7 +36,7 @@
         <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/2.4.1/lucene-core-2.4.1-sources.jar" target="lucene-2.4.1/lucene-core-2.4.1-sources.jar" />
 
         <download url="http://repo1.maven.org/maven2/junit/junit/4.5/junit-4.5.jar" target="junit_4/junit-4.5.jar" />
-        <download url="http://dfn.dl.sourceforge.net/sourceforge/junit/junit4.5.zip" target="junit_4/junit-4.5-api.zip" />
+        <download url="http://switch.dl.sourceforge.net/project/junit/junit/4.5/junit4.5.zip" target="junit_4/junit-4.5-api.zip" />
         <download url="http://repo1.maven.org/maven2/junit/junit/4.5/junit-4.5-sources.jar" target="junit_4/junit-4.5-src.jar" />
         
         <download url="http://repo1.maven.org/maven2/junit/junit/3.8.2/junit-3.8.2.jar" target="junit/junit-3.8.2.jar" />
@@ -45,8 +45,8 @@
 
         <download url="http://bits.netbeans.org/netbeans/6.5/extra_ant_tasks/org-netbeans-modules-java-j2seproject-copylibstask.jar" target="CopyLibs/org-netbeans-modules-java-j2seproject-copylibstask.jar" />
         
-        <download url="http://hg.netbeans.org/binaries/16D4FE31FE9486F18CD3401ADE133645C1B98873-javac-api-nb-7.0-b07.jar" target="javac/javac-api-nb-7.0-b07.jar" />
-        <download url="http://hg.netbeans.org/binaries/7CFA11BA3A6164F0F2863011F4BF85CD1A83F664-javac-impl-nb-7.0-b07.jar" target="javac/javac-impl-nb-7.0-b07.jar" />
+        <download url="http://hg.netbeans.org/binaries/19074C81557493EDD77489E146FCCAAD8A8B385F-javac-api-nb-7.0-b07.jar" target="javac/javac-api-nb-7.0-b07.jar" />
+        <download url="http://hg.netbeans.org/binaries/B0F585DD546E25A1EFAAA0FBD1C09E5461997180-javac-impl-nb-7.0-b07.jar" target="javac/javac-impl-nb-7.0-b07.jar" />
     </target>
 
     <target name="-download-check-exists">

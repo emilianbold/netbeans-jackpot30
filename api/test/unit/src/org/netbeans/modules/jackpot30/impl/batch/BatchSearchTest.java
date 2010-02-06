@@ -212,7 +212,7 @@ public class BatchSearchTest extends NbTestCase {
 
         Map<String, Iterable<String>> verifiedGolden = new HashMap<String, Iterable<String>>();
 
-        verifiedGolden.put(src1.getURL().toExternalForm(), Arrays.asList("0:82-0:93:verifier:TODO: No display name"));
+        verifiedGolden.put(src1.getURL().toExternalForm(), Arrays.<String>asList());
         verifiedGolden.put(src3.getURL().toExternalForm(), Arrays.asList("0:75-0:86:verifier:TODO: No display name"));
 
         assertEquals(verifiedGolden, verifiedOutput);
@@ -283,7 +283,7 @@ public class BatchSearchTest extends NbTestCase {
 
         Map<String, Iterable<String>> verifiedGolden = new HashMap<String, Iterable<String>>();
 
-        verifiedGolden.put(data.getURL().toExternalForm(), Arrays.asList("0:82-0:93:verifier:TODO: No display name", "0:75-0:86:verifier:TODO: No display name"));
+        verifiedGolden.put(data.getURL().toExternalForm(), Arrays.asList("0:75-0:86:verifier:TODO: No display name"));
 
         assertEquals(verifiedGolden, verifiedOutput);
         assertEquals(new HashSet<FileObject>(Arrays.asList(dataSrc1, dataSrc2)), added);

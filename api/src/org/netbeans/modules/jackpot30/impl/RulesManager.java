@@ -39,28 +39,24 @@
 
 package org.netbeans.modules.jackpot30.impl;
 
-import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
-import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.PackageElement;
+import java.util.prefs.Preferences;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.api.java.source.support.CancellableTreePathScanner;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.ElementBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.jackpot30.spi.HintMetadata;
+import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.util.Lookup;
@@ -71,8 +67,7 @@ import org.openide.util.Lookup;
  */
 public class RulesManager {
 
-    private final Map<Kind, List<HintDescription>> kind2Hints = new HashMap<Kind, List<HintDescription>>();
-    private final Map<PatternDescription, List<HintDescription>> pattern2Hint = new HashMap<PatternDescription, List<HintDescription>>();
+    public final Map<HintMetadata, Collection<? extends HintDescription>> allHints;
 
     private static final RulesManager INSTANCE = new RulesManager();
 
@@ -80,18 +75,12 @@ public class RulesManager {
         return INSTANCE;
     }
 
+
     private RulesManager() {
+        allHints = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
         for (HintProvider p : Lookup.getDefault().lookupAll(HintProvider.class)) {
-            sortOut(p.computeHints(), kind2Hints, pattern2Hint);
+            allHints.putAll(p.computeHints());
         }
-    }
-
-    public Map<Kind, List<HintDescription>> getKindBasedHints() {
-        return kind2Hints;
-    }
-
-    public Map<PatternDescription, List<HintDescription>> getPatternBasedHints() {
-        return pattern2Hint;
     }
 
     public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {
@@ -135,6 +124,18 @@ public class RulesManager {
                 l.add(d);
             }
         }
+    }
+
+    public boolean isHintEnabled(HintMetadata hm) {
+        return true;
+    }
+
+    public HintSeverity getHintSeverity(HintMetadata hm) {
+        return HintSeverity.WARNING;
+    }
+
+    public Preferences getHintPreferences(HintMetadata hm) {
+        return null;
     }
 
 }

@@ -84,6 +84,7 @@ import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
+import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -273,7 +274,7 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
         return null;
     }
 
-    private static HintDescription create(CompilationInfo info, Element el, AnnotationMirror transformation, CompilationInfo fake) {
+    private static HintDescription create(CompilationInfo info, Element el, AnnotationMirror transformation, String id, CompilationInfo fake) {
         Collection rawPatterns = findValue(transformation, "pattern", Collection.class);
 
         if (rawPatterns == null || rawPatterns.isEmpty()) {
@@ -344,13 +345,16 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
             return null;//XXX
         }
 
+        HintMetadata hm = HintMetadata.create(id, displayName, displayName, CATEGORY, true, HintMetadata.Kind.HINT, HintMetadata.HintSeverity.WARNING, Collections.<String>emptyList());
+
         return HintDescriptionFactory.create()
-                                     .setDisplayName(displayName)
+                                     .setMetadata(hm)
                                      .setTriggerPattern(PatternDescription.create(patternString, variableTypes))
                                      .setWorker(new WorkerImpl(displayName, fixes))
                                      .produce();
     }
 
+    private static final String CATEGORY = "Transformations";
 
     private static final class FixDescription {
         private final String displayName;
@@ -404,6 +408,29 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
     private List<HintDescription> processAnnotations(Element e, Element enclosing, CompilationInfo info, CompilationInfo fake) {
         boolean foundTransformations = false;
         List<HintDescription> result = new LinkedList<HintDescription>();
+        String id;
+        switch (e.getKind()) {
+            case ANNOTATION_TYPE:
+            case CLASS:
+            case ENUM:
+            case INTERFACE:
+                id = fake.getElements().getBinaryName((TypeElement) e).toString();
+                break;
+            case FIELD:
+            case ENUM_CONSTANT:
+                id = fake.getElements().getBinaryName((TypeElement) enclosing).toString() + e.getSimpleName().toString();
+                break;
+            case CONSTRUCTOR:
+            case METHOD:
+                //XXX: parameters!
+                id = fake.getElements().getBinaryName((TypeElement) enclosing).toString() + e.getSimpleName().toString();
+                break;
+            default:
+                id = "no-id";
+                break;
+        }
+
+        int index = 0;
         
         for (AnnotationMirror am : e.getAnnotationMirrors()) {
             String fqn = ((TypeElement) am.getAnnotationType().asElement()).getQualifiedName().toString();
@@ -420,7 +447,7 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
             }
             
             for (AnnotationMirror t : transformations) {
-                HintDescription pd = create(info, e, t, fake);
+                HintDescription pd = create(info, e, t, id + "-" + (index++), fake);
 
                 if (pd != null) {
                     result.add(pd);

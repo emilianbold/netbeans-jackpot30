@@ -39,6 +39,8 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import java.util.Collection;
+import java.util.LinkedList;
 import java.util.List;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
@@ -53,7 +55,11 @@ public class PatternConvertorImpl extends PatternConvertor {
 
     @Override
     protected Iterable<? extends HintDescription> parseString(String code) {
-        List<HintDescription> hints = DeclarativeHintRegistry.parseHints(null, code);
+        List<HintDescription> hints = new LinkedList<HintDescription>();
+        
+        for (Collection<? extends HintDescription> descs : DeclarativeHintRegistry.parseHints(null, code).values()) {
+            hints.addAll(descs);
+        }
 
         if (hints.isEmpty()) {
             return null;

@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
+import com.sun.source.util.TreePath;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -174,7 +175,7 @@ public class BulkSearchPerformance extends NbTestCase {
                 if (parameter.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
                     return;
 
-                search.match(parameter, parameter.getCompilationUnit(), bulkPattern[0]);
+                search.match(parameter, new TreePath(parameter.getCompilationUnit()), bulkPattern[0]);
             }
         }, true);
         long end = System.currentTimeMillis();

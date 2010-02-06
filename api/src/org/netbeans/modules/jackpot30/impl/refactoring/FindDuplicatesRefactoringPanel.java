@@ -488,7 +488,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             Set<String> selected = new HashSet<String>();
 
             for (HintDescription d : pattern.second()) {
-                selected.add(d.getDisplayName());
+                selected.add(d.getMetadata().displayName);
             }
 
             DefaultListModel allModel = (DefaultListModel) allHints.getModel();

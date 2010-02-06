@@ -112,7 +112,12 @@ public class TestPerformer {
     }
 
     private static Map<TestCase, Collection<String>> performTestImpl(FileObject ruleFile, FileObject test, TestCase[] tests, final AtomicBoolean cancel) throws Exception {
-        final List<HintDescription> hints = DeclarativeHintRegistry.parseHintFile(ruleFile);
+        final List<HintDescription> hints = new LinkedList<HintDescription>();
+
+        for (Collection<? extends HintDescription> descs : DeclarativeHintRegistry.parseHintFile(ruleFile).values()) {
+            hints.addAll(descs);
+        }
+        
         FileObject scratchPad = FileUtil.toFileObject(createScratchpadDir());
         Map<TestCase, Collection<String>> result = new HashMap<TestCase, Collection<String>>();
 

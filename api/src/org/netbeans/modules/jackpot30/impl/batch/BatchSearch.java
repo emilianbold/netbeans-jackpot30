@@ -197,7 +197,7 @@ public class BatchSearch {
                                     return ;
                                 }
 
-                                boolean matches = BulkSearch.getDefault().matches(cc, cc.getCompilationUnit(), bulkPattern);
+                                boolean matches = BulkSearch.getDefault().matches(cc, new TreePath(cc.getCompilationUnit()), bulkPattern);
 
                                 if (matches) {
                                     Collection<Resource> resources = result.get(id);
@@ -289,7 +289,7 @@ public class BatchSearch {
 
                             RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
 
-                            List<ErrorDescription> hints = new HintsInvoker().computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
+                            List<ErrorDescription> hints = new HintsInvoker(parameter, new AtomicBoolean()).computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
 
                             r.setVerifiedSpans(hints);
                             resource2Errors.put(r, hints);
@@ -444,7 +444,7 @@ public class BatchSearch {
 
         private Collection<int[]> doComputeSpans(CompilationInfo ci) {
             Collection<int[]> result = new LinkedList<int[]>();
-            Map<String, Collection<TreePath>> found = BulkSearch.getDefault().match(ci, ci.getCompilationUnit(), pattern);
+            Map<String, Collection<TreePath>> found = BulkSearch.getDefault().match(ci, new TreePath(ci.getCompilationUnit()), pattern);
 
             for (Entry<String, Collection<TreePath>> e : found.entrySet()) {
                 Tree treePattern = Utilities.parseAndAttribute(ci, e.getKey(), null);

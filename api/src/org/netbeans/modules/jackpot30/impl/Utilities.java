@@ -84,6 +84,7 @@ import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Names;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.nio.CharBuffer;
 import java.util.Arrays;
@@ -117,6 +118,7 @@ import javax.tools.DiagnosticCollector;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler.CompilationTask;
 import javax.tools.JavaFileObject;
+import javax.tools.SimpleJavaFileObject;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -130,7 +132,6 @@ import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.builder.TreeFactory;
 import org.netbeans.modules.java.source.parsing.FileObjects;
@@ -222,10 +223,10 @@ public class Utilities {
 
     public static Map<String, Collection<HintDescription>> sortOutHints(Iterable<? extends HintDescription> hints, Map<String, Collection<HintDescription>> output) {
         for (HintDescription d : hints) {
-            Collection<HintDescription> h = output.get(d.getDisplayName());
+            Collection<HintDescription> h = output.get(d.getMetadata().displayName);
 
             if (h == null) {
-                output.put(d.getDisplayName(), h = new LinkedList<HintDescription>());
+                output.put(d.getMetadata().displayName, h = new LinkedList<HintDescription>());
             }
 
             h.add(d);
@@ -237,8 +238,8 @@ public class Utilities {
     public static List<HintDescription> listAllHints(Set<ClassPath> cps) {
         List<HintDescription> result = new LinkedList<HintDescription>();
 
-        for (HintProvider p : Lookup.getDefault().lookupAll(HintProvider.class)) {
-            for (HintDescription hd : p.computeHints()) {
+        for (Collection<? extends HintDescription> hints : RulesManager.getInstance().allHints.values()) {
+            for (HintDescription hd : hints) {
                 if (hd.getTriggerPattern() == null) continue; //TODO: only pattern based hints are currently supported
                 result.add(hd);
             }
@@ -469,7 +470,7 @@ public class Utilities {
         if (stmt == null || (pos != null && pos.length != 1))
             throw new IllegalArgumentException();
         JavaCompiler compiler = JavaCompiler.instance(context);
-        JavaFileObject prev = compiler.log.useSource(null);
+        JavaFileObject prev = compiler.log.useSource(new DummyJFO());
         try {
             CharBuffer buf = CharBuffer.wrap((stmt+"\u0000").toCharArray(), 0, stmt.length());
             ParserFactory factory = ParserFactory.instance(context);
@@ -491,7 +492,7 @@ public class Utilities {
         if (expr == null || (pos != null && pos.length != 1))
             throw new IllegalArgumentException();
         JavaCompiler compiler = JavaCompiler.instance(context);
-        JavaFileObject prev = compiler.log.useSource(null);
+        JavaFileObject prev = compiler.log.useSource(new DummyJFO());
         try {
             CharBuffer buf = CharBuffer.wrap((expr+"\u0000").toCharArray(), 0, expr.length());
             ParserFactory factory = ParserFactory.instance(context);
@@ -1017,4 +1018,14 @@ public class Utilities {
 
 
     }
+
+    private static final class DummyJFO extends SimpleJavaFileObject {
+        private DummyJFO() {
+            super(URI.create("dummy.java"), JavaFileObject.Kind.SOURCE);
+        }
+        @Override
+        public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
+            return "";
+        }
+    };
 }

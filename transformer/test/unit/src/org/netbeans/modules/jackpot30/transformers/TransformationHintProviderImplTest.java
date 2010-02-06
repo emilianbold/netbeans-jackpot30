@@ -348,7 +348,7 @@ public class TransformationHintProviderImplTest extends NbTestCase {
 
         RulesManager.computeElementBasedHintsXXX(info, new AtomicBoolean(), Collections.singletonList(new TransformationHintProviderImpl()), Collections.<ClassPathBasedHintProvider>emptyList(), hints, patternHints);
 
-        List<ErrorDescription> warnings = new HintsInvoker().computeHints(info, hints, patternHints);
+        List<ErrorDescription> warnings = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, hints, patternHints);
 
         return warnings;
     }

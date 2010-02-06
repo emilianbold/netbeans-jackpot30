@@ -51,7 +51,7 @@ import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
-import org.netbeans.modules.java.hints.spi.support.FixFactory;
+//import org.netbeans.modules.java.hints.spi.support.FixFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 
@@ -109,9 +109,9 @@ class DeclarativeHintsWorker implements Worker {
             editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/, imports));
         }
 
-        if (primarySuppressWarningsKey != null && primarySuppressWarningsKey.length() > 0) {
-            editorFixes.addAll(FixFactory.createSuppressWarnings(ctx.getInfo(), ctx.getPath(), primarySuppressWarningsKey));
-        }
+//        if (primarySuppressWarningsKey != null && primarySuppressWarningsKey.length() > 0) {
+//            editorFixes.addAll(FixFactory.createSuppressWarnings(ctx.getInfo(), ctx.getPath(), primarySuppressWarningsKey));
+//        }
 
         ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, editorFixes.toArray(new Fix[0]));
 
