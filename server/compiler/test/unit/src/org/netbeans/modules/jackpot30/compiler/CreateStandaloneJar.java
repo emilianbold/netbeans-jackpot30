@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.compiler;
 import com.sun.source.tree.Tree;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -71,7 +72,8 @@ public class CreateStandaloneJar extends NbTestCase {
     }
 
     public void testDumpImportantHack() throws Exception {
-        JarOutputStream out = new JarOutputStream(new FileOutputStream("/tmp/compiler.jar"));
+        String targetDir = System.getProperty("outputDir", System.getProperty("java.io.tmpdir"));
+        JarOutputStream out = new JarOutputStream(new FileOutputStream(new File(targetDir, "compiler.jar")));
         List<String> toProcess = new LinkedList<String>(INCLUDE);
 
         for (FSWrapper.ClassWrapper cw : FSWrapper.listClasses()) {

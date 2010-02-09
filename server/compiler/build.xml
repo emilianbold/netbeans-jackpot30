@@ -27,5 +27,20 @@
         </jar>
     </target>
 
+    <target name="copy-to-hudson" depends="netbeans">
+        <mkdir dir="${hudson.compiler.dir}" /> <!--only to be sure, should exist-->
+        <copy file="${ant.library.dir}/${code.name.base.dashes}.jar" todir="${hudson.compiler.dir}"/>
+        <ant target="test" inheritall="false" inheritrefs="false">
+            <property name="test.config.standalone.includes" value="org/netbeans/modules/jackpot30/compiler/CreateStandaloneJar.class"/>
+            <property name="test.config" value="standalone"/>
+            <property name="test-unit-sys-prop.outputDir" location="${hudson.compiler.dir}" />
+        </ant>
+    </target>
+
+    <target name="clean" depends="init,projectized-common.clean">
+        <delete file="${hudson.compiler.dir}/${code.name.base.dashes}.jar"/>
+        <delete file="${hudson.compiler.dir}/compiler.jar"/>
+    </target>
+
     <target name="netbeans-extra" depends="ant"/>
 </project>

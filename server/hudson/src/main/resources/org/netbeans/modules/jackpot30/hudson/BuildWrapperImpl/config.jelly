@@ -1,0 +1,46 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+  <!--
+    This jelly script is used for per-project configuration.
+
+    See global.jelly for a general discussion about jelly script.
+  -->
+
+  <!--
+    Creates a text field that shows the value of the "name" property.
+    When submitted, it will be passed to the corresponding constructor parameter.
+  -->
+
+<!--  <j:forEach var="category" items="${descriptor.getCategories()}" varStatus="loop">
+    <f:block>
+      <table>
+        <f:optionalBlock title="${category}">
+          <j:forEach var="hint" items="${descriptor.getHintsInCategory(category)}" varStatus="loop">
+            <f:entry description="${descriptor.getHintDescription(hint)}">
+              <f:checkbox name="${hint}" checked="${instance.isHintEnabled(hint)}"/>
+              <label class="attach-previous">${descriptor.getHintDisplayName(hint)}</label>
+            </f:entry>
+          </j:forEach>
+        </f:optionalBlock>
+      </table>
+    </f:block>
+  </j:forEach>-->
+
+  <j:forEach var="category" items="${descriptor.getCategories()}" varStatus="loop">
+        <f:section title="${descriptor.getCategoryDisplayName(category)}">
+          <j:forEach var="hint" items="${descriptor.getHintsInCategory(category)}" varStatus="loop">
+            <f:entry description="${descriptor.getHintDescription(hint)}">
+              <f:checkbox name="${hint}" checked="${instance.isHintEnabled(hint)}"/>
+              <label class="attach-previous">${descriptor.getHintDisplayName(hint)}</label>
+            </f:entry>
+          </j:forEach>
+        </f:section>
+  </j:forEach>
+
+<!--  <j:forEach var="d" items="${descriptor.getHints()}" varStatus="loop">
+  <f:entry description="${descriptor.getHintDescription(d)}">
+    <f:checkbox name="${d}" checked="${instance.isHintEnabled(d)}"/>
+    <label class="attach-previous">${descriptor.getHintDisplayName(d)}</label>
+  </f:entry>
+  </j:forEach>-->
+
+</j:jelly>

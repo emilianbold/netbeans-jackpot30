@@ -15,4 +15,6 @@
 .*.log
 .*.pdf
 .*.ps
-
+^server/hudson/work$
+^server/hudson/target$
+^server/hudson/data/compiler/.*.jar$
