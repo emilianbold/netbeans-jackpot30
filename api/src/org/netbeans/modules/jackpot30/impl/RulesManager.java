@@ -77,10 +77,17 @@ public class RulesManager {
 
 
     private RulesManager() {
-        allHints = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
+        allHints = new HashMap<HintMetadata, Collection<? extends HintDescription>>(computeAllHints());
+    }
+
+    public static Map<HintMetadata, Collection<? extends HintDescription>> computeAllHints() {
+        Map<HintMetadata, Collection<? extends HintDescription>> hints = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
+
         for (HintProvider p : Lookup.getDefault().lookupAll(HintProvider.class)) {
-            allHints.putAll(p.computeHints());
+            hints.putAll(p.computeHints());
         }
+        
+        return hints;
     }
 
     public static void computeElementBasedHintsXXX(final CompilationInfo info, AtomicBoolean cancel, final Map<Kind, List<HintDescription>> kind2Hints, final Map<PatternDescription, List<HintDescription>> pattern2Hint) {

@@ -66,7 +66,11 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.api.JavacScope;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.comp.AttrContext;
+import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.comp.Todo;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.parser.EndPosParser;
 import com.sun.tools.javac.parser.JavacParser;
@@ -75,13 +79,17 @@ import com.sun.tools.javac.parser.Parser;
 import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.parser.Scanner;
 import com.sun.tools.javac.parser.Token;
+import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
 import com.sun.tools.javac.tree.JCTree.JCStatement;
 import com.sun.tools.javac.util.CancelService;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Names;
+import com.sun.tools.javadoc.Messager;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -113,6 +121,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.DiagnosticListener;
@@ -238,7 +247,7 @@ public class Utilities {
     public static List<HintDescription> listAllHints(Set<ClassPath> cps) {
         List<HintDescription> result = new LinkedList<HintDescription>();
 
-        for (Collection<? extends HintDescription> hints : RulesManager.getInstance().allHints.values()) {
+        for (Collection<? extends HintDescription> hints : RulesManager.computeAllHints().values()) {
             for (HintDescription hd : hints) {
                 if (hd.getTriggerPattern() == null) continue; //TODO: only pattern based hints are currently supported
                 result.add(hd);
@@ -353,20 +362,21 @@ public class Utilities {
         int syntheticOffset = 0;
 
         if (scope != null) {
-            assert info != null;
-
-            TypeMirror type = info.getTreeUtilities().attributeTree(patternTree, scope);
+            TypeMirror type = jti.attributeTree((JCTree) patternTree, ((JavacScope) scope).getEnv());
 
             if (isError(type) && expression) {
                 //maybe type?
-                if (Utilities.isPureMemberSelect(patternTree, false) && info.getElements().getTypeElement(pattern) != null) {
-                    Tree var = info.getTreeUtilities().parseExpression(pattern + ".class;", new SourcePositions[1]);
+                Elements el = jti.getElements();
+                if (Utilities.isPureMemberSelect(patternTree, false) && el.getTypeElement(pattern) != null) {
+                    Tree var = jti.parseExpression(pattern + ".class;", new SourcePositions[1]);
 
-                    type = info.getTreeUtilities().attributeTree(var, scope);
+                    type = jti.attributeTree((JCTree) var, ((JavacScope) scope).getEnv());
 
                     Tree typeTree = ((MemberSelectTree) var).getExpression();
+                    Trees trees = Trees.instance(jti);
+                    CompilationUnitTree cut = ((JavacScope) scope).getEnv().toplevel;
 
-                    if (!isError(info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), typeTree)))) {
+                    if (!isError(trees.getElement(new TreePath(new TreePath(cut), typeTree)))) {
                         patternTree = typeTree;
                     }
                 }
@@ -574,21 +584,40 @@ public class Utilities {
 
         JavacTaskImpl jti = JavaSourceAccessor.getINSTANCE().getJavacTask(info);
         Context context = jti.getContext();
+        Log log = Log.instance(context);
 
-        Log.instance(context).nerrors = 0;
+        log.nerrors = 0;
 
-        JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/t" + count + ".java").toURI(), System.currentTimeMillis(), clazz.toString());
+        JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/$" + count + ".java").toURI(), System.currentTimeMillis(), clazz.toString());
+
+        DiagnosticListener<? super JavaFileObject> old = log.getDiagnosticListener();
+        DiagnosticCollector<JavaFileObject> dc = new DiagnosticCollector<JavaFileObject>();
+
+        log.setDiagnosticListener(dc);
 
         try {
-            Iterable<? extends CompilationUnitTree> parsed = jti.parse(jfo);
-            CompilationUnitTree cut = parsed.iterator().next();
+            JavaCompiler compiler = JavaCompiler.instance(context);
+            JCCompilationUnit cut = compiler.parse(jfo);
 
-            jti.analyze(jti.enter(parsed));
+            compiler.enterTrees(com.sun.tools.javac.util.List.of(cut));
+
+            Todo todo = compiler.todo;
+            ListBuffer<Env<AttrContext>> defer = ListBuffer.<Env<AttrContext>>lb();
+            
+            while (todo.peek() != null) {
+                Env<AttrContext> env = todo.remove();
+
+                if (env.toplevel == cut)
+                    compiler.attribute(env);
+                else
+                    defer = defer.append(env);
+            }
+
+            todo.addAll(defer);
 
             return new ScannerImpl().scan(cut, info);
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-            return null;
+        } finally {
+            log.setDiagnosticListener(old);
         }
     }
 
@@ -984,6 +1013,12 @@ public class Utilities {
         }
 
         return false;
+    }
+
+    public static boolean isJavadocSupported(CompilationInfo info) {
+        Context c = JavaSourceAccessor.getINSTANCE().getJavacTask(info).getContext();
+
+        return c.get(Log.logKey) instanceof Messager;
     }
 
     private static class JackpotJavacParser extends EndPosParser {

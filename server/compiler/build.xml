@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- You may freely edit this file. See harness/README in the NetBeans platform -->
+<!-- for some information on what you could do (e.g. targets to override). -->
+<!-- If you delete this file and reopen the project it will be recreated. -->
+<project name="org.netbeans.modules.jackpot30.compiler" default="netbeans" basedir=".">
+    <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.compiler.</description>
+    <import file="nbproject/build-impl.xml"/>
+
+    <target name="ant" depends="init">
+        <mkdir dir="build/antclasses"/>
+        <javac srcdir="antsrc" destdir="build/antclasses" source="1.5" target="1.5" debug="true" deprecation="true">
+            <classpath>
+                <path refid="cp"/>
+                <pathelement location="${ant.jar}"/>
+                <pathelement location="${tools.jar}"/>
+                <pathelement location="${cluster}/modules/${code.name.base.dashes}.jar"/>
+            </classpath>
+            <compilerarg line="-proc:none" />
+        </javac>
+        <copy todir="build/antclasses">
+            <fileset dir="antsrc" excludes="${jar-excludes}"/>
+        </copy>
+        <property name="ant.library.dir" value="${cluster}/antextra" />
+        <mkdir dir="${ant.library.dir}"/>
+        <jar jarfile="${ant.library.dir}/${code.name.base.dashes}.jar" compress="false">
+            <fileset dir="build/antclasses"/>
+        </jar>
+    </target>
+
+    <target name="netbeans-extra" depends="ant"/>
+</project>
