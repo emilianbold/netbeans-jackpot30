@@ -29,7 +29,7 @@
         <f:section title="${descriptor.getCategoryDisplayName(category)}">
           <j:forEach var="hint" items="${descriptor.getHintsInCategory(category)}" varStatus="loop">
             <f:entry description="${descriptor.getHintDescription(hint)}">
-              <f:checkbox name="${hint}" checked="${instance.isHintEnabled(hint)}"/>
+              <f:checkbox name="${hint}" checked="${instance != null ? instance.isHintEnabled(hint) : descriptor.isHintEnabledByDefault(hint)}"/>
               <label class="attach-previous">${descriptor.getHintDisplayName(hint)}</label>
             </f:entry>
           </j:forEach>

@@ -38,7 +38,6 @@
  */
 package org.netbeans.modules.jackpot30.compiler;
 
-import java.net.URL;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -63,6 +62,7 @@ public class DumpHints {
             hintData.put("category", hm.category);
             hintData.put("displayName", hm.displayName);
             hintData.put("description", hm.description);
+            hintData.put("enabled", Boolean.toString(hm.enabled));
 
             data.add(hintData);
         }

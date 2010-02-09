@@ -272,6 +272,10 @@ public final class BuildWrapperImpl extends BuildWrapper {
             return res;
         }
 
+        public boolean isHintEnabledByDefault(String id) {
+            return hints.get(id).enabledByDefault;
+        }
+
     }
 
     private static int count;
@@ -281,12 +285,14 @@ public final class BuildWrapperImpl extends BuildWrapper {
         public final String category;
         public final String displayName;
         public final String description;
+        public final boolean enabledByDefault;
 
         private HintDescription(Map<String, String> map) {
             this.id = read(map, "id", "no-id-" + count++).replace('.', '_');
             this.category = read(map, "category", "general");
             this.displayName = read(map, "displayName", "No Display Name");
             this.description = read(map, "description", "No Description");
+            this.enabledByDefault = Boolean.parseBoolean(read(map, "enabled", "false"));
         }
 
     }
@@ -307,7 +313,7 @@ public final class BuildWrapperImpl extends BuildWrapper {
         "../../compiler",
     };
 
-    static {
+    private static File computeAntLibLocation() {
         URL loc = BuildWrapperImpl.class.getProtectionDomain().getCodeSource().getLocation();
         File base;
         if ("jar".equals(loc.getProtocol())) { //NOI18N
@@ -350,8 +356,12 @@ public final class BuildWrapperImpl extends BuildWrapper {
         if (locFile == null) {
             throw new IllegalStateException(base.getAbsolutePath());
         }
+        
+        return locFile;
+    }
 
-        antLibLocation = locFile;
+    static {
+        antLibLocation = computeAntLibLocation();
 
         File compilerJar = new File(antLibLocation, "compiler.jar");
         
