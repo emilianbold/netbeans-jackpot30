@@ -56,6 +56,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -79,6 +81,7 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.ClassPath.Entry;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.openide.filesystems.FileUtil;
@@ -90,64 +93,14 @@ import org.openide.util.Exceptions;
  */
 public class Hacks {
 
-    //XXX: copied from Utilities, for declarative hints, different import management:
-    private static long inc;
-
     public static Scope constructScope(CompilationInfo info, String... importedClasses) {
-        StringBuilder clazz = new StringBuilder();
-
-        clazz.append("package $$;\n");
+        Collection<String> imports = new LinkedList<String>();
 
         for (String i : importedClasses) {
-            clazz.append("import ").append(i).append(";\n");
+            imports.add("import " + i + ";\n");
         }
 
-        clazz.append("public class $").append(inc++).append("{");
-
-        clazz.append("private void test() {\n");
-        clazz.append("}\n");
-        clazz.append("}\n");
-
-        JavacTaskImpl jti = JavaSourceAccessor.getINSTANCE().getJavacTask(info);
-        Context context = jti.getContext();
-
-        Log.instance(context).nerrors = 0;
-
-        JavaFileObject jfo = FileObjects.memoryFileObject("$$", "$", new File("/tmp/t.java").toURI(), System.currentTimeMillis(), clazz.toString());
-
-        try {
-            Iterable<? extends CompilationUnitTree> parsed = jti.parse(jfo);
-            CompilationUnitTree cut = parsed.iterator().next();
-
-            jti.analyze(jti.enter(parsed));
-
-            return new ScannerImpl().scan(cut, info);
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-            return null;
-        }
-    }
-
-    private static final class ScannerImpl extends TreePathScanner<Scope, CompilationInfo> {
-
-        @Override
-        public Scope visitBlock(BlockTree node, CompilationInfo p) {
-            return p.getTrees().getScope(getCurrentPath());
-        }
-
-        @Override
-        public Scope visitMethod(MethodTree node, CompilationInfo p) {
-            if (node.getReturnType() == null) {
-                return null;
-            }
-            return super.visitMethod(node, p);
-        }
-
-        @Override
-        public Scope reduce(Scope r1, Scope r2) {
-            return r1 != null ? r1 : r2;
-        }
-
+        return Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap(), imports);
     }
 
     private static final String SOURCE_LEVEL = "1.5"; //TODO: could be possibly inferred from the current Java platform

@@ -591,11 +591,13 @@ public class Utilities {
         JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/$" + count + ".java").toURI(), System.currentTimeMillis(), clazz.toString());
 
         DiagnosticListener<? super JavaFileObject> old = log.getDiagnosticListener();
+        boolean oldSkipAPs = jti.skipAnnotationProcessing;
         DiagnosticCollector<JavaFileObject> dc = new DiagnosticCollector<JavaFileObject>();
 
-        log.setDiagnosticListener(dc);
-
         try {
+            log.setDiagnosticListener(dc);
+            jti.skipAnnotationProcessing = true;
+            
             JavaCompiler compiler = JavaCompiler.instance(context);
             JCCompilationUnit cut = compiler.parse(jfo);
 
@@ -618,6 +620,7 @@ public class Utilities {
             return new ScannerImpl().scan(cut, info);
         } finally {
             log.setDiagnosticListener(old);
+            jti.skipAnnotationProcessing = oldSkipAPs;
         }
     }
 
