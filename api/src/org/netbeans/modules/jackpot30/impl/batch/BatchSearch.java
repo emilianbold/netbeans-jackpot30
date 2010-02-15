@@ -79,6 +79,7 @@ import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
+import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.parsing.impl.indexing.PathRegistry;
@@ -158,6 +159,7 @@ public class BatchSearch {
 
         final BulkPattern bulkPattern = BulkSearch.getDefault().create(code, trees);
         final Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
+        final Collection<MessageImpl> problems = new LinkedList<MessageImpl>();
         
         for (final FileObject src : todo) {
             LOG.log(Level.FINE, "Processing: {0}", FileUtil.getFileDisplayName(src));
@@ -197,16 +199,23 @@ public class BatchSearch {
                                     return ;
                                 }
 
-                                boolean matches = BulkSearch.getDefault().matches(cc, new TreePath(cc.getCompilationUnit()), bulkPattern);
+                                try {
+                                    boolean matches = BulkSearch.getDefault().matches(cc, new TreePath(cc.getCompilationUnit()), bulkPattern);
 
-                                if (matches) {
-                                    Collection<Resource> resources = result.get(id);
+                                    if (matches) {
+                                        Collection<Resource> resources = result.get(id);
 
-                                    if (resources == null) {
-                                        result.put(id, resources = new LinkedList<Resource>());
+                                        if (resources == null) {
+                                            result.put(id, resources = new LinkedList<Resource>());
+                                        }
+
+                                        resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), patterns, bulkPattern));
                                     }
-
-                                    resources.add(new Resource(id, FileUtil.getRelativePath(src, cc.getFileObject()), patterns, bulkPattern));
+                                } catch (ThreadDeath td) {
+                                    throw td;
+                                } catch (Throwable t) {
+                                    LOG.log(Level.INFO, "Exception while performing batch search in " + FileUtil.getFileDisplayName(cc.getFileObject()), t);
+                                    problems.add(new MessageImpl(MessageKind.WARNING, "An exception occurred while testing file: " + FileUtil.getFileDisplayName(cc.getFileObject()) + " (" + t.getLocalizedMessage() + ")."));
                                 }
                             }
                         }, true);
@@ -221,7 +230,7 @@ public class BatchSearch {
             }
         }
 
-        return new BatchResult(result);
+        return new BatchResult(result, problems);
     }
 
     private static void recursive(FileObject file, Collection<FileObject> collected) {
@@ -318,9 +327,11 @@ public class BatchSearch {
     public static final class BatchResult {
         
         public final Map<? extends Container, ? extends Iterable<? extends Resource>> projectId2Resources;
-
-        public BatchResult(Map<? extends Container, ? extends Iterable<? extends Resource>> projectId2Resources) {
+        public final Collection<? extends MessageImpl> problems;
+        
+        public BatchResult(Map<? extends Container, ? extends Iterable<? extends Resource>> projectId2Resources, Collection<? extends MessageImpl> problems) {
             this.projectId2Resources = projectId2Resources;
+            this.problems = problems;
         }
 
     }
@@ -445,7 +456,7 @@ public class BatchSearch {
         private Collection<int[]> doComputeSpans(CompilationInfo ci) {
             Collection<int[]> result = new LinkedList<int[]>();
             Map<String, Collection<TreePath>> found = BulkSearch.getDefault().match(ci, new TreePath(ci.getCompilationUnit()), pattern);
-
+            
             for (Entry<String, Collection<TreePath>> e : found.entrySet()) {
                 Tree treePattern = Utilities.parseAndAttribute(ci, e.getKey(), null);
                 

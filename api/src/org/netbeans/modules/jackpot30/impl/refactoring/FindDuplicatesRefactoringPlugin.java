@@ -49,6 +49,7 @@ import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
+import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
@@ -94,11 +95,22 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
 
     public Problem prepare(RefactoringElementsBag refactoringElements) {
         BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), refactoring.getFolder());
+        Collection<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
 
         for (Iterable<? extends Resource> it :candidates.projectId2Resources.values()) {
             for (Resource r : it) {
                 refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r, refactoring.isVerify()));
             }
+        }
+
+        Problem current = null;
+
+        for (MessageImpl problem : problems) {
+            Problem p = new Problem(problem.kind == MessageKind.ERROR, problem.text);
+
+            if (current != null)
+                p.setNext(current);
+            current = p;
         }
 
         return null;
