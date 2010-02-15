@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.spi;
 
+import com.sun.javadoc.Doc;
 import com.sun.javadoc.Tag;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
@@ -279,7 +280,12 @@ public abstract class JavaFix {
     
     static SpecificationVersion computeSpecVersion(CompilationInfo info, Element el) {
         if (!Utilities.isJavadocSupported(info)) return null;
-        for (Tag since : info.getElementUtilities().javaDocFor(el).tags("@since")) {
+        
+        Doc javaDoc = info.getElementUtilities().javaDocFor(el);
+
+        if (javaDoc == null) return null;
+
+        for (Tag since : javaDoc.tags("@since")) {
             String text = since.text();
 
             Matcher m = SPEC_VERSION.matcher(text);
