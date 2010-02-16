@@ -81,6 +81,7 @@ public class CreateStandaloneJar extends NbTestCase {
         }
 
         Set<String> done = new HashSet<String>();
+        Set<String> bundlesToCopy = new HashSet<String>();
 
         while (!toProcess.isEmpty()) {
             String fqn = toProcess.remove(0);
@@ -100,9 +101,13 @@ public class CreateStandaloneJar extends NbTestCase {
             }
             final String className = fqn.replace('/', '.');
 
-            Class clazz = Class.forName(className, false, HintsAnnotationProcessingTest.class.getClassLoader());
+            Class<?> clazz = Class.forName(className, false, HintsAnnotationProcessingTest.class.getClassLoader());
 
-            if (clazz.getProtectionDomain().getCodeSource() == null && !clazz.getName().startsWith("com.sun.source") && !clazz.getName().startsWith("javax.lang.model")) {
+            if (    clazz.getProtectionDomain().getCodeSource() == null
+                && !clazz.getName().startsWith("com.sun.source")
+                && !clazz.getName().startsWith("javax.tools")
+                && !clazz.getName().startsWith("javax.annotation.processing")
+                && !clazz.getName().startsWith("javax.lang.model")) {
                 //probably platform class:
                 continue;
             }
@@ -111,7 +116,7 @@ public class CreateStandaloneJar extends NbTestCase {
 
             ClassFile cf = new ClassFile(new ByteArrayInputStream(bytes));
 
-            for (ClassName classFromCP : ((Set<ClassName>) cf.getConstantPool().getAllClassNames())) {
+            for (ClassName classFromCP : cf.getConstantPool().getAllClassNames()) {
                 toProcess.add(classFromCP.getInternalName());
             }
 
@@ -132,16 +137,16 @@ public class CreateStandaloneJar extends NbTestCase {
                     }
                 }
             }
+
+            int lastSlash = fileName.lastIndexOf('/');
+
+            if (lastSlash > 0) {
+                bundlesToCopy.add(fileName.substring(0, lastSlash + 1) + "Bundle.properties");
+            }
         }
 
-        for (String resource : RESOURCES) {
-            URL url = HintsAnnotationProcessingTest.class.getClassLoader().getResource(resource);
-
-            if (url == null) continue;
-
-            out.putNextEntry(new ZipEntry(resource));
-            out.write(readFile(url));
-        }
+        bundlesToCopy.addAll(RESOURCES);
+        copyResources(out, bundlesToCopy);
 
         //generated-layer.xml:
         Enumeration<URL> resources = HintsAnnotationProcessingTest.class.getClassLoader().getResources("META-INF/generated-layer.xml");
@@ -164,6 +169,19 @@ public class CreateStandaloneJar extends NbTestCase {
         addMETA_INFRegistration(out, "org.netbeans.modules.java.hints.jackpot.impl.Utilities$SPI", UtilitiesSPIImpl.class.getName());
 
         out.close();
+    }
+
+    private void copyResources(JarOutputStream out, Set<String> res) throws IOException {
+        for (String resource : res) {
+            URL url = HintsAnnotationProcessingTest.class.getClassLoader().getResource(resource);
+
+            if (url == null) {
+                continue;
+            }
+            
+            out.putNextEntry(new ZipEntry(resource));
+            out.write(readFile(url));
+        }
     }
 
     private byte[] readFile(URL url) throws IOException {
@@ -237,56 +255,8 @@ public class CreateStandaloneJar extends NbTestCase {
         "com/sun/tools/javac/resources/compiler.properties",
         "com/sun/tools/javac/resources/javac_ja.properties",
         "com/sun/tools/javac/resources/javac.properties",
-"javax/annotation/processing/AbstractProcessor.class",
-"javax/annotation/processing/Completion.class",
-"javax/annotation/processing/Completions$SimpleCompletion.class",
-"javax/annotation/processing/Completions.class",
-"javax/annotation/processing/Filer.class",
-"javax/annotation/processing/FilerException.class",
-"javax/annotation/processing/Messager.class",
-"javax/annotation/processing/ProcessingEnvironment.class",
-"javax/annotation/processing/Processor.class",
-"javax/annotation/processing/RoundEnvironment.class",
-"javax/annotation/processing/SupportedAnnotationTypes.class",
-"javax/annotation/processing/SupportedOptions.class",
-"javax/annotation/processing/SupportedSourceVersion.class",
-"javax/tools/Diagnostic$Kind.class",
-"javax/tools/Diagnostic.class",
-"javax/tools/DiagnosticCollector.class",
-"javax/tools/DiagnosticListener.class",
-"javax/tools/FileObject.class",
-"javax/tools/ForwardingFileObject.class",
-"javax/tools/ForwardingJavaFileManager.class",
-"javax/tools/ForwardingJavaFileObject.class",
-"javax/tools/JavaCompiler$CompilationTask.class",
-"javax/tools/JavaCompiler.class",
-"javax/tools/JavaFileManager$Location.class",
-"javax/tools/JavaFileManager.class",
-"javax/tools/JavaFileObject$Kind.class",
-"javax/tools/JavaFileObject.class",
-"javax/tools/OptionChecker.class",
-"javax/tools/SimpleJavaFileObject.class",
-"javax/tools/StandardJavaFileManager.class",
-"javax/tools/StandardLocation$1.class",
-"javax/tools/StandardLocation.class",
-"javax/tools/Tool.class",
-"javax/tools/ToolProvider$Lazy.class",
-"javax/tools/ToolProvider.class",
-"javax/tools/overview.html",
-"org/netbeans/core/startup/layers/Bundle.properties",
-"org/netbeans/core/startup/Bundle.properties",
-"org/openide/filesystems/Bundle.properties",
-"org/netbeans/modules/java/source/tasklist/Bundle.properties",
-"org/netbeans/modules/java/source/resources/icons/error-badge.gif",
-"org/netbeans/modules/java/source/resources/layer.xml",
-"org/netbeans/modules/java/source/save/Bundle.properties",
-"org/netbeans/modules/java/hints/perf/Bundle.properties",
-"org/netbeans/modules/java/hints/bugs/Bundle.properties",
-"org/netbeans/modules/java/hints/Bundle.properties",
-"org/netbeans/modules/java/hints/finalize/Bundle.properties",
-"org/netbeans/modules/java/hints/jackpot/hintsimpl/Bundle.properties",
-"org/netbeans/modules/java/hints/encapsulation/Bundle.properties"
-//"org/netbeans/modules/java/hints/perf/Bundle.properties",
+        "org/netbeans/modules/java/source/resources/icons/error-badge.gif",
+        "org/netbeans/modules/java/source/resources/layer.xml"
     ));
 
 }
