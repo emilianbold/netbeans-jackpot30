@@ -38,6 +38,7 @@
  */
 package org.netbeans.modules.jackpot30.impl.batch;
 
+import java.util.Arrays;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.api.progress.ProgressHandle;
@@ -46,7 +47,7 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
 public final class ProgressHandleWrapper {
 
     private static final int TOTAL = 1000;
-    private final ProgressHandle handle;
+    private final ProgressHandleAbstraction handle;
     private final int[] parts;
     private int currentPart = -1;
     private int currentPartTotalWork;
@@ -55,14 +56,19 @@ public final class ProgressHandleWrapper {
     private int currentOffset;
     private final long[] spentTime;
 
-    public ProgressHandleWrapper(int[] parts) {
-        this(null, parts);
+    public ProgressHandleWrapper(int... parts) {
+        this((ProgressHandleAbstraction) null, parts);
     }
 
-    public ProgressHandleWrapper(ProgressHandle handle, int[] parts) {
+    public ProgressHandleWrapper(ProgressHandle handle, int... parts) {
+        this(new ProgressHandleBasedProgressHandleAbstraction(handle), parts);
+    }
+
+    public ProgressHandleWrapper(ProgressHandleAbstraction handle, int... parts) {
         this.handle = handle;
         if (handle == null) {
             this.parts = null;
+            this.spentTime = null;
         } else {
             int total = 0;
             for (int i : parts) {
@@ -72,8 +78,8 @@ public final class ProgressHandleWrapper {
             for (int cntr = 0; cntr < parts.length; cntr++) {
                 this.parts[cntr] = (TOTAL * parts[cntr]) / total;
             }
+            this.spentTime = new long[parts.length];
         }
-        spentTime = new long[parts.length];
     }
 
     public void startNextPart(int totalWork) {
@@ -90,7 +96,12 @@ public final class ProgressHandleWrapper {
         currentPartTotalWork = totalWork;
         currentPartWorkDone = 0;
         currentPartStartTime = System.currentTimeMillis();
-        setAutomatedMessage();
+        currentPartWorkDoneUpdated();
+    }
+
+    public ProgressHandleWrapper startNextPartWithEmbedding(int... embeddedParts) {
+//        startNextPart(TOTAL);
+        return new ProgressHandleWrapper(new ProgressHandleWrapperBasedProgressHandleAbstraction(this), embeddedParts);
     }
 
     public void tick() {
@@ -98,7 +109,23 @@ public final class ProgressHandleWrapper {
             return;
         }
         currentPartWorkDone++;
-        handle.progress(currentOffset + (parts[currentPart] * currentPartWorkDone) / currentPartTotalWork);
+        currentPartWorkDoneUpdated();
+    }
+
+    private void setCurrentPartWorkDone(int done) {
+        if (handle == null) {
+            return;
+        }
+        currentPartWorkDone = done;
+        currentPartWorkDoneUpdated();
+    }
+
+    private void currentPartWorkDoneUpdated() {
+        if (currentPartTotalWork > 0) {
+            handle.progress(currentOffset + (parts[currentPart] * currentPartWorkDone) / currentPartTotalWork);
+        } else {
+            handle.progress(currentOffset + parts[currentPart]);
+        }
         setAutomatedMessage();
     }
 
@@ -143,9 +170,76 @@ public final class ProgressHandleWrapper {
         int i = 0;
 
         for (long t : spentTime) {
-            actualSplit[i++] = 100 * (t / total);
+            actualSplit[i++] = TOTAL * (t / total);
         }
 
-        Logger.getLogger(ProgressHandleWrapper.class.getName()).log(Level.INFO, "Progress handle with split: {0}, actual times: {1}, actual split: {2}", new Object[] {parts, spentTime, actualSplit});
+        Logger.getLogger(ProgressHandleWrapper.class.getName()).log(Level.INFO, "Progress handle with split: {0}, actual times: {1}, actual split: {2}", new Object[] {Arrays.toString(parts), Arrays.toString(spentTime), Arrays.toString(actualSplit)});
     }
+
+    public static int[] prepareParts(int count) {
+        int[] result = new int[count];
+
+        for (int cntr = 0; cntr < count; cntr++) {
+            result[cntr] = 1;
+        }
+
+        return result;
+    }
+
+    public static interface ProgressHandleAbstraction {
+
+        public void start(int totalWork);
+
+        public void progress(int currentWorkDone);
+
+        public void progress(String message);
+
+        public void finish();
+
+    }
+
+    private static final class ProgressHandleBasedProgressHandleAbstraction implements ProgressHandleAbstraction {
+        private final ProgressHandle delegate;
+        public ProgressHandleBasedProgressHandleAbstraction(ProgressHandle delegate) {
+            this.delegate = delegate;
+        }
+
+        public void start(int totalWork) {
+            delegate.start(totalWork);
+        }
+
+        public void progress(int currentWorkDone) {
+            delegate.progress(currentWorkDone);
+        }
+
+        public void progress(String message) {
+            delegate.progress(message);
+        }
+
+        public void finish() {
+            delegate.finish();
+        }
+    }
+
+    private static final class ProgressHandleWrapperBasedProgressHandleAbstraction implements ProgressHandleAbstraction {
+        private final ProgressHandleWrapper delegate;
+        public ProgressHandleWrapperBasedProgressHandleAbstraction(ProgressHandleWrapper delegate) {
+            this.delegate = delegate;
+        }
+
+        public void start(int totalWork) {
+            delegate.startNextPart(totalWork);
+        }
+
+        public void progress(int currentWorkDone) {
+            delegate.setCurrentPartWorkDone(currentWorkDone);
+        }
+
+        public void progress(String message) {
+            delegate.setMessage(message);
+        }
+
+        public void finish() {}
+    }
+
 }

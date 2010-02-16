@@ -48,13 +48,19 @@ import org.openide.util.Lookup;
 
 public class FindDuplicatesRefactoring extends AbstractRefactoring {
 
+    private final boolean query;
     private Iterable<? extends HintDescription> patterns;
     private Scope scope;
     private boolean verify;
     private @NullAllowed FileObject folder;
 
-    public FindDuplicatesRefactoring() {
+    public FindDuplicatesRefactoring(boolean query) {
         super(Lookup.EMPTY);
+        this.query = query;
+    }
+
+    public boolean isQuery() {
+        return query;
     }
 
     public synchronized Iterable<? extends HintDescription> getPattern() {

@@ -87,7 +87,11 @@ public class BatchUtilities {
     private static final Logger LOG = Logger.getLogger(BatchUtilities.class.getName());
     
     public static Collection<? extends ModificationResult> applyFixes(BatchResult candidates, ProgressHandleWrapper progress, AtomicBoolean cancel, Collection<? super MessageImpl> problems) {
+        ProgressHandleWrapper innerProgress = progress.startNextPartWithEmbedding(60, 5, 35);
+        
         Map<FileObject, Collection<ErrorDescription>> file2eds = new HashMap<FileObject, Collection<ErrorDescription>>();
+        
+        innerProgress.startNextPart(candidates.projectId2Resources.size());
         
         for (Iterable<? extends Resource> it : candidates.projectId2Resources.values()) {
             BatchSearch.getVerifiedSpans(it, problems);
@@ -110,10 +114,14 @@ public class BatchUtilities {
                     file2eds.put(r.getResolvedFile(), eds);
                 }
             }
+
+            innerProgress.tick();
         }
 
         Map<FileObject, List<JavaFix>> file2Fixes = new HashMap<FileObject, List<JavaFix>>();
 
+        innerProgress.startNextPart(file2eds.size());
+        
         for (final Entry<FileObject, Collection<ErrorDescription>> e : file2eds.entrySet()) {
             LinkedList<JavaFix> fixes = new LinkedList<JavaFix>();
 
@@ -142,9 +150,11 @@ public class BatchUtilities {
 
                 fixes.add(((JavaFixImpl) f).jf);
             }
+
+            innerProgress.tick();
         }
 
-        return BatchUtilities.performFastFixes(file2Fixes, progress, cancel);
+        return BatchUtilities.performFastFixes(file2Fixes, innerProgress, cancel);
     }
 
     private static String positionToString(ErrorDescription ed) {
@@ -190,8 +200,17 @@ public class BatchUtilities {
     }
 
     private static List<ModificationResult> performFastFixes(Map<FileObject, List<JavaFix>> fastFixes, @NullAllowed ProgressHandleWrapper handle, AtomicBoolean cancel) {
+        ProgressHandleWrapper innerProgress = handle.startNextPartWithEmbedding(20, 80);
+
+        innerProgress.startNextPart(1);
+
         Map<ClasspathInfo, Collection<FileObject>> sortedFilesForFixes = sortFiles(fastFixes.keySet());
+
+        innerProgress.tick();
+        
         List<ModificationResult> results = new LinkedList<ModificationResult>();
+
+        innerProgress.startNextPart(fastFixes.size());
 
         for (Entry<ClasspathInfo, Collection<FileObject>> e : sortedFilesForFixes.entrySet()) {
             if (cancel.get()) return null;
@@ -202,7 +221,7 @@ public class BatchUtilities {
                 filtered.put(f, fastFixes.get(f));
             }
 
-            ModificationResult r = performFastFixes(e.getKey(), filtered, handle, cancel);
+            ModificationResult r = performFastFixes(e.getKey(), filtered, innerProgress, cancel);
             
             if (r != null) {
                 results.add(r);

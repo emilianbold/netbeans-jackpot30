@@ -44,13 +44,23 @@ import java.io.IOException;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.text.Position.Bias;
+import org.netbeans.api.java.source.ModificationResult;
+import org.netbeans.api.java.source.ModificationResult.Difference;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Container;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
+import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
+import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.refactoring.api.Problem;
+import org.netbeans.modules.refactoring.java.spi.DiffElement;
+import org.netbeans.modules.refactoring.spi.ProgressProviderAdapter;
 import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
@@ -69,9 +79,10 @@ import org.openide.util.Lookup;
 import org.openide.util.lookup.Lookups;
 import org.openide.xml.XMLUtil;
 
-public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
+public class FindDuplicatesRefactoringPlugin extends ProgressProviderAdapter implements RefactoringPlugin, ProgressHandleAbstraction {
 
     private final FindDuplicatesRefactoring refactoring;
+    private final AtomicBoolean cancel = new AtomicBoolean();
 
     public FindDuplicatesRefactoringPlugin(FindDuplicatesRefactoring refactoring) {
         this.refactoring = refactoring;
@@ -90,19 +101,13 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
     }
 
     public void cancelRequest() {
-        //TODO
+        cancel.set(true);
     }
 
-    public Problem prepare(RefactoringElementsBag refactoringElements) {
-        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), refactoring.getFolder());
-        Collection<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
+     public Problem prepare(RefactoringElementsBag refactoringElements) {
+        cancel.set(false);
 
-        for (Iterable<? extends Resource> it :candidates.projectId2Resources.values()) {
-            for (Resource r : it) {
-                refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r, refactoring.isVerify()));
-            }
-        }
-
+        Collection<MessageImpl> problems = refactoring.isQuery() ? performSearchForPattern(refactoringElements) : performApplyPattern(refactoringElements);
         Problem current = null;
 
         for (MessageImpl problem : problems) {
@@ -113,8 +118,40 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
             current = p;
         }
 
-        return null;
+        return current;
     }
+
+    private List<MessageImpl> performSearchForPattern(RefactoringElementsBag refactoringElements) {
+        ProgressHandleWrapper w = new ProgressHandleWrapper(this, 50, 50);
+        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w, refactoring.getFolder());
+        List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
+
+        int[] parts = new int[candidates.projectId2Resources.size()];
+        int   index = 0;
+
+        for (Entry<? extends Container, ? extends Collection<? extends Resource>> e : candidates.projectId2Resources.entrySet()) {
+            parts[index++] = e.getValue().size();
+        }
+
+        ProgressHandleWrapper inner = w.startNextPartWithEmbedding(parts);
+
+        for (Collection<? extends Resource> it :candidates.projectId2Resources.values()) {
+            inner.startNextPart(it.size());
+
+            if (refactoring.isVerify()) {
+                BatchSearch.getVerifiedSpans(it, problems);
+            }
+
+            for (Resource r : it) {
+                refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r, refactoring.isVerify()));
+                inner.tick();
+            }
+        }
+
+        w.finish();
+
+        return problems;
+     }
 
     public static Collection<RefactoringElementImplementation> createRefactoringElementImplementation(Resource r, boolean verify) {
         FileObject file = r.getResolvedFile();
@@ -191,6 +228,27 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
         return result;
     }
 
+    private Collection<MessageImpl> performApplyPattern(RefactoringElementsBag refactoringElements) {
+        ProgressHandleWrapper w = new ProgressHandleWrapper(this, 30, 70);
+        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w, refactoring.getFolder());
+        Collection<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
+        Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, w, /*XXX*/new AtomicBoolean(), problems);
+
+        refactoringElements.registerTransaction(new RetoucheCommit(new LinkedList<ModificationResult>(res)));
+
+        for (ModificationResult mr : res) {
+            for (FileObject file : mr.getModifiedFileObjects()) {
+                for (Difference d : mr.getDifferences(file)) {
+                    refactoringElements.add(refactoring, DiffElement.create(d, file, mr));
+                }
+            }
+        }
+
+        w.finish();
+
+        return problems;
+    }
+
     private static String escapedSubstring(String str, int start, int end) {
         String substring = str.substring(start, end);
         
@@ -200,6 +258,27 @@ public class FindDuplicatesRefactoringPlugin implements RefactoringPlugin {
             Exceptions.printStackTrace(ex);
             return substring;
         }
+    }
+
+    public void start(int totalWork) {
+        fireProgressListenerStart(-1, totalWork);
+        lastWorkDone = 0;
+    }
+
+    private int lastWorkDone;
+    public void progress(int currentWorkDone) {
+        while (lastWorkDone < currentWorkDone) {
+            fireProgressListenerStep(currentWorkDone);
+            lastWorkDone++;
+        }
+    }
+
+    public void progress(String message) {
+        //ignored
+    }
+
+    public void finish() {
+        fireProgressListenerStop();
     }
 
     private static final class RefactoringElementImpl extends SimpleRefactoringElementImplementation {

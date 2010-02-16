@@ -71,6 +71,7 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.queries.FileEncodingQuery;
+import org.netbeans.api.queries.VisibilityQuery;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
@@ -100,6 +101,10 @@ public class BatchSearch {
     private static final Logger LOG = Logger.getLogger(BatchSearch.class.getName());
 
     public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, Scope scope, Object... parameters) {
+        return findOccurrences(patterns, scope, new ProgressHandleWrapper(null), parameters);
+    }
+
+    public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, Scope scope, ProgressHandleWrapper progress, Object... parameters) {
         for (HintDescription pattern : patterns) {
             if (pattern.getTriggerKind() != null || pattern.getTriggerPattern() == null) {
                 throw new UnsupportedOperationException();
@@ -117,27 +122,27 @@ public class BatchSearch {
                     todo.addAll(Arrays.asList(source.getRoots()));
                 }
                 
-                return findOccurrencesLocal(patterns, knownSourceRoots, todo);
+                return findOccurrencesLocal(patterns, knownSourceRoots, todo, progress);
             case GIVEN_SOURCE_ROOTS:
                 todo = NbCollections.checkedSetByCopy(new HashSet<Object>(Arrays.asList(parameters)), FileObject.class, true);
 
-                return findOccurrencesLocal(patterns, knownSourceRoots, todo);
+                return findOccurrencesLocal(patterns, knownSourceRoots, todo, progress);
             case GIVEN_FOLDER:
                 todo = Collections.singleton((FileObject) parameters[0]);
 
-                return findOccurrencesLocal(patterns, knownSourceRoots, todo);
+                return findOccurrencesLocal(patterns, knownSourceRoots, todo, progress);
             default:
                 throw new UnsupportedOperationException(scope.name());
         }
     }
 
-    private static BatchResult findOccurrencesLocal(final Iterable<? extends HintDescription> patterns, final Set<FileObject> indexedSourceRoots, final Set<FileObject> todo) {
+    private static BatchResult findOccurrencesLocal(final Iterable<? extends HintDescription> patterns, final Set<FileObject> indexedSourceRoots, final Set<FileObject> todo, final ProgressHandleWrapper progress) {
         final BatchResult[] result = new BatchResult[1];
 
         try {
             JavaSource.create(Utilities.createUniversalCPInfo()).runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController parameter) throws Exception {
-                    result[0] = findOccurrencesLocalImpl(parameter, patterns, indexedSourceRoots, todo);
+                    result[0] = findOccurrencesLocalImpl(parameter, patterns, indexedSourceRoots, todo, progress);
                 }
             }, true);
         } catch (IOException ex) {
@@ -146,7 +151,7 @@ public class BatchSearch {
 
         return result[0];
     }
-    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, final Iterable<? extends HintDescription> patterns, Set<FileObject> indexedSourceRoots, Set<FileObject> todo) {
+    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, final Iterable<? extends HintDescription> patterns, Set<FileObject> indexedSourceRoots, Set<FileObject> todo, ProgressHandleWrapper progress) {
         Collection<String> code = new LinkedList<String>();
         Collection<Tree> trees = new LinkedList<Tree>();
 
@@ -160,12 +165,15 @@ public class BatchSearch {
         final BulkPattern bulkPattern = BulkSearch.getDefault().create(code, trees);
         final Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         final Collection<MessageImpl> problems = new LinkedList<MessageImpl>();
+        ProgressHandleWrapper innerForAll = progress.startNextPartWithEmbedding(ProgressHandleWrapper.prepareParts(todo.size()));
         
         for (final FileObject src : todo) {
             LOG.log(Level.FINE, "Processing: {0}", FileUtil.getFileDisplayName(src));
             
             try {
                 if (indexedSourceRoots.contains(src)) {
+                    innerForAll.startNextPart(1);
+                    
                     Index i = Index.get(src.getURL());
 
                     if (i == null)
@@ -185,10 +193,14 @@ public class BatchSearch {
                 } else {
                     Collection<FileObject> files = new LinkedList<FileObject>();
                     final Container id = new LocalContainer(src);
+
+                    final ProgressHandleWrapper innerProgress = innerForAll.startNextPartWithEmbedding(30, 70);
                     
-                    recursive(src, files);
+                    recursive(src, files, innerProgress, 0);
 
                     LOG.log(Level.FINE, "files: {0}", files);
+
+                    innerProgress.startNextPart(files.size());
 
                     if (!files.isEmpty()) {
                         long start = System.currentTimeMillis();
@@ -217,6 +229,8 @@ public class BatchSearch {
                                     LOG.log(Level.INFO, "Exception while performing batch search in " + FileUtil.getFileDisplayName(cc.getFileObject()), t);
                                     problems.add(new MessageImpl(MessageKind.WARNING, "An exception occurred while testing file: " + FileUtil.getFileDisplayName(cc.getFileObject()) + " (" + t.getLocalizedMessage() + ")."));
                                 }
+
+                                innerProgress.tick();
                             }
                         }, true);
 
@@ -228,19 +242,38 @@ public class BatchSearch {
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
             }
+
+            progress.tick();
         }
 
         return new BatchResult(result, problems);
     }
 
-    private static void recursive(FileObject file, Collection<FileObject> collected) {
+    private static void recursive(FileObject file, Collection<FileObject> collected, ProgressHandleWrapper progress, int depth) {
+        if (!VisibilityQuery.getDefault().isVisible(file)) return;
+
         if (file.isData()) {
             if (/*???:*/"java".equals(file.getExt()) || "text/x-java".equals(FileUtil.getMIMEType(file, "text/x-java"))) {
                 collected.add(file);
             }
         } else {
-            for (FileObject c : file.getChildren()) {
-                recursive(c, collected);
+            FileObject[] children = file.getChildren();
+
+            if (children.length == 0) return;
+
+            ProgressHandleWrapper inner = depth < 2 ? progress.startNextPartWithEmbedding(ProgressHandleWrapper.prepareParts(children.length)) : null;
+
+            if (inner == null && progress != null) {
+                progress.startNextPart(children.length);
+            } else {
+                progress = null;
+            }
+
+            for (FileObject c : children) {
+                if (depth == 0) System.err.println("finished processing of: " + c);
+                recursive(c, collected, inner, depth + 1);
+
+                if (progress != null) progress.tick();
             }
         }
     }
@@ -326,10 +359,10 @@ public class BatchSearch {
 
     public static final class BatchResult {
         
-        public final Map<? extends Container, ? extends Iterable<? extends Resource>> projectId2Resources;
+        public final Map<? extends Container, ? extends Collection<? extends Resource>> projectId2Resources;
         public final Collection<? extends MessageImpl> problems;
         
-        public BatchResult(Map<? extends Container, ? extends Iterable<? extends Resource>> projectId2Resources, Collection<? extends MessageImpl> problems) {
+        public BatchResult(Map<? extends Container, ? extends Collection<? extends Resource>> projectId2Resources, Collection<? extends MessageImpl> problems) {
             this.projectId2Resources = projectId2Resources;
             this.problems = problems;
         }

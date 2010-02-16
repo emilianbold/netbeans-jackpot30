@@ -52,9 +52,6 @@ public class RefactoringPluginFactoryImpl implements RefactoringPluginFactory {
             return new FindDuplicatesRefactoringPlugin((FindDuplicatesRefactoring) refactoring);
         }
 
-        if (refactoring instanceof ApplyPatternRefactoring) {
-            return new ApplyPatternRefactoringPlugin((ApplyPatternRefactoring) refactoring);
-        }
         return null;
     }
     

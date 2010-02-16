@@ -65,6 +65,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     private volatile boolean verify;
 
     private final boolean query;
+    private final FindDuplicatesRefactoring refactoring;
 
     public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope) {
         this(pattern, scope, false);
@@ -83,6 +84,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
         this.scope = scope;
         this.verify = verify;
         this.query = query;
+        this.refactoring = new FindDuplicatesRefactoring(query);
     }
 
     public String getName() {
@@ -168,20 +170,10 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
             hints = pattern.second();
         }
 
-        if (query) {
-            FindDuplicatesRefactoring r = new FindDuplicatesRefactoring();
-            r.setPattern(hints);
-            r.setScope(scope);
-            r.setVerify(verify);
-            r.setFolder(findFolderFileObject(folder));
-
-            return r;
-        }
-
-        ApplyPatternRefactoring r = new ApplyPatternRefactoring();
-
+        FindDuplicatesRefactoring r = refactoring;
         r.setPattern(hints);
         r.setScope(scope);
+        r.setVerify(verify);
         r.setFolder(findFolderFileObject(folder));
 
         return r;

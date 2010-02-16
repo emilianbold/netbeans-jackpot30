@@ -898,6 +898,10 @@ is divided into following sections:
                 <isset property="already.built.${call.subproject}"/>
             </not>
         </condition>
+        <path id="endorsed.classpath.path" path="${endorsed.classpath}"/>
+        <condition else="" property="endorsed.classpath.cmd.line.arg" value="-Xbootclasspath/p:${toString:endorsed.classpath.path}">
+            <length length="0" string="${endorsed.classpath}" when="greater"/>
+        </condition>
     </target>
     <target depends="-check-call-dep" if="should.call.dep" name="-maybe-call-dep">
         <ant antfile="${call.script}" inheritall="false" target="${call.target}">
