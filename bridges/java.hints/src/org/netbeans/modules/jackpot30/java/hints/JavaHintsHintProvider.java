@@ -159,8 +159,7 @@ public class JavaHintsHintProvider implements HintProvider {
         private final org.netbeans.modules.java.hints.jackpot.spi.JavaFix orig;
 
         public JavaFixWrapper(CompilationInfo info, org.netbeans.modules.java.hints.jackpot.spi.JavaFix orig) {
-//            super(findTPH(orig));
-            super(info, findTPH(orig).resolve(info));
+            super(findTPH(orig));
             this.orig = orig;
         }
 
