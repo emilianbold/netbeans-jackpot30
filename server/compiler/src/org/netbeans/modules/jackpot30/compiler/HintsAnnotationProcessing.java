@@ -246,6 +246,11 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                     nwarnings = log.nwarnings;
                     Fix f = ed.getFixes().getFixes().get(0);
 
+                    if (!(f instanceof JavaFixImpl)) {
+                        log.warning(ed.getRange().getBegin().getOffset(), "proc.messager", "Cannot apply primary fix (not a JavaFix)");
+                        continue;
+                    }
+                    
                     JavaFixImpl jfi = (JavaFixImpl) f;
                     
                     try {
