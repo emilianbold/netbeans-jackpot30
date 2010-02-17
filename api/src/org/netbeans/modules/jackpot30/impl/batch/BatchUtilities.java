@@ -54,6 +54,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.text.Document;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo;
@@ -86,7 +87,7 @@ public class BatchUtilities {
 
     private static final Logger LOG = Logger.getLogger(BatchUtilities.class.getName());
     
-    public static Collection<? extends ModificationResult> applyFixes(BatchResult candidates, ProgressHandleWrapper progress, AtomicBoolean cancel, Collection<? super MessageImpl> problems) {
+    public static Collection<? extends ModificationResult> applyFixes(BatchResult candidates, @NonNull ProgressHandleWrapper progress, AtomicBoolean cancel, Collection<? super MessageImpl> problems) {
         ProgressHandleWrapper innerProgress = progress.startNextPartWithEmbedding(60, 5, 35);
         
         Map<FileObject, Collection<ErrorDescription>> file2eds = new HashMap<FileObject, Collection<ErrorDescription>>();
@@ -199,7 +200,7 @@ public class BatchUtilities {
         }
     }
 
-    private static List<ModificationResult> performFastFixes(Map<FileObject, List<JavaFix>> fastFixes, @NullAllowed ProgressHandleWrapper handle, AtomicBoolean cancel) {
+    private static List<ModificationResult> performFastFixes(Map<FileObject, List<JavaFix>> fastFixes, @NonNull ProgressHandleWrapper handle, AtomicBoolean cancel) {
         ProgressHandleWrapper innerProgress = handle.startNextPartWithEmbedding(20, 80);
 
         innerProgress.startNextPart(1);

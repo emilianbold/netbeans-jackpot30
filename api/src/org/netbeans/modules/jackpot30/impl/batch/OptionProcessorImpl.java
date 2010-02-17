@@ -210,7 +210,7 @@ public class OptionProcessorImpl extends OptionProcessor {
 
             BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scope.GIVEN_SOURCE_ROOTS, (Object[]) BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0]));
             List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
-            Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, null, null, problems);
+            Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, new ProgressHandleWrapper(100), null, problems);
             Set<FileObject> modified = new HashSet<FileObject>();
 
             for (ModificationResult mr : res) {

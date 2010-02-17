@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.batch;
 
+import org.netbeans.api.progress.ProgressHandle;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -58,6 +59,7 @@ import org.netbeans.api.lexer.InputAttributes;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.api.lexer.LanguagePath;
 import org.netbeans.api.lexer.Token;
+import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
@@ -119,7 +121,7 @@ public class BatchUtilitiesTest extends NbTestCase {
         Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory() :: $1 instanceof java.io.File => !$1.isFile();;");
         BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, src1, src3, empty);
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
-        Collection<? extends ModificationResult> changes = BatchUtilities.applyFixes(result, null, new AtomicBoolean(), problems);
+        Collection<? extends ModificationResult> changes = BatchUtilities.applyFixes(result, new ProgressHandleWrapper(100), new AtomicBoolean(), problems);
 
         assertTrue(problems.toString(), problems.isEmpty());
 
