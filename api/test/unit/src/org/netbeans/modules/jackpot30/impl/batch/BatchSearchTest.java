@@ -236,7 +236,7 @@ public class BatchSearchTest extends NbTestCase {
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
-            Collection<String> resourcesRepr = new LinkedList<String>();
+            Collection<String> resourcesRepr = new HashSet<String>();
 
             for (Resource r : e.getValue()) {
                 resourcesRepr.add(r.getRelativePath());
@@ -247,7 +247,7 @@ public class BatchSearchTest extends NbTestCase {
 
         Map<String, Iterable<String>> golden = new HashMap<String, Iterable<String>>();
 
-        golden.put(data.getURL().toExternalForm(), Arrays.asList("src1/test/Test1.java", "src2/test/Test1.java"));
+        golden.put(data.getURL().toExternalForm(), new HashSet<String>(Arrays.asList("src1/test/Test1.java", "src2/test/Test1.java")));
 
         assertEquals(golden, output);
 
