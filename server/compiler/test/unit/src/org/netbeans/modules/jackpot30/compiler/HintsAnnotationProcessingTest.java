@@ -151,8 +151,8 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
     }
 
     public void testCodeAPI() throws Exception {
-        String golden = "--- /media/karta/space/src/jackpot30/working/server/compiler/build/test/unit/work/o.n.m.j.c.H/testCodeAPI/src/test/Test.java\n"+
-                        "+++ /media/karta/space/src/jackpot30/working/server/compiler/build/test/unit/work/o.n.m.j.c.H/testCodeAPI/src/test/Test.java\n"+
+        String golden = "--- {0}/src/test/Test.java\n"+
+                        "+++ {0}/src/test/Test.java\n"+
                         "@@ -1,2 +1,2 @@\n"+
                         "-package test; public class Test {private void test() {Integer i = 0; if (i == null && null == i) System.err.println(i);\n"+
                         "+package test; public class Test {private void test() {Integer i = 0; if (i == null) System.err.println(i);\n"+
