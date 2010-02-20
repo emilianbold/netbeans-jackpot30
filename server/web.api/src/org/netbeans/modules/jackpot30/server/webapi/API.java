@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.server.webapi;
@@ -66,6 +66,24 @@ public class API {
         for (String candidate : StandaloneFinder.findCandidates(new File(path), pattern)) {
             sb.append(candidate);
             sb.append("\n");
+        }
+
+        return sb.toString();
+    }
+
+    @GET
+    @Path("/findSpans")
+    @Produces("text/plain")
+    public String findSpans(@QueryParam("path") String path, @QueryParam("relativePath") String relativePath, @QueryParam("pattern") String pattern) throws IOException {
+        StringBuilder sb = new StringBuilder();
+
+        for (int o : StandaloneFinder.findCandidateOccurrenceSpans(new File(path), relativePath, pattern)) {
+            sb.append(o);
+            sb.append(":");
+        }
+
+        if (sb.length() > 0) {
+            sb.delete(sb.length() - 1, sb.length());
         }
 
         return sb.toString();

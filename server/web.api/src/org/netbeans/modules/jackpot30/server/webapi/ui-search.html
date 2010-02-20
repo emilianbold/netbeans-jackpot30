@@ -1,0 +1,53 @@
+<html>
+<head>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function() {
+            $('#list').find('dd').hide().end().find('dt').click(function() {
+                $(this).next().slideToggle();
+            });
+        });
+    </script>
+    <style type="text/css">
+        .occurrence {BACKGROUND: #DDDD00;}
+    </style>
+</head>
+<body>
+<form method="get">
+
+<label for="path">Project:</label>
+<select size="1" name="path">");
+    <#list paths as path>
+        <option <#if selectedPath?? && path == selectedPath>selected</#if> >
+            ${path}
+        </option>
+    </#list>
+</select>
+<br>
+<label for="pattern">Pattern:</label><br>
+<textarea rows="10" cols="40" name="pattern">
+<#if pattern??>
+     ${pattern}
+</#if>
+</textarea><br>
+<input type="submit" name="Find Candidates"/>
+</form>
+
+<#if results??>
+    Found candidates for pattern: ${pattern}
+    <dl id="list">
+        <#list results as result>
+            <dt>${result.relativePath}<a href="${result.sourceLink}">show</a></dt>
+            <dd>
+                <#if result.snippets??>
+                    <#list result.snippets as snippet>
+                        <pre>${snippet.prefix}<span class="occurrence">${snippet.occurrence}</span>${snippet.suffix}</pre><br>
+                    </#list>
+                </#if>
+            </dd>
+        </#list>
+    </dl>
+</#if>
+
+</body>
+</html>

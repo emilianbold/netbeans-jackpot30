@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,20 +34,25 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.server.indexer;
 
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import java.io.File;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
+import javax.tools.SimpleJavaFileObject;
 import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
@@ -66,13 +71,53 @@ public class StandaloneFinder {
         return Index.get(sourceRoot.toURI().toURL()).findCandidates(bulkPattern);
     }
 
+    public static int[] findCandidateOccurrenceSpans(File sourceRoot, String relativePath, String pattern) throws IOException {
+        BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singleton(pattern), Collections.singleton(parsePattern(pattern)));
+        CharSequence source = Index.get(sourceRoot.toURI().toURL()).getSourceCode(relativePath);
+        JavacTaskImpl jti = prepareJavacTaskImpl();
+        CompilationUnitTree cut = jti.parse(new JFOImpl(source)).iterator().next();
+        Collection<TreePath> paths = BulkSearch.getDefault().match(null, new TreePath(cut), bulkPattern).get(pattern);
+
+        if (paths == null) {
+            return new int[0];
+        }
+        
+        Trees t = Trees.instance(jti);
+        int[] result = new int[2 * paths.size()];
+        int i = 0;
+
+        for (TreePath tp : paths) {
+            result[i++] = (int) t.getSourcePositions().getStartPosition(cut, tp.getLeaf());
+            result[i++] = (int) t.getSourcePositions().getEndPosition(cut, tp.getLeaf());
+        }
+
+        return result;
+    }
+
     private static Tree parsePattern(String pattern) {
+        return Utilities.parseAndAttribute(prepareJavacTaskImpl(), pattern);
+    }
+
+    private static JavacTaskImpl prepareJavacTaskImpl() {
         final String bootPath = System.getProperty("sun.boot.class.path"); //NOI18N
         final JavaCompiler tool = ToolProvider.getSystemJavaCompiler();
+
         assert tool != null;
 
-        JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, null, Arrays.asList("-bootclasspath",  bootPath), null, Collections.<JavaFileObject>emptyList());
+        JavacTaskImpl ct = (JavacTaskImpl) tool.getTask(null, null, null, Arrays.asList("-bootclasspath",  bootPath, "-Xjcov"), null, Collections.<JavaFileObject>emptyList());
+        
+        return ct;
+    }
 
-        return Utilities.parseAndAttribute(ct, pattern);
+    private static final class JFOImpl extends SimpleJavaFileObject {
+        private final CharSequence code;
+        public JFOImpl(CharSequence code) {
+            super(URI.create(""), Kind.SOURCE);
+            this.code = code;
+        }
+        @Override
+        public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
+            return code;
+        }
     }
 }

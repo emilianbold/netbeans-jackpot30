@@ -47,6 +47,8 @@
         
         <download url="http://hg.netbeans.org/binaries/19074C81557493EDD77489E146FCCAAD8A8B385F-javac-api-nb-7.0-b07.jar" target="javac/javac-api-nb-7.0-b07.jar" />
         <download url="http://hg.netbeans.org/binaries/B0F585DD546E25A1EFAAA0FBD1C09E5461997180-javac-impl-nb-7.0-b07.jar" target="javac/javac-impl-nb-7.0-b07.jar" />
+        
+        <download url="http://mirrors.ibiblio.org/pub/mirrors/maven2/org/freemarker/freemarker/2.3.16/freemarker-2.3.16.jar" target="freemarker/freemarker-2.3.16.jar" />
     </target>
 
     <target name="-download-check-exists">

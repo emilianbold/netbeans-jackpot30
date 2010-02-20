@@ -52,6 +52,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.openide.util.Parameters;
 
 /**
  *
@@ -65,6 +66,7 @@ public class CopyFinderBasedBulkSearch extends BulkSearch {
 
     @Override
     public Map<String, Collection<TreePath>> match(CompilationInfo info, TreePath toSearch, BulkPattern pattern, Map<String, Long> timeLog) {
+        Parameters.notNull("info", info);
         Map<String, Collection<TreePath>> result = new HashMap<String, Collection<TreePath>>();
         TreePath topLevel = new TreePath(info.getCompilationUnit());
         
