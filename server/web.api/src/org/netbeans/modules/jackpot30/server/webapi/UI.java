@@ -76,7 +76,7 @@ public class UI {
         configurationData.put("paths", WebUtilities.requestStringArrayResponse(new URI("http://localhost:9998/index/list")));
         configurationData.put("selectedPath", path);
         configurationData.put("pattern", pattern);
-        
+
         if (pattern != null && path != null) {
             URI u = new URI("http", null, "localhost", 9998, "/index/find", "path=" + path + "&pattern=" + pattern, null);
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
@@ -123,13 +123,13 @@ public class UI {
         int currentCodePos = 0;
         for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) { //XXX: sorted!
             Map<String, String> occ = new HashMap<String, String>();
-            occ.put("prefix", code.substring(currentCodePos, span[0]));
-            occ.put("occurrence", code.substring(span[0], span[1] + 1));
+            occ.put("prefix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, span[0])));
+            occ.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1] + 1)));
             occurrences.add(occ);
             currentCodePos = span[1] + 1;
         }
 
-        configurationData.put("suffix", code.substring(currentCodePos, code.length()));
+        configurationData.put("suffix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, code.length())));
 
         return processTemplate("/org/netbeans/modules/jackpot30/server/webapi/ui-cat.html", configurationData);
     }
@@ -165,9 +165,9 @@ public class UI {
 
         Map<String, String> result = new HashMap<String, String>();
         
-        result.put("prefix", code.substring(grandStart, span[0]));
-        result.put("occurrence", code.substring(span[0], span[1] + 1));
-        result.put("suffix", code.substring(span[1] + 1, grandEnd));
+        result.put("prefix", WebUtilities.escapeForHTMLElement(code.substring(grandStart, span[0])));
+        result.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1] + 1)));
+        result.put("suffix", WebUtilities.escapeForHTMLElement(code.substring(span[1] + 1, grandEnd)));
 
         return result;
     }
