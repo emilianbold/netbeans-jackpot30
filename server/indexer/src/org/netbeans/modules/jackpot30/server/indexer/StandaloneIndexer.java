@@ -62,9 +62,9 @@ import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
  */
 public class StandaloneIndexer {
 
-    public static void index(File root) throws IOException {
+    public static void index(File root, boolean duplicatesIndex) throws IOException {
         IndexWriter w = Index.get(root.toURI().toURL()).openForWriting();
-        DuplicatesIndex.IndexWriter dw = DuplicatesIndex.get(root.toURI().toURL()).openForWriting();
+        DuplicatesIndex.IndexWriter dw = duplicatesIndex ? DuplicatesIndex.get(root.toURI().toURL()).openForWriting() : null;
 
         try {
             new StandaloneIndexer().doIndex(w, dw, root);
@@ -103,10 +103,13 @@ public class StandaloneIndexer {
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, devNull, Arrays.asList("-bootclasspath",  bootPath), null, fos);
         CompilationUnitTree cut = ct.parse().iterator().next();
 
-        ct.analyze(ct.enter(Collections.singletonList(cut)));
-
         w.record(ct, source.toURI().toURL(), cut);
-        dw.record(ct, source.toURI().toURL(), cut);
+
+        if (dw != null) {
+            ct.analyze(ct.enter(Collections.singletonList(cut)));
+
+            dw.record(ct, source.toURI().toURL(), cut);
+        }
     }
     
 }

@@ -41,6 +41,9 @@ package org.netbeans.modules.jackpot30.server.indexer;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 
@@ -50,19 +53,24 @@ import org.netbeans.modules.jackpot30.impl.indexing.Cache;
  */
 public class Index {
 
+    private static final String PARAM_CONSTRUCT_DUPLICATES_INDEX = "-construct-duplicates-index";
+    
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException {
+        List<String> argsList = new ArrayList<String>(Arrays.asList(args));
+        boolean constructDuplicatesIndex = !argsList.isEmpty() && PARAM_CONSTRUCT_DUPLICATES_INDEX.equals(argsList.get(0));
+
         if (args.length != 2) {
-            System.err.println("Usage: java -jar " + Index.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " <source-root> <cache>");
+            System.err.println("Usage: java -jar " + Index.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [" + constructDuplicatesIndex + "] <source-root> <cache>");
             return ;
         }
 
         long startTime = System.currentTimeMillis();
 
         Cache.setStandaloneCacheRoot(new File(args[1]));
-        StandaloneIndexer.index(new File(args[0]));
+        StandaloneIndexer.index(new File(args[0]), constructDuplicatesIndex);
 
         long endTime = System.currentTimeMillis();
 

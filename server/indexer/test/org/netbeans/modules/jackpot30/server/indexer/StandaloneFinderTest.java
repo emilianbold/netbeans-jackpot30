@@ -73,7 +73,7 @@ public class StandaloneFinderTest {
 
         copyStringToFile(new File(src, "test/Test1.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
 
-        StandaloneIndexer.index(src);
+        StandaloneIndexer.index(src, false);
     }
 
     public final static void copyStringToFile (File f, String content) throws Exception {
