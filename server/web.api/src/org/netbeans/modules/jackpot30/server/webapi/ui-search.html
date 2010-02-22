@@ -1,13 +1,19 @@
 <html>
 <head>
     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
+<#if results??>
     <script type="text/javascript">
         $(document).ready(function() {
             $('#list').find('dd').hide().end().find('dt').click(function() {
-                $(this).next().slideToggle();
+                current_dd=$(this).next();
+                //XXX: will do the AJAX call for both show and hide!
+                $.get("snippet?path=${selectedPath}&relative=" + current_dd.attr("id") + "&pattern=${pattern}",function(data) {
+                    current_dd.html(data).slideToggle();
+                })
             });
         });
     </script>
+</#if>
     <style type="text/css">
         .occurrence {BACKGROUND: #DDDD00;}
     </style>
@@ -38,12 +44,7 @@
     <dl id="list">
         <#list results as result>
             <dt>${result.relativePath}<a href="${result.sourceLink}">show</a></dt>
-            <dd>
-                <#if result.snippets??>
-                    <#list result.snippets as snippet>
-                        <pre>${snippet.prefix}<span class="occurrence">${snippet.occurrence}</span>${snippet.suffix}</pre><br>
-                    </#list>
-                </#if>
+            <dd id="${result.relativePath}">
             </dd>
         </#list>
     </dl>

@@ -50,6 +50,7 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -87,18 +88,6 @@ public class UI {
                 found.put("sourceLink", "/index/ui/show?" + "path=" + path + "&relative=" + c + "&pattern=" + pattern);
                 found.put("relativePath", c);
 
-                List<Map<String, String>> snippets = new LinkedList<Map<String, String>>();
-
-                URI codeURL = new URI("http", null, "localhost", 9998, "/index/cat", "path=" + path + "&relative=" + c, null);
-                String code = WebUtilities.requestStringResponse(codeURL);
-                URI spansURL = new URI("http", null, "localhost", 9998, "/index/findSpans", "path=" + path + "&relativePath=" + c + "&pattern=" + pattern, null);
-                
-                for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) {
-                    snippets.add(prepareSnippet(code, span));
-                }
-
-                found.put("snippets", snippets);
-
                 results.add(found);
             }
 
@@ -134,7 +123,27 @@ public class UI {
         return processTemplate("/org/netbeans/modules/jackpot30/server/webapi/ui-cat.html", configurationData);
     }
     
+    @GET
+    @Path("/snippet")
+    @Produces("text/html")
+    public String snippet(@QueryParam("path") String path, @QueryParam("relative") String relativePath, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
+        List<Map<String, String>> snippets = new LinkedList<Map<String, String>>();
+
+        URI codeURL = new URI("http", null, "localhost", 9998, "/index/cat", "path=" + path + "&relative=" + relativePath, null);
+        String code = WebUtilities.requestStringResponse(codeURL);
+        URI spansURL = new URI("http", null, "localhost", 9998, "/index/findSpans", "path=" + path + "&relativePath=" + relativePath + "&pattern=" + pattern, null);
+
+        for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) {
+            snippets.add(prepareSnippet(code, span));
+        }
+
+        return processTemplate("/org/netbeans/modules/jackpot30/server/webapi/ui-snippet.html", Collections.<String, Object>singletonMap("snippets", snippets));
+    }
+
     private static Iterable<int[]> parseSpans(String from) {
+        if (from.isEmpty()) {
+            return Collections.emptyList();
+        }
         String[] split = from.split(":");
         List<int[]> result = new LinkedList<int[]>();
 
