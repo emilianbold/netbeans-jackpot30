@@ -50,7 +50,7 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -83,9 +83,11 @@ public class UI {
             URI u = new URI("http", null, "localhost", 9998, "/index/find", "path=" + path + "&pattern=" + pattern, null);
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
             long queryTime = System.currentTimeMillis();
-            Collection<? extends String> candidates = WebUtilities.requestStringArrayResponse(u);
+            List<String> candidates = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
 
             queryTime = System.currentTimeMillis() - queryTime;
+
+            Collections.sort(candidates);
 
             for (String c : candidates) {
                 Map<String, Object> found = new HashMap<String, Object>(3);
