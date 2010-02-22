@@ -50,5 +50,8 @@
     </dl>
 </#if>
 
+<#if statistics??>
+     Query time: ${statistics.queryTime}ms, matching files: ${statistics.files}.
+</#if>
 </body>
 </html>

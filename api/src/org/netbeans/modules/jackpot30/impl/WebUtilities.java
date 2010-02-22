@@ -46,6 +46,7 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -85,7 +86,7 @@ public class WebUtilities {
         return sb.toString ();
     }
     
-    public static Iterable<String> requestStringArrayResponse (URI uri) {
+    public static Collection<? extends String> requestStringArrayResponse (URI uri) {
         final List<String> result = new LinkedList<String> ();
         final URL url;
         try {

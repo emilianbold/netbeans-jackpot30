@@ -50,6 +50,7 @@ import java.io.Reader;
 import java.io.StringWriter;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -81,8 +82,12 @@ public class UI {
         if (pattern != null && path != null) {
             URI u = new URI("http", null, "localhost", 9998, "/index/find", "path=" + path + "&pattern=" + pattern, null);
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
+            long queryTime = System.currentTimeMillis();
+            Collection<? extends String> candidates = WebUtilities.requestStringArrayResponse(u);
 
-            for (String c : WebUtilities.requestStringArrayResponse(u)) {
+            queryTime = System.currentTimeMillis() - queryTime;
+
+            for (String c : candidates) {
                 Map<String, Object> found = new HashMap<String, Object>(3);
 
                 found.put("sourceLink", "/index/ui/show?" + "path=" + path + "&relative=" + c + "&pattern=" + pattern);
@@ -92,6 +97,13 @@ public class UI {
             }
 
             configurationData.put("results", results);
+
+            Map<String, Object> statistics = new HashMap<String, Object>();
+
+            statistics.put("files", candidates.size());
+            statistics.put("queryTime", queryTime);
+
+            configurationData.put("statistics", statistics);
         }
 
         return processTemplate("/org/netbeans/modules/jackpot30/server/webapi/ui-search.html", configurationData);
