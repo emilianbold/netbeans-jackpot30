@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.pm;
@@ -308,6 +308,10 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         if (t.getKind() == Kind.MEMBER_SELECT) {
             String name = ((MemberSelectTree) t).getIdentifier().toString();
+            if (name.startsWith("$")) {
+                goDeeper[0] = false;
+                return new Input(Kind.IDENTIFIER, "$", false);
+            }
             if (bypass != null && Utilities.isPureMemberSelect(t, true)) {
                 bypass[0] = new Input(Kind.IDENTIFIER, name, false);
             }
