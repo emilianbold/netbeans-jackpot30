@@ -7,7 +7,7 @@
             $('#list').find('dd').hide().end().find('dt').click(function() {
                 current_dd=$(this).next();
                 //XXX: will do the AJAX call for both show and hide!
-                $.get("snippet?path=${selectedPath}&relative=" + current_dd.attr("id") + "&pattern=${pattern}",function(data) {
+                $.get("snippet?path=${selectedPath}&relative=" + current_dd.attr("id") + "&pattern=${patternEscaped}",function(data) {
                     current_dd.html(data).slideToggle();
                 })
             });
@@ -43,7 +43,7 @@
     Found candidates for pattern: ${pattern}
     <dl id="list">
         <#list results as result>
-            <dt>${result.relativePath}<a href="${result.sourceLink}">show</a></dt>
+            <dt>${result.relativePath}<a href="/index/ui/show?path=${selectedPath}&relative=${result.relativePath}&pattern=${patternEscaped}">show</a></dt>
             <dd id="${result.relativePath}">
             </dd>
         </#list>

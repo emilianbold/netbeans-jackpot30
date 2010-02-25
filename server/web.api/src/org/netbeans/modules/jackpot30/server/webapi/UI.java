@@ -78,6 +78,7 @@ public class UI {
         configurationData.put("paths", WebUtilities.requestStringArrayResponse(new URI("http://localhost:9998/index/list")));
         configurationData.put("selectedPath", path);
         configurationData.put("pattern", pattern);
+        configurationData.put("patternEscaped", new URI(null, null, null, -1, null, pattern, null).getRawQuery());
 
         if (pattern != null && path != null) {
             URI u = new URI("http", null, "localhost", 9998, "/index/find", "path=" + path + "&pattern=" + pattern, null);
@@ -92,7 +93,6 @@ public class UI {
             for (String c : candidates) {
                 Map<String, Object> found = new HashMap<String, Object>(3);
 
-                found.put("sourceLink", "/index/ui/show?" + "path=" + path + "&relative=" + c + "&pattern=" + pattern);
                 found.put("relativePath", c);
 
                 results.add(found);
