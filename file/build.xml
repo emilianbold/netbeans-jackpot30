@@ -6,4 +6,9 @@
     <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.file.</description>
     <import file="nbproject/build-impl.xml"/>
     <import file="${suite.dir}/findbugs-import.xml"/>
+
+    <target name="netbeans-extra" depends="javadoc">
+        <mkdir dir="${cluster}/docs" />
+        <zip destfile="${cluster}/docs/${code.name.base.dashes}.zip" basedir="${netbeans.javadoc.dir}/${code.name.base.dashes}" />
+    </target>
 </project>

@@ -290,12 +290,17 @@ public class MethodInvocationContext {
 
     static ClassPath[] computeClassPaths() {
         ClassPath boot = JavaPlatform.getDefault().getBootstrapLibraries();
-        URL jarFile = MethodInvocationContext.class.getProtectionDomain().getCodeSource().getLocation();
-        ClassPath compile = ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(FileUtil.archiveOrDirForURL(jarFile)));
+        ClassPath compile = ClassPathSupport.createClassPath(apiJarURL());
 
         return new ClassPath[] {
             boot,
             compile
         };
+    }
+
+    public static URL apiJarURL() {
+        URL jarFile = MethodInvocationContext.class.getProtectionDomain().getCodeSource().getLocation();
+        
+        return FileUtil.urlForArchiveOrDir(FileUtil.archiveOrDirForURL(jarFile));
     }
 }
