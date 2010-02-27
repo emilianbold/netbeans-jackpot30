@@ -56,6 +56,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -78,10 +80,10 @@ public class UI {
         configurationData.put("paths", WebUtilities.requestStringArrayResponse(new URI("http://localhost:9998/index/list")));
         configurationData.put("selectedPath", path);
         configurationData.put("pattern", pattern);
-        configurationData.put("patternEscaped", new URI(null, null, null, -1, null, pattern, null).getRawQuery());
+        configurationData.put("patternEscaped", escapeForQuery(pattern));
 
         if (pattern != null && path != null) {
-            URI u = new URI("http", null, "localhost", 9998, "/index/find", "path=" + path + "&pattern=" + pattern, null);
+            URI u = new URI("http://localhost:9998/index/find?path=" + escapeForQuery(path) + "&pattern=" + escapeForQuery(pattern));
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
             long queryTime = System.currentTimeMillis();
             List<String> candidates = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
@@ -120,9 +122,9 @@ public class UI {
 
         configurationData.put("occurrences", occurrences);
 
-        URI codeURL = new URI("http", null, "localhost", 9998, "/index/cat", "path=" + path + "&relative=" + relativePath, null);
+        URI codeURL = new URI("http://localhost:9998/index/cat?path=" + escapeForQuery(path) + "&relative=" + escapeForQuery(relativePath));
         String code = WebUtilities.requestStringResponse(codeURL);
-        URI spansURL = new URI("http", null, "localhost", 9998, "/index/findSpans", "path=" + path + "&relativePath=" + relativePath + "&pattern=" + pattern, null);
+        URI spansURL = new URI("http://localhost:9998/index/findSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
         int currentCodePos = 0;
         for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) { //XXX: sorted!
             Map<String, String> occ = new HashMap<String, String>();
@@ -143,9 +145,9 @@ public class UI {
     public String snippet(@QueryParam("path") String path, @QueryParam("relative") String relativePath, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
         List<Map<String, String>> snippets = new LinkedList<Map<String, String>>();
 
-        URI codeURL = new URI("http", null, "localhost", 9998, "/index/cat", "path=" + path + "&relative=" + relativePath, null);
+        URI codeURL = new URI("http://localhost:9998/index/cat?path=" + escapeForQuery(path) + "&relative=" + escapeForQuery(relativePath));
         String code = WebUtilities.requestStringResponse(codeURL);
-        URI spansURL = new URI("http", null, "localhost", 9998, "/index/findSpans", "path=" + path + "&relativePath=" + relativePath + "&pattern=" + pattern, null);
+        URI spansURL = new URI("http://localhost:9998/index/findSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
 
         for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) {
             snippets.add(prepareSnippet(code, span));
@@ -213,6 +215,10 @@ public class UI {
 
     private static int contextLength(String in) {
         return in.replaceAll("\n[ \t]*\n", "\n").trim().split("\n").length;
+    }
+
+    private String escapeForQuery(String pattern) throws URISyntaxException {
+        return new URI(null, null, null, -1, null, pattern, null).getRawQuery().replaceAll(Pattern.quote("&"), Matcher.quoteReplacement("%26"));
     }
 
     private static String processTemplate(String template, Map<String, Object> configurationData) throws TemplateException, IOException {
