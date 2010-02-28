@@ -33,11 +33,24 @@
 <label for="pattern">Pattern:</label><br>
 <textarea rows="10" cols="40" name="pattern">
 <#if pattern??>
-     ${pattern}
+${pattern}
 </#if>
 </textarea><br>
 <input type="submit" name="Find Candidates"/>
 </form>
+
+<div class="examples">
+<#if examples??>
+    Examples:
+    <dl id="examples-list">
+        <#list examples as example>
+            <dt>${example.description}</dt>
+            <dd><pre>${example.pattern}</pre>
+            </dd>
+        </#list>
+    </dl>
+</#if>
+</div>
 
 <#if results??>
     Found candidates for pattern: ${pattern}
