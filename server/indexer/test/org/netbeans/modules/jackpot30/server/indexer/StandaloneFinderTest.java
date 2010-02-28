@@ -45,6 +45,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import junit.framework.Assert;
 import org.junit.Before;
@@ -102,5 +103,12 @@ public class StandaloneFinderTest {
     @Test
     public void testFindSpans() throws Exception {
         Assert.assertEquals(Arrays.asList(55, 89), toIntegerList(StandaloneFinder.findCandidateOccurrenceSpans(src, "test/Test1.java", "$1.isDirectory()")));
+    }
+
+    @Test
+    public void testMultiplePatterns() throws Exception {
+        String patterns = "$1.isDirectory();; new java.io.File($1);;";
+        Assert.assertEquals(Arrays.asList("test/Test1.java"), new LinkedList<String>(StandaloneFinder.findCandidates(src, patterns)));
+        Assert.assertEquals(Arrays.asList(55, 75, 55, 89), toIntegerList(StandaloneFinder.findCandidateOccurrenceSpans(src, "test/Test1.java", patterns)));
     }
 }
