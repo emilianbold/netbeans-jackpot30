@@ -76,8 +76,11 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -107,9 +110,11 @@ import org.netbeans.api.java.source.CompilationInfoHack;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.modules.diff.builtin.provider.BuiltInDiffProvider;
 import org.netbeans.modules.diff.builtin.visualizer.TextDiffVisualizer;
+import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintsRunner;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
@@ -132,7 +137,7 @@ import org.openide.util.lookup.ServiceProvider;
  * @author lahvac
  */
 @SupportedAnnotationTypes("*")
-@SupportedOptions(value="jackpot30_enabled_hints")
+@SupportedOptions(value={"jackpot30_enable_cp_hints","jackpot30_apply_cp_hints","jackpot30_enabled_hc_hints","jackpot30_apply_hc_hints"})
 @ServiceProvider(service=Processor.class)
 public class HintsAnnotationProcessing extends AbstractProcessor {
 
@@ -143,7 +148,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
         try {
             return doProcess(annotations, roundEnv);
         } catch (Throwable ex) {
-            ex.printStackTrace();;
+            ex.printStackTrace();
             return false;
         }
     }
@@ -206,28 +211,36 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             int nwarnings = log.nwarnings;
             
             CompilationInfoHack info = new CompilationInfoHack(c, ClasspathInfo.create(boot, compile, source), cut);
-            List<HintDescription> hintDescriptions = new LinkedList<HintDescription>(Utilities.listAllHints(new HashSet<ClassPath>(Arrays.asList(/*compile, */source))));
+            Set<HintDescription> hardCodedHints = new LinkedHashSet<HintDescription>();
 
-            //XXX: this will also filter-out hints from classpath!!!
-            if (processingEnv.getOptions().containsKey("jackpot30_enabled_hints")) {
-                String enabled = processingEnv.getOptions().get("jackpot30_enabled_hints");
-
-                enabled = enabled != null ? enabled : "no-hints";
-                
-                if (enabled != null) {
-                    Set<String> en = new HashSet<String>(Arrays.asList(enabled.split(":")));
-
-                    for (Iterator<HintDescription> it = hintDescriptions.iterator(); it.hasNext(); ) {
-                        if (en.contains(it.next().getMetadata().id)) {
-                            continue;
-                        }
-                        it.remove();
-                    }
-
-                }
+            for (Collection<? extends HintDescription> v : RulesManager.computeAllHints().values()) {
+                hardCodedHints.addAll(v);
             }
 
-            List<ErrorDescription> hints = HintsRunner.computeErrors(info, hintDescriptions, new AtomicBoolean());
+            ContainsChecker<String> enabledHints = readHintsId("jackpot30_enabled_hc_hints", new SettingsBasedChecker());
+            
+            for (Iterator<HintDescription> it = hardCodedHints.iterator(); it.hasNext(); ) {
+                HintMetadata current = it.next().getMetadata();
+
+                if (   (current.kind == HintMetadata.Kind.HINT || current.kind == HintMetadata.Kind.HINT_NON_GUI)
+                    && enabledHints.contains(current.id)) {
+                    continue;
+                }
+                
+                it.remove();
+            }
+
+            ContainsChecker<String> enabledApplyHints = readHintsId("jackpot30_apply_hc_hints", new HardcodedContainsChecker<String>(true));
+
+            List<HintDescription> hintDescriptions = new LinkedList<HintDescription>(hardCodedHints);
+
+            if (isEnabled("jackpot30_enable_cp_hints")) {
+                hintDescriptions.addAll(new LinkedList<HintDescription>(Utilities.listClassPathHints(new HashSet<ClassPath>(Arrays.asList(/*compile, */source)))));
+            }
+
+            boolean applyCPHints = isEnabled("jackpot30_apply_cp_hints");
+            
+            Map<HintDescription, List<ErrorDescription>> hints = HintsRunner.computeErrors(info, hintDescriptions, new AtomicBoolean());
 
             log.nerrors = nerrors;
             log.nwarnings = nwarnings;
@@ -239,35 +252,41 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
 
                 log.useSource(cut.sourcefile);
 
-                for (ErrorDescription ed : hints) {
-                    log.warning(ed.getRange().getBegin().getOffset(), "proc.messager", ed.getDescription());
-
-                    nerrors = log.nerrors;
-                    nwarnings = log.nwarnings;
-                    Fix f = ed.getFixes().getFixes().get(0);
-
-                    if (!(f instanceof JavaFixImpl)) {
-                        log.warning(ed.getRange().getBegin().getOffset(), "proc.messager", "Cannot apply primary fix (not a JavaFix)");
-                        continue;
-                    }
+                for (Entry<HintDescription, List<ErrorDescription>> e : hints.entrySet()) {
+                    boolean applyFix = hardCodedHints.contains(e.getKey()) ? enabledApplyHints.contains(e.getKey().getMetadata().id) : applyCPHints;
                     
-                    JavaFixImpl jfi = (JavaFixImpl) f;
-                    
-                    try {
-                        JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, new JavaFix.UpgradeUICallback() {
+                    for (ErrorDescription ed : e.getValue()) {
+                        log.warning(ed.getRange().getBegin().getOffset(), "proc.messager", ed.getDescription());
 
-                            public boolean shouldUpgrade(String comment) {
-                                return true;
-                            }
-                        });
-                    } catch (Exception ex) {
-                        Exceptions.printStackTrace(ex);
-                    } finally {
-                        log.nerrors = nerrors;
-                        log.nwarnings = nwarnings;
+                        if (!applyFix) continue;
+
+                        nerrors = log.nerrors;
+                        nwarnings = log.nwarnings;
+                        Fix f = ed.getFixes().getFixes().get(0);
+
+                        if (!(f instanceof JavaFixImpl)) {
+                            log.warning(ed.getRange().getBegin().getOffset(), "proc.messager", "Cannot apply primary fix (not a JavaFix)");
+                            continue;
+                        }
+
+                        JavaFixImpl jfi = (JavaFixImpl) f;
+
+                        try {
+                            JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, new JavaFix.UpgradeUICallback() {
+
+                                public boolean shouldUpgrade(String comment) {
+                                    return true;
+                                }
+                            });
+                        } catch (Exception ex) {
+                            Exceptions.printStackTrace(ex);
+                        } finally {
+                            log.nerrors = nerrors;
+                            log.nwarnings = nwarnings;
+                        }
+
+                        fixPerformed = true;
                     }
-
-                    fixPerformed = true;
                 }
 
                 if (fixPerformed) {
@@ -416,6 +435,67 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             l.setClassAssertionStatus("org.netbeans.api.java.source.CompilationInfo", false);
         } catch (Throwable t) {
             t.printStackTrace();
+        }
+    }
+
+    private boolean isEnabled(String key) {
+        if (processingEnv.getOptions().containsKey(key)) {
+            return Boolean.valueOf(processingEnv.getOptions().get(key));
+        }
+
+        return true;
+    }
+
+    private ContainsChecker<String> readHintsId(String key, ContainsChecker<String> def) {
+        if (processingEnv.getOptions().containsKey(key)) {
+            String toSplit = processingEnv.getOptions().get(key);
+            
+            if (toSplit == null) {
+                return new HardcodedContainsChecker<String>(false);
+            }
+
+            return new SetBasedContainsChecker<String>(new HashSet<String>(Arrays.asList(toSplit.split(":"))));
+        }
+
+        return def;
+    }
+
+    private interface ContainsChecker<T> {
+        public boolean contains(T t);
+    }
+
+    private static final class SetBasedContainsChecker<T> implements ContainsChecker<T> {
+        private final Set<T> set;
+        public SetBasedContainsChecker(Set<T> set) {
+            this.set = set;
+        }
+        public boolean contains(T t) {
+            return set.contains(t);
+        }
+    }
+
+    private static final class HardcodedContainsChecker<T> implements ContainsChecker<T> {
+        private final boolean result;
+        public HardcodedContainsChecker(boolean result) {
+            this.result = result;
+        }
+        public boolean contains(T t) {
+            return result;
+        }
+    }
+
+    private static final class SettingsBasedChecker implements ContainsChecker<String> {
+        private static final Set<String> enabled = new HashSet<String>();
+        public SettingsBasedChecker() {
+            for (HintMetadata hm : RulesManager.getInstance().allHints.keySet()) {
+                if (   RulesManager.getInstance().isHintEnabled(hm)
+                    && RulesManager.getInstance().getHintSeverity(hm) != HintMetadata.HintSeverity.CURRENT_LINE_WARNING) {
+                    enabled.add(hm.id);
+                }
+            }
+        }
+        public boolean contains(String t) {
+            return enabled.contains(t);
         }
     }
 

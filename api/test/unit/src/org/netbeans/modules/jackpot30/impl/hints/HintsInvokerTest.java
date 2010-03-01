@@ -691,7 +691,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         Map<PatternDescription, List<HintDescription>> pattern2Hint = new HashMap<PatternDescription, List<HintDescription>>();
         RulesManager.sortOut(Collections.singletonList(hd), kind2Hints, pattern2Hint);
 
-        return new HintsInvoker(info, new AtomicBoolean()).computeHints(info, new TreePath(info.getCompilationUnit()), kind2Hints, pattern2Hint, new LinkedList<MessageImpl>());
+        return new HintsInvoker(info, new AtomicBoolean()).computeHints(info, kind2Hints, pattern2Hint);
     }
 
     @Override

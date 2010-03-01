@@ -52,6 +52,7 @@ import hudson.tasks.BuildWrapper;
 import hudson.tasks.BuildWrapperDescriptor;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
@@ -85,27 +86,75 @@ import org.kohsuke.stapler.StaplerResponse;
  */
 public final class BuildWrapperImpl extends BuildWrapper {
 
+    private final boolean classpathBasedHintsEnabled;
+    private final boolean classpathBasedHintFixesEnabled;
+    private final boolean hardcodedHintsEnabled;
     private final Map<String, Boolean> id2Enabled;
+    private final Map<String, Boolean> id2Apply;
     
     public BuildWrapperImpl(StaplerRequest req, JSONObject json) {
-        id2Enabled = new HashMap<String, Boolean>();
+        JSONObject classpathBasedHintsEnabledObject = json.getJSONObject("classpathBasedHintsEnabled");
 
-        for (String id : getDescriptor().getHints()) {
-            id2Enabled.put(id, json.getBoolean(id));
+        if (classpathBasedHintsEnabled = !classpathBasedHintsEnabledObject.isNullObject()) {
+            classpathBasedHintFixesEnabled = classpathBasedHintsEnabledObject.getBoolean("classpathBasedHintFixesEnabled");
+        } else {
+            classpathBasedHintFixesEnabled = false;
+        }
+
+        JSONObject hardcodedHintsEnabledObject = json.getJSONObject("hardcodedHintsEnabled");
+
+        id2Enabled = new HashMap<String, Boolean>();
+        id2Apply = new HashMap<String, Boolean>();
+
+        if (hardcodedHintsEnabled = !hardcodedHintsEnabledObject.isNullObject()) {
+            for (String id : getDescriptor().getHints()) {
+                JSONObject hintObject = hardcodedHintsEnabledObject.getJSONObject(id);
+
+                if (!hintObject.isNullObject()) {
+                    id2Enabled.put(id, true);
+                    id2Apply.put(id, hintObject.getBoolean("apply"));
+                } else {
+                    id2Enabled.put(id, false);
+                }
+            }
         }
     }
 
     @DataBoundConstructor
-    public BuildWrapperImpl(Map<String, Boolean> id2Enabled) {
+    public BuildWrapperImpl(boolean classpathBasedHintsEnabled, boolean classpathBasedHintFixesEnabled, boolean hardcodedHintsEnabled, Map<String, Boolean> id2Enabled, Map<String, Boolean> id2Apply) {
+        this.classpathBasedHintsEnabled = classpathBasedHintsEnabled;
+        this.classpathBasedHintFixesEnabled = classpathBasedHintFixesEnabled;
+        this.hardcodedHintsEnabled = hardcodedHintsEnabled;
         this.id2Enabled = id2Enabled;
+        this.id2Apply = id2Apply;
     }
 
     public Map<String, Boolean> getId2Enabled() {
         return id2Enabled;
     }
 
+    public Map<String, Boolean> getId2Apply() {
+        return id2Apply;
+    }
+
+    public boolean isClasspathBasedHintsEnabled() {
+        return classpathBasedHintsEnabled;
+    }
+
+    public boolean isClasspathBasedHintFixesEnabled() {
+        return classpathBasedHintFixesEnabled;
+    }
+
+    public boolean isHardcodedHintsEnabled() {
+        return hardcodedHintsEnabled;
+    }
+
     public boolean isHintEnabled(String id) {
-        return id2Enabled.get(id) == Boolean.TRUE;
+        return id2Enabled.containsKey(id) ? id2Enabled.get(id) == Boolean.TRUE : getDescriptor().isHintEnabledByDefault(id);
+    }
+
+    public boolean isHintApplyEnabled(String id) {
+        return id2Apply.containsKey(id) ? id2Apply.get(id) == Boolean.TRUE : getDescriptor().isHintApplyEnabledByDefault(id);
     }
 
     @Override
@@ -123,7 +172,20 @@ public final class BuildWrapperImpl extends BuildWrapper {
         return new LauncherWrapper(launcher);
     }
 
+    private static String dumpToString(Map<String, Boolean> id2Include) {
+        StringBuilder enabled = new StringBuilder();
+        boolean first = true;
 
+        for (Entry<String, Boolean> e : id2Include.entrySet()) {
+            if (e.getValue() != Boolean.TRUE) continue;
+            if (!first) enabled.append(":");
+            enabled.append(e.getKey() /*XXX:*/.replace('_', '.'));
+            first = false;
+        }
+
+        return enabled.toString();
+    }
+    
     private final class EnvironmentImpl extends Environment {
 
         @Override
@@ -151,17 +213,16 @@ public final class BuildWrapperImpl extends BuildWrapper {
             args.add("-lib");
             args.add(antLibLocation.getAbsolutePath());
 
-            StringBuilder enabled = new StringBuilder();
-            boolean first = true;
-            
-            for (Entry<String, Boolean> e : id2Enabled.entrySet()) {
-                if (e.getValue() != Boolean.TRUE) continue;
-                if (!first) enabled.append(":");
-                enabled.append(e.getKey() /*XXX:*/.replace('_', '.'));
-                first = false;
+            if (classpathBasedHintsEnabled) {
+                args.add("-Djackpot30_enable_cp_hints=" + classpathBasedHintsEnabled);
+                args.add("-Djackpot30_apply_cp_hints=" + classpathBasedHintFixesEnabled);
             }
 
-            args.add("-Djackpot30-enabled-hints=" + enabled.toString());
+            if (hardcodedHintsEnabled) {
+                args.add("-Djackpot30_enabled_hc_hints=" + dumpToString(id2Enabled));
+                args.add("-Djackpot30_apply_hc_hints=" + dumpToString(id2Apply));
+            }
+
             args.add("-Dbuild.compiler=org.netbeans.modules.jackpot30.compiler.ant.JackpotCompiler");
 
             boolean[] origMasks = ps.masks();
@@ -276,6 +337,10 @@ public final class BuildWrapperImpl extends BuildWrapper {
             return hints.get(id).enabledByDefault;
         }
 
+        public boolean isHintApplyEnabledByDefault(String id) {
+            return true;
+        }
+
     }
 
     private static int count;
@@ -363,38 +428,20 @@ public final class BuildWrapperImpl extends BuildWrapper {
     static {
         antLibLocation = computeAntLibLocation();
 
-        File compilerJar = new File(antLibLocation, "compiler.jar");
-        
+        File hintsData = new File(antLibLocation, "hints");
+        Reader r = null;
+
         try {
-            Process exec = Runtime.getRuntime().exec(new String[]{"java", "-classpath", compilerJar.getAbsolutePath(), "org.netbeans.modules.jackpot30.compiler.DumpHints"});
-            final Reader r = new BufferedReader(new InputStreamReader(exec.getInputStream()));
-            final StringBuffer data = new StringBuffer();
-            final CountDownLatch l = new CountDownLatch(1);
+            StringBuffer data = new StringBuffer();
+            int c;
+            
+            r = new BufferedReader(new InputStreamReader(new FileInputStream(hintsData), "UTF-8"));
 
-            new Thread() {
-                public void run() {
-                    try {
-                        int c;
+            while ((c = r.read()) != (-1)) {
+                data.append((char) c);
+            }
 
-                        while ((c = r.read()) != (-1)) {
-                            data.append((char) c);
-                        }
-                    } catch (IOException ex) {
-                        Logger.getLogger(BuildWrapperImpl.class.getName()).log(Level.SEVERE, null, ex);
-                    } finally {
-                        try {
-                            r.close();
-                        } catch (IOException ex) {
-                            Logger.getLogger(BuildWrapperImpl.class.getName()).log(Level.SEVERE, null, ex);
-                        }
-                        l.countDown();
-                    }
-                }
-            }.start();
-
-            exec.waitFor();
-            l.await();
-
+            System.err.println("data=" + data.toString());
             JSONArray arr = (JSONArray) JSONSerializer.toJSON(data.toString());
 
             for (int i = 0; i < arr.size(); i++) {
@@ -407,12 +454,18 @@ public final class BuildWrapperImpl extends BuildWrapper {
 
                 hints.put(hd.id, hd);
             }
-        } catch (InterruptedException ex) {
-            Logger.getLogger(BuildWrapperImpl.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(BuildWrapperImpl.class.getName()).log(Level.SEVERE, null, ex);
         } catch (SecurityException ex) {
             Logger.getLogger(BuildWrapperImpl.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            if (r != null) {
+                try {
+                    r.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(BuildWrapperImpl.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
     }
 }

@@ -134,11 +134,11 @@ public class RulesManager {
     }
 
     public boolean isHintEnabled(HintMetadata hm) {
-        return true;
+        return hm != null ? hm.enabled : true;
     }
 
     public HintSeverity getHintSeverity(HintMetadata hm) {
-        return HintSeverity.WARNING;
+        return hm != null ? hm.severity : HintSeverity.WARNING;
     }
 
     public Preferences getHintPreferences(HintMetadata hm) {

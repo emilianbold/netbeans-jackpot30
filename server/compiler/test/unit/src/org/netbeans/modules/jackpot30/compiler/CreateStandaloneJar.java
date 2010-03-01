@@ -39,12 +39,15 @@
 package org.netbeans.modules.jackpot30.compiler;
 
 import com.sun.source.tree.Tree;
+import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -169,6 +172,12 @@ public class CreateStandaloneJar extends NbTestCase {
         addMETA_INFRegistration(out, "org.netbeans.modules.java.hints.jackpot.impl.Utilities$SPI", UtilitiesSPIImpl.class.getName());
 
         out.close();
+
+        Writer hints = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(targetDir, "hints")), "UTF-8"));
+
+        hints.write(DumpHints.dumpHints());
+
+        hints.close();
     }
 
     private void copyResources(JarOutputStream out, Set<String> res) throws IOException {

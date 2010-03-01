@@ -146,6 +146,7 @@ import org.netbeans.modules.java.source.builder.TreeFactory;
 import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
@@ -254,6 +255,13 @@ public class Utilities {
             }
         }
 
+        result.addAll(listClassPathHints(cps));
+
+        return result;
+    }
+
+    public static List<HintDescription> listClassPathHints(Set<ClassPath> cps) {
+        List<HintDescription> result = new LinkedList<HintDescription>();
         Set<FileObject> roots = new HashSet<FileObject>();
 
         for (ClassPath cp : cps) {

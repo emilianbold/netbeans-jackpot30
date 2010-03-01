@@ -135,7 +135,9 @@ public class TestPerformer {
                 public void run(CompilationController parameter) throws Exception {
                     parameter.toPhase(Phase.RESOLVED);
 
-                    errors.addAll(HintsRunner.computeErrors(parameter, hints, cancel));
+                    for (List<ErrorDescription> v : HintsRunner.computeErrors(parameter, hints, cancel).values()) {
+                        errors.addAll(v);
+                    }
                 }
             }, true);
 

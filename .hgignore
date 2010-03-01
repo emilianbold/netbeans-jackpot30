@@ -18,3 +18,4 @@
 ^server/hudson/work$
 ^server/hudson/target$
 ^server/hudson/data/compiler/.*.jar$
+^server/hudson/data/compiler/hints$

@@ -41,6 +41,9 @@ package org.netbeans.modules.jackpot30.compiler.ant;
 
 import java.lang.reflect.Field;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.tools.ant.BuildException;
 import org.apache.tools.ant.taskdefs.Javac;
 import org.apache.tools.ant.taskdefs.compilers.JavacExternal;
@@ -54,6 +57,13 @@ import org.openide.util.Exceptions;
  * @author lahvac
  */
 public class JackpotCompiler extends JavacExternal {
+
+    private static final Set<String> FORWARDED_PROPERTIES = new HashSet<String>(
+            Arrays.asList("jackpot30_enable_cp_hints",
+                          "jackpot30_apply_cp_hints",
+                          "jackpot30_enabled_hc_hints",
+                          "jackpot30_apply_hc_hints")
+    );
 
     @Override
     public boolean execute() throws BuildException {
@@ -83,14 +93,14 @@ public class JackpotCompiler extends JavacExternal {
         String jackpotCompilerPath = jackpotCompiler.getPath();
         Argument arg = cmd.createArgument(true);
 
-        String enabledHints = getProject().getProperty("jackpot30-enabled-hints");
+        StringBuilder enabledHintsProp = new StringBuilder();
 
-        String enabledHintsProp;
+        for (String prop : FORWARDED_PROPERTIES) {
+            String val = getProject().getProperty(prop);
 
-        if (enabledHints != null) {
-            enabledHintsProp = " -Ajackpot30_enabled_hints=" + enabledHints;
-        } else {
-            enabledHintsProp = "";
+            if (val != null) {
+                enabledHintsProp.append(" -A").append(prop).append("=").append(val);
+            }
         }
 
         arg.setLine("-J-Xbootclasspath/p:" + jackpotCompilerPath + " -Xjcov -J-Xmx256m" + enabledHintsProp); //XXX: Xmx!
