@@ -597,6 +597,7 @@ public class Utilities {
 
         JavacTaskImpl jti = JavaSourceAccessor.getINSTANCE().getJavacTask(info);
         Context context = jti.getContext();
+        JavaCompiler compiler = JavaCompiler.instance(context);
         Log log = Log.instance(context);
 
         log.nerrors = 0;
@@ -604,14 +605,13 @@ public class Utilities {
         JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/$" + count + ".java").toURI(), System.currentTimeMillis(), clazz.toString());
 
         DiagnosticListener<? super JavaFileObject> old = log.getDiagnosticListener();
-        boolean oldSkipAPs = jti.skipAnnotationProcessing;
+        boolean oldSkipAPs = compiler.skipAnnotationProcessing;
         DiagnosticCollector<JavaFileObject> dc = new DiagnosticCollector<JavaFileObject>();
 
         try {
             log.setDiagnosticListener(dc);
-            jti.skipAnnotationProcessing = true;
+            compiler.skipAnnotationProcessing = true;
             
-            JavaCompiler compiler = JavaCompiler.instance(context);
             JCCompilationUnit cut = compiler.parse(jfo);
 
             compiler.enterTrees(com.sun.tools.javac.util.List.of(cut));
@@ -633,7 +633,7 @@ public class Utilities {
             return new ScannerImpl().scan(cut, info);
         } finally {
             log.setDiagnosticListener(old);
-            jti.skipAnnotationProcessing = oldSkipAPs;
+            compiler.skipAnnotationProcessing = oldSkipAPs;
         }
     }
 
