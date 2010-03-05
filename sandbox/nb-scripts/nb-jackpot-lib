@@ -1,0 +1,20 @@
+NETBEANS=1
+JACKPOT=2
+
+function convert() {
+    SCRIPT=/tmp/$$.sed
+    rm -rf $SCRIPT
+
+    for map in `cat nb-to-jackpot.mapping`; do
+        echo -n "s/" >>$SCRIPT
+        FROM_PATH=`echo -n $map | cut -d ':' -f $1`;
+        TO_PATH=`echo -n $map | cut -d ':' -f $2`;
+        echo -n "$FROM_PATH" | sed -e "s/\//\\\\\//g" >>$SCRIPT
+        echo -n "/" >>$SCRIPT
+        echo -n "$TO_PATH" | sed -e "s/\//\\\\\//g" >>$SCRIPT
+        echo "/g" >>$SCRIPT
+    done
+
+#cat $SCRIPT
+sed -f $SCRIPT
+}
