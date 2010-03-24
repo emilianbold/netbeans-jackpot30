@@ -49,6 +49,7 @@ import javax.swing.JList;
 import javax.swing.text.BadLocationException;
 import javax.swing.text.Document;
 import javax.swing.text.EditorKit;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.editor.mimelookup.MimeLookup;
 import org.openide.util.NbBundle;
 import org.openide.windows.TopComponent;
@@ -152,9 +153,9 @@ public final class DebugTopComponent extends TopComponent {
     private javax.swing.JScrollPane jScrollPane1;
     // End of variables declaration//GEN-END:variables
 
-    private Collection<? extends HintWrapper> hints;
+    private Collection<? extends HintWrapper> hints = Collections.emptyList();
 
-    public synchronized Collection<? extends HintWrapper> getHints() {
+    public synchronized @NonNull Collection<? extends HintWrapper> getHints() {
         return hints;
     }
 
@@ -205,8 +206,6 @@ public final class DebugTopComponent extends TopComponent {
 
     @Override
     public void componentOpened() {
-        hints = Collections.emptyList();
-
         DefaultComboBoxModel dlm = new DefaultComboBoxModel();
 
         for (FileObject file : DeclarativeHintRegistry.findAllFiles()) {
