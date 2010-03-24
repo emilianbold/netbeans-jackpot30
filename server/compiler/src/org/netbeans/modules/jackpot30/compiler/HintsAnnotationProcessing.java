@@ -168,7 +168,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
 
             FileUtil.refreshFor(tmp.getParentFile());
 
-            org.openide.filesystems.FileObject tmpFO = FileUtil.toFileObject(tmp);
+            org.openide.filesystems.FileObject tmpFO = FileUtil.toFileObject(FileUtil.normalizeFile(tmp));
 
             if (tmpFO == null) {
                 return false;
