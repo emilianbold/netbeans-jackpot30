@@ -59,7 +59,9 @@ import org.netbeans.api.editor.settings.AttributesUtilities;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.JavaParserResultTask;
 import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition;
@@ -70,7 +72,6 @@ import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.spi.CursorMovedSchedulerEvent;
 import org.netbeans.modules.parsing.spi.Parser.Result;
-import org.netbeans.modules.parsing.spi.ParserResultTask;
 import org.netbeans.modules.parsing.spi.Scheduler;
 import org.netbeans.modules.parsing.spi.SchedulerEvent;
 import org.netbeans.modules.parsing.spi.SchedulerTask;
@@ -84,7 +85,11 @@ import org.openide.util.Exceptions;
  *
  * @author Jan Lahoda
  */
-public class EvaluationSpanTask extends ParserResultTask<Result> {
+public class EvaluationSpanTask extends JavaParserResultTask<Result> {
+
+    public EvaluationSpanTask() {
+        super(Phase.RESOLVED);
+    }
 
     @Override
     public void run(Result result, SchedulerEvent event) {
