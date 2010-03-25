@@ -106,7 +106,7 @@ class DeclarativeHintsWorker implements Worker {
             reportErrorWarning(ctx, fix.getOptions());
 
             //XXX: empty/noop fixes should not be realized:
-            editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/, imports));
+            editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), ctx.getConstraints(), imports));
         }
 
 //        if (primarySuppressWarningsKey != null && primarySuppressWarningsKey.length() > 0) {

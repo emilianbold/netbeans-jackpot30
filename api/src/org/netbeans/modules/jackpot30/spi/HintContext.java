@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Map;
 import java.util.prefs.Preferences;
+import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
@@ -66,12 +67,17 @@ public class HintContext {
     private final Map<String, Collection<? extends TreePath>> multiVariables;
     private final Map<String, String> variableNames;
     private final Collection<? super MessageImpl> messages;
+    private final Map<String, TypeMirror> constraints;
 
     public HintContext(CompilationInfo info, HintMetadata metadata, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames) {
         this(info, metadata, path, variables, multiVariables, variableNames, new LinkedList<MessageImpl>());
     }
 
     public HintContext(CompilationInfo info, HintMetadata metadata, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames, Collection<? super MessageImpl> problems) {
+        this(info, metadata, path, variables, multiVariables, variableNames, Collections.<String, TypeMirror>emptyMap(), problems);
+    }
+
+    public HintContext(CompilationInfo info, HintMetadata metadata, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames, Map<String, TypeMirror> constraints, Collection<? super MessageImpl> problems) {
         this.info = info;
         this.preferences = metadata != null ? RulesManager.getInstance().getHintPreferences(metadata) : null;
         this.severity = preferences != null ? RulesManager.getInstance().getHintSeverity(metadata) : HintSeverity.WARNING;
@@ -85,6 +91,7 @@ public class HintContext {
         this.multiVariables = multiVariables;
         this.variableNames = variableNames;
         this.messages = problems;
+        this.constraints = constraints;
     }
 
     public CompilationInfo getInfo() {
@@ -117,6 +124,11 @@ public class HintContext {
 
     public Collection<? extends String> getSuppressWarningsKeys() {
         return suppressWarningsKeys;
+    }
+
+    //TODO: not sure it should be here:
+    public Map<String, TypeMirror> getConstraints() {
+        return constraints;
     }
 
     /**
