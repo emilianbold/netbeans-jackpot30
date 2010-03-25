@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.file;
@@ -262,7 +262,11 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             for (FixTextDescription fix : hint.fixes) {
                 int[] fixRange = fix.fixSpan;
                 String fixDisplayName = resolveDisplayName(file, bundle, fix.displayName, false, null);
-                fixes.add(DeclarativeFix.create(fixDisplayName, spec.substring(fixRange[0], fixRange[1]), fix.conditions, fix.options));
+                Map<String, String> options = new HashMap<String, String>(parsed.options);
+
+                options.putAll(fix.options);
+
+                fixes.add(DeclarativeFix.create(fixDisplayName, spec.substring(fixRange[0], fixRange[1]), fix.conditions, options));
             }
 
             HintMetadata currentMeta = meta;
@@ -286,7 +290,11 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 primarySuppressWarningsKey = w.length > 0 ? w[0] : null;
             }
 
-            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, hint.options, primarySuppressWarningsKey));
+            Map<String, String> options = new HashMap<String, String>(parsed.options);
+
+            options.putAll(hint.options);
+
+            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
             f = f.setMetadata(currentMeta);
 
             Collection<HintDescription> hints = result.get(currentMeta);
