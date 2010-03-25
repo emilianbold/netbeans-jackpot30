@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.spi;
@@ -52,7 +52,6 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.regex.Matcher;
 import com.sun.source.tree.IdentifierTree;
@@ -65,6 +64,7 @@ import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -80,6 +80,9 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.queries.SourceForBinaryQuery;
+import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.TreePathHandle;
@@ -87,22 +90,15 @@ import org.netbeans.api.java.source.TypeMirrorHandle;
 import org.netbeans.api.java.source.WorkingCopy;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
-import org.netbeans.api.project.ProjectManager;
-import org.netbeans.api.project.ProjectUtils;
-//import org.netbeans.modules.apisupport.project.NbModuleProject;
-//import org.netbeans.modules.apisupport.project.ProjectXMLManager;
-//import org.netbeans.modules.apisupport.project.spi.NbModuleProvider;
-//import org.netbeans.modules.apisupport.project.ui.customizer.ModuleDependency;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
 import org.netbeans.modules.jackpot30.impl.pm.Pattern;
 import org.netbeans.spi.editor.hints.ChangeInfo;
 import org.netbeans.spi.editor.hints.Fix;
+import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.modules.SpecificationVersion;
-import org.openide.util.Exceptions;
-import org.openide.util.NbBundle;
+import org.openide.util.Lookup;
 
 /**
  *
@@ -110,21 +106,34 @@ import org.openide.util.NbBundle;
  */
 public abstract class JavaFix {
 
+    public static final String ENSURE_DEPENDENCY = "ensure-dependency";
+
     private final TreePathHandle handle;
+    private final Map<String, String> options;
 
     protected JavaFix(CompilationInfo info, TreePath tp) {
+        this(info, tp, Collections.<String, String>emptyMap());
+    }
+
+    protected JavaFix(CompilationInfo info, TreePath tp, Map<String, String> options) {
         this.handle = TreePathHandle.create(tp, info);
+        this.options = Collections.unmodifiableMap(new HashMap<String, String>(options));
     }
 
     protected JavaFix(TreePathHandle handle) {
+        this(handle, Collections.<String, String>emptyMap());
+    }
+
+    protected JavaFix(TreePathHandle handle, Map<String, String> options) {
         this.handle = handle;
+        this.options = Collections.unmodifiableMap(new HashMap<String, String>(options));
     }
 
     protected abstract String getText();
 
-    protected abstract void performRewrite(WorkingCopy wc, TreePath tp, UpgradeUICallback callback);
+    protected abstract void performRewrite(WorkingCopy wc, TreePath tp, boolean canShowUI);
 
-    final ChangeInfo process(WorkingCopy wc, UpgradeUICallback callback) throws Exception {
+    final ChangeInfo process(WorkingCopy wc, boolean canShowUI) throws Exception {
         TreePath tp = handle.resolve(wc);
 
         if (tp == null) {
@@ -132,7 +141,7 @@ public abstract class JavaFix {
             return null;
         }
 
-        performRewrite(wc, tp, callback);
+        performRewrite(wc, tp, canShowUI);
 
         return null;
     }
@@ -142,6 +151,10 @@ public abstract class JavaFix {
     }
 
     public static Fix rewriteFix(CompilationInfo info, String displayName, TreePath what, final String to, Map<String, TreePath> parameters, Map<String, Collection<? extends TreePath>> parametersMulti, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints, String... imports) {
+        return rewriteFix(info, displayName, what, to, parameters, parametersMulti, parameterNames, constraints, Collections.<String, String>emptyMap(), imports);
+    }
+
+    public static Fix rewriteFix(CompilationInfo info, String displayName, TreePath what, final String to, Map<String, TreePath> parameters, Map<String, Collection<? extends TreePath>> parametersMulti, final Map<String, String> parameterNames, Map<String, TypeMirror> constraints, Map<String, String> options, String... imports) {
         final Map<String, TreePathHandle> params = new HashMap<String, TreePathHandle>();
 
         for (Entry<String, TreePath> e : parameters.entrySet()) {
@@ -170,7 +183,7 @@ public abstract class JavaFix {
             displayName = defaultFixDisplayName(info, parameters, to);
         }
 
-        return toEditorFix(new JavaFixRealImpl(info, what, displayName, to, params, paramsMulti, parameterNames, constraintsHandles, Arrays.asList(imports)));
+        return toEditorFix(new JavaFixRealImpl(info, what, options, displayName, to, params, paramsMulti, parameterNames, constraintsHandles, Arrays.asList(imports)));
     }
 
     private static boolean isFakeBlock(Tree t) {
@@ -243,7 +256,7 @@ public abstract class JavaFix {
         return "Rewrite to " + replaceTarget;
     }
 
-    private static void checkDependency(WorkingCopy copy, Element e, UpgradeUICallback callback) {
+    private static void checkDependency(WorkingCopy copy, Element e, boolean canShowUI) {
         SpecificationVersion sv = computeSpecVersion(copy, e);
 
         while (sv == null && e.getKind() != ElementKind.PACKAGE) {
@@ -267,13 +280,23 @@ public abstract class JavaFix {
             return ;
         }
 
-        Project referedProject = FileOwnerQuery.getOwner(file);
+        FileObject root = findRootForFile(file, copy.getClasspathInfo());
 
-        if (referedProject == null || currentProject.getProjectDirectory().equals(referedProject.getProjectDirectory())) {
+        if (root == null) {
             return ;
         }
 
-        resolveNbModuleDependencies(currentProject, referedProject, sv, callback);
+        Project referedProject = FileOwnerQuery.getOwner(file);
+
+        if (referedProject != null && currentProject.getProjectDirectory().equals(referedProject.getProjectDirectory())) {
+            return ;
+        }
+
+        for (ProjectDependencyUpgrader pdu : Lookup.getDefault().lookupAll(ProjectDependencyUpgrader.class)) {
+            if (pdu.ensureDependency(currentProject, root, sv, canShowUI)) {
+                return ;
+            }
+        }
     }
 
     private static java.util.regex.Pattern SPEC_VERSION = java.util.regex.Pattern.compile("[0-9]+(\\.[0-9]+)+");
@@ -304,73 +327,39 @@ public abstract class JavaFix {
         return new JavaFixImpl(jf);
     }
 
-    private static void resolveNbModuleDependencies(Project currentProject, Project referedProject, SpecificationVersion sv, UpgradeUICallback callback) throws IllegalArgumentException {
-//        NbModuleProvider currentNbModule = currentProject.getLookup().lookup(NbModuleProvider.class);
-//
-//        if (currentNbModule == null) {
-//            return ;
-//        }
-//
-//        NbModuleProvider referedNbModule = referedProject.getLookup().lookup(NbModuleProvider.class);
-//
-//        if (referedNbModule == null) {
-//            return ;
-//        }
-//
-//        try {
-//            NbModuleProject currentNbModuleProject = currentProject.getLookup().lookup(NbModuleProject.class);
-//
-//            if (currentNbModuleProject == null) {
-//                return ;
-//            }
-//
-//            ProjectXMLManager m = new ProjectXMLManager(currentNbModuleProject);
-//            ModuleDependency dep = null;
-//
-//            for (ModuleDependency md : m.getDirectDependencies()) {
-//                if (referedNbModule.getCodeNameBase().equals(md.getModuleEntry().getCodeNameBase())) {
-//                    dep = md;
-//                    break;
-//                }
-//            }
-//
-//            if (dep == null) {
-//                return ;
-//            }
-//
-//            if (dep.getSpecificationVersion() == null) {
-//                return ;
-//            }
-//
-//            SpecificationVersion currentDep = new SpecificationVersion(dep.getSpecificationVersion());
-//
-//            if (currentDep == null || currentDep.compareTo(sv) < 0) {
-//                String upgradeText = NbBundle.getMessage(JavaFix.class,
-//                                                         "LBL_UpdateDependencyQuestion",
-//                                                         new Object[] {
-//                                                            ProjectUtils.getInformation(referedProject).getDisplayName(),
-//                                                            currentDep.toString()
-//                                                         });
-//
-//                if (callback.shouldUpgrade(upgradeText)) {
-//                    ModuleDependency nue = new ModuleDependency(dep.getModuleEntry(),
-//                                                                dep.getReleaseVersion(),
-//                                                                sv.toString(),
-//                                                                dep.hasCompileDependency(),
-//                                                                dep.hasImplementationDepedendency());
-//
-//                    m.editDependency(dep, nue);
-//                    ProjectManager.getDefault().saveProject(currentProject);
-//                }
-//            }
-//        } catch (IOException ex) {
-//            Exceptions.printStackTrace(ex);
-//        }
-    }
-
     @SuppressWarnings("deprecation")
     private static FileObject getFile(WorkingCopy copy, Element e) {
         return SourceUtils.getFile(e, copy.getClasspathInfo());
+    }
+
+    private static FileObject findRootForFile(final FileObject file, final ClasspathInfo cpInfo) {
+        ClassPath cp = ClassPathSupport.createProxyClassPath(
+            new ClassPath[] {
+                cpInfo.getClassPath(ClasspathInfo.PathKind.SOURCE),
+                cpInfo.getClassPath(ClasspathInfo.PathKind.BOOT),
+                cpInfo.getClassPath(ClasspathInfo.PathKind.COMPILE),
+            });
+
+        FileObject root = cp.findOwnerRoot(file);
+
+        if (root != null) {
+            return root;
+        }
+
+        for (ClassPath.Entry e : cp.entries()) {
+            FileObject[] sourceRoots = SourceForBinaryQuery.findSourceRoots(e.getURL()).getRoots();
+
+            if (sourceRoots.length == 0) continue;
+
+            ClassPath sourcePath = ClassPathSupport.createClassPath(sourceRoots);
+
+            root = sourcePath.findOwnerRoot(file);
+
+            if (root != null) {
+                return root;
+            }
+        }
+        return null;
     }
 
     private static boolean isStaticElement(Element el) {
@@ -392,10 +381,6 @@ public abstract class JavaFix {
         return false;
     }
 
-    public interface UpgradeUICallback {
-        public boolean shouldUpgrade(String comment);
-    }
-
     private static class JavaFixRealImpl extends JavaFix {
         private final String displayName;
         private final Map<String, TreePathHandle> params;
@@ -405,8 +390,8 @@ public abstract class JavaFix {
         private final Iterable<? extends String> imports;
         private final String to;
 
-        public JavaFixRealImpl(CompilationInfo info, TreePath what, String displayName, String to, Map<String, TreePathHandle> params, Map<String, Collection<TreePathHandle>> paramsMulti, final Map<String, String> parameterNames, Map<String, TypeMirrorHandle<?>> constraintsHandles, Iterable<? extends String> imports) {
-            super(info, what);
+        public JavaFixRealImpl(CompilationInfo info, TreePath what, Map<String, String> options, String displayName, String to, Map<String, TreePathHandle> params, Map<String, Collection<TreePathHandle>> paramsMulti, final Map<String, String> parameterNames, Map<String, TypeMirrorHandle<?>> constraintsHandles, Iterable<? extends String> imports) {
+            super(info, what, options);
             
             this.displayName = displayName;
             this.to = to;
@@ -423,7 +408,7 @@ public abstract class JavaFix {
         }
 
         @Override
-        protected void performRewrite(final WorkingCopy wc, TreePath tp, final UpgradeUICallback callback) {
+        protected void performRewrite(final WorkingCopy wc, TreePath tp, final boolean canShowUI) {
             final Map<String, TreePath> parameters = new HashMap<String, TreePath>();
 
             for (Entry<String, TreePathHandle> e : params.entrySet()) {
@@ -520,7 +505,7 @@ public abstract class JavaFix {
                 }
             }
 
-            new ReplaceParameters(wc, callback, parameters, parametersMulti, parameterNames).scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
+            new ReplaceParameters(wc, canShowUI, parameters, parametersMulti, parameterNames).scan(new TreePath(new TreePath(tp.getCompilationUnit()), parsed), null);
         }
     }
 
@@ -529,15 +514,15 @@ public abstract class JavaFix {
     private static class ReplaceParameters extends TreePathScanner<Number, Void> {
 
         private final WorkingCopy wc;
-        private final UpgradeUICallback callback;
+        private final boolean canShowUI;
         private final Map<String, TreePath> parameters;
         private final Map<String, Collection<TreePath>> parametersMulti;
         private final Map<String, String> parameterNames;
 
-        public ReplaceParameters(WorkingCopy wc, UpgradeUICallback callback, Map<String, TreePath> parameters, Map<String, Collection<TreePath>> parametersMulti, Map<String, String> parameterNames) {
+        public ReplaceParameters(WorkingCopy wc, boolean canShowUI, Map<String, TreePath> parameters, Map<String, Collection<TreePath>> parametersMulti, Map<String, String> parameterNames) {
             this.parameters = parameters;
             this.wc = wc;
-            this.callback = callback;
+            this.canShowUI = canShowUI;
             this.parametersMulti = parametersMulti;
             this.parameterNames = parameterNames;
         }
@@ -600,7 +585,7 @@ public abstract class JavaFix {
             }
 
             //check correct dependency:
-            checkDependency(wc, e, callback);
+            checkDependency(wc, e, canShowUI);
 
             if (isStaticElement(e)) {
                 wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
@@ -908,12 +893,16 @@ public abstract class JavaFix {
                 return jf.getText();
             }
             @Override
-            public ChangeInfo process(JavaFix jf, WorkingCopy wc, UpgradeUICallback callback) throws Exception {
-                return jf.process(wc, callback);
+            public ChangeInfo process(JavaFix jf, WorkingCopy wc, boolean canShowUI) throws Exception {
+                return jf.process(wc, canShowUI);
             }
             @Override
             public FileObject getFile(JavaFix jf) {
                 return jf.getFile();
+            }
+            @Override
+            public Map<String, String> getOptions(JavaFix jf) {
+                return jf.options;
             }
         };
     }

@@ -187,11 +187,11 @@ public class JavaHintsHintProvider implements HintProvider {
         }
 
         @Override
-        protected void performRewrite(WorkingCopy wc, TreePath tp, final UpgradeUICallback callback) {
+        protected void performRewrite(WorkingCopy wc, TreePath tp, final boolean canShowUI) {
             try {
                 org.netbeans.modules.java.hints.jackpot.impl.JavaFixImpl.Accessor.INSTANCE.process(orig, wc, new org.netbeans.modules.java.hints.jackpot.spi.JavaFix.UpgradeUICallback() {
                     public boolean shouldUpgrade(String comment) {
-                        return callback.shouldUpgrade(comment);
+                        return canShowUI ? shouldUpgrade(comment) : true;
                     }
                 });
             } catch (Exception ex) {

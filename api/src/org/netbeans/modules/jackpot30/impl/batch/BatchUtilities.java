@@ -246,11 +246,7 @@ public class BatchUtilities {
                     for (JavaFix f : toProcess.get(wc.getFileObject())) {
                         if (cancel.get()) return ;
                         
-                        JavaFixImpl.Accessor.INSTANCE.process(f, wc, new JavaFix.UpgradeUICallback() {
-                            public boolean shouldUpgrade(String comment) {
-                                return true;
-                            }
-                        });
+                        JavaFixImpl.Accessor.INSTANCE.process(f, wc, false);
                     }
 
                     if (handle != null) {

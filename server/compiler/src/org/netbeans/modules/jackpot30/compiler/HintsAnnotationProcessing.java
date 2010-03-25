@@ -272,12 +272,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                         JavaFixImpl jfi = (JavaFixImpl) f;
 
                         try {
-                            JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, new JavaFix.UpgradeUICallback() {
-
-                                public boolean shouldUpgrade(String comment) {
-                                    return true;
-                                }
-                            });
+                            JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, false);
                         } catch (Exception ex) {
                             Exceptions.printStackTrace(ex);
                         } finally {
