@@ -788,6 +788,13 @@ public class CopyFinderTest extends NbTestCase {
     
     protected CompilationInfo info;
     private Document doc;
+
+    protected Map<String, Collection<TreePath>> performBulkSearch(String pattern) {
+        BulkPattern bulkPattern = BulkSearch.getDefault().create(info, pattern);
+        Map<String, Collection<TreePath>> bulkSearchResult = BulkSearch.getDefault().match(info, new TreePath(info.getCompilationUnit()), bulkPattern);
+        
+        return bulkSearchResult;
+    }
     
     private void performTest(String code) throws Exception {
         performTest(code, true);
@@ -881,10 +888,9 @@ public class CopyFinderTest extends NbTestCase {
 
         if (useBulkSearch) {
             result = new HashMap<TreePath, VariableAssignments>();
+            Map<String, Collection<TreePath>> bulkSearchResult = performBulkSearch(patternObj.getPatternCode());
 
-            BulkPattern bulkPattern = BulkSearch.getDefault().create(info, pattern);
-
-            for (Entry<String, Collection<TreePath>> e : BulkSearch.getDefault().match(info, new TreePath(info.getCompilationUnit()), bulkPattern).entrySet()) {
+            for (Entry<String, Collection<TreePath>> e : bulkSearchResult.entrySet()) {
                 for (TreePath tp : e.getValue()) {
                     VariableAssignments vars = computeVariables(info, patternPath, tp, new AtomicBoolean(), patternObj.getConstraints());
 

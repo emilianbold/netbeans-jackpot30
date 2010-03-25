@@ -47,6 +47,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.java.hints.introduce.CopyFinder.VariableAssignments;
 
 /**
@@ -78,6 +79,14 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
     @Override
     protected Collection<TreePath> computeDuplicates(TreePath path) {
         return CopyFinder.computeDuplicates(info, path, new TreePath(info.getCompilationUnit()), new AtomicBoolean(), null).keySet();
+    }
+
+    @Override
+    protected Map<String, Collection<TreePath>> performBulkSearch(String pattern) {
+        BulkPattern bulkPattern = BulkSearch.getDefault().create(info, pattern);
+        Map<String, Collection<TreePath>> bulkSearchResult = BulkSearch.getDefault().match(info, new TreePath(info.getCompilationUnit()), bulkPattern);
+
+        return bulkSearchResult;
     }
 
     private static VariableAssignments convert(CopyFinder.VariableAssignments va) {
