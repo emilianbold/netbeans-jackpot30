@@ -1034,7 +1034,11 @@ public class Utilities {
     public static boolean isJavadocSupported(CompilationInfo info) {
         Context c = JavaSourceAccessor.getINSTANCE().getJavacTask(info).getContext();
 
+        try {
         return c.get(Log.logKey) instanceof Messager;
+        } catch (NoClassDefFoundError e) {
+            return false;
+        }
     }
 
     private static class JackpotJavacParser extends EndPosParser {

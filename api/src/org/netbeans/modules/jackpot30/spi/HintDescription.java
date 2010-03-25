@@ -97,7 +97,7 @@ public final class HintDescription {
 
     @Override
     public String toString() {
-        return "[HintDescription:" + getTriggerPattern().getPattern()+ "]";
+        return "[HintDescription:" + getTriggerPattern() + "/" + getTriggerKind() + "]";
     }
 
     public static final class PatternDescription {
@@ -160,6 +160,12 @@ public final class HintDescription {
         public Iterable<? extends String> getImports() {
             return imports;
         }
+
+        @Override
+        public String toString() {
+            return pattern;
+        }
+
     }
 
     public static interface Worker {

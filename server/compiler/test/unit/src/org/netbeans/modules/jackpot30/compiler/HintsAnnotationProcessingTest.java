@@ -177,15 +177,19 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
 
         sourceOutput.mkdirs();
 
-        assertEquals(0, Main.compile(new String[] {source.getAbsolutePath(), "-sourcepath", source.getParentFile().getParentFile().getAbsolutePath(), "-s", sourceOutput.getAbsolutePath(), "-source", "1.5",
-        "-Xjcov" //XXX
-        }));
+        reallyRunCompiler(source, source.getParentFile().getParentFile(), sourceOutput);
 
         File diff = new File(sourceOutput, "META-INF/upgrade/upgrade.diff");
         String diffText = readFully(diff);
 
         goldenDiff = goldenDiff != null ? goldenDiff.replace("{0}", wd.getAbsolutePath()) : null;
         assertEquals(goldenDiff, diffText);
+    }
+
+    protected void reallyRunCompiler(File source, File sourcePath, File sourceOutput) throws Exception {
+        assertEquals(0, Main.compile(new String[] {source.getAbsolutePath(), "-sourcepath", sourcePath.getAbsolutePath(), "-s", sourceOutput.getAbsolutePath(), "-source", "1.5",
+        "-Xjcov" //XXX
+        }));
     }
 
     private void createAndFill(String path, String content) throws IOException {

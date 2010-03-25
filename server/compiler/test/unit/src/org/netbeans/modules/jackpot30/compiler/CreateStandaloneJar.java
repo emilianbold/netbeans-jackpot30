@@ -43,6 +43,7 @@ import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -63,6 +64,8 @@ import org.netbeans.modules.classfile.ClassName;
 import org.netbeans.modules.jackpot30.java.hints.JavaHintsHintProvider;
 import org.netbeans.modules.java.hints.jackpot.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.jackpot.code.FSWrapper;
+import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
+import org.openide.util.NbPreferences.Provider;
 
 /**
  *
@@ -76,7 +79,12 @@ public class CreateStandaloneJar extends NbTestCase {
 
     public void testDumpImportantHack() throws Exception {
         String targetDir = System.getProperty("outputDir", System.getProperty("java.io.tmpdir"));
-        JarOutputStream out = new JarOutputStream(new FileOutputStream(new File(targetDir, "compiler.jar")));
+
+        createCompiler(new File(targetDir, "compiler.jar"), new File(targetDir, "hints"));
+    }
+
+    public static void createCompiler(File targetCompilerFile, File targetHintsFile) throws Exception {
+        JarOutputStream out = new JarOutputStream(new FileOutputStream(targetCompilerFile));
         List<String> toProcess = new LinkedList<String>(INCLUDE);
 
         for (FSWrapper.ClassWrapper cw : FSWrapper.listClasses()) {
@@ -108,6 +116,7 @@ public class CreateStandaloneJar extends NbTestCase {
 
             if (    clazz.getProtectionDomain().getCodeSource() == null
                 && !clazz.getName().startsWith("com.sun.source")
+                && !clazz.getName().startsWith("com.sun.javadoc")
                 && !clazz.getName().startsWith("javax.tools")
                 && !clazz.getName().startsWith("javax.annotation.processing")
                 && !clazz.getName().startsWith("javax.lang.model")) {
@@ -170,17 +179,19 @@ public class CreateStandaloneJar extends NbTestCase {
         addMETA_INFRegistration(out, "java.lang.SecurityManager", "org.netbeans.modules.masterfs.filebasedfs.utils.FileChangedManager");
         addMETA_INFRegistration(out, "org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation", HintsAnnotationProcessing.EmptySourceForBinaryQueryImpl.class.getName(), 0);
         addMETA_INFRegistration(out, "org.netbeans.modules.java.hints.jackpot.impl.Utilities$SPI", UtilitiesSPIImpl.class.getName());
+        addMETA_INFRegistration(out, Provider.class.getName(), HintsAnnotationProcessing.PreferencesProvider.class.getName());
+        addMETA_INFRegistration(out, MimeDataProvider.class.getName(), HintsAnnotationProcessing.StandaloneMimeDataProviderImpl.class.getName());
 
         out.close();
 
-        Writer hints = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(new File(targetDir, "hints")), "UTF-8"));
+        Writer hints = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(targetHintsFile), "UTF-8"));
 
         hints.write(DumpHints.dumpHints());
 
         hints.close();
     }
 
-    private void copyResources(JarOutputStream out, Set<String> res) throws IOException {
+    private static void copyResources(JarOutputStream out, Set<String> res) throws IOException {
         for (String resource : res) {
             URL url = HintsAnnotationProcessingTest.class.getClassLoader().getResource(resource);
 
@@ -193,7 +204,7 @@ public class CreateStandaloneJar extends NbTestCase {
         }
     }
 
-    private byte[] readFile(URL url) throws IOException {
+    private static byte[] readFile(URL url) throws IOException {
         InputStream ins = url.openStream();
         ByteArrayOutputStream data = new ByteArrayOutputStream();
 
@@ -211,11 +222,11 @@ public class CreateStandaloneJar extends NbTestCase {
         return data.toByteArray();
     }
 
-    private void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName) throws IOException {
+    private static void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName) throws IOException {
         addMETA_INFRegistration(out, apiClassName, implClassName, null);
     }
 
-    private void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName, Integer pos) throws IOException {
+    private static void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName, Integer pos) throws IOException {
         out.putNextEntry(new ZipEntry("META-INF/services/" + apiClassName));
         if (pos != null) {
             out.write(("#position=" + pos.toString() + "\n").getBytes("UTF-8"));
@@ -227,6 +238,8 @@ public class CreateStandaloneJar extends NbTestCase {
     private static final Set<String> INCLUDE = new HashSet<String>(Arrays.asList(
             HintsAnnotationProcessing.class.getName().replace('.', '/'),
             HintsAnnotationProcessing.EmptySourceForBinaryQueryImpl.class.getName().replace('.', '/'),
+            HintsAnnotationProcessing.PreferencesProvider.class.getName().replace('.', '/'),
+            HintsAnnotationProcessing.StandaloneMimeDataProviderImpl.class.getName().replace('.', '/'),
             CodeHintProviderImpl.class.getName().replace('.', '/'),
             JavaHintsHintProvider.class.getName().replace('.', '/'),
             DumpHints.class.getName().replace('.', '/'),
@@ -239,7 +252,7 @@ public class CreateStandaloneJar extends NbTestCase {
             "org/netbeans/core/NbLoaderPool",
             "org/netbeans/core/startup/preferences/PreferencesProviderImpl",
             "org/netbeans/modules/java/platform/DefaultJavaPlatformProvider",
-
+            
             "com/sun/tools/javac/resources/compiler",
             "com/sun/tools/javac/resources/javac"
 
