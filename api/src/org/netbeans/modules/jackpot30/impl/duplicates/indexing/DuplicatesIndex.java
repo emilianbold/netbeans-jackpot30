@@ -136,7 +136,7 @@ public class DuplicatesIndex {
                         if (tree == null) return null;
                         if (getCurrentPath() != null) {
                             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            final EncodingContext ec = new BulkSearch.EncodingContext(baos);
+                            final EncodingContext ec = new BulkSearch.EncodingContext(baos, true);
                             Tree generalizedPattern = Utilities.generalizePattern(task, new TreePath(getCurrentPath(), tree));
                             long value = Utilities.patternValue(generalizedPattern);
                             if (value >= MINIMAL_VALUE) {

@@ -342,6 +342,60 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testCheckIdentifiers1() throws Exception {
+        String code = "package test;\n" +
+                      "import static java.util.Arrays.*;\n" +
+                      "public class Test {" +
+                      "     {\n" +
+                      "          toString(new int[] {0, 3, 4});\n" +
+                      "     }\n" +
+                      "}\n";
+
+        performTest(code,
+                    Collections.singletonMap("java.util.Arrays.toString($x)", Arrays.asList("toString(new int[] {0, 3, 4})")),
+                    Collections.<String>emptyList());
+    }
+
+    public void testCheckIdentifiers2() throws Exception {
+        String code = "package test;\n" +
+                      "public class Test {" +
+                      "     {\n" +
+                      "          toString(new int[] {0, 3, 4});\n" +
+                      "     }\n" +
+                      "}\n";
+
+        performTest(code,
+                    Collections.<String, List<String>>emptyMap(),
+                    Collections.singletonList("java.util.Arrays.toString($x)"));
+    }
+
+    public void testCheckIdentifiers3() throws Exception {
+        String code = "package test;\n" +
+                      "import static java.util.Arrays.*;\n" +
+                      "public class Test {" +
+                      "     {\n" +
+                      "          Foo.toString(new int[] {0, 3, 4});\n" +
+                      "     }\n" +
+                      "}\n";
+
+        performTest(code,
+                    Collections.<String, List<String>>emptyMap(),
+                    Collections.singletonList("java.util.Arrays.toString($x)"));
+    }
+
+    public void testCheckIdentifiers4() throws Exception {
+        String code = "package test;\n" +
+                      "public class Test {" +
+                      "     {\n" +
+                      "          java.util.Arrays.toString(new int[] {0, 3, 4});\n" +
+                      "     }\n" +
+                      "}\n";
+
+        performTest(code,
+                    Collections.singletonMap("Arrays", Arrays.asList("java.util.Arrays")), //could be imported in the input pattern
+                    Collections.<String>emptyList());
+    }
+
     private long measure(String baseCode, String toInsert, int repetitions, String pattern) throws Exception {
         int pos = baseCode.indexOf('|');
 
@@ -391,7 +445,7 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
         prepareTest("test/Test.java", text);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        EncodingContext ec = new EncodingContext(out);
+        EncodingContext ec = new EncodingContext(out, false);
 
         createSearch().encode(info.getCompilationUnit(), ec);
         
@@ -472,7 +526,8 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
             return ;
         
         //ensure the returned identifiers/treeKinds are correct:
-        EncodingContext ec = new EncodingContext(new ByteArrayOutputStream());
+        ByteArrayOutputStream data = new ByteArrayOutputStream();
+        EncodingContext ec = new EncodingContext(data, false);
         
         createSearch().encode(info.getCompilationUnit(), ec);
 
@@ -480,6 +535,9 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
             assertTrue("expected: " + p.getIdentifiers().get(i) + ", but exist only: " + ec.getIdentifiers(), ec.getIdentifiers().containsAll(p.getIdentifiers().get(i)));
             assertTrue("expected: " + p.getKinds().get(i) + ", but exist only: " + ec.getKinds(), ec.getKinds().containsAll(p.getKinds().get(i)));
         }
+
+        data.close();
+        assertEquals(!containedPatterns.isEmpty(), createSearch().matches(new ByteArrayInputStream(data.toByteArray()), p));
     }
     
     private void prepareTest(String fileName, String code) throws Exception {

@@ -79,4 +79,19 @@ public class REBasedBulkSearchTest extends BulkSearchTestPerformer {
         //XXX
     }
 
+    @Override
+    public void testCheckIdentifiers2() throws Exception {
+        //XXX
+    }
+
+    @Override
+    public void testCheckIdentifiers3() throws Exception {
+        //XXX
+    }
+
+    @Override
+    public void testCheckIdentifiers4() throws Exception {
+        //XXX
+    }
+
 }

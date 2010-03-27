@@ -239,7 +239,7 @@ public class Index {
 
                 out = new FileOutputStream(cacheFile);
 
-                ec = new EncodingContext(out);
+                ec = new EncodingContext(out, false);
 
                 BulkSearch.getDefault().encode(cut, ec);
 

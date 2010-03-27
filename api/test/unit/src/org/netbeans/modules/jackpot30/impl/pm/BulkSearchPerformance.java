@@ -204,7 +204,7 @@ public class BulkSearchPerformance extends NbTestCase {
                     return;
 
                 ByteArrayOutputStream out = new ByteArrayOutputStream();
-                EncodingContext ec = new EncodingContext(out);
+                EncodingContext ec = new EncodingContext(out, false);
                 search.encode(parameter.getCompilationUnit(), ec);
 
                 index.add(out.toByteArray());

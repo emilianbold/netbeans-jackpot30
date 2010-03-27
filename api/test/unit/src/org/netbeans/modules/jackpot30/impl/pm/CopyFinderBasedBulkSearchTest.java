@@ -74,4 +74,18 @@ public class CopyFinderBasedBulkSearchTest extends BulkSearchTestPerformer {
         //XXX
     }
 
+    @Override
+    public void testCheckIdentifiers2() throws Exception {
+        //not critical, only improves performance on vast amounts of sources,
+        //and NFA based search is used in such case anyway.
+        //XXX
+    }
+
+    @Override
+    public void testCheckIdentifiers3() throws Exception {
+        //not critical, only improves performance on vast amounts of sources,
+        //and NFA based search is used in such case anyway.
+        //XXX
+    }
+
 }

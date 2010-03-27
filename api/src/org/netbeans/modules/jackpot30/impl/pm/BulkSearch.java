@@ -126,11 +126,13 @@ public abstract class BulkSearch {
     public static final class EncodingContext {
 
         private final OutputStream out;
+        private final boolean forDuplicates;
         private Set<? extends String> identifiers;
         private Set<? extends String> kinds;
 
-        public EncodingContext(OutputStream out) {
+        public EncodingContext(OutputStream out, boolean forDuplicates) {
             this.out = out;
+            this.forDuplicates = forDuplicates;
         }
 
         public Set<? extends String> getIdentifiers() {
@@ -143,6 +145,10 @@ public abstract class BulkSearch {
 
         public OutputStream getOut() {
             return out;
+        }
+
+        public boolean isForDuplicates() {
+            return forDuplicates;
         }
 
         public void setIdentifiers(Set<? extends String> identifiers) {
