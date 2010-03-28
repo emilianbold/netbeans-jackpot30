@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
@@ -213,7 +214,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
         TokenHierarchy<?> h = TokenHierarchy.create(spec, DeclarativeHintTokenId.language());
         TokenSequence<DeclarativeHintTokenId> ts = h.tokenSequence(DeclarativeHintTokenId.language());
-        Map<HintMetadata, Collection<HintDescription>> result = new HashMap<HintMetadata, Collection<HintDescription>>();
+        Map<HintMetadata, Collection<HintDescription>> result = new LinkedHashMap<HintMetadata, Collection<HintDescription>>();
         Result parsed = new DeclarativeHintsParser().parse(file, spec, ts);
 
         HintMetadata meta;
@@ -308,7 +309,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             count++;
         }
 
-        return new HashMap<HintMetadata, Collection<? extends HintDescription>>(result);
+        return new LinkedHashMap<HintMetadata, Collection<? extends HintDescription>>(result);
     }
 
     private static String[] suppressWarnings(Map<String, String> options) {

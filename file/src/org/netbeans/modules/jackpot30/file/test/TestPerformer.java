@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.file.test;
 
+import java.util.Map.Entry;
 import org.netbeans.modules.jackpot30.file.*;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -47,10 +48,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.CompilationController;
@@ -135,8 +138,16 @@ public class TestPerformer {
                 public void run(CompilationController parameter) throws Exception {
                     parameter.toPhase(Phase.RESOLVED);
 
-                    for (List<ErrorDescription> v : HintsRunner.computeErrors(parameter, hints, cancel).values()) {
-                        errors.addAll(v);
+                    Map<HintDescription, List<ErrorDescription>> sortedByHintDescription = new TreeMap<HintDescription, List<ErrorDescription>>(new Comparator<HintDescription>() {
+                        public int compare(HintDescription o1, HintDescription o2) {
+                            return hints.indexOf(o1) - hints.indexOf(o2);
+                        }
+                    });
+
+                    sortedByHintDescription.putAll(HintsRunner.computeErrors(parameter, hints, cancel));
+
+                    for (Entry<HintDescription, List<ErrorDescription>> e : sortedByHintDescription.entrySet()) {
+                        errors.addAll(e.getValue());
                     }
                 }
             }, true);

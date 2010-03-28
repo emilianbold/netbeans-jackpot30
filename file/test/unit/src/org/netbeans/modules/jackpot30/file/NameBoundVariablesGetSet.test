@@ -7,12 +7,12 @@ public class Test {
 %%=>
 package test;
 public class Test {
-    int l;
-    {System.err.println(ll);}
+    int ll;
+    {System.err.println(l);}
 }
 %%=>
 package test;
 public class Test {
-    int ll;
-    {System.err.println(l);}
+    int l;
+    {System.err.println(ll);}
 }
