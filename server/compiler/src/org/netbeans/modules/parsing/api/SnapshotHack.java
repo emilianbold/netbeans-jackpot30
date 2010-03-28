@@ -48,7 +48,7 @@ import org.netbeans.api.editor.mimelookup.MimePath;
 public class SnapshotHack {
 
     public static Snapshot create(String text) {
-        return new Snapshot(text, null, MimePath.get("text/x-java"), new int[][] {new int[] {0, 0}}, new int[][] {new int[] {0, 0}});
+        return new Snapshot(text, new int[0], null, MimePath.get("text/x-java"), new int[][] {new int[] {0, 0}}, new int[][] {new int[] {0, 0}});
     }
 
 }
