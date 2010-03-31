@@ -47,15 +47,18 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.swing.text.AttributeSet;
 import javax.swing.text.Document;
 import javax.swing.text.StyleConstants;
 import org.netbeans.api.editor.settings.AttributesUtilities;
+import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -188,8 +191,8 @@ public class EvaluationSpanTask extends JavaParserResultTask<Result> {
 
         int t = Math.min(selectionStart, selectionEnd);
 
-        selectionEnd = Math.max(selectionStart, selectionEnd);
-        selectionStart = t;
+        selectionEnd = skipWhitespaces(info, Math.max(selectionStart, selectionEnd), false);
+        selectionStart = skipWhitespaces(info, t, true);
 
         TreePath tp = validateSelection(info, selectionStart, selectionEnd);
 
@@ -245,7 +248,29 @@ public class EvaluationSpanTask extends JavaParserResultTask<Result> {
 
     private static final AttributeSet PASSED = AttributesUtilities.createImmutable(StyleConstants.Background, Color.GREEN);
     private static final AttributeSet FAILED = AttributesUtilities.createImmutable(StyleConstants.Background, Color.RED);
+    private static final Set<JavaTokenId> WHITESPACES = EnumSet.of(JavaTokenId.BLOCK_COMMENT, JavaTokenId.JAVADOC_COMMENT, JavaTokenId.LINE_COMMENT, JavaTokenId.WHITESPACE);
 
+    private static int skipWhitespaces(CompilationInfo info, int pos, boolean forward) {
+        TokenSequence<JavaTokenId> ts = info.getTokenHierarchy().tokenSequence(JavaTokenId.language());
+
+        ts.move(pos);
+
+        boolean moveSucceeded = false;
+        
+        while (forward ? ts.moveNext() : ts.movePrevious()) {
+            moveSucceeded = true;
+            if (!WHITESPACES.contains(ts.token().id())) {
+                break;
+            }
+        }
+
+        if (moveSucceeded) {
+            return forward ? ts.offset() : ts.offset() + ts.token().length();
+        } else {
+            return pos;
+        }
+    }
+    
     private static TreePath validateSelection(CompilationInfo ci, int start, int end) {
         TreePath tp = ci.getTreeUtilities().pathFor((start + end) / 2 + 1);
 

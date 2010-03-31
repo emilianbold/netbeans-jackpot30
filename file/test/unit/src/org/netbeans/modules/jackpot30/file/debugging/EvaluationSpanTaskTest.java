@@ -84,11 +84,11 @@ public class EvaluationSpanTaskTest extends NbTestCase {
         performTest("package test;\n" +
                     "public class Test {\n" +
                     "    private final Object oo;\n" +
-                    "    public void test() {\n" +
-                    "        |synchronized(oo) {\n" +
+                    "    public void test() {|/*bar*/\n" +
+                    "        synchronized(oo) {\n" +
                     "            System.err.println(1);\n" +
-                    "        }|\n" +
-                    "    }\n" +
+                    "        }//foo\n" +
+                    "    |}\n" +
                     "}\n",
                     "|synchronized ($var) {\n" +
                     "     $stmts$;\n" +
