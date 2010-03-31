@@ -68,7 +68,7 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
     private final FindDuplicatesRefactoring refactoring;
 
     public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope) {
-        this(pattern, scope, false);
+        this(pattern, scope, true);
     }
     
     public FindDuplicatesRefactoringUI(@NullAllowed String pattern, Scope scope, boolean verify) {
