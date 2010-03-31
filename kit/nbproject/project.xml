@@ -11,31 +11,31 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <specification-version>1.10</specification-version>
+                        <specification-version>1.11</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
                     <code-name-base>org.netbeans.modules.jackpot30.file</code-name-base>
                     <run-dependency>
-                        <specification-version>1.10</specification-version>
+                        <specification-version>1.11</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
                     <code-name-base>org.netbeans.modules.jackpot30.hintsimpl</code-name-base>
                     <run-dependency>
-                        <specification-version>1.10</specification-version>
+                        <specification-version>1.11</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
                     <code-name-base>org.netbeans.modules.jackpot30.test.borrowed</code-name-base>
                     <run-dependency>
-                        <specification-version>1.10</specification-version>
+                        <specification-version>1.11</specification-version>
                     </run-dependency>
                 </dependency>
                 <dependency>
                     <code-name-base>org.netbeans.modules.jackpot30.transformers</code-name-base>
                     <run-dependency>
-                        <specification-version>1.10</specification-version>
+                        <specification-version>1.11</specification-version>
                     </run-dependency>
                 </dependency>
             </module-dependencies>
