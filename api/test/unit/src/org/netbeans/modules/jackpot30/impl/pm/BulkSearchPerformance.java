@@ -78,35 +78,26 @@ public class BulkSearchPerformance extends NbTestCase {
 
         for (int c = 0; c < 5; c++) {
             performPerformanceTest(files, new NFABasedBulkSearch(), patterns);
-            performPerformanceTest(files, new REBasedBulkSearch(), patterns);
             performPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
         }
 
         performPerformanceTest(files, new NFABasedBulkSearch(), patterns);
         long nfa1 = performPerformanceTest(files, new NFABasedBulkSearch(), patterns);
-        performPerformanceTest(files, new REBasedBulkSearch(), patterns);
-        long regexp1 = performPerformanceTest(files, new REBasedBulkSearch(), patterns);
         performPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
         long cf1 = performPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
 
-        performPerformanceTest(files, new REBasedBulkSearch(), patterns);
-        long regexp2 = performPerformanceTest(files, new REBasedBulkSearch(), patterns);
         performPerformanceTest(files, new NFABasedBulkSearch(), patterns);
         long nfa2 = performPerformanceTest(files, new NFABasedBulkSearch(), patterns);
         performPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
         long cf2 = performPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
 
-        System.err.println("regexp1=" + regexp1);
         System.err.println("nfa1=" + nfa1);
         System.err.println("cf1=" + cf1);
-        System.err.println("regexp2=" + regexp2);
         System.err.println("nfa2=" + nfa2);
         System.err.println("cf2=" + cf2);
 
-        System.err.println("perf (nfa1/regexp1): " + ((1000 * nfa1 / regexp1) /10.0) + "%");
-        System.err.println("perf (nfa2/regexp2): " + ((1000 * nfa2 / regexp2) /10.0) + "%");
-        System.err.println("perf (cf1/regexp1): " + ((1000 * cf1 / regexp1) /10.0) + "%");
-        System.err.println("perf (cf2/regexp2): " + ((1000 * cf2 / regexp2) /10.0) + "%");
+        System.err.println("perf (cf1/nfa1): " + ((1000 * cf1 / nfa1) /10.0) + "%");
+        System.err.println("perf (cf2/nfa2): " + ((1000 * cf2 / nfa2) /10.0) + "%");
     }
 
     public void testIndexingPerformance() throws Exception {
@@ -120,39 +111,30 @@ public class BulkSearchPerformance extends NbTestCase {
 
         for (int c = 0; c < 5; c++) {
             performIndexingPerformanceTest(files, new NFABasedBulkSearch(), patterns);
-            performIndexingPerformanceTest(files, new REBasedBulkSearch(), patterns);
 //            performIndexingPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
         }
 
         performIndexingPerformanceTest(files, new NFABasedBulkSearch(), patterns);
         long[] nfa1 = performIndexingPerformanceTest(files, new NFABasedBulkSearch(), patterns);
-        performIndexingPerformanceTest(files, new REBasedBulkSearch(), patterns);
-        long[] regexp1 = performIndexingPerformanceTest(files, new REBasedBulkSearch(), patterns);
 //        performIndexingPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
 //        long cf1 = performIndexingPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
 
-        performIndexingPerformanceTest(files, new REBasedBulkSearch(), patterns);
-        long[] regexp2 = performIndexingPerformanceTest(files, new REBasedBulkSearch(), patterns);
         performIndexingPerformanceTest(files, new NFABasedBulkSearch(), patterns);
         long[] nfa2 = performIndexingPerformanceTest(files, new NFABasedBulkSearch(), patterns);
 //        performIndexingPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
 //        long cf2 = performIndexingPerformanceTest(files, new CopyFinderBasedBulkSearch(), patterns);
 
-        System.err.println("i.regexp1=" + regexp1[0]);
         System.err.println("i.nfa1=" + nfa1[0]);
-        System.err.println("m.regexp1=" + regexp1[1]);
         System.err.println("m.nfa1=" + nfa1[1]);
 //        System.err.println("cf1=" + cf1);
-        System.err.println("i.regexp2=" + regexp2[0]);
         System.err.println("i.nfa2=" + nfa2[0]);
-        System.err.println("m.regexp2=" + regexp2[1]);
         System.err.println("m.nfa2=" + nfa2[1]);
 //        System.err.println("cf2=" + cf2);
 
-        System.err.println("perf i.(nfa1/regexp1): " + ((1000 * nfa1[0] / regexp1[0]) /10.0) + "%");
-        System.err.println("perf m.(nfa1/regexp1): " + ((1000 * nfa1[1] / regexp1[1]) /10.0) + "%");
-        System.err.println("perf i.(nfa2/regexp2): " + ((1000 * nfa2[0] / regexp2[0]) /10.0) + "%");
-        System.err.println("perf m.(nfa2/regexp2): " + ((1000 * nfa2[1] / regexp2[1]) /10.0) + "%");
+//        System.err.println("perf i.(nfa1/regexp1): " + ((1000 * nfa1[0] / regexp1[0]) /10.0) + "%");
+//        System.err.println("perf m.(nfa1/regexp1): " + ((1000 * nfa1[1] / regexp1[1]) /10.0) + "%");
+//        System.err.println("perf i.(nfa2/regexp2): " + ((1000 * nfa2[0] / regexp2[0]) /10.0) + "%");
+//        System.err.println("perf m.(nfa2/regexp2): " + ((1000 * nfa2[1] / regexp2[1]) /10.0) + "%");
 //        System.err.println("perf (cf1/regexp1): " + ((1000 * cf1 / regexp1) /10.0) + "%");
 //        System.err.println("perf (cf2/regexp2): " + ((1000 * cf2 / regexp2) /10.0) + "%");
     }
