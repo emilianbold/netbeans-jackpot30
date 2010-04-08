@@ -85,7 +85,7 @@ public class ScriptGenerator {
         int count = 1;
 
         for (VariableElement p : method.getParameters()) {
-            if (count > 1) {
+            if (count++ > 1) {
                 pattern.append(", ");
                 target.append(", ");
             }

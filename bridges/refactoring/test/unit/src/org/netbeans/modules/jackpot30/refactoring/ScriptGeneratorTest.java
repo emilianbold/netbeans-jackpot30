@@ -105,6 +105,17 @@ public class ScriptGeneratorTest extends TestBase {
                     ";;");
     }
 
+    public void testMultipleParameters183659() throws Exception {
+        performTest("package test;\n" +
+                    "public class Test {\n" +
+                    "    public void te|st(int i, int j) {}" +
+                    "}\n",
+                    "foo",
+                    "   $0.test($i, $j) :: $0 instanceof test.Test && $i instanceof int && $j instanceof int\n" +
+                    "=> $0.foo($i, $j)\n" +
+                    ";;");
+    }
+
     private void performTest(String code, String newName, String script) throws Exception {
         assertEquals(2, code.split(Pattern.quote("|")).length);
 
