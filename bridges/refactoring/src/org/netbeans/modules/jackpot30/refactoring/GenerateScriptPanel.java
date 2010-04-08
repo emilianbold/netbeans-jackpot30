@@ -38,6 +38,9 @@
  */
 package org.netbeans.modules.jackpot30.refactoring;
 
+import java.util.prefs.Preferences;
+import org.openide.util.NbPreferences;
+
 /**
  *
  * @author lahvac
@@ -109,11 +112,23 @@ public class GenerateScriptPanel extends javax.swing.JPanel {
         updateState();
     }//GEN-LAST:event_generateActionPerformed
 
+    private static final String KEY_DO_GENERATE_SCRIPT = "generate-script";
+    private static final boolean DEF_DO_GENERATE_SCRIPT = true;
+    private static final String KEY_MAKE_PRIVATE = "make-private";
+    private static final boolean DEF_MAKE_PRIVATE = true;
+    private static final String KEY_DEPRECATE = "deprecate";
+    private static final boolean DEF_DEPRECATE = false;
+    
+    private Preferences getPreferencesStorage() {
+        return NbPreferences.forModule(GenerateScriptPanel.class).node(GenerateScriptPanel.class.getSimpleName());
+    }
+
     private void loadDefaults() {
         if (supported) {
-            generate.setSelected(true);
-            makePrivate.setSelected(true);
-            deprecate.setSelected(false);
+            Preferences p = getPreferencesStorage();
+            generate.setSelected(p.getBoolean(KEY_DO_GENERATE_SCRIPT, DEF_DO_GENERATE_SCRIPT));
+            makePrivate.setSelected(p.getBoolean(KEY_MAKE_PRIVATE, DEF_MAKE_PRIVATE));
+            deprecate.setSelected(p.getBoolean(KEY_DEPRECATE, DEF_DEPRECATE));
         } else {
             generate.setSelected(false);
             makePrivate.setSelected(false);
@@ -121,6 +136,18 @@ public class GenerateScriptPanel extends javax.swing.JPanel {
         }
         
         updateState();
+    }
+
+    public void saveDefaults() {
+        Preferences p = getPreferencesStorage();
+        boolean doGenerate = generate.isSelected();
+
+        p.putBoolean(KEY_DO_GENERATE_SCRIPT, doGenerate);
+
+        if (doGenerate) {
+            p.putBoolean(KEY_MAKE_PRIVATE, makePrivate.isSelected());
+            p.putBoolean(KEY_DEPRECATE, deprecate.isSelected());
+        }
     }
 
     private void updateState() {

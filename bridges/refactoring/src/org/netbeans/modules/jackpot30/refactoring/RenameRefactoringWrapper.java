@@ -102,6 +102,7 @@ public class RenameRefactoringWrapper implements RefactoringUI {
 
     @Override
     public Problem setParameters() {
+        gsp.saveDefaults();
         refactoring.getContext().add(gsp.getData());
         return delegate.setParameters();
     }
