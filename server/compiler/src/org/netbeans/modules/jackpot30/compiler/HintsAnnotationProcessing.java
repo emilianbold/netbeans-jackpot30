@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,34 +34,14 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 package org.netbeans.modules.jackpot30.compiler;
 
-import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.IdentifierTree;
-import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.ParameterizedTypeTree;
-import com.sun.source.tree.Tree;
-import com.sun.source.util.SourcePositions;
+import com.sun.source.util.AbstractTypeProcessor;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreeScanner;
-import com.sun.source.util.Trees;
-import com.sun.tools.javac.api.JavacTrees;
-import com.sun.tools.javac.comp.Attr;
-import com.sun.tools.javac.comp.AttrContext;
-import com.sun.tools.javac.comp.Enter;
-import com.sun.tools.javac.comp.Env;
-import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
-import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCClassDecl;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
-import com.sun.tools.javac.tree.JCTree.JCFieldAccess;
-import com.sun.tools.javac.tree.JCTree.JCIdent;
-import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
 import java.io.ByteArrayInputStream;
@@ -82,21 +62,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.prefs.PreferencesFactory;
-import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
-import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedOptions;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
 import javax.swing.event.ChangeListener;
 import javax.swing.text.BadLocationException;
@@ -121,9 +96,7 @@ import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintsRunner;
-import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
-import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.diff.DiffProvider;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
@@ -146,76 +119,25 @@ import org.openide.util.lookup.ServiceProvider;
 @SupportedAnnotationTypes("*")
 @SupportedOptions(value={"jackpot30_enable_cp_hints","jackpot30_apply_cp_hints","jackpot30_enabled_hc_hints","jackpot30_apply_hc_hints"})
 @ServiceProvider(service=Processor.class)
-public class HintsAnnotationProcessing extends AbstractProcessor {
-
-    private final Collection<Element> types = new LinkedList<Element>();
+public class HintsAnnotationProcessing extends AbstractTypeProcessor {
 
     @Override
-    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        System.err.println("INVOKED");
-        try {
-            return doProcess(annotations, roundEnv);
-        } catch (Throwable ex) {
-            ex.printStackTrace();
-            return false;
-        }
-    }
-
-    private boolean doProcess(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        types.addAll(roundEnv.getRootElements());
-        
-        if (!roundEnv.processingOver())
-            return false;
-
-        try {
-            File tmp = File.createTempFile("jackpot30", null);
-
-            tmp.delete();
-            tmp.mkdirs();
-            tmp.deleteOnExit();
-
-            tmp = FileUtil.normalizeFile(tmp);
-            FileUtil.refreshFor(tmp.getParentFile());
-
-            org.openide.filesystems.FileObject tmpFO = FileUtil.toFileObject(tmp);
-
-            if (tmpFO == null) {
-                return false;
-            }
-
-            CacheFolder.setCacheFolder(tmpFO);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-
+    public void typeProcess(TypeElement el, TreePath elTree) {
         OutputStream diff = null;
         Context c = ((JavacProcessingEnvironment) processingEnv).getContext();
         StandardJavaFileManager s = (StandardJavaFileManager) c.get(JavaFileManager.class);
         ClassPath boot = computeClassPath(s, StandardLocation.PLATFORM_CLASS_PATH);
         ClassPath compile = computeClassPath(s, StandardLocation.CLASS_PATH);
         ClassPath source = computeClassPath(s, StandardLocation.SOURCE_PATH);
-        Trees trees = JavacTrees.instance(c);
-        Collection<CompilationUnitTree> toClean = new LinkedList<CompilationUnitTree>();
         Log log = Log.instance(c);
         
-        for (Element el : types) {
-            if (!el.getKind().isClass() && !el.getKind().isInterface()) {
-//                processingEnv.getMessager().printMessage(Kind.NOTE, "Not a class", el);
-                continue;
-            }
-
-            TreePath elTree = trees.getPath(el);
             JCCompilationUnit cut = (JCCompilationUnit) elTree.getCompilationUnit();
 
             if (!cut.sourcefile.toUri().isAbsolute()) {
                 processingEnv.getMessager().printMessage(Kind.NOTE, "Not an absolute URI: " + cut.sourcefile.toUri().toASCIIString(), el);
-                continue; //XXX
+                return ; //XXX
             }
 
-            toClean.add(cut);
-
-            doAttribute(c, cut);
-            
             int nerrors = log.nerrors;
             int nwarnings = log.nwarnings;
             
@@ -249,10 +171,8 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
 
             boolean applyCPHints = isEnabled("jackpot30_apply_cp_hints");
 
-            System.err.println("hintDescriptions=" + hintDescriptions);
             Map<HintDescription, List<ErrorDescription>> hints = HintsRunner.computeErrors(info, hintDescriptions, new AtomicBoolean());
 
-            System.err.println("hint=" + hints);
             log.nerrors = nerrors;
             log.nwarnings = nwarnings;
 
@@ -295,7 +215,6 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                     }
                 }
 
-                System.err.println("fixPerformed=" + fixPerformed);
                 if (fixPerformed) {
                     ModificationResult mr = info.computeResult();
                     String orig = info.getText();
@@ -316,7 +235,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             } finally {
                 log.useSource(currentSource);
             }
-        }
+//        }
 
         //XXX: should be in finally!
         if (diff != null) {
@@ -327,15 +246,9 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             }
         }
 
-        for (CompilationUnitTree cut : toClean) {
-            new ThoroughTreeCleaner(cut, trees.getSourcePositions()).scan(cut, null);
-        }
-
         //XXX: workarounding a bug in CRTable (see HintsAnnotationProcessingTest.testCRTable):
         //the workaround is not working anymore:
 //        Options.instance(c).remove("-Xjcov");
-        
-        return false;
     }
 
     @Override
@@ -354,32 +267,6 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
         }
 
         return ClassPathSupport.createClassPath(urls.toArray(new URL[0]));
-    }
-
-    private static void doAttribute(Context c, JCCompilationUnit cut) {
-        JavaCompiler jc = JavaCompiler.instance(c);
-        final Enter enter = Enter.instance(c);
-        final Queue<Env<AttrContext>> queued = new LinkedList<Env<AttrContext>>();
-
-        queued.add(enter.getTopLevelEnv(cut));
-
-        new TreeScanner<Void, Void>() {
-            @Override
-            public Void visitClass(ClassTree node, Void p) {
-                Env<AttrContext> env = enter.getEnv(((JCClassDecl) node).sym);
-
-                if (env != null)
-                    queued.add(env);
-
-                return super.visitClass(node, p);
-            }
-        }.scan(cut, null);
-
-        Attr attr = Attr.instance(c);
-
-        for (Env<AttrContext> env : queued) {
-            attr.attribClass(env.tree.pos(), env.enclClass.sym);
-        }
     }
 
     //copied from the diff module:
@@ -504,66 +391,6 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
         public boolean contains(String t) {
             return enabled.contains(t);
         }
-    }
-
-    private static final class ThoroughTreeCleaner extends TreeScanner<Void, Void> {
-
-        private final CompilationUnitTree cut;
-        private final SourcePositions positions;
-
-        public ThoroughTreeCleaner(CompilationUnitTree cut, SourcePositions positions) {
-            this.cut = cut;
-            this.positions = positions;
-        }
-
-        @Override
-        public Void scan(Tree node, Void p) {
-            if (node != null) ((JCTree) node).type = null;
-            return super.scan(node, p);
-        }
-
-        @Override
-        public Void visitParameterizedType(ParameterizedTypeTree node, Void p) {
-            return super.visitParameterizedType(node, p);
-        }
-
-        @Override
-        public Void visitMemberSelect(MemberSelectTree node, Void p) {
-            ((JCFieldAccess) node).sym = null;
-            return super.visitMemberSelect(node, p);
-        }
-
-        @Override
-        public Void visitIdentifier(IdentifierTree node, Void p) {
-            ((JCIdent) node).sym = null;
-            return super.visitIdentifier(node, p);
-        }
-
-        @Override
-        public Void visitMethod(MethodTree node, Void p) {
-            JCMethodDecl method = (JCMethodDecl) node;
-
-            if (method.sym != null && method.sym.getKind() == ElementKind.CONSTRUCTOR && method.sym.owner.getKind() == ElementKind.ENUM) {
-                if (positions.getEndPosition(cut, method.body.stats.head) == (-1)) {
-                    method.body.stats = method.body.stats.tail;
-                }
-            }
-
-            return super.visitMethod(node, p);
-        }
-
-        @Override
-        public Void visitClass(ClassTree node, Void p) {
-            JCClassDecl decl = (JCClassDecl) node;
-
-            if (decl.sym.getKind() == ElementKind.ENUM) {
-                if (positions.getEndPosition(cut, decl.defs.head) == (-1)) {
-                    decl.defs = decl.defs.tail;
-                }
-            }
-            return super.visitClass(node, p);
-        }
-
     }
 
     @ServiceProvider(service=MimeDataProvider.class)
