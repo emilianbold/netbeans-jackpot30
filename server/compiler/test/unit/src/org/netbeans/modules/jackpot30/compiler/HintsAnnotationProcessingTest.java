@@ -96,6 +96,27 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                               "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;");
     }
 
+    public void testRunCompilerMulti() throws Exception {
+        String golden =
+                "--- {0}/src/test/Test.java\n" +
+                "+++ {0}/src/test/Test.java\n" +
+                "@@ -1 +1 @@\n" +
+                "-package test; public class Test {private void test() {Character.toLowerCase('a'); Dep.test();}}\n" +
+                "+package test; public class Test {private void test() {Character.toUpperCase('a'); Dep.test();}}\n" +
+                "--- {0}/src/test/Dep.java\n" +
+                "+++ {0}/src/test/Dep.java\n" +
+                "@@ -1 +1 @@\n" +
+                "-package test; public class Dep {static void test() {Character.toLowerCase('a');}}\n" +
+                "+package test; public class Dep {static void test() {Character.toUpperCase('a');}}\n";
+
+        doRunCompiler(golden, "src/test/Test.java",
+                              "package test; public class Test {private void test() {Character.toLowerCase('a'); Dep.test();}}\n",
+                              "src/test/Dep.java",
+                              "package test; public class Dep {static void test() {Character.toLowerCase('a');}}\n",
+                              "src/META-INF/upgrade/joFile.hint",
+                              "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;");
+    }
+
 //    public void testNPEFromAttribute() throws Exception {//TODO: does not reproduce the problem - likely caused by null Env<AttrContext> for annonymous innerclasses
 //        String golden = null;
 //
