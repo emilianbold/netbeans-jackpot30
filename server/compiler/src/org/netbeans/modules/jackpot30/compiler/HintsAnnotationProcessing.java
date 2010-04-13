@@ -152,7 +152,6 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
 
     @Override
     public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        System.err.println("INVOKED");
         try {
             return doProcess(annotations, roundEnv);
         } catch (Throwable ex) {
@@ -249,10 +248,8 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
 
             boolean applyCPHints = isEnabled("jackpot30_apply_cp_hints");
 
-            System.err.println("hintDescriptions=" + hintDescriptions);
             Map<HintDescription, List<ErrorDescription>> hints = HintsRunner.computeErrors(info, hintDescriptions, new AtomicBoolean());
 
-            System.err.println("hint=" + hints);
             log.nerrors = nerrors;
             log.nwarnings = nwarnings;
 
@@ -295,7 +292,6 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                     }
                 }
 
-                System.err.println("fixPerformed=" + fixPerformed);
                 if (fixPerformed) {
                     ModificationResult mr = info.computeResult();
                     String orig = info.getText();
