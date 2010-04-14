@@ -122,7 +122,7 @@ public class CreateStandaloneJarTest extends HintsAnnotationProcessingTest {
         return new TestSetup(suite) {
             private File hintsList;
             protected void setUp() throws Exception {
-                compiler = File.createTempFile("compiler", ".jar");
+                compiler = File.createTempFile("jackpotc", ".jar");
                 hintsList = File.createTempFile("hints", "list");
 
 //                if (!compiler.canRead()) {

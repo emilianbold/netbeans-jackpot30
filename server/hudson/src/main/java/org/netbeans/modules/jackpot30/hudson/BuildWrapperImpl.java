@@ -407,7 +407,7 @@ public final class BuildWrapperImpl extends BuildWrapper {
         File locFile = null;
 
         for (String t : locationsToTest) {
-            if (new File(new File(base, t), "compiler.jar").canRead()) {
+            if (new File(new File(base, t), "jackpotc.jar").canRead()) {
                 try {
                     locFile = new File(base, t).getCanonicalFile();
                 } catch (IOException ex) {

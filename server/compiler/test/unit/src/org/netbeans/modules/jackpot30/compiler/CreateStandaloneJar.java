@@ -80,7 +80,7 @@ public class CreateStandaloneJar extends NbTestCase {
     public void testDumpImportantHack() throws Exception {
         String targetDir = System.getProperty("outputDir", System.getProperty("java.io.tmpdir"));
 
-        createCompiler(new File(targetDir, "compiler.jar"), new File(targetDir, "hints"));
+        createCompiler(new File(targetDir, "jackpotc.jar"), new File(targetDir, "hints"));
     }
 
     public static void createCompiler(File targetCompilerFile, File targetHintsFile) throws Exception {
