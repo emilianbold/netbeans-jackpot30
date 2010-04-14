@@ -147,14 +147,21 @@ import org.openide.util.lookup.ServiceProvider;
  * @author lahvac
  */
 @SupportedAnnotationTypes("*")
-@SupportedOptions(value={"jackpot30_enable_cp_hints","jackpot30_apply_cp_hints",HintsAnnotationProcessing.HARDCODED_HINTS_ENABLE, HintsAnnotationProcessing.HARDCODED_HINTS_FIXES_ENABLE, HintsAnnotationProcessing.EXTRA_HINTS})
 @ServiceProvider(service=Processor.class)
 public class HintsAnnotationProcessing extends AbstractProcessor {
 
     static final String HARDCODED_HINTS_ENABLE = "jackpot30_enabled_hc_hints";
     static final String HARDCODED_HINTS_FIXES_ENABLE = "jackpot30_apply_hc_hints";
     static final String EXTRA_HINTS = "jackpot30_extra_hints";
-    
+
+    public static final Set<String> OPTIONS = Collections.unmodifiableSet(new HashSet<String>(Arrays.asList(
+        "jackpot30_enable_cp_hints",
+        "jackpot30_apply_cp_hints",
+        HARDCODED_HINTS_ENABLE,
+        HARDCODED_HINTS_FIXES_ENABLE,
+        EXTRA_HINTS
+    )));
+
     private final Collection<Element> types = new LinkedList<Element>();
 
     @Override
@@ -348,6 +355,11 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
     @Override
     public SourceVersion getSupportedSourceVersion() {
         return SourceVersion.latest();
+    }
+
+    @Override
+    public Set<String> getSupportedOptions() {
+        return OPTIONS;
     }
 
     private static ClassPath computeClassPath(StandardJavaFileManager m, StandardLocation kind) {

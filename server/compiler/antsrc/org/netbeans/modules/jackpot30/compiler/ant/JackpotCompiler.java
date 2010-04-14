@@ -58,13 +58,6 @@ import org.openide.util.Exceptions;
  */
 public class JackpotCompiler extends JavacExternal {
 
-    private static final Set<String> FORWARDED_PROPERTIES = new HashSet<String>(
-            Arrays.asList("jackpot30_enable_cp_hints",
-                          "jackpot30_apply_cp_hints",
-                          "jackpot30_enabled_hc_hints",
-                          "jackpot30_apply_hc_hints")
-    );
-
     @Override
     public boolean execute() throws BuildException {
         try {
@@ -95,7 +88,7 @@ public class JackpotCompiler extends JavacExternal {
 
         StringBuilder enabledHintsProp = new StringBuilder();
 
-        for (String prop : FORWARDED_PROPERTIES) {
+        for (String prop : HintsAnnotationProcessing.OPTIONS) {
             String val = getProject().getProperty(prop);
 
             if (val != null) {
