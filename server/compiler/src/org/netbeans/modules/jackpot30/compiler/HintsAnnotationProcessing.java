@@ -649,7 +649,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
 
     public static final class StandaloneMimeDataProviderImpl implements MimeDataProvider {
 
-        private static final Lookup L = Lookups.fixed(NbPreferences.forModule(HintsAnnotationProcessing.class));
+        private static final Lookup L = Lookups.fixed(NbPreferences.forModule(HintsAnnotationProcessing.class), new JavacParserFactory());
 
         public Lookup getLookup(MimePath mimePath) {
             if ("text/x-java".equals(mimePath.getPath()))

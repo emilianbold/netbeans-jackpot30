@@ -228,10 +228,10 @@ public class CreateStandaloneJar extends NbTestCase {
 
     private static void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName, Integer pos) throws IOException {
         out.putNextEntry(new ZipEntry("META-INF/services/" + apiClassName));
-        if (pos != null) {
-            out.write(("#position=" + pos.toString() + "\n").getBytes("UTF-8"));
-        }
         out.write(implClassName.getBytes("UTF-8"));
+        if (pos != null) {
+            out.write(("\n#position=" + pos.toString() + "\n").getBytes("UTF-8"));
+        }
     }
 
 
