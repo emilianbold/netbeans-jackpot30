@@ -257,7 +257,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             List<HintDescription> hintDescriptions = new LinkedList<HintDescription>(hardCodedHints);
 
             if (isEnabled("jackpot30_enable_cp_hints")) {
-                hintDescriptions.addAll(new LinkedList<HintDescription>(Utilities.listClassPathHints(new HashSet<ClassPath>(Arrays.asList(/*compile, */source)))));
+                hintDescriptions.addAll(new LinkedList<HintDescription>(Utilities.listClassPathHints(new HashSet<ClassPath>(Arrays.asList(compile, source)))));
             }
 
             boolean applyCPHints = isEnabled("jackpot30_apply_cp_hints");

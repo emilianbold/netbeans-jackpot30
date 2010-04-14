@@ -201,6 +201,23 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                               "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;",
                               null,
                               "-A" + HintsAnnotationProcessing.EXTRA_HINTS + "=extra.hint");
+
+    }
+    public void testHintsOnClassPath() throws Exception {
+        String golden =
+                "--- {0}/src/test/Test.java\n" +
+                "+++ {0}/src/test/Test.java\n" +
+                "@@ -1 +1 @@\n" +
+                "-package test; public class Test {private void test() {Character.toLowerCase('a');}}\n" +
+                "+package test; public class Test {private void test() {Character.toUpperCase('a');}}\n";
+
+        doRunCompiler(golden, "src/test/Test.java",
+                              "package test; public class Test {private void test() {Character.toLowerCase('a');}}\n",
+                              "comp/META-INF/upgrade/joFile.hint",
+                              "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;",
+                              null,
+                              "-classpath",
+                              "comp");
     }
 
     private void doRunCompiler(String goldenDiff, String... fileContentAndExtraOptions) throws Exception {
