@@ -47,7 +47,10 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.java.hints.jackpot.code.spi.Hint;
@@ -179,16 +182,47 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                         "+package test; public class Test {private void test() {Integer i = 0; if (i == null) System.err.println(i);\n"+
                         " }}\n";
         doRunCompiler(golden, "src/test/Test.java",
-                              "package test; public class Test {private void test() {Integer i = 0; if (i == null && null == i) System.err.println(i);\n}}\n");
+                              "package test; public class Test {private void test() {Integer i = 0; if (i == null && null == i) System.err.println(i);\n}}\n",
+                              null,
+                              "-A" + HintsAnnotationProcessing.HARDCODED_HINTS_ENABLE + "=defaults");
     }
 
-    private void doRunCompiler(String goldenDiff, String... fileAndContent) throws Exception {
-        assertTrue(fileAndContent.length % 2 == 0);
+    public void testExtraHints() throws Exception {
+        String golden =
+                "--- {0}/src/test/Test.java\n" +
+                "+++ {0}/src/test/Test.java\n" +
+                "@@ -1 +1 @@\n" +
+                "-package test; public class Test {private void test() {Character.toLowerCase('a');}}\n" +
+                "+package test; public class Test {private void test() {Character.toUpperCase('a');}}\n";
+
+        doRunCompiler(golden, "src/test/Test.java",
+                              "package test; public class Test {private void test() {Character.toLowerCase('a');}}\n",
+                              "extra.hint",
+                              "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;",
+                              null,
+                              "-A" + HintsAnnotationProcessing.EXTRA_HINTS + "=extra.hint");
+    }
+
+    private void doRunCompiler(String goldenDiff, String... fileContentAndExtraOptions) throws Exception {
+        List<String> fileAndContent = new LinkedList<String>();
+        List<String> extraOptions = new LinkedList<String>();
+        List<String> fileContentAndExtraOptionsList = Arrays.asList(fileContentAndExtraOptions);
+        int nullPos = fileContentAndExtraOptionsList.indexOf(null);
+
+        if (nullPos == (-1)) {
+            fileAndContent = fileContentAndExtraOptionsList;
+            extraOptions = Collections.emptyList();
+        } else {
+            fileAndContent = fileContentAndExtraOptionsList.subList(0, nullPos);
+            extraOptions = fileContentAndExtraOptionsList.subList(nullPos + 1, fileContentAndExtraOptionsList.size());
+        }
+
+        assertTrue(fileAndContent.size() % 2 == 0);
 
         clearWorkDir();
 
-        for (int cntr = 0; cntr < fileAndContent.length; cntr += 2) {
-            createAndFill(fileAndContent[cntr], fileAndContent[cntr + 1]);
+        for (int cntr = 0; cntr < fileAndContent.size(); cntr += 2) {
+            createAndFill(fileAndContent.get(cntr), fileAndContent.get(cntr + 1));
         }
 
         File wd = getWorkDir();
@@ -198,8 +232,20 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
 
         sourceOutput.mkdirs();
 
-        reallyRunCompiler(source, source.getParentFile().getParentFile(), sourceOutput);
+        List<String> options = new LinkedList<String>();
+        
+        options.add(source.getAbsolutePath());
+        options.add("-sourcepath");
+        options.add(source.getParentFile().getParentFile().getAbsolutePath());
+        options.add("-s");
+        options.add(sourceOutput.getAbsolutePath());
+        options.add("-source");
+        options.add("1.5");
+        options.add("-Xjcov");
+        options.addAll(extraOptions);
 
+        reallyRunCompiler(wd, options.toArray(new String[0]));
+        
         File diff = new File(sourceOutput, "META-INF/upgrade/upgrade.diff");
         String diffText = readFully(diff);
 
@@ -207,10 +253,16 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
         assertEquals(goldenDiff, diffText);
     }
 
-    protected void reallyRunCompiler(File source, File sourcePath, File sourceOutput) throws Exception {
-        assertEquals(0, Main.compile(new String[] {source.getAbsolutePath(), "-sourcepath", sourcePath.getAbsolutePath(), "-s", sourceOutput.getAbsolutePath(), "-source", "1.5",
-        "-Xjcov" //XXX
-        }));
+    protected void reallyRunCompiler(File workDir, String... params) throws Exception {
+        String oldUserDir = System.getProperty("user.dir");
+
+        System.setProperty("user.dir", workDir.getAbsolutePath());
+        
+        try {
+            assertEquals(0, Main.compile(params));
+        } finally {
+            System.setProperty("user.dir", oldUserDir);
+        }
     }
 
     private void createAndFill(String path, String content) throws IOException {

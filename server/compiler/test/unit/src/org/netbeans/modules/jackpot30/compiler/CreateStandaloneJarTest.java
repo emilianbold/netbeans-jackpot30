@@ -43,6 +43,9 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
 import junit.extensions.TestSetup;
 import junit.framework.Test;
 import org.netbeans.junit.NbTestSuite;
@@ -62,22 +65,15 @@ public class CreateStandaloneJarTest extends HintsAnnotationProcessingTest {
     private static File compiler;
 
     @Override
-    protected void reallyRunCompiler(File source, File sourcePath, File sourceOutput) throws IOException, Exception {
+    protected void reallyRunCompiler(File workingDir, String... params) throws IOException, Exception {
         assertNotNull(compiler);
+        List<String> ll = new LinkedList<String>();
+        ll.add("java");
+        ll.add("-Xbootclasspath/p:" + compiler.getAbsolutePath());
+        ll.add("com.sun.tools.javac.Main");
+        ll.addAll(Arrays.asList(params));
         try {
-            Process p = Runtime.getRuntime().exec(new String[] {
-                "java",
-                "-Xbootclasspath/p:" + compiler.getAbsolutePath(),
-                "com.sun.tools.javac.Main",
-                source.getAbsolutePath(),
-                "-sourcepath",
-                sourcePath.getAbsolutePath(),
-                "-s",
-                sourceOutput.getAbsolutePath(),
-                "-source",
-                "1.5",
-                "-Xjcov" //XXX
-            });
+            Process p = Runtime.getRuntime().exec(ll.toArray(new String[0]), null, workingDir);
 
             new CopyStream(p.getInputStream(), System.out).start();
             new CopyStream(p.getErrorStream(), System.err).start();

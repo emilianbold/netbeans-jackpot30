@@ -74,6 +74,7 @@ import java.io.StringReader;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -89,6 +90,7 @@ import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.prefs.PreferencesFactory;
+import java.util.regex.Pattern;
 import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
@@ -115,6 +117,7 @@ import org.netbeans.api.java.source.CompilationInfoHack;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.modules.diff.builtin.provider.BuiltInDiffProvider;
 import org.netbeans.modules.diff.builtin.visualizer.TextDiffVisualizer;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintRegistry;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
@@ -144,10 +147,14 @@ import org.openide.util.lookup.ServiceProvider;
  * @author lahvac
  */
 @SupportedAnnotationTypes("*")
-@SupportedOptions(value={"jackpot30_enable_cp_hints","jackpot30_apply_cp_hints","jackpot30_enabled_hc_hints","jackpot30_apply_hc_hints"})
+@SupportedOptions(value={"jackpot30_enable_cp_hints","jackpot30_apply_cp_hints",HintsAnnotationProcessing.HARDCODED_HINTS_ENABLE, HintsAnnotationProcessing.HARDCODED_HINTS_FIXES_ENABLE, HintsAnnotationProcessing.EXTRA_HINTS})
 @ServiceProvider(service=Processor.class)
 public class HintsAnnotationProcessing extends AbstractProcessor {
 
+    static final String HARDCODED_HINTS_ENABLE = "jackpot30_enabled_hc_hints";
+    static final String HARDCODED_HINTS_FIXES_ENABLE = "jackpot30_apply_hc_hints";
+    static final String EXTRA_HINTS = "jackpot30_extra_hints";
+    
     private final Collection<Element> types = new LinkedList<Element>();
 
     @Override
@@ -225,7 +232,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                 hardCodedHints.addAll(v);
             }
 
-            ContainsChecker<String> enabledHints = readHintsId("jackpot30_enabled_hc_hints", new SettingsBasedChecker());
+            ContainsChecker<String> enabledHints = getEnabledHardcodedHints();
             
             for (Iterator<HintDescription> it = hardCodedHints.iterator(); it.hasNext(); ) {
                 HintMetadata current = it.next().getMetadata();
@@ -238,7 +245,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                 it.remove();
             }
 
-            ContainsChecker<String> enabledApplyHints = readHintsId("jackpot30_apply_hc_hints", new HardcodedContainsChecker<String>(true));
+            ContainsChecker<String> enabledApplyHints = getApplyHardcodedFixes();
 
             List<HintDescription> hintDescriptions = new LinkedList<HintDescription>(hardCodedHints);
 
@@ -247,6 +254,10 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             }
 
             boolean applyCPHints = isEnabled("jackpot30_apply_cp_hints");
+
+            Collection<? extends HintDescription> extraHints = getExtraHints();
+
+            hintDescriptions.addAll(extraHints);
 
             Map<HintDescription, List<ErrorDescription>> hints = HintsRunner.computeErrors(info, hintDescriptions, new AtomicBoolean());
 
@@ -261,7 +272,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                 log.useSource(cut.sourcefile);
 
                 for (Entry<HintDescription, List<ErrorDescription>> e : hints.entrySet()) {
-                    boolean applyFix = hardCodedHints.contains(e.getKey()) ? enabledApplyHints.contains(e.getKey().getMetadata().id) : applyCPHints;
+                    boolean applyFix = hardCodedHints.contains(e.getKey()) ? enabledApplyHints.contains(e.getKey().getMetadata().id) : extraHints.contains(e.getKey()) ? true : applyCPHints;
                     
                     for (ErrorDescription ed : e.getValue()) {
                         log.warning(ed.getRange().getBegin().getOffset(), "proc.messager", ed.getDescription());
@@ -449,10 +460,10 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
         return true;
     }
 
-    private ContainsChecker<String> readHintsId(String key, ContainsChecker<String> def) {
-        if (processingEnv.getOptions().containsKey(key)) {
-            String toSplit = processingEnv.getOptions().get(key);
-            
+    private ContainsChecker<String> getApplyHardcodedFixes() {
+        if (processingEnv.getOptions().containsKey(HARDCODED_HINTS_FIXES_ENABLE)) {
+            String toSplit = processingEnv.getOptions().get(HARDCODED_HINTS_FIXES_ENABLE);
+
             if (toSplit == null) {
                 return new HardcodedContainsChecker<String>(false);
             }
@@ -460,7 +471,27 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             return new SetBasedContainsChecker<String>(new HashSet<String>(Arrays.asList(toSplit.split(":"))));
         }
 
-        return def;
+        return new HardcodedContainsChecker<String>(true);
+    }
+
+    private ContainsChecker<String> getEnabledHardcodedHints() {
+        if (processingEnv.getOptions().containsKey(HARDCODED_HINTS_ENABLE)) {
+            String toSplit = processingEnv.getOptions().get(HARDCODED_HINTS_ENABLE);
+
+            if (toSplit == null) {
+                return new HardcodedContainsChecker<String>(false);
+            }
+            if ("all".equals(toSplit)) {
+                return new HardcodedContainsChecker<String>(true);
+            }
+            if ("defaults".equals(toSplit)) {
+                return new SettingsBasedChecker();
+            }
+
+            return new SetBasedContainsChecker<String>(new HashSet<String>(Arrays.asList(toSplit.split(":"))));
+        }
+
+        return new HardcodedContainsChecker<String>(false);
     }
 
     private interface ContainsChecker<T> {
@@ -500,6 +531,35 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
         public boolean contains(String t) {
             return enabled.contains(t);
         }
+    }
+
+    private Collection<? extends HintDescription> getExtraHints() {
+        if (processingEnv.getOptions().containsKey(EXTRA_HINTS)) {
+            String toSplit = processingEnv.getOptions().get(EXTRA_HINTS);
+
+            if (toSplit == null || toSplit.length() == 0) {
+                return Collections.emptyList();
+            }
+
+            List<HintDescription> result = new LinkedList<HintDescription>();
+
+            for (String part : toSplit.split(Pattern.quote(System.getProperty("path.separator")))) {
+                File resolved = FileUtil.normalizeFile(new File(part).getAbsoluteFile());
+
+                if (!resolved.isFile()) {
+                    processingEnv.getMessager().printMessage(Kind.WARNING, "Cannot resolve hint file: " + part);
+                    continue;
+                }
+
+                for (Collection<? extends HintDescription> v : DeclarativeHintRegistry.parseHintFile(FileUtil.toFileObject(resolved)).values()) {
+                    result.addAll(v);
+                }
+            }
+
+            return result;
+        }
+
+        return Collections.emptyList();
     }
 
     private static final class ThoroughTreeCleaner extends TreeScanner<Void, Void> {
