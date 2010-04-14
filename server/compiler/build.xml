@@ -30,8 +30,8 @@
 
     <target name="copy-to-hudson" depends="create-standalone-compiler">
         <mkdir dir="${hudson.compiler.dir}" /> <!--only to be sure, should exist-->
-        <copy file="${build.dir}/jackpotc/ant-jackpotc.jar" todir="${hudson.compiler.dir}"/>
-        <copy file="${build.dir}/jackpotc/jackpotc.jar" todir="${hudson.compiler.dir}"/>
+        <copy file="${build.classes.dir}/../jackpotc/ant-jackpotc.jar" todir="${hudson.compiler.dir}"/>
+        <copy file="${build.classes.dir}/../jackpotc/jackpotc.jar" todir="${hudson.compiler.dir}"/>
     </target>
 
     <target name="create-standalone-compiler" depends="init,ant">
