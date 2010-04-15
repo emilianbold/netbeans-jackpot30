@@ -37,17 +37,8 @@
 #
 # Portions Copyrighted 2010 Sun Microsystems, Inc.
 
-BUILD_DIR=`cd ../../build; pwd`
-WORK_DIR=$BUILD_DIR/test/scripted/`basename $0`
-COMPILER_ZIP=$BUILD_DIR/jackpotc.zip
-
-rm -rf $WORK_DIR
-mkdir -p $WORK_DIR
-cd $WORK_DIR
-unzip -q $COMPILER_ZIP
-
-mkdir -p src/test
-cat >src/test/Test.java <<EOF
+perform_test() {
+    create_file src/test/Test.java <<EOF
 package test;
 public class Test {
     private void test() {
@@ -56,17 +47,14 @@ public class Test {
 }
 EOF
 
-mkdir -p src/META-INF/upgrade
-cat >src/META-INF/upgrade/test.hint <<EOF
+    create_file src/META-INF/upgrade/test.hint <<EOF
 'test':
 java.lang.Character.toLowerCase(\$1) :: \$1 instanceof char => java.lang.Character.toUpperCase($1) ;;
 EOF
 
-mkdir -p build
+    run_compiler src/test/Test.java
 
-jackpotc/jackpotc -sourcepath src -d build src/test/Test.java
-
-diff build/META-INF/upgrade/upgrade.diff - <<EOF
+    assert_file_content build/META-INF/upgrade/upgrade.diff <<EOF
 --- $WORK_DIR/src/test/Test.java
 +++ $WORK_DIR/src/test/Test.java
 @@ -1,6 +1,6 @@
@@ -78,5 +66,6 @@ diff build/META-INF/upgrade/upgrade.diff - <<EOF
      }
  }
 EOF
+}
 
-exit $?
+. `dirname $0`/harness
