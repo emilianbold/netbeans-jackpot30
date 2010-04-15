@@ -165,7 +165,7 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                               "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;");
     }
 
-    public void XtestCRTable() throws Exception {
+    public void testCRTable() throws Exception {
         String golden = null;
 
         doRunCompiler(golden, "src/test/Test.java",
@@ -218,6 +218,22 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                               null,
                               "-classpath",
                               "comp");
+    }
+
+    public void testNoDebugInfo() throws Exception {
+        String golden =
+                "--- {0}/src/test/Test.java\n" +
+                "+++ {0}/src/test/Test.java\n" +
+                "@@ -1 +1 @@\n" +
+                "-package test; public class Test {private void test(java.io.File f) {f.isDirectory();}}\n" +
+                "+package test; public class Test {private void test(java.io.File f) {!f.isFile();}}\n";
+
+        doRunCompiler(golden, "src/test/Test.java",
+                              "package test; public class Test {private void test(java.io.File f) {f.isDirectory();}}\n",
+                              "src/META-INF/upgrade/joFile.hint",
+                              "'test':\n$1.isDirectory() :: $1 instanceof java.io.File => !$1.isFile();;",
+                              null,
+                              "-g:none");
     }
 
     private void doRunCompiler(String goldenDiff, String... fileContentAndExtraOptions) throws Exception {

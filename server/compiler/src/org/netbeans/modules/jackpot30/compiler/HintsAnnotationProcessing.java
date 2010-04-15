@@ -54,6 +54,7 @@ import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Enter;
 import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.jvm.Gen;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
@@ -64,6 +65,7 @@ import com.sun.tools.javac.tree.JCTree.JCIdent;
 import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Log;
+import com.sun.tools.javac.util.Options;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -71,6 +73,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringReader;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
@@ -345,9 +348,15 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
             new ThoroughTreeCleaner(cut, trees.getSourcePositions()).scan(cut, null);
         }
 
-        //XXX: workarounding a bug in CRTable (see HintsAnnotationProcessingTest.testCRTable):
-        //the workaround is not working anymore:
-//        Options.instance(c).remove("-Xjcov");
+        try {
+            //XXX: workarounding a bug in CRTable (see HintsAnnotationProcessingTest.testCRTable):
+            Options.instance(c).remove("-Xjcov");
+            Field f = Gen.class.getDeclaredField("genCrt");
+            f.setAccessible(true);
+            f.set(Gen.instance(c), false);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         
         return false;
     }
