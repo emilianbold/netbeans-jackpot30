@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.pm;
@@ -92,5 +92,9 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
     private static VariableAssignments convert(CopyFinder.VariableAssignments va) {
         if (va == null) return null;
         return new VariableAssignments(va.variables, va.multiVariables, va.variables2Names);
+    }
+
+    public void testMatchInterfaceNoFQN() throws Exception {
+        performTest("package test; import java.util.*; public class Test { public void test() { |List| l1; |java.util.List| l2;} }");
     }
 }

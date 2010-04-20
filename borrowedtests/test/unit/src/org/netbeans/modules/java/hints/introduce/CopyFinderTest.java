@@ -805,7 +805,7 @@ public class CopyFinderTest extends NbTestCase {
         return bulkSearchResult;
     }
     
-    private void performTest(String code) throws Exception {
+    protected void performTest(String code) throws Exception {
         performTest(code, true);
     }
 
