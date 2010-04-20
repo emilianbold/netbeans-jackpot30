@@ -46,6 +46,7 @@ import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.tree.JCTree;
 import java.util.Collections;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.modules.java.source.pretty.VeryPretty;
 
@@ -185,6 +186,18 @@ public class UtilitiesTest extends TestBase {
 
         String golden = "$1.isDirectory()";
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+    }
+
+    public void testParseAndAttributeType() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Tree result = Utilities.parseAndAttribute(info, "\njava. util \n.List \n", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.MEMBER_SELECT);
+
+        assertEquals(ElementKind.INTERFACE, info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), result)).getKind());
+        assertEquals(info.getElements().getTypeElement("java.util.List"), info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), result)));
     }
 
     public void testToHumanReadableTime() {

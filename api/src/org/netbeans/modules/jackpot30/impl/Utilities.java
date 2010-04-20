@@ -68,6 +68,7 @@ import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacScope;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.comp.Todo;
@@ -375,13 +376,13 @@ public class Utilities {
             if (isError(type) && expression) {
                 //maybe type?
                 Elements el = jti.getElements();
-                if (Utilities.isPureMemberSelect(patternTree, false) && el.getTypeElement(pattern) != null) {
+                if (Utilities.isPureMemberSelect(patternTree, false)) {
                     Tree var = jti.parseExpression(pattern + ".class;", new SourcePositions[1]);
 
                     type = jti.attributeTree((JCTree) var, ((JavacScope) scope).getEnv());
 
                     Tree typeTree = ((MemberSelectTree) var).getExpression();
-                    Trees trees = Trees.instance(jti);
+                    Trees trees = JavacTrees.instance(c);
                     CompilationUnitTree cut = ((JavacScope) scope).getEnv().toplevel;
 
                     if (!isError(trees.getElement(new TreePath(new TreePath(cut), typeTree)))) {
