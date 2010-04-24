@@ -43,11 +43,11 @@ import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ProjectUtils;
+import org.netbeans.modules.apisupport.project.ModuleDependency;
 import org.netbeans.modules.apisupport.project.NbModuleProject;
 import org.netbeans.modules.apisupport.project.ProjectXMLManager;
 import org.netbeans.modules.apisupport.project.ProjectXMLManager.CyclicDependencyException;
 import org.netbeans.modules.apisupport.project.spi.NbModuleProvider;
-import org.netbeans.modules.apisupport.project.ui.customizer.ModuleDependency;
 import org.netbeans.modules.apisupport.project.universe.ModuleEntry;
 import org.netbeans.modules.jackpot30.apisupport.Utilities;
 import org.netbeans.modules.jackpot30.apisupport.Utilities.ParsedDependency;
@@ -130,7 +130,7 @@ public class ProjectDependencyUpgraderImpl extends ProjectDependencyUpgrader {
                                                                 releaseVersion != null ? releaseVersion : dep.getReleaseVersion(),
                                                                 spec.toString(),
                                                                 dep.hasCompileDependency(),
-                                                                dep.hasImplementationDepedendency());
+                                                                dep.hasImplementationDependency());
 
                     m.editDependency(dep, nue);
                     ProjectManager.getDefault().saveProject(currentProject);
