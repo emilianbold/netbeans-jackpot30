@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.indexing;
@@ -76,15 +76,14 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
-import org.codeviation.strast.IndexingStorage;
-import org.codeviation.strast.Strast;
+import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.CheckForNull;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
-import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
 import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
 
@@ -132,6 +131,21 @@ public class Index {
                     Exceptions.printStackTrace(ex);
                     return Collections.emptyList();
                 }
+            }
+            @Override
+            public @NonNull IndexInfo getIndexInfo() {
+                IndexInfo result = IndexInfo.empty();
+
+                try {
+                    URI u = new URI(indexURL + "/info");
+
+                    Pojson.update(result, WebUtilities.requestStringResponse(u));
+                } catch (URISyntaxException ex) {
+                    //XXX: better handling?
+                    Exceptions.printStackTrace(ex);
+                }
+                
+                return result;
             }
         };
     }
@@ -251,12 +265,38 @@ public class Index {
         }
     }
 
+    public @NonNull IndexInfo getIndexInfo() {
+        File infoFile = new File(cacheRoot, "info");
+
+        if (infoFile.exists()) {
+            try {
+                return Pojson.load(IndexInfo.class, infoFile);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+        
+        return IndexInfo.empty();
+    }
+
     public class IndexWriter {
 
         private final org.apache.lucene.index.IndexWriter luceneWriter;
+        private final File infoFile;
+        private final IndexInfo info;
 
         public IndexWriter() throws IOException {
             luceneWriter = new org.apache.lucene.index.IndexWriter(new File(cacheRoot, "fulltext"), new StandardAnalyzer());
+
+            infoFile = new File(cacheRoot, "info");
+
+            if (infoFile.exists()) {
+                info = Pojson.load(IndexInfo.class, infoFile);
+            } else {
+                info = new IndexInfo();
+                info.majorVersion = 1;
+                info.minorVersion = 1;
+            }
         }
 
         public void record(final CompilationInfo info, URL source, final CompilationUnitTree cut) throws IOException {
@@ -271,6 +311,8 @@ public class Index {
             try {
                 File cacheFile = new File(new File(cacheRoot, "encoded"), relative);
 
+                if (!cacheFile.exists()) info.totalFiles++;
+                
                 cacheFile.getParentFile().mkdirs();
 
                 out = new FileOutputStream(cacheFile);
@@ -307,11 +349,15 @@ public class Index {
             }
 
             luceneWriter.deleteDocuments(new Term("path", relativePath));
+
+            info.totalFiles--;
         }
 
         public void close() throws IOException {
             luceneWriter.optimize();
             luceneWriter.close();
+            info.lastUpdate = System.currentTimeMillis();
+            Pojson.save(info, infoFile);
         }
     }
 

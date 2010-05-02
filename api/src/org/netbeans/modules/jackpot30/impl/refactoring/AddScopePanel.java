@@ -40,21 +40,30 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.CardLayout;
 import java.io.File;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.text.DateFormat;
 import java.util.Collection;
+import java.util.Date;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.impl.indexing.Index;
+import org.netbeans.modules.jackpot30.impl.indexing.IndexInfo;
 import org.openide.NotificationLineSupport;
 import org.openide.util.Exceptions;
 import org.openide.util.RequestProcessor;
@@ -92,6 +101,9 @@ public class AddScopePanel extends javax.swing.JPanel {
             public void changedUpdate(DocumentEvent e) {
             }
         });
+        indexInfo.setFont(UIManager.getFont("Label.font"));
+        indexInfo.setBackground(UIManager.getColor("Label.background"));
+        indexInfo.setDisabledTextColor(UIManager.getColor("Label.foreground"));
     }
 
     /** This method is called from within the constructor to
@@ -126,6 +138,7 @@ public class AddScopePanel extends javax.swing.JPanel {
         subIndex = new javax.swing.JComboBox();
         jLabel1 = new javax.swing.JLabel();
         noIndexPanel = new javax.swing.JPanel();
+        indexInfo = new javax.swing.JTextArea();
 
         setBorder(javax.swing.BorderFactory.createEmptyBorder(12, 12, 12, 12));
         setLayout(new java.awt.GridBagLayout());
@@ -266,7 +279,7 @@ public class AddScopePanel extends javax.swing.JPanel {
                         .addComponent(indexFolder, javax.swing.GroupLayout.PREFERRED_SIZE, 482, javax.swing.GroupLayout.PREFERRED_SIZE)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                         .addComponent(browse)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
         localIndexPanelLayout.setVerticalGroup(
             localIndexPanelLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -287,6 +300,12 @@ public class AddScopePanel extends javax.swing.JPanel {
         indexURL.setText(org.openide.util.NbBundle.getMessage(AddScopePanel.class, "AddScopePanel.indexURL.text")); // NOI18N
 
         org.openide.awt.Mnemonics.setLocalizedText(indexURLLabel, org.openide.util.NbBundle.getMessage(AddScopePanel.class, "AddScopePanel.indexURLLabel.text")); // NOI18N
+
+        subIndex.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                subIndexActionPerformed(evt);
+            }
+        });
 
         org.openide.awt.Mnemonics.setLocalizedText(jLabel1, org.openide.util.NbBundle.getMessage(AddScopePanel.class, "AddScopePanel.jLabel1.text")); // NOI18N
 
@@ -343,9 +362,22 @@ public class AddScopePanel extends javax.swing.JPanel {
         gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(6, 0, 0, 0);
         add(indexVariantsPanel, gridBagConstraints);
+
+        indexInfo.setColumns(20);
+        indexInfo.setEditable(false);
+        indexInfo.setRows(5);
+        indexInfo.setBorder(null);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 3;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.weighty = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(6, 0, 0, 0);
+        add(indexInfo, gridBagConstraints);
     }// </editor-fold>//GEN-END:initComponents
 
     private void folderChooserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_folderChooserActionPerformed
@@ -368,9 +400,15 @@ public class AddScopePanel extends javax.swing.JPanel {
         showFileChooser(indexFolder);
     }//GEN-LAST:event_browseActionPerformed
 
+    private void subIndexActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_subIndexActionPerformed
+        subindexSelectionUpdated();
+    }//GEN-LAST:event_subIndexActionPerformed
+
     private void selectCorrectCard() {
         String card;
 
+        indexInfo.setText("");
+        
         if (noIndexButton.isSelected()) card = "noIndex";
         else if (localIndexButton.isSelected()) card = "localIndex";
         else {
@@ -392,6 +430,7 @@ public class AddScopePanel extends javax.swing.JPanel {
     private javax.swing.JPanel folderPanel;
     private javax.swing.JTextField indexFolder;
     private javax.swing.JLabel indexFolderLabel;
+    private javax.swing.JTextArea indexInfo;
     private javax.swing.JTextField indexURL;
     private javax.swing.JLabel indexURLLabel;
     private javax.swing.JPanel indexVariantsChooserPanel;
@@ -463,14 +502,16 @@ public class AddScopePanel extends javax.swing.JPanel {
 
     private void updateErrors() {
         notificationSupport.clearMessages();
+        
+        File folderFile = new File(folder.getText());
 
-        if (!new File(folder.getText()).exists()) {
+        if (!folderFile.exists()) {
             notificationSupport.setErrorMessage("Specified directory does not exist.");
             okButton.setEnabled(false);
             return;
         }
 
-        if (!new File(folder.getText()).isDirectory()) {
+        if (!folderFile.isDirectory()) {
             notificationSupport.setErrorMessage("Specified directory is not directory.");
             okButton.setEnabled(false);
             return ;
@@ -492,8 +533,16 @@ public class AddScopePanel extends javax.swing.JPanel {
                 okButton.setEnabled(false);
                return;
             }
+            try {
+                Index idx = Index.create(folderFile.toURI().toURL(), indexFile);
+                IndexInfo info = idx.getIndexInfo();
 
-            //check that the folder is correct index
+                indexInfo.setText(toDisplayText(info));
+            } catch (MalformedURLException ex) {
+                Exceptions.printStackTrace(ex);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
         }
 
         if (removeIndexButton.isSelected()) {
@@ -524,7 +573,7 @@ public class AddScopePanel extends javax.swing.JPanel {
         urlCheckerTask.cancel();
         urlCheckerTask.schedule(50);
     }
-    
+
     private static final RequestProcessor WORKER = new RequestProcessor(AddScopePanel.class.getName(), 1, false, false);
     private final RequestProcessor.Task urlCheckerTask = WORKER.create(new Runnable() {
 
@@ -583,8 +632,72 @@ public class AddScopePanel extends javax.swing.JPanel {
                     if (containsSelection) {
                         model.setSelectedItem(selected);
                     }
+
+                    subindexSelectionUpdated();
                 }
             });
         }
     });
+
+    private final AtomicReference<String> indexInfoURLContentCopy = new AtomicReference<String>();
+    private final AtomicReference<String> indexInfoSubIndexCopy = new AtomicReference<String>();
+    private void subindexSelectionUpdated() {
+        indexInfoURLContentCopy.set(indexURL.getText());
+        indexInfoSubIndexCopy.set((String) subIndex.getSelectedItem());
+        indexInfoTask.cancel();
+        indexInfoTask.schedule(50);
+    }
+
+    private final RequestProcessor.Task indexInfoTask = WORKER.create(new Runnable() {
+
+        public void run() {
+            String urlText = indexInfoURLContentCopy.get();
+            String subIndex = indexInfoSubIndexCopy.get();
+            IndexInfo info = null;
+
+            try {
+                URL url = new URL(urlText);
+
+                if (!url.getPath().endsWith("/"))
+                    url = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath() + "/" + (url.getQuery() != null ? "?" + url.getQuery() : ""));
+
+                String indexInfoText = WebUtilities.requestStringResponse(url.toURI().resolve("info?path=" + WebUtilities.escapeForQuery(subIndex)));
+                info = IndexInfo.empty();
+
+                Pojson.update(info, indexInfoText);
+            } catch (URISyntaxException ex) {
+                Logger.getLogger(AddScopePanel.class.getName()).log(Level.FINE, null, ex);
+            } catch (MalformedURLException ex) {
+                Logger.getLogger(AddScopePanel.class.getName()).log(Level.FINE, null, ex);
+            }
+
+            final IndexInfo infoFinal = info;
+
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    if (infoFinal != null) {
+                        indexInfo.setText(toDisplayText(infoFinal));
+                    } else {
+                        indexInfo.setText("");
+                    }
+                }
+            });
+        }
+    });
+
+    private static String toDisplayText(IndexInfo info) {
+        StringBuilder sb = new StringBuilder();
+
+        if (info.sourceLocation != null) {
+            sb.append("Source Location: ").append(info.sourceLocation).append("\n");
+        }
+        if (info.lastUpdate >= 0) {
+            sb.append("Last Update:\t").append(DateFormat.getDateTimeInstance().format(new Date(info.lastUpdate))).append("\n");
+        }
+        if (info.totalFiles >= 0) {
+            sb.append("Indexed Files:\t").append(info.totalFiles).append("\n");
+        }
+
+        return sb.toString();
+    }
 }
