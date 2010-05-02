@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.refactoring;
@@ -47,6 +47,6 @@ import org.netbeans.modules.refactoring.spi.ui.UI;
 public final class FindOccurrencesAction implements ActionListener {
 
     public void actionPerformed(ActionEvent e) {
-        UI.openRefactoringUI(new FindDuplicatesRefactoringUI(null, Scope.ALL_OPENED_PROJECTS));
+        UI.openRefactoringUI(new FindDuplicatesRefactoringUI(null, Scope.createAllOpenedProjectsScope()));
     }
 }

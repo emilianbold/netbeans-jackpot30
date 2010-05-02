@@ -177,7 +177,7 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
 
                     SwingUtilities.invokeLater(new Runnable() {
                         public void run() {
-                            UI.openRefactoringUI(new FindDuplicatesRefactoringUI(pattern, Scope.ALL_OPENED_PROJECTS));
+                            UI.openRefactoringUI(new FindDuplicatesRefactoringUI(pattern, Scope.createAllOpenedProjectsScope()));
                         }
                     });
                 }

@@ -292,7 +292,7 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         NFA<Input, Res> nfa = NFA.<Input, Res>create(startState, nextState[0], null, transitionTable, finalStates);
 
-        return BulkPatternImpl.create(identifiers, kinds, nfa);
+        return BulkPatternImpl.create(new LinkedList<String>(code), identifiers, kinds, nfa);
     }
 
     private static void setBit(Map<NFA.Key<Input>, NFA.State> transitionTable, NFA.Key<Input> input, int state) {
@@ -358,7 +358,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                 ctx.getOut().write((size >>  8) & 0xFF);
                 ctx.getOut().write((size >>  0) & 0xFF);
                 for (String ident : identifiers) {
-                    ctx.getOut().write(ident.getBytes("UTF-8"));
+                    ctx.getOut().write(ident.getBytes("UTF-8"));//XXX: might probably contain ';'
                     ctx.getOut().write(';');
                 }
             } catch (IOException ex) {
@@ -535,8 +535,8 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         private final NFA<Input, Res> nfa;
 
-        private BulkPatternImpl(List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds, NFA<Input, Res> nfa) {
-            super(identifiers, kinds);
+        private BulkPatternImpl(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds, NFA<Input, Res> nfa) {
+            super(patterns, identifiers, kinds);
             this.nfa = nfa;
         }
 
@@ -544,8 +544,8 @@ public class NFABasedBulkSearch extends BulkSearch {
             return nfa;
         }
         
-        private static BulkPattern create(List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds, NFA<Input, Res> nfa) {
-            return new BulkPatternImpl(identifiers, kinds, nfa);
+        private static BulkPattern create(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds, NFA<Input, Res> nfa) {
+            return new BulkPatternImpl(patterns, identifiers, kinds, nfa);
         }
 
     }

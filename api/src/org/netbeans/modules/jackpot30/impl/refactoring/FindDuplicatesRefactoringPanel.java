@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,32 +34,29 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
+import java.awt.CardLayout;
 import java.awt.Component;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.io.File;
 import java.util.Collection;
-import java.util.EnumMap;
-import java.util.EnumSet;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
-import javax.swing.JComponent;
-import javax.swing.JFileChooser;
+import javax.swing.JButton;
 import javax.swing.JList;
-import javax.swing.JTextField;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -68,7 +65,11 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.ScopeType;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.openide.DialogDescriptor;
+import org.openide.DialogDisplayer;
+import org.openide.util.Exceptions;
 import org.openide.util.NbPreferences;
 import org.openide.util.Union2;
 
@@ -82,6 +83,8 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     private final ChangeListener changeListener;
     
     public FindDuplicatesRefactoringPanel(final ChangeListener parent, boolean allowVerify) {
+        this.changeListener = parent;
+        
         Set<ClassPath> cps = new HashSet<ClassPath>();
 
         cps.addAll(GlobalPathRegistry.getDefault().getPaths(ClassPath.BOOT));
@@ -105,43 +108,31 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         selectedHints.setModel(selected);
         DocumentListener dl = new DocumentListener() {
             public void insertUpdate(DocumentEvent e) {
-                parent.stateChanged(new ChangeEvent(FindDuplicatesRefactoringPanel.this));
+                stateChanged();
             }
             public void removeUpdate(DocumentEvent e) {
-                parent.stateChanged(new ChangeEvent(FindDuplicatesRefactoringPanel.this));
+                stateChanged();
             }
             public void changedUpdate(DocumentEvent e) {}
         };
         pattern.getDocument().addDocumentListener(dl);
         ItemListener ilImpl = new ItemListener() {
             public void itemStateChanged(ItemEvent e) {
-                parent.stateChanged(new ChangeEvent(FindDuplicatesRefactoringPanel.this));
-                updateFolderSelectionPanel();
+                stateChanged();
+                enableDisableEditRemove();
             }
         };
-        scope.addItemListener(ilImpl);
-        verify.addItemListener(ilImpl);
-        folderCombo.addItemListener(ilImpl);
 
-        ((JTextField) folderCombo.getEditor().getEditorComponent()).getDocument().addDocumentListener(dl);
+        scope.addItemListener(ilImpl);
 
         if (!allowVerify) {
             verify.setVisible(false);
         }
         
-        DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
-
-        for (Scope s : EnumSet.of(Scope.ALL_OPENED_PROJECTS, Scope.GIVEN_FOLDER)) {
-            dcbm.addElement(s);
-        }
-        
-        scope.setModel(dcbm);
+        scope.setModel(new DefaultComboBoxModel());//XXX
         scope.setRenderer(new RendererImpl());
 
         enableDisable();
-        updateFolderSelectionPanel();
-
-        this.changeListener = parent;
     }
 
     /** This method is called from within the constructor to
@@ -155,11 +146,10 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         java.awt.GridBagConstraints gridBagConstraints;
 
         main = new javax.swing.ButtonGroup();
+        verify = new javax.swing.JCheckBox();
+        patternSelection = new javax.swing.JPanel();
         jScrollPane1 = new javax.swing.JScrollPane();
         pattern = new javax.swing.JTextPane();
-        scope = new javax.swing.JComboBox();
-        jLabel2 = new javax.swing.JLabel();
-        verify = new javax.swing.JCheckBox();
         knownPatternsPanel = new javax.swing.JPanel();
         allHintsLabel = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
@@ -172,58 +162,34 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         addAllHints = new javax.swing.JButton();
         removeHint = new javax.swing.JButton();
         removeAllHints = new javax.swing.JButton();
+        patternTypeSelectionPanel = new javax.swing.JPanel();
         knowPatterns = new javax.swing.JRadioButton();
         customPattern = new javax.swing.JRadioButton();
         jPanel1 = new javax.swing.JPanel();
-        folderLabel = new javax.swing.JLabel();
-        folderCombo = new javax.swing.JComboBox();
-        folderChooser = new javax.swing.JButton();
+        scopePanel = new javax.swing.JPanel();
+        scope = new javax.swing.JComboBox();
+        jLabel2 = new javax.swing.JLabel();
+        add = new javax.swing.JButton();
+        edit = new javax.swing.JButton();
+        removeButton = new javax.swing.JButton();
 
         setLayout(new java.awt.GridBagLayout());
-
-        jScrollPane1.setViewportView(pattern);
-
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 3;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.ipadx = 498;
-        gridBagConstraints.ipady = 153;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 0.5;
-        gridBagConstraints.insets = new java.awt.Insets(6, 0, 0, 0);
-        add(jScrollPane1, gridBagConstraints);
-
-        scope.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 5;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.ipadx = 440;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(6, 0, 0, 0);
-        add(scope, gridBagConstraints);
-
-        jLabel2.setLabelFor(scope);
-        org.openide.awt.Mnemonics.setLocalizedText(jLabel2, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.jLabel2.text")); // NOI18N
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 4;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.insets = new java.awt.Insets(18, 0, 0, 0);
-        add(jLabel2, gridBagConstraints);
 
         org.openide.awt.Mnemonics.setLocalizedText(verify, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.verify.text")); // NOI18N
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 7;
+        gridBagConstraints.gridy = 3;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.weightx = 1.0;
         gridBagConstraints.insets = new java.awt.Insets(18, 0, 0, 0);
         add(verify, gridBagConstraints);
+
+        patternSelection.setLayout(new java.awt.CardLayout());
+
+        jScrollPane1.setViewportView(pattern);
+
+        patternSelection.add(jScrollPane1, "customPattern");
 
         knownPatternsPanel.setLayout(new java.awt.GridBagLayout());
 
@@ -238,6 +204,8 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             public int getSize() { return strings.length; }
             public Object getElementAt(int i) { return strings[i]; }
         });
+        allHints.setPrototypeCellValue(HINTS_LIST_PROTOTYPE);
+        allHints.setVisibleRowCount(24);
         jScrollPane2.setViewportView(allHints);
 
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -255,6 +223,8 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             public int getSize() { return strings.length; }
             public Object getElementAt(int i) { return strings[i]; }
         });
+        selectedHints.setPrototypeCellValue(HINTS_LIST_PROTOTYPE);
+        selectedHints.setVisibleRowCount(24);
         jScrollPane3.setViewportView(selectedHints);
 
         gridBagConstraints = new java.awt.GridBagConstraints();
@@ -335,16 +305,19 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 5);
         knownPatternsPanel.add(jPanel2, gridBagConstraints);
 
+        patternSelection.add(knownPatternsPanel, "knownPatterns");
+
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 1;
         gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.ipadx = 288;
-        gridBagConstraints.ipady = 149;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 0.5;
-        add(knownPatternsPanel, gridBagConstraints);
+        gridBagConstraints.weighty = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(6, 0, 0, 0);
+        add(patternSelection, gridBagConstraints);
+
+        patternTypeSelectionPanel.setLayout(new java.awt.GridBagLayout());
 
         main.add(knowPatterns);
         knowPatterns.setSelected(true);
@@ -355,8 +328,10 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        add(knowPatterns, gridBagConstraints);
+        patternTypeSelectionPanel.add(knowPatterns, gridBagConstraints);
 
         main.add(customPattern);
         org.openide.awt.Mnemonics.setLocalizedText(customPattern, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.customPattern.text")); // NOI18N
@@ -366,48 +341,88 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 2;
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 0;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.insets = new java.awt.Insets(18, 0, 0, 0);
-        add(customPattern, gridBagConstraints);
-
-        jPanel1.setLayout(new java.awt.GridBagLayout());
-
-        org.openide.awt.Mnemonics.setLocalizedText(folderLabel, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.folderLabel.text")); // NOI18N
+        gridBagConstraints.insets = new java.awt.Insets(0, 24, 0, 0);
+        patternTypeSelectionPanel.add(customPattern, gridBagConstraints);
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.insets = new java.awt.Insets(0, 0, 0, 6);
-        jPanel1.add(folderLabel, gridBagConstraints);
-
-        folderCombo.setEditable(true);
-        folderCombo.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 6);
-        jPanel1.add(folderCombo, gridBagConstraints);
+        patternTypeSelectionPanel.add(jPanel1, gridBagConstraints);
 
-        org.openide.awt.Mnemonics.setLocalizedText(folderChooser, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.folderChooser.text")); // NOI18N
-        folderChooser.addActionListener(new java.awt.event.ActionListener() {
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        add(patternTypeSelectionPanel, gridBagConstraints);
+
+        scopePanel.setLayout(new java.awt.GridBagLayout());
+
+        scope.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
+        scope.setPrototypeDisplayValue(SCOPE_COMBO_PROTOTYPE);
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 1;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 0);
+        scopePanel.add(scope, gridBagConstraints);
+
+        jLabel2.setLabelFor(scope);
+        org.openide.awt.Mnemonics.setLocalizedText(jLabel2, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.jLabel2.text")); // NOI18N
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        scopePanel.add(jLabel2, gridBagConstraints);
+
+        org.openide.awt.Mnemonics.setLocalizedText(add, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.add.text")); // NOI18N
+        add.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
-                folderChooserActionPerformed(evt);
+                addActionPerformed(evt);
             }
         });
         gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 0);
-        jPanel1.add(folderChooser, gridBagConstraints);
+        gridBagConstraints.gridx = 2;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 12, 0, 0);
+        scopePanel.add(add, gridBagConstraints);
+
+        org.openide.awt.Mnemonics.setLocalizedText(edit, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.edit.text")); // NOI18N
+        edit.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                editActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 3;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 12, 0, 0);
+        scopePanel.add(edit, gridBagConstraints);
+
+        org.openide.awt.Mnemonics.setLocalizedText(removeButton, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.removeButton.text")); // NOI18N
+        removeButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                removeButtonActionPerformed(evt);
+            }
+        });
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
+        gridBagConstraints.insets = new java.awt.Insets(0, 12, 0, 0);
+        scopePanel.add(removeButton, gridBagConstraints);
 
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 6;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.insets = new java.awt.Insets(6, 24, 0, 0);
-        add(jPanel1, gridBagConstraints);
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new java.awt.Insets(24, 0, 0, 0);
+        add(scopePanel, gridBagConstraints);
     }// </editor-fold>//GEN-END:initComponents
 
     private void addHintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addHintActionPerformed
@@ -450,34 +465,39 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         enableDisable();
     }//GEN-LAST:event_knowPatternsActionPerformed
 
-    private void folderChooserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_folderChooserActionPerformed
-        JFileChooser c = new JFileChooser();
+    private void addActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addActionPerformed
+        addEditScope(false);
+    }//GEN-LAST:event_addActionPerformed
 
-        c.setSelectedFile(new File(getSelectedFolder()));
-        c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        c.setMultiSelectionEnabled(false);
-        c.setApproveButtonText("Select");
+    private void editActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editActionPerformed
+        addEditScope(true);
+    }//GEN-LAST:event_editActionPerformed
 
-        if (c.showDialog(this, null) == JFileChooser.APPROVE_OPTION) {
-            setSelectedFolder(c.getSelectedFile().getAbsolutePath());
-        }
-    }//GEN-LAST:event_folderChooserActionPerformed
+    private void removeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeButtonActionPerformed
+        DefaultComboBoxModel model = (DefaultComboBoxModel) scope.getModel();
+        int index = model.getIndexOf(model.getSelectedItem());
+
+        model.removeElementAt(index);
+    }//GEN-LAST:event_removeButtonActionPerformed
+
+    private void stateChanged() {
+        changeListener.stateChanged(new ChangeEvent(this));
+    }
 
     private void enableDisable() {
-        setEnabled(knownPatternsPanel, knowPatterns.isSelected());
-        setEnabled(pattern, customPattern.isSelected());
+        String toSelect = knowPatterns.isSelected() ? "knownPatterns" : "customPattern";
+
+        ((CardLayout) patternSelection.getLayout()).show(patternSelection, toSelect);
+        stateChanged();
     }
 
-    private static void setEnabled(JComponent c, boolean enabled) {
-        c.setEnabled(enabled);
-
-        for (Component cc : c.getComponents()) {
-            if (cc instanceof JComponent) {
-                setEnabled((JComponent) cc, enabled);
-            }
-        }
+    private void enableDisableEditRemove() {
+        boolean enableEditRemove = ((Scope) scope.getSelectedItem()).scopeType != ScopeType.ALL_OPENED_PROJECTS;
+        
+        edit.setEnabled(enableEditRemove);
+        removeButton.setEnabled(enableEditRemove);
     }
-    
+
     public void setPattern(Union2<String, Iterable<? extends HintDescription>> pattern) {
         if (pattern.hasFirst()) {
             customPattern.setSelected(true);
@@ -525,6 +545,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
     public void setScope(Scope scope) {
         this.scope.setSelectedItem(scope);
+        stateChanged();
     }
 
     public Scope getScope() {
@@ -539,69 +560,78 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         this.verify.setSelected(verify);
     }
 
-    private void updateFolderSelectionPanel() {
-        boolean enabled = scope.getSelectedItem() == Scope.GIVEN_FOLDER;
+    private static final String SCOPES_KEY = FindDuplicatesRefactoringPanel.class.getSimpleName() + "/scopes";
+    private static final String LAST_SELECTED_SCOPE_KEY = "lastSelected";
 
-        folderCombo.setEnabled(enabled);
-        folderChooser.setEnabled(enabled);
-    }
-
-    public String getSelectedFolder() {
-        return ((JTextField) folderCombo.getEditor().getEditorComponent()).getText();
-    }
-
-    public void setSelectedFolder(String folder) {
-        folderCombo.setSelectedItem(folder);
-    }
-
-    private static final String FOLDERS_COMBO_KEY = FindDuplicatesRefactoringPanel.class.getName().replace('.', '/') + "/foldersCombo";
-
-    void initializeFoldersCombo() {
-        String folders = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).get(FOLDERS_COMBO_KEY, "");
+    void fillInFromSettings() {
+        Preferences prefs = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).node(SCOPES_KEY);
         DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
 
-        for (String f : folders.split(";")) { //TODO: escape :
-            dcbm.addElement(f);
+        dcbm.addElement(Scope.createAllOpenedProjectsScope());
+
+        String lastSelectedFolder = prefs.get(LAST_SELECTED_SCOPE_KEY, null);
+        Scope lastSelectedScope = null;
+        
+        if (prefs != null) {
+            try {
+                for (String key : prefs.keys()) {
+                    if (key.startsWith("scope")) {
+                        Scope scope = Scope.deserialize(prefs.get(key, null));
+
+                        if (scope.folder.equals(lastSelectedFolder)) {
+                            lastSelectedScope = scope;
+                        }
+                        
+                        dcbm.addElement(scope);
+                    }
+                }
+            } catch (BackingStoreException ex) {
+                Exceptions.printStackTrace(ex);
+            }
         }
 
-        folderCombo.setModel(dcbm);
-        if (dcbm.getSize() > 0)
-            folderCombo.setSelectedIndex(0);
+        scope.setModel(dcbm);
+        if (lastSelectedScope != null) {
+            scope.setSelectedItem(lastSelectedScope);
+        } else {
+            scope.setSelectedIndex(0);
+        }
+
+        enableDisableEditRemove();
     }
 
-    void saveFoldersCombo() {
-        Set<String> data = new LinkedHashSet<String>();
-
-        data.add((String) folderCombo.getSelectedItem());
-
-        for (int cntr = 0; cntr < folderCombo.getModel().getSize(); cntr++) {
-            String f = (String) folderCombo.getModel().getElementAt(cntr);
-
-            data.add(f);
+    void saveScopesCombo() {
+        Preferences prefs = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).node(SCOPES_KEY);
+        
+        try {
+            prefs.clear();
+        } catch (BackingStoreException ex) {
+            Exceptions.printStackTrace(ex);
         }
 
-        StringBuilder persistent = new StringBuilder();
+        for (int i = 0; i < scope.getModel().getSize(); i++) {
+            Scope currentScope = (Scope) scope.getModel().getElementAt(i);
 
-        for (String d : data) {
-            if (persistent.length() > 0) {
-                persistent.append(";");
-            }
-
-            persistent.append(d);
+            if (currentScope.scopeType == ScopeType.ALL_OPENED_PROJECTS) continue;
+            
+            prefs.put("scope" + i, currentScope.serialize());
         }
 
-        NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).put(FOLDERS_COMBO_KEY, persistent.toString());
+        Scope selected = (Scope) scope.getModel().getSelectedItem();
+
+        if (selected.scopeType == ScopeType.GIVEN_FOLDER) {
+            prefs.put(LAST_SELECTED_SCOPE_KEY, selected.folder);
+        }
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton add;
     private javax.swing.JButton addAllHints;
     private javax.swing.JButton addHint;
     private javax.swing.JList allHints;
     private javax.swing.JLabel allHintsLabel;
     private javax.swing.JRadioButton customPattern;
-    private javax.swing.JButton folderChooser;
-    private javax.swing.JComboBox folderCombo;
-    private javax.swing.JLabel folderLabel;
+    private javax.swing.JButton edit;
     private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
@@ -612,9 +642,13 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     private javax.swing.JPanel knownPatternsPanel;
     private javax.swing.ButtonGroup main;
     private javax.swing.JTextPane pattern;
+    private javax.swing.JPanel patternSelection;
+    private javax.swing.JPanel patternTypeSelectionPanel;
     private javax.swing.JButton removeAllHints;
+    private javax.swing.JButton removeButton;
     private javax.swing.JButton removeHint;
     private javax.swing.JComboBox scope;
+    private javax.swing.JPanel scopePanel;
     private javax.swing.JList selectedHints;
     private javax.swing.JLabel selectedHintsLabel;
     private javax.swing.JCheckBox verify;
@@ -627,7 +661,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             String displayName;
 
             if (value instanceof Scope) {
-                displayName = SCOPE_DISPLAY_NAMES.get((Scope) value);
+                displayName = ((Scope) value).getDisplayName();
             } else {
                 displayName = value.toString();
             }
@@ -637,13 +671,35 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
     }
 
-    private static final Map<Scope, String> SCOPE_DISPLAY_NAMES;
+    private void addEditScope(boolean edit) {
+        JButton okButton = new JButton("OK");
+        AddScopePanel panel = new AddScopePanel(okButton);
+        DialogDescriptor dd = new DialogDescriptor(panel, "Add Scope", true, new Object[] {okButton, DialogDescriptor.CANCEL_OPTION}, okButton, DialogDescriptor.DEFAULT_ALIGN, null, null);
 
-    static {
-        SCOPE_DISPLAY_NAMES = new EnumMap<Scope, String>(Scope.class);
-        SCOPE_DISPLAY_NAMES.put(Scope.ALL_OPENED_PROJECTS, "All Opened Projects");
-        SCOPE_DISPLAY_NAMES.put(Scope.ALL_REMOTE_PROJECTS, "All Remote Projects");
-        SCOPE_DISPLAY_NAMES.put(Scope.GIVEN_FOLDER, "Selected Folder");
+        dd.setClosingOptions(null);
+        panel.setNotificationSupport(dd.createNotificationLineSupport());
+
+        if (edit) {
+            panel.setScope((Scope) scope.getModel().getSelectedItem());
+        }
+
+        if (DialogDisplayer.getDefault().notify(dd) == DialogDescriptor.OK_OPTION) {
+            DefaultComboBoxModel model = (DefaultComboBoxModel) scope.getModel();
+            Scope scope = panel.getScope();
+
+            if (edit) {
+                int index = model.getIndexOf(model.getSelectedItem());
+
+                model.removeElementAt(index);
+                model.insertElementAt(scope, index);
+            } else {
+                model.addElement(scope);
+            }
+            
+            model.setSelectedItem(scope);
+        }
     }
-    
+
+    private static final String SCOPE_COMBO_PROTOTYPE = "0123456789012345678901234567890123456789012345";
+    private static final String HINTS_LIST_PROTOTYPE  = "012345678901234567890123456789";
 }

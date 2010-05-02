@@ -44,11 +44,14 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  *
@@ -123,6 +126,11 @@ public class WebUtilities {
         }
 
         return input;
+    }
+
+    public static String escapeForQuery(String pattern) throws URISyntaxException {
+        if (pattern == null) return null;
+        return new URI(null, null, null, -1, null, pattern, null).getRawQuery().replaceAll(Pattern.quote("&"), Matcher.quoteReplacement("%26"));
     }
 
 }

@@ -39,11 +39,9 @@
 
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
-import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.refactoring.api.AbstractRefactoring;
-import org.openide.filesystems.FileObject;
 import org.openide.util.Lookup;
 
 public class FindDuplicatesRefactoring extends AbstractRefactoring {
@@ -52,7 +50,6 @@ public class FindDuplicatesRefactoring extends AbstractRefactoring {
     private Iterable<? extends HintDescription> patterns;
     private Scope scope;
     private boolean verify;
-    private @NullAllowed FileObject folder;
 
     public FindDuplicatesRefactoring(boolean query) {
         super(Lookup.EMPTY);
@@ -85,14 +82,6 @@ public class FindDuplicatesRefactoring extends AbstractRefactoring {
 
     public void setVerify(boolean verify) {
         this.verify = verify;
-    }
-
-    public FileObject getFolder() {
-        return folder;
-    }
-
-    public void setFolder(FileObject folder) {
-        this.folder = folder;
     }
 
 }

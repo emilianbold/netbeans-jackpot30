@@ -123,7 +123,7 @@ public class FindDuplicatesRefactoringPlugin extends ProgressProviderAdapter imp
 
     private List<MessageImpl> performSearchForPattern(RefactoringElementsBag refactoringElements) {
         ProgressHandleWrapper w = new ProgressHandleWrapper(this, 50, 50);
-        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w, refactoring.getFolder());
+        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w);
         List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
 
         int[] parts = new int[candidates.projectId2Resources.size()];
@@ -230,7 +230,7 @@ public class FindDuplicatesRefactoringPlugin extends ProgressProviderAdapter imp
 
     private Collection<MessageImpl> performApplyPattern(RefactoringElementsBag refactoringElements) {
         ProgressHandleWrapper w = new ProgressHandleWrapper(this, 30, 70);
-        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w, refactoring.getFolder());
+        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w);
         Collection<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
         Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, w, /*XXX*/new AtomicBoolean(), problems);
 

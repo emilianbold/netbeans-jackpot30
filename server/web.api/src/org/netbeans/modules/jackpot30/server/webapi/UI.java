@@ -66,6 +66,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
+import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
 
 /**
  *
@@ -219,11 +220,6 @@ public class UI {
 
     private static int contextLength(String in) {
         return in.replaceAll("\n[ \t]*\n", "\n").trim().split("\n").length;
-    }
-
-    private String escapeForQuery(String pattern) throws URISyntaxException {
-        if (pattern == null) return null;
-        return new URI(null, null, null, -1, null, pattern, null).getRawQuery().replaceAll(Pattern.quote("&"), Matcher.quoteReplacement("%26"));
     }
 
     private List<Map<String, String>> loadExamples() {

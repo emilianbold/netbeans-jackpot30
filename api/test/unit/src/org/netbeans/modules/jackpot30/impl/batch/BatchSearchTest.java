@@ -39,6 +39,12 @@
 
 package org.netbeans.modules.jackpot30.impl.batch;
 
+import java.net.URLStreamHandlerFactory;
+import junit.framework.Assert;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,13 +59,16 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
+import junit.framework.TestSuite;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.classpath.GlobalPathRegistryEvent;
 import org.netbeans.api.java.classpath.GlobalPathRegistryListener;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
+import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.junit.NbTestSuite;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Container;
@@ -92,6 +101,15 @@ public class BatchSearchTest extends NbTestCase {
         super(name);
     }
 
+    public static TestSuite suite() {
+        TestSuite result = new NbTestSuite();
+
+        result.addTestSuite(BatchSearchTest.class);
+//        result.addTest(new BatchSearchTest("testBatchSearchFolderRemoteIndex"));
+
+        return result;
+    }
+
     //XXX: copied from CustomIndexerImplTest:
     @Override
     protected void setUp() throws Exception {
@@ -114,7 +132,7 @@ public class BatchSearchTest extends NbTestCase {
                                  new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
 
         Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory()");
-        BatchResult result = BatchSearch.findOccurrences(hints, Scope.ALL_OPENED_PROJECTS);
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.createAllOpenedProjectsScope());
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
@@ -148,7 +166,7 @@ public class BatchSearchTest extends NbTestCase {
         writeFilesAndWaitForScan(src1, new File("test/Test.java", code));
 
         Iterable<? extends HintDescription> hints = PatternConvertor.create("$0.getFileObject($1)");
-        BatchResult result = BatchSearch.findOccurrences(hints, Scope.ALL_OPENED_PROJECTS);
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.createAllOpenedProjectsScope());
 
         assertEquals(1, result.projectId2Resources.size());
         Iterator<? extends Resource> resources = result.projectId2Resources.values().iterator().next().iterator();
@@ -175,7 +193,7 @@ public class BatchSearchTest extends NbTestCase {
                                  new File("test/Test2.java", "package test; public class Test2 { public boolean isDirectory() {return false} }"));
 
         Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory() :: $1 instanceof test.Test2 ;;");
-        BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, src1, src3, empty);
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.createGivenSourceRoots(src1, src3, empty));
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
@@ -232,7 +250,7 @@ public class BatchSearchTest extends NbTestCase {
         ClassPathProviderImpl.setSourceRoots(Arrays.asList(dataSrc1, dataSrc2));
 
         Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory() :: $1 instanceof test.Test2 ;;");
-        BatchResult result = BatchSearch.findOccurrences(hints, Scope.GIVEN_SOURCE_ROOTS, data);
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.createGivenSourceRoots(data));
         Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
 
         for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
@@ -290,6 +308,103 @@ public class BatchSearchTest extends NbTestCase {
         assertEquals(new HashSet<FileObject>(Arrays.asList(dataSrc1, dataSrc2)), removed);
     }
 
+    public void testBatchSearchFolderNoIndex() throws Exception {
+        FileObject data = FileUtil.createFolder(workdir, "data");
+        FileObject dataSrc1 = FileUtil.createFolder(data, "src1");
+        FileObject dataSrc2 = FileUtil.createFolder(data, "src2");
+        writeFilesAndWaitForScan(dataSrc1,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
+        writeFilesAndWaitForScan(dataSrc2,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { Test2 f = null; f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { public boolean isDirectory() {return false} }"));
+
+        Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory();;");
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.createGivenFolderNoIndex(FileUtil.toFile(data).getAbsolutePath()));
+        Map<String, Iterable<String>> output = toDebugOutput(result);
+        Map<String, Iterable<String>> golden = new HashMap<String, Iterable<String>>();
+
+        golden.put(data.getURL().toExternalForm(), new HashSet<String>(Arrays.asList("src1/test/Test1.java", "src2/test/Test1.java")));
+
+        assertEquals(golden, output);
+    }
+
+    public void testBatchSearchFolderLocalIndex() throws Exception {
+        FileObject data = FileUtil.createFolder(workdir, "data");
+        java.io.File index = FileUtil.toFile(FileUtil.createFolder(workdir, "index"));
+        FileObject dataSrc1 = FileUtil.createFolder(data, "src1");
+        FileObject dataSrc2 = FileUtil.createFolder(data, "src2");
+        writeFilesAndWaitForScan(dataSrc1,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
+        writeFilesAndWaitForScan(dataSrc2,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { Test2 f = null; f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { public boolean isDirectory() {return false} }"));
+
+        Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory();;");
+        Map<String, Iterable<String>> golden = new HashMap<String, Iterable<String>>();
+
+        golden.put(data.getURL().toExternalForm(), new HashSet<String>(Arrays.asList("src1/test/Test1.java", "src2/test/Test1.java")));
+        
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.createGivenFolderLocalIndex(FileUtil.toFile(data).getAbsolutePath(), index, true));
+        Map<String, Iterable<String>> output = toDebugOutput(result);
+
+        assertEquals(golden, output);
+
+        Thread.sleep(2000); //making sure the timestamps really changed
+
+        TestUtilities.copyStringToFile(data.getFileObject("src1/test/Test1.java"),
+                                       "package test; public class Test1 { private void test() { java.io.File f = null; } }");
+
+        //should not notice the change when update == false:
+        result = BatchSearch.findOccurrences(hints, Scope.createGivenFolderLocalIndex(FileUtil.toFile(data).getAbsolutePath(), index, false));
+        output = toDebugOutput(result);
+
+        assertEquals(golden, output);
+
+        //should notice it with update == true:
+        result = BatchSearch.findOccurrences(hints, Scope.createGivenFolderLocalIndex(FileUtil.toFile(data).getAbsolutePath(), index, true));
+        output = toDebugOutput(result);
+
+        golden.put(data.getURL().toExternalForm(), new HashSet<String>(Arrays.asList("src2/test/Test1.java")));
+
+        assertEquals(golden, output);
+    }
+
+    public void testBatchSearchFolderRemoteIndex() throws Exception {
+        FileObject data = FileUtil.createFolder(workdir, "data");
+        Iterable<? extends HintDescription> hints = PatternConvertor.create("$1.isDirectory();;");
+        Map<String, Iterable<String>> golden = new HashMap<String, Iterable<String>>();
+
+        golden.put(data.getURL().toExternalForm(), new HashSet<String>(Arrays.asList("src1/test/Test1.java", "src2/test/Test1.java")));
+
+        content.put(new URL("test://test/index?path=foo&pattern=$1.isDirectory();;"), "src1/test/Test1.java\nsrc2/test/Test1.java");
+        BatchResult result = BatchSearch.findOccurrences(hints, Scope.createGivenFolderRemoteIndex(FileUtil.toFile(data).getAbsolutePath(), "test://test/index", "foo"));
+        Map<String, Iterable<String>> output = toDebugOutput(result);
+
+        assertEquals(golden, output);
+    }
+
+    public void testScopeDeSerialization() throws Exception {
+        serializeDeserialize(Scope.createAllOpenedProjectsScope());
+        serializeDeserialize(Scope.createGivenFolderLocalIndex(new java.io.File("/tmp/src").getAbsolutePath(), new java.io.File("/tmp/index"), true));
+        serializeDeserialize(Scope.createGivenFolderLocalIndex(new java.io.File("/tmp/src").getAbsolutePath(), new java.io.File("/tmp/index"), false));
+        serializeDeserialize(Scope.createGivenFolderRemoteIndex(new java.io.File("/tmp/src").getAbsolutePath(), "test://foo", "bar"));
+        serializeDeserialize(Scope.createGivenFolderNoIndex(new java.io.File("/tmp/src").getAbsolutePath()));
+    }
+
+    private void serializeDeserialize(Scope scope) {
+        assertSame(Scope.deserialize(scope.serialize()), scope);
+    }
+
+    private void assertSame(Scope s1, Scope s2) {
+        assertEquals(s1.folder, s2.folder);
+        assertEquals(s1.indexURL, s2.indexURL);
+        assertEquals(s1.scopeType, s2.scopeType);
+        assertEquals(s1.subIndex, s2.subIndex);
+        assertEquals(s1.update, s2.update);
+    }
+
     private FileObject workdir;
     private FileObject src1;
     private FileObject src2;
@@ -309,6 +424,22 @@ public class BatchSearchTest extends NbTestCase {
         FileObject cache = FileUtil.createFolder(workdir, "cache");
 
         CacheFolder.setCacheFolder(cache);
+    }
+
+    private Map<String, Iterable<String>> toDebugOutput(BatchResult result) throws Exception {
+        Map<String, Iterable<String>> output = new HashMap<String, Iterable<String>>();
+
+        for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
+            Collection<String> resourcesRepr = new HashSet<String>();
+
+            for (Resource r : e.getValue()) {
+                resourcesRepr.add(r.getRelativePath());
+            }
+
+            output.put(e.getKey().toDebugString(), resourcesRepr);
+        }
+
+        return output;
     }
 
     @ServiceProvider(service=ClassPathProvider.class)
@@ -380,5 +511,53 @@ public class BatchSearchTest extends NbTestCase {
         }
 
         return bootClassPath;
+    }
+
+    private static final Map<URL, String> content = new HashMap<URL, String>();
+
+    @ServiceProvider(service=URLStreamHandlerFactory.class)
+    public static final class URLStreamHandlerFactoryImpl implements URLStreamHandlerFactory {
+
+        public URLStreamHandler createURLStreamHandler(String protocol) {
+            if ("test".equals(protocol)) {
+                return new URLStreamHandlerImpl();
+            }
+
+            return null;
+        }
+
+    }
+
+    private static final class URLStreamHandlerImpl extends URLStreamHandler {
+
+        @Override
+        protected URLConnection openConnection(URL u) throws IOException {
+            String str = content.get(u);
+
+            Assert.assertNotNull(u.toExternalForm(), str);
+
+            return new TestURLConnection(u, str);
+        }
+
+    }
+
+    private static final class TestURLConnection extends URLConnection {
+
+        private final String content;
+
+        public TestURLConnection(URL url, String content) {
+            super(url);
+            this.content = content;
+        }
+
+        @Override
+        public void connect() throws IOException {
+        }
+
+        @Override
+        public Object getContent() throws IOException {
+            return new ByteArrayInputStream(content.getBytes("ASCII")); //XXX
+        }
+
     }
 }

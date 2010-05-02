@@ -121,7 +121,7 @@ public class CopyFinderBasedBulkSearch extends BulkSearch {
         private final Map<Tree, String> pattern2Code;
         
         public BulkPatternImpl(Map<Tree, String> pattern2Code) {
-            super(null, null);
+            super(new LinkedList<String>(pattern2Code.values()), null, null);
             this.pattern2Code = pattern2Code;
         }
 

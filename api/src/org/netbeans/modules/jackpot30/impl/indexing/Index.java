@@ -39,6 +39,8 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import org.netbeans.modules.jackpot30.impl.WebUtilities;
+import java.util.ArrayList;
 import com.sun.source.tree.CompilationUnitTree;
 import java.io.File;
 import java.io.FileInputStream;
@@ -82,7 +84,9 @@ import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
+import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
+import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
 
 /**
  *
@@ -98,6 +102,38 @@ public class Index {
         this.sourceRoot = sourceRoot;
         this.stripLength = sourceRoot.getPath().length();
         this.cacheRoot = cacheRoot;
+    }
+
+    public static Index create(URL sourceRoot, File indexRoot) {
+        return new Index(sourceRoot, indexRoot);
+    }
+
+    public static Index createWithRemoteIndex(URL sourceRoot, final String indexURL, final String subIndex) {
+        return new Index(sourceRoot, null) {
+            @Override
+            public IndexWriter openForWriting() throws IOException {
+                throw new UnsupportedOperationException();
+            }
+            @Override
+            public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
+                try {
+                    StringBuilder patterns = new StringBuilder();
+
+                    for (String p : pattern.getPatterns()) {
+                        patterns.append(p);
+                        patterns.append(";;");
+                    }
+
+                    URI u = new URI(indexURL + "?path=" + escapeForQuery(subIndex) + "&pattern=" + escapeForQuery(patterns.toString()));
+
+                    return new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
+                } catch (URISyntaxException ex) {
+                    //XXX: better handling?
+                    Exceptions.printStackTrace(ex);
+                    return Collections.emptyList();
+                }
+            }
+        };
     }
 
     public static @CheckForNull Index get(URL sourceRoot) throws IOException {

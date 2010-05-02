@@ -39,9 +39,14 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.Properties;
+import java.util.Set;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
@@ -64,34 +69,52 @@ public class CustomIndexerImpl extends CustomIndexer {
 
     @Override
     protected void index(Iterable<? extends Indexable> files, Context context) {
-        final IndexWriter[] w = new IndexWriter[1];
+        Collection<FileObject> toIndex = new LinkedList<FileObject>(); //XXX: better would be to use File
+
+        for (Indexable i : files) {
+            FileObject f = URLMapper.findFileObject(i.getURL());
+
+            if (f != null) {
+                toIndex.add(f);
+            }
+        }
+
+        if (toIndex.isEmpty()) {
+            return ;
+        }
         
         try {
-            Collection<FileObject> toIndex = new LinkedList<FileObject>(); //XXX: better would be to use File
+            doIndex(context.getRoot(), toIndex, Collections.<String>emptyList(), Index.get(context.getRootURI()));
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        }
+    }
 
-            for (Indexable i : files) {
-                FileObject f = URLMapper.findFileObject(i.getURL());
+    public static void doIndex(FileObject root, Collection<? extends FileObject> toIndex, Iterable<? extends String> deleted, Index index) {
+        if (toIndex.isEmpty()) {
+            return ;
+        }
 
-                if (f != null) {
-                    toIndex.add(f);
-                }
+        final IndexWriter[] w = new IndexWriter[1];
+
+        try {
+            ClasspathInfo cpInfo = ClasspathInfo.create(root);
+            w[0] = index.openForWriting();
+
+            for (String path : deleted) {
+                w[0].remove(path);
             }
 
-            if (toIndex.isEmpty()) {
-                return ;
+            if (!toIndex.isEmpty()) {
+                JavaSource.create(cpInfo, toIndex).runUserActionTask(new Task<CompilationController>() {
+                    public void run(final CompilationController cc) throws Exception {
+                        if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
+                            return ;
+
+                        w[0].record(cc, cc.getFileObject().getURL(), cc.getCompilationUnit());
+                    }
+                }, true);
             }
-
-            ClasspathInfo cpInfo = ClasspathInfo.create(context.getRoot());
-            w[0] = Index.get(context.getRootURI()).openForWriting();
-
-            JavaSource.create(cpInfo, toIndex).runUserActionTask(new Task<CompilationController>() {
-                public void run(final CompilationController cc) throws Exception {
-                    if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
-                        return ;
-
-                    w[0].record(cc, cc.getFileObject().getURL(), cc.getCompilationUnit());
-                }
-            }, true);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         } finally {
@@ -114,24 +137,16 @@ public class CustomIndexerImpl extends CustomIndexer {
 
         @Override
         public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
-            IndexWriter w = null;
+            Collection<String> deletedPaths = new LinkedList<String>();
 
+            for (Indexable i : deleted) {
+                deletedPaths.add(i.getRelativePath());
+
+            }
             try {
-                w = Index.get(context.getRootURI()).openForWriting();
-
-                for (Indexable i : deleted) {
-                    w.remove(i.getRelativePath());
-                }
+                doIndex(context.getRoot(), Collections.<FileObject>emptyList(), deletedPaths, Index.get(context.getRootURI()));
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
-            } finally {
-                if (w != null) {
-                    try {
-                        w.close();
-                    } catch (IOException ex) {
-                        Exceptions.printStackTrace(ex);
-                    }
-                }
             }
         }
 

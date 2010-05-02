@@ -105,12 +105,18 @@ public abstract class BulkSearch {
 
     public static abstract class BulkPattern {
 
+        private final List<? extends String> patterns;
         private final List<? extends Set<? extends String>> identifiers;
         private final List<? extends Set<? extends String>> kinds;
 
-        public BulkPattern(List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds) {
+        public BulkPattern(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds) {
+            this.patterns = patterns;
             this.identifiers = identifiers;//TODO: immutable, maybe clone
             this.kinds = kinds;
+        }
+
+        public List<? extends String> getPatterns() {
+            return patterns;
         }
 
         public List<? extends Set<? extends String>> getIdentifiers() {

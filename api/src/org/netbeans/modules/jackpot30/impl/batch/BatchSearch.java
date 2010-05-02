@@ -42,10 +42,16 @@ package org.netbeans.modules.jackpot30.impl.batch;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
-import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
@@ -56,10 +62,12 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
@@ -76,6 +84,7 @@ import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
+import org.netbeans.modules.jackpot30.impl.indexing.CustomIndexerImpl;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
@@ -83,14 +92,11 @@ import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
-import org.netbeans.modules.parsing.impl.indexing.PathRegistry;
 import org.netbeans.spi.editor.hints.ErrorDescription;
-import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
-import org.openide.util.NbCollections;
 
 /**
  *
@@ -100,49 +106,86 @@ public class BatchSearch {
 
     private static final Logger LOG = Logger.getLogger(BatchSearch.class.getName());
 
-    public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, Scope scope, Object... parameters) {
-        return findOccurrences(patterns, scope, new ProgressHandleWrapper(null), parameters);
+    public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, Scope scope) {
+        return findOccurrences(patterns, scope, new ProgressHandleWrapper(null));
     }
 
-    public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, Scope scope, ProgressHandleWrapper progress, Object... parameters) {
+    public static BatchResult findOccurrences(Iterable<? extends HintDescription> patterns, final Scope scope, final ProgressHandleWrapper progress) {
         for (HintDescription pattern : patterns) {
             if (pattern.getTriggerKind() != null || pattern.getTriggerPattern() == null) {
                 throw new UnsupportedOperationException();
             }
         }
 
-        Set<FileObject> knownSourceRoots = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
+        MapIndices knownSourceRootsMapper = new MapIndices() {
+            private Set<FileObject> KNOWN_SOURCE_ROOTS = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
+            public Index findIndex(FileObject root) {
+                if (KNOWN_SOURCE_ROOTS.contains(root)) {
+                    try {
+                        return Index.get(root.getURL());
+                    } catch (IOException ex) {
+                        //TODO: would log+return null be more appropriate?
+                        throw new IllegalStateException(ex);
+                    }
+                } else {
+                    return null;
+                }
+            }
+        };
         Set<FileObject> todo;
         
-        switch (scope) {
+        switch (scope.scopeType) {
             case ALL_OPENED_PROJECTS:
                 todo = new HashSet<FileObject>();
 
                 for (ClassPath source : GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)) {
                     todo.addAll(Arrays.asList(source.getRoots()));
                 }
-                
-                return findOccurrencesLocal(patterns, knownSourceRoots, todo, progress);
+
+                return findOccurrencesLocal(patterns, knownSourceRootsMapper, todo, progress);
             case GIVEN_SOURCE_ROOTS:
-                todo = NbCollections.checkedSetByCopy(new HashSet<Object>(Arrays.asList(parameters)), FileObject.class, true);
-
-                return findOccurrencesLocal(patterns, knownSourceRoots, todo, progress);
+                return findOccurrencesLocal(patterns, knownSourceRootsMapper, scope.sourceRoots, progress);
             case GIVEN_FOLDER:
-                todo = Collections.singleton((FileObject) parameters[0]);
+                todo = Collections.singleton(FileUtil.toFileObject(FileUtil.normalizeFile(new File(scope.folder))));
 
-                return findOccurrencesLocal(patterns, knownSourceRoots, todo, progress);
+                MapIndices mapper;
+
+                if (scope.indexURL != null) {
+                    if (scope.subIndex == null) {
+                        mapper = new MapIndices() {
+                            public Index findIndex(FileObject root) {
+                                return createOrUpdateIndex(root, new File(scope.indexURL), scope.update, progress);
+                            }
+                        };
+                    } else {
+                        mapper = new MapIndices() {
+                            public Index findIndex(FileObject root) {
+                                try {
+                                    return Index.createWithRemoteIndex(root.getURL(), scope.indexURL, scope.subIndex);
+                                } catch (FileStateInvalidException ex) {
+                                    Exceptions.printStackTrace(ex);
+                                    return null;
+                                }
+                            }
+                        };
+                    }
+                } else {
+                    mapper = knownSourceRootsMapper;
+                }
+
+                return findOccurrencesLocal(patterns, mapper, todo, progress);
             default:
-                throw new UnsupportedOperationException(scope.name());
+                throw new UnsupportedOperationException(scope.scopeType.name());
         }
     }
 
-    private static BatchResult findOccurrencesLocal(final Iterable<? extends HintDescription> patterns, final Set<FileObject> indexedSourceRoots, final Set<FileObject> todo, final ProgressHandleWrapper progress) {
+    private static BatchResult findOccurrencesLocal(final Iterable<? extends HintDescription> patterns, final MapIndices indexMapper, final Collection<? extends FileObject> todo, final ProgressHandleWrapper progress) {
         final BatchResult[] result = new BatchResult[1];
 
         try {
             JavaSource.create(Utilities.createUniversalCPInfo()).runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController parameter) throws Exception {
-                    result[0] = findOccurrencesLocalImpl(parameter, patterns, indexedSourceRoots, todo, progress);
+                    result[0] = findOccurrencesLocalImpl(parameter, patterns, indexMapper, todo, progress);
                 }
             }, true);
         } catch (IOException ex) {
@@ -151,18 +194,9 @@ public class BatchSearch {
 
         return result[0];
     }
-    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, final Iterable<? extends HintDescription> patterns, Set<FileObject> indexedSourceRoots, Set<FileObject> todo, ProgressHandleWrapper progress) {
-        Collection<String> code = new LinkedList<String>();
-        Collection<Tree> trees = new LinkedList<Tree>();
-
-        for (HintDescription pattern : patterns) {
-            String textPattern = pattern.getTriggerPattern().getPattern();
-            
-            code.add(textPattern);
-            trees.add(Utilities.parseAndAttribute(info, textPattern, null));
-        }
-
-        final BulkPattern bulkPattern = BulkSearch.getDefault().create(code, trees);
+    
+    private static BatchResult findOccurrencesLocalImpl(CompilationInfo info, final Iterable<? extends HintDescription> patterns, MapIndices indexMapper, Collection<? extends FileObject> todo, ProgressHandleWrapper progress) {
+        final BulkPattern bulkPattern = preparePattern(patterns, info);
         final Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         final Collection<MessageImpl> problems = new LinkedList<MessageImpl>();
         ProgressHandleWrapper innerForAll = progress.startNextPartWithEmbedding(ProgressHandleWrapper.prepareParts(todo.size()));
@@ -171,13 +205,10 @@ public class BatchSearch {
             LOG.log(Level.FINE, "Processing: {0}", FileUtil.getFileDisplayName(src));
             
             try {
-                if (indexedSourceRoots.contains(src)) {
-                    innerForAll.startNextPart(1);
-                    
-                    Index i = Index.get(src.getURL());
+                Index i = indexMapper.findIndex(src);
 
-                    if (i == null)
-                         continue;
+                if (i != null) {
+                    innerForAll.startNextPart(1);
                     
                     Container id = new LocalContainer(src);
 
@@ -196,7 +227,7 @@ public class BatchSearch {
 
                     final ProgressHandleWrapper innerProgress = innerForAll.startNextPartWithEmbedding(30, 70);
                     
-                    recursive(src, files, innerProgress, 0);
+                    recursive(src, src, files, innerProgress, 0, null, null);
 
                     LOG.log(Level.FINE, "files: {0}", files);
 
@@ -249,10 +280,37 @@ public class BatchSearch {
         return new BatchResult(result, problems);
     }
 
-    private static void recursive(FileObject file, Collection<FileObject> collected, ProgressHandleWrapper progress, int depth) {
+    private static BulkPattern preparePattern(final Iterable<? extends HintDescription> patterns, CompilationInfo info) {
+        Collection<String> code = new LinkedList<String>();
+        Collection<Tree> trees = new LinkedList<Tree>();
+
+        for (HintDescription pattern : patterns) {
+            String textPattern = pattern.getTriggerPattern().getPattern();
+
+            code.add(textPattern);
+            trees.add(Utilities.parseAndAttribute(info, textPattern, null));
+        }
+
+        return BulkSearch.getDefault().create(code, trees);
+    }
+
+    private static void recursive(FileObject root, FileObject file, Collection<FileObject> collected, ProgressHandleWrapper progress, int depth, Properties timeStamps, Set<String> removedFiles) {
         if (!VisibilityQuery.getDefault().isVisible(file)) return;
 
         if (file.isData()) {
+            if (timeStamps != null) {
+                String relativePath = FileUtil.getRelativePath(root, file);
+                String lastModified = Long.toHexString(file.lastModified().getTime());
+
+                removedFiles.remove(relativePath);
+
+                if (lastModified.equals(timeStamps.getProperty(relativePath))) {
+                    return;
+                }
+
+                timeStamps.setProperty(relativePath, lastModified);
+            }
+
             if (/*???:*/"java".equals(file.getExt()) || "text/x-java".equals(FileUtil.getMIMEType(file, "text/x-java"))) {
                 collected.add(file);
             }
@@ -271,11 +329,70 @@ public class BatchSearch {
 
             for (FileObject c : children) {
                 if (depth == 0) System.err.println("finished processing of: " + c);
-                recursive(c, collected, inner, depth + 1);
+                recursive(root, c, collected, inner, depth + 1, timeStamps, removedFiles);
 
                 if (progress != null) progress.tick();
             }
         }
+    }
+
+    private static Index createOrUpdateIndex(FileObject src, File indexRoot, boolean update, ProgressHandleWrapper progress) {
+        Index index;
+
+        try {
+            index = Index.create(src.getURL(), indexRoot);
+        } catch (FileStateInvalidException ex) {
+            throw new IllegalStateException(ex);
+        }
+
+        File timeStampsFile = new File(indexRoot, "timestamps.properties");
+        Properties timeStamps = new Properties();
+
+        if (timeStampsFile.exists()) {
+            if (!update) return index;
+
+            InputStream in = null;
+
+            try {
+                in = new BufferedInputStream(new FileInputStream(timeStampsFile));
+                timeStamps.load(in);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            } finally {
+                try {
+                    if (in != null)
+                        in.close();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+        }
+
+        Collection<FileObject> collected = new LinkedList<FileObject>();
+        Set<String> removed = new HashSet<String>(timeStamps.stringPropertyNames());
+
+        recursive(src, src, collected, progress, 0, timeStamps, removed);
+
+        CustomIndexerImpl.doIndex(src, collected, removed, index);
+
+        OutputStream out = null;
+
+        try {
+            out = new BufferedOutputStream(new FileOutputStream(timeStampsFile));
+            timeStamps.store(out, null);
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        } finally {
+            try {
+                if (out != null) {
+                    out.close();
+                }
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+
+        return index;
     }
     
     public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources, final Collection<? super MessageImpl> problems) {
@@ -350,10 +467,72 @@ public class BatchSearch {
         return resource2Errors;
     }
 
-    public enum Scope {
+    public final static class Scope {
+        public  final ScopeType scopeType;
+        public  final String folder; //public only for AddScopePanel
+        public  final String indexURL; //public only for AddScopePanel
+        public  final String subIndex; //public only for AddScopePanel
+        public  final boolean update; //public only for AddScopePanel
+        private final Collection<? extends FileObject> sourceRoots;
+
+        private Scope() {
+            this(null, null, null, null, true, null);
+        }
+
+        private Scope(ScopeType scopeType, String folder, String indexURL, String subIndex, boolean update, Collection<? extends FileObject> sourceRoots) {
+            this.scopeType = scopeType;
+            this.folder = folder;
+            this.indexURL = indexURL;
+            this.subIndex = subIndex;
+            this.update = update;
+            this.sourceRoots = sourceRoots;
+        }
+
+        public String serialize() {
+            return Pojson.save(this);
+            //sourceRoots currently never needs to be serialized:
+//            return scopeType.name() + "\n" + (folder != null ? folder.getAbsolutePath() : "") + "\n" + indexURL + "\n" + subIndex + "\n" + update;
+        }
+
+        public static Scope deserialize(String serialized) {
+//            String[] parts = serialized.split("\n");
+//
+//            return new Scope(ScopeType.valueOf(parts[0]), new File(parts[1]), parts[2], parts[3], Boolean.valueOf(parts[4]), null);
+            return Pojson.load(Scope.class, serialized);
+        }
+
+        public static Scope createAllOpenedProjectsScope() {
+            return new Scope(ScopeType.ALL_OPENED_PROJECTS, null, null, null, false, null);
+        }
+
+        public static Scope createGivenFolderNoIndex(String folder) {
+            return new Scope(ScopeType.GIVEN_FOLDER, folder, null, null, false, null);
+        }
+
+        public static Scope createGivenFolderLocalIndex(String folder, File indexFolder, boolean update) {
+            return new Scope(ScopeType.GIVEN_FOLDER, folder, indexFolder.getAbsolutePath(), null, update, null);
+        }
+
+        public static Scope createGivenFolderRemoteIndex(String folder, String urlIndex, String subIndex) {
+            return new Scope(ScopeType.GIVEN_FOLDER, folder, urlIndex, subIndex, false, null);
+        }
+
+        public static Scope createGivenSourceRoots(FileObject... sourceRoots) {
+            return new Scope(ScopeType.GIVEN_SOURCE_ROOTS, null, null, null, false, Arrays.asList(sourceRoots));
+        }
+
+        public String getDisplayName() {
+            switch (scopeType) {
+                case ALL_OPENED_PROJECTS: return "All Opened Projects";
+                case GIVEN_FOLDER: return folder;
+                default: throw new IllegalStateException();
+            }
+        }
+    }
+    
+    public enum ScopeType {
         ALL_OPENED_PROJECTS,
         GIVEN_SOURCE_ROOTS,
-        ALL_REMOTE_PROJECTS,
         GIVEN_FOLDER;
     }
 
@@ -548,6 +727,10 @@ public class BatchSearch {
             
             return verifiedSpans;
         }
+    }
+
+    private static interface MapIndices {
+        public Index findIndex(FileObject root); //XXX: should handle ProgressHandleWrapper
     }
 
 }

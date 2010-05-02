@@ -47,6 +47,6 @@ import org.netbeans.modules.refactoring.spi.ui.UI;
 public final class ApplyPatternAction implements ActionListener {
 
     public void actionPerformed(ActionEvent e) {
-        UI.openRefactoringUI(new FindDuplicatesRefactoringUI(null, Scope.ALL_OPENED_PROJECTS, true, false));
+        UI.openRefactoringUI(new FindDuplicatesRefactoringUI(null, Scope.createAllOpenedProjectsScope(), true, false));
     }
 }

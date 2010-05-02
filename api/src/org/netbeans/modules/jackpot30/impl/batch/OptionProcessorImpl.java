@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.batch;
@@ -208,7 +208,7 @@ public class OptionProcessorImpl extends OptionProcessor {
                 hintDescriptions.addAll(descs);
             }
 
-            BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scope.GIVEN_SOURCE_ROOTS, (Object[]) BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0]));
+            BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scope.createGivenSourceRoots(BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0])));
             List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
             Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, new ProgressHandleWrapper(100), null, problems);
             Set<FileObject> modified = new HashSet<FileObject>();
