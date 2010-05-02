@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.batch;
 
+import java.util.Collections;
 import java.util.Map;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
@@ -71,20 +72,8 @@ public final class JavaFixImpl implements Fix {
 
     public ChangeInfo implement() throws Exception {
         FileObject file = Accessor.INSTANCE.getFile(jf);
-        String updateTo = Accessor.INSTANCE.getOptions(jf).get(JavaFix.ENSURE_DEPENDENCY);
-
-        if (updateTo != null) {
-            Project p = FileOwnerQuery.getOwner(file);
-
-            if (p != null) {
-                for (ProjectDependencyUpgrader up : Lookup.getDefault().lookupAll(ProjectDependencyUpgrader.class)) {
-                    if (up.ensureDependency(p, updateTo, true)) {
-                        break;
-                    }
-                }
-                //TODO: fail if cannot update the dependency?
-            }
-        }
+        
+        BatchUtilities.fixDependencies(Collections.singletonMap(file, Collections.singletonList(jf)));
 
         JavaSource js = JavaSource.forFileObject(file);
 

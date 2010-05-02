@@ -124,7 +124,7 @@ public class ProjectDependencyUpgraderImpl extends ProjectDependencyUpgrader {
 
             SpecificationVersion currentDep = new SpecificationVersion(dep.getSpecificationVersion());
 
-            if (currentDep.compareTo(spec) < 0) {
+            if (spec != null && (currentDep == null || currentDep.compareTo(spec) < 0)) {
                 if (showDependencyUpgradeDialog(currentProject, displayName, new SpecificationVersion(dep.getSpecificationVersion()), spec, false, canShowUI)) {
                     ModuleDependency nue = new ModuleDependency(dep.getModuleEntry(),
                                                                 releaseVersion != null ? releaseVersion : dep.getReleaseVersion(),

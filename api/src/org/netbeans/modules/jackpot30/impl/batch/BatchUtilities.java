@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.batch;
@@ -46,10 +46,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -64,6 +67,7 @@ import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.WorkingCopy;
+import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
@@ -71,13 +75,16 @@ import org.netbeans.api.project.Sources;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
+import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl.Accessor;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
+import org.netbeans.modules.jackpot30.spi.ProjectDependencyUpgrader;
 import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
+import org.openide.util.Lookup;
 
 /**
  *
@@ -233,6 +240,8 @@ public class BatchUtilities {
     }
 
     private static ModificationResult performFastFixes(ClasspathInfo cpInfo, final Map<FileObject, List<JavaFix>> toProcess, @NullAllowed final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
+        fixDependencies(toProcess);
+        
         JavaSource js = JavaSource.create(cpInfo, toProcess.keySet());
 
         try {
@@ -302,4 +311,34 @@ public class BatchUtilities {
         return result;
     }
 
+    public static void fixDependencies(Map<FileObject, List<JavaFix>> toProcess) {
+        Map<Project, Set<String>> alreadyProcessed = new IdentityHashMap<Project, Set<String>>();
+
+        for (FileObject file : toProcess.keySet()) {
+            for (JavaFix fix : toProcess.get(file)) {
+                String updateTo = Accessor.INSTANCE.getOptions(fix).get(JavaFix.ENSURE_DEPENDENCY);
+
+                if (updateTo != null) {
+                    Project p = FileOwnerQuery.getOwner(file);
+
+                    if (p != null) {
+                        Set<String> seen = alreadyProcessed.get(p);
+
+                        if (seen == null) {
+                            alreadyProcessed.put(p, seen = new HashSet<String>());
+                        }
+
+                        if (seen.add(updateTo)) {
+                            for (ProjectDependencyUpgrader up : Lookup.getDefault().lookupAll(ProjectDependencyUpgrader.class)) {
+                                if (up.ensureDependency(p, updateTo, false)) {
+                                    break;
+                                }
+                            }
+                            //TODO: fail if cannot update the dependency?
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
