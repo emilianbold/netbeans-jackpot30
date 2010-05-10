@@ -41,15 +41,25 @@ package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.ElementFilter;
+import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.TestBase;
+import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
+import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.LifecycleManager;
 import org.openide.modules.SpecificationVersion;
@@ -253,5 +263,105 @@ public class JavaFixTest extends TestBase {
         f.setRightBrace("__");
 
         return f.format(ARITHMETIC);
+    }
+
+    public void testRewriteWithParenthesis1() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    int i = new String(\"a\" + \"b\").length();\n" +
+                           "}\n",
+                           "new String($1)=>$1",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    int i = (\"a\" + \"b\").length();\n" +
+		           "}\n");
+    }
+
+    public void testRewriteWithParenthesis2() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    int i = Integer.valueOf(1 + 2) * 3;\n" +
+                           "}\n",
+                           "Integer.valueOf($1)=>$1",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    int i = (1 + 2) * 3;\n" +
+		           "}\n");
+    }
+
+    public void testRewriteWithoutParenthesis1() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    int i = new String(\"a\" + \"b\").length();\n" +
+                           "}\n",
+                           "new String($1)=>java.lang.String.format(\"%s%s\", $1, \"\")",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    int i = String.format(\"%s%s\", \"a\" + \"b\", \"\").length();\n" +
+		           "}\n");
+    }
+
+    public void testRewriteWithoutParenthesis2() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    String s = (\"a\" + \"b\").intern();\n" +
+                           "}\n",
+                           "($1).intern()=>$1",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    String s = \"a\" + \"b\";\n" +
+		           "}\n");
+    }
+
+    public void testRewriteWithoutParenthesis3() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    int i = Integer.valueOf(1 + 2) + 3;\n" +
+                           "}\n",
+                           "Integer.valueOf($1)=>$1",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    int i = 1 + 2 + 3;\n" +
+		           "}\n");
+    }
+
+    public void testRewriteWithoutParenthesis4() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    int i = Integer.valueOf(1 * 2) + 3;\n" +
+                           "}\n",
+                           "Integer.valueOf($1)=>$1",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    int i = 1 * 2 + 3;\n" +
+		           "}\n");
+    }
+
+    public void performRewriteTest(String code, String rule, String golden) throws Exception {
+	prepareTest("test/Test.java", code);
+
+        final String[] split = rule.split("=>");
+        assertEquals(2, split.length);
+        HintDescription hd = HintDescriptionFactory.create()
+                                                   .setTriggerPattern(PatternDescription.create(split[0], Collections.<String, String>emptyMap()))
+                                                   .setWorker(new HintDescription.Worker() {
+            @Override public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
+                return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "", JavaFix.rewriteFix(ctx, "", ctx.getPath(), split[1])));
+            }
+        }).produce();
+
+        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>();
+        HashMap<Kind, List<HintDescription>> kindHints = new HashMap<Kind, List<HintDescription>>();
+
+        RulesManager.sortOut(Collections.singleton(hd), kindHints, patternHints);
+        List<ErrorDescription> computeHints = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, kindHints, patternHints);
+
+        assertEquals(computeHints.toString(), 1, computeHints.size());
+
+        Fix fix = computeHints.get(0).getFixes().getFixes().get(0);
+
+	fix.implement();
+
+        assertEquals(golden, doc.getText(0, doc.getLength()));
     }
 }
