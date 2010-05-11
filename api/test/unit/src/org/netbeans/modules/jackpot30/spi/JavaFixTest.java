@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.spi;
@@ -82,7 +82,7 @@ public class JavaFixTest extends TestBase {
 
         assertEquals(0, v.compareTo(new SpecificationVersion("1.5")));
     }
-    
+
     public void testSimpleDate() throws Exception {
         SpecificationVersion v = computeSpecVersion("/**\n" +
                                                     " * @since 1.5 (16 May 2005)\n" +
@@ -239,7 +239,7 @@ public class JavaFixTest extends TestBase {
     private static final String ARITHMETIC = "public class Test { private Object o = __VAL__; }";
     private void performArithmeticTest(String orig, String nue) throws Exception {
         String code = replace("0");
-        
+
         prepareTest("Test.java", code);
         ClassTree clazz = (ClassTree) info.getCompilationUnit().getTypeDecls().get(0);
         VariableTree variable = (VariableTree) clazz.getMembers().get(1);
@@ -346,6 +346,42 @@ public class JavaFixTest extends TestBase {
                            "package test;\n" +
                            "public class Test {\n" +
 		           "    int i = new Integer(1 * 2).hashCode();\n" +
+		           "}\n");
+    }
+
+    public void testTopLevelRewriteWithoutParenthesis1() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    int i = (1 + 2) * 2;\n" +
+                           "}\n",
+                           "$1 + $2=>3",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    int i = 3 * 2;\n" +
+		           "}\n");
+    }
+
+    public void testTopLevelRewriteKeepParenthesis1() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    int i = (1 * 2) + 2;\n" +
+                           "}\n",
+                           "$1 * $2=>2",
+                           "package test;\n" +
+                           "public class Test {\n" +
+		           "    int i = (2) + 2;\n" +
+		           "}\n");
+    }
+
+    public void testTopLevelRewriteKeepParenthesis2() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    { if (1 > 2) ; }\n" +
+                           "}\n",
+                           "$1 > $2=>false",
+                           "package test;\n" +
+                           "public class Test {\n" +
+                           "    { if (false) ; }\n" +
 		           "}\n");
     }
 

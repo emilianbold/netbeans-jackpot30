@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -459,6 +459,13 @@ public abstract class JavaFix {
             Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1], imports);
 
             if (!isFakeBlock(parsed) && !isFakeClass(parsed) && (tp.getLeaf().getKind() != Kind.BLOCK || !parametersMulti.containsKey("$$1$") || parsed.getKind() == Kind.BLOCK)) {
+                while (   tp.getParentPath().getLeaf().getKind() == Kind.PARENTHESIZED
+                       && tp.getLeaf().getKind() != parsed.getKind()
+                       && tp.getParentPath() != null
+                       && tp.getParentPath().getParentPath() != null
+                       && !requiresParenthesis(parsed, tp.getParentPath().getLeaf(), tp.getParentPath().getParentPath().getLeaf())
+                       && requiresParenthesis(tp.getLeaf(), tp.getParentPath().getLeaf(), tp.getParentPath().getParentPath().getLeaf()))
+                    tp = tp.getParentPath();
                 wc.rewrite(tp.getLeaf(), parsed);
             } else {
                 if (isFakeBlock(parsed)) {
