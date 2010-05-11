@@ -38,11 +38,27 @@
  */
 package org.netbeans.modules.jackpot30.refactoring;
 
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.logging.Logger;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.TreePathHandle;
+import org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorRefactoringUI;
 import org.netbeans.modules.refactoring.api.RenameRefactoring;
+import org.netbeans.modules.refactoring.java.RetoucheUtils;
 import org.netbeans.modules.refactoring.java.ui.RefactoringActionsProvider;
 import org.netbeans.modules.refactoring.spi.ui.ActionsImplementationProvider;
 import org.netbeans.modules.refactoring.spi.ui.RefactoringUI;
+import org.openide.cookies.EditorCookie;
+import org.openide.filesystems.FileObject;
+import org.openide.loaders.DataObject;
+import org.openide.nodes.Node;
+import org.openide.text.CloneableEditorSupport;
+import org.openide.util.Lookup;
 import org.openide.util.lookup.ServiceProvider;
+import org.openide.windows.TopComponent;
 
 
 /**
@@ -51,6 +67,80 @@ import org.openide.util.lookup.ServiceProvider;
  */
 @ServiceProvider(service=ActionsImplementationProvider.class, supersedes="org.netbeans.modules.refactoring.java.ui.RefactoringActionsProvider")
 public class RefactoringActionsProviderExt extends RefactoringActionsProvider {
+
+    private static RefactoringUI doReplaceConstructorImpl(TreePathHandle selectedElement, CompilationInfo info) {
+        Element selected = selectedElement.resolveElement(info);
+        if (selected==null) {
+//            logger().log(Level.INFO, "doRename: " + selectedElement, new NullPointerException("selected")); // NOI18N
+            return null;
+        }
+        if (selected.getKind() == ElementKind.CONSTRUCTOR) {
+            return new ReplaceConstructorRefactoringUI(selectedElement);
+        }
+
+        return null;
+    }
+
+    public static void doReplaceConstructor(final Lookup lookup) {
+        Runnable task;
+        EditorCookie ec = lookup.lookup(EditorCookie.class);
+        if (isFromEditor(ec)) {
+            task = new TextComponentTask(ec) {
+                @Override
+                protected RefactoringUI createRefactoringUI(TreePathHandle selectedElement,int startOffset,int endOffset, final CompilationInfo info) {
+                    return doReplaceConstructorImpl(selectedElement, info);
+                }
+            };
+        } else {
+            task = new TreePathHandleTask(new HashSet<Node>(lookup.lookupAll(Node.class)), true) {
+
+                RefactoringUI ui;
+
+                @Override
+                protected void treePathHandleResolved(TreePathHandle handle, CompilationInfo javac) {
+                    ui = doReplaceConstructorImpl(handle, javac);
+                }
+
+                @Override
+                protected RefactoringUI createRefactoringUI(Collection<TreePathHandle> handles) {
+                    return ui;
+                }
+
+            };
+        }
+        
+        RetoucheUtils.invokeAfterScanFinished(task, "Remove Constructor");//getActionName(RefactoringActionsFactory.renameAction()));
+    }
+
+//    static String getActionName(Action action) {
+//        String arg = (String) action.getValue(Action.NAME);
+//        arg = arg.replace("&", ""); // NOI18N
+//        return arg.replace("...", ""); // NOI18N
+//    }
+
+
+    public static boolean canReplaceConstructor(Lookup lookup) {
+        Collection<? extends Node> nodes = new HashSet<Node>(lookup.lookupAll(Node.class));
+        if(nodes.size() != 1)
+            return false;
+        Node node = nodes.iterator().next();
+        TreePathHandle tph = node.getLookup().lookup(TreePathHandle.class);
+        if (tph != null) {
+            return RetoucheUtils.isRefactorable(tph.getFileObject());
+        }
+        DataObject dObj = node.getCookie(DataObject.class);
+        if(null == dObj)
+            return false;
+        FileObject fileObj = dObj.getPrimaryFile();
+        if(null == fileObj || !RetoucheUtils.isRefactorable(fileObj))
+            return false;
+
+        EditorCookie ec = lookup.lookup(EditorCookie.class);
+        if (isFromEditor(ec)) {
+            return true;
+        }
+        return false;
+    }
 
     @Override
     protected RefactoringUI wrap(RefactoringUI orig) {
@@ -61,4 +151,28 @@ public class RefactoringActionsProviderExt extends RefactoringActionsProvider {
         return super.wrap(orig);
     }
 
+
+    //XXX: copied from RefactoringActionsProvider:\
+    static boolean isFromEditor(EditorCookie ec) {
+        if (ec != null && ec.getOpenedPanes() != null) {
+            TopComponent activetc = TopComponent.getRegistry().getActivated();
+            if (activetc instanceof CloneableEditorSupport.Pane) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean nodeHandle(Lookup lookup) {
+        Node n = lookup.lookup(Node.class);
+        if (n!=null) {
+            if (n.getLookup().lookup(TreePathHandle.class)!=null)
+                return true;
+        }
+        return false;
+    }
+
+    private static Logger logger() {
+        return Logger.getLogger(RefactoringActionsProvider.class.getName());
+    }
 }

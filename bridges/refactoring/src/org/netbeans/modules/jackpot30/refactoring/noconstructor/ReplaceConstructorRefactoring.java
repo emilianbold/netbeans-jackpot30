@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,36 +34,36 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
+ * Portions Copyrighted 2010 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.refactoring;
+package org.netbeans.modules.jackpot30.refactoring.noconstructor;
 
-import org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorRefactoring;
-import org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorRefactoringPluginImpl;
+import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.modules.refactoring.api.AbstractRefactoring;
-import org.netbeans.modules.refactoring.api.RenameRefactoring;
-import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
-import org.netbeans.modules.refactoring.spi.RefactoringPluginFactory;
-import org.openide.util.lookup.ServiceProvider;
+import org.openide.util.lookup.Lookups;
 
 /**
  *
- * @author Jan Lahoda
+ * @author lahvac
  */
-@ServiceProvider(service=RefactoringPluginFactory.class)
-public class RefactoringPluginFactoryImpl implements RefactoringPluginFactory {
+public class ReplaceConstructorRefactoring extends AbstractRefactoring {
+    
+    private final TreePathHandle constructor;
+    private final String factoryName;
 
-    public RefactoringPlugin createInstance(AbstractRefactoring refactoring) {
-        if (refactoring instanceof RenameRefactoring) {
-            return new RenameRefactoringPluginImpl((RenameRefactoring) refactoring);
-        }
+    public ReplaceConstructorRefactoring(TreePathHandle constructor, String factoryName) {
+        super(Lookups.singleton(constructor));
+        this.constructor = constructor;
+        this.factoryName = factoryName;
+    }
 
-        if (refactoring instanceof ReplaceConstructorRefactoring) {
-            return new ReplaceConstructorRefactoringPluginImpl((ReplaceConstructorRefactoring) refactoring);
-        }
+    public TreePathHandle getConstructor() {
+        return constructor;
+    }
 
-        return null;
+    public String getFactoryName() {
+        return factoryName;
     }
 
 }
