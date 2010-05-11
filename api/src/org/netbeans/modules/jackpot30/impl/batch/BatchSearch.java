@@ -52,6 +52,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Collection;
@@ -77,6 +78,7 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
+import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.api.queries.VisibilityQuery;
@@ -96,6 +98,7 @@ import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 
 /**
@@ -142,6 +145,16 @@ public class BatchSearch {
                     todo.addAll(Arrays.asList(source.getRoots()));
                 }
 
+                return findOccurrencesLocal(patterns, knownSourceRootsMapper, todo, progress);
+            case ALL_DEPENDENT_OPENED_SOURCE_ROOTS:
+                todo = new HashSet<FileObject>();
+                try {
+                    for (URL dep : SourceUtils.getDependentRoots(scope.sourceRoots.iterator().next().getURL())) {
+                        todo.add(URLMapper.findFileObject(dep));
+                    }
+                } catch (FileStateInvalidException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
                 return findOccurrencesLocal(patterns, knownSourceRootsMapper, todo, progress);
             case GIVEN_SOURCE_ROOTS:
                 return findOccurrencesLocal(patterns, knownSourceRootsMapper, scope.sourceRoots, progress);
@@ -505,6 +518,10 @@ public class BatchSearch {
             return new Scope(ScopeType.ALL_OPENED_PROJECTS, null, null, null, false, null);
         }
 
+        public static Scope createAllDependentOpenedSourceRoots(FileObject from) {
+            return new Scope(ScopeType.ALL_DEPENDENT_OPENED_SOURCE_ROOTS, null, null, null, false, Collections.singletonList(from));
+        }
+
         public static Scope createGivenFolderNoIndex(String folder) {
             return new Scope(ScopeType.GIVEN_FOLDER, folder, null, null, false, null);
         }
@@ -532,6 +549,7 @@ public class BatchSearch {
     
     public enum ScopeType {
         ALL_OPENED_PROJECTS,
+        ALL_DEPENDENT_OPENED_SOURCE_ROOTS,
         GIVEN_SOURCE_ROOTS,
         GIVEN_FOLDER;
     }

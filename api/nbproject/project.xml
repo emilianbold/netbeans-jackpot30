@@ -132,6 +132,14 @@
                     </run-dependency>
                 </dependency>
                 <dependency>
+                    <code-name-base>org.netbeans.modules.java.preprocessorbridge</code-name-base>
+                    <build-prerequisite/>
+                    <compile-dependency/>
+                    <run-dependency>
+                        <implementation-version/>
+                    </run-dependency>
+                </dependency>
+                <dependency>
                     <code-name-base>org.netbeans.modules.java.source</code-name-base>
                     <build-prerequisite/>
                     <compile-dependency/>
@@ -383,6 +391,7 @@
             </test-dependencies>
             <public-packages>
                 <package>org.netbeans.modules.jackpot30.spi</package>
+                <package>org.netbeans.modules.jackpot30.spi.refactoring</package>
                 <package>org.netbeans.modules.jackpot30.spi.support</package>
             </public-packages>
         </data>

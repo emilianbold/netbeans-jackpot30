@@ -44,6 +44,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedList;
 import java.util.Set;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.modules.refactoring.spi.BackupFacility;
@@ -80,7 +81,13 @@ public class RetoucheCommit implements Transaction {
             } else {
                 commited = true;
                 for (ModificationResult result:results) {
-                    ids.add(BackupFacility.getDefault().backup(result.getModifiedFileObjects()));
+                    Collection<FileObject> toBackup = new LinkedList<FileObject>();
+                    for (FileObject file : result.getModifiedFileObjects()) {
+                        if (file != null && file.isData()) {
+                            toBackup.add(file);
+                        }
+                    }
+                    ids.add(BackupFacility.getDefault().backup(toBackup));
                     newFiles = result.getNewFiles();
                     result.commit();
                 }
