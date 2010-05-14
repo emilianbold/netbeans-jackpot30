@@ -1,0 +1,68 @@
+%%TestCase positive-equals-1
+package test;
+public class Test {
+    private boolean test(Object o1, Object o2) {
+        return (o1 == null) ? (o2 != null) : !o1.equals(o2);
+    }
+}
+%%=>
+package test;
+
+import java.util.Objects;
+
+public class Test {
+    private boolean test(Object o1, Object o2) {
+        return Objects.equals(o1, o2);
+    }
+}
+%%TestCase positive-equals-2
+package test;
+public class Test {
+    private boolean test(Object o1, Object o2) {
+        return o1 != o2 && (o1 == null || !o1.equals(o2));
+    }
+}
+%%=>
+package test;
+
+import java.util.Objects;
+
+public class Test {
+    private boolean test(Object o1, Object o2) {
+        return Objects.equals(o1, o2);
+    }
+}
+%%TestCase positive-hashcode-1
+package test;
+public class Test {
+    private boolean test(Object o1) {
+        return (o1 != null ? o1.hashCode() : 0);
+    }
+}
+%%=>
+package test;
+
+import java.util.Objects;
+
+public class Test {
+    private boolean test(Object o1) {
+        return Objects.hashCode(o1);
+    }
+}
+%%TestCase positive-hashcode-2
+package test;
+public class Test {
+    private boolean test(Object o1) {
+        return o1 != null ? o1.hashCode() : 0;
+    }
+}
+%%=>
+package test;
+
+import java.util.Objects;
+
+public class Test {
+    private boolean test(Object o1) {
+        return Objects.hashCode(o1);
+    }
+}

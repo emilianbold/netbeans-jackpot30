@@ -3,7 +3,7 @@
 <!--
 DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 
-Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
 
 
 The contents of this file are subject to the terms of either the GNU
@@ -27,7 +27,7 @@ your own identifying information:
 Contributor(s):
 
 The Original Software is NetBeans. The Initial Developer of the Original
-Software is Sun Microsystems, Inc. Portions Copyright 2009 Sun
+Software is Sun Microsystems, Inc. Portions Copyright 2009-2010 Sun
 Microsystems, Inc. All Rights Reserved.
 
 If you wish your version of this file to be governed by only the CDDL
@@ -50,6 +50,7 @@ made subject to such option by the copyright holder.
             <file name="double-checked-locking.hint" url="double-checked-locking.hint" />
             <file name="sync-on-non-final.hint" url="sync-on-non-final.hint" />
             <file name="abstract-document.hint" url="abstract-document.hint" />
+            <file name="java.util.Objects.hint" url="jdk7/java.util.Objects.hint" />
         </folder>
     </folder>
 
