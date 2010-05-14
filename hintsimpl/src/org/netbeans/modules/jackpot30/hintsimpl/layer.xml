@@ -50,6 +50,8 @@ made subject to such option by the copyright holder.
             <file name="double-checked-locking.hint" url="double-checked-locking.hint" />
             <file name="sync-on-non-final.hint" url="sync-on-non-final.hint" />
             <file name="abstract-document.hint" url="abstract-document.hint" />
+            <file name="AddConditionals.hint" url="jackpot/AddConditionals.hint" />
+            <file name="EnhancedFor.hint" url="jackpot/EnhancedFor.hint" />
             <file name="java.util.Objects.hint" url="jdk7/java.util.Objects.hint" />
         </folder>
     </folder>
