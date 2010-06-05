@@ -683,7 +683,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             panel.setScope((Scope) scope.getModel().getSelectedItem());
         }
 
-        if (DialogDisplayer.getDefault().notify(dd) == DialogDescriptor.OK_OPTION) {
+        if (DialogDisplayer.getDefault().notify(dd) == okButton) {
             DefaultComboBoxModel model = (DefaultComboBoxModel) scope.getModel();
             Scope scope = panel.getScope();
 
