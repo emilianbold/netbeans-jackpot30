@@ -57,6 +57,7 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JList;
+import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -481,7 +482,15 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_removeButtonActionPerformed
 
     private void stateChanged() {
-        changeListener.stateChanged(new ChangeEvent(this));
+        if (SwingUtilities.isEventDispatchThread()) {
+            changeListener.stateChanged(new ChangeEvent(this));
+        } else {
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    stateChanged();
+                }
+            });
+        }
     }
 
     private void enableDisable() {
