@@ -56,7 +56,7 @@ import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.indexing.Index;
+import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 
@@ -69,12 +69,12 @@ public class StandaloneFinder {
     public static Collection<? extends String> findCandidates(File sourceRoot, String pattern) throws IOException {
         BulkPattern bulkPattern = preparePattern(pattern);
         
-        return Index.get(sourceRoot.toURI().toURL()).findCandidates(bulkPattern);
+        return FileBasedIndex.get(sourceRoot.toURI().toURL()).findCandidates(bulkPattern);
     }
 
     public static int[] findCandidateOccurrenceSpans(File sourceRoot, String relativePath, String pattern) throws IOException {
         BulkPattern bulkPattern = preparePattern(pattern);
-        CharSequence source = Index.get(sourceRoot.toURI().toURL()).getSourceCode(relativePath);
+        CharSequence source = FileBasedIndex.get(sourceRoot.toURI().toURL()).getSourceCode(relativePath);
         JavacTaskImpl jti = prepareJavacTaskImpl();
         CompilationUnitTree cut = jti.parse(new JFOImpl(source)).iterator().next();
         Collection<TreePath> paths = new LinkedList<TreePath>();

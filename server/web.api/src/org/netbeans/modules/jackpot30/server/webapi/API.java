@@ -48,6 +48,7 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
+import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.server.indexer.StandaloneFinder;
 
@@ -109,7 +110,7 @@ public class API {
     @Produces("text/plain")
     public String cat(@QueryParam("path") String path, @QueryParam("relative") String relative) throws IOException {
         URL sourceRoot = new File(path).toURI().toURL();
-        Index index = Index.get(sourceRoot);
+        Index index = FileBasedIndex.get(sourceRoot);
 
         if (index == null) {
             throw new IOException("No index");
@@ -129,7 +130,7 @@ public class API {
     @Produces("text/plain")
     public String info(@QueryParam("path") String path) throws IOException {
         URL sourceRoot = new File(path).toURI().toURL();
-        Index index = Index.get(sourceRoot);
+        Index index = FileBasedIndex.get(sourceRoot);
 
         if (index == null) {
             throw new IOException("No index");

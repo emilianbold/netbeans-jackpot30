@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,19 +34,15 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedList;
-import java.util.Properties;
-import java.util.Set;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
@@ -84,7 +80,7 @@ public class CustomIndexerImpl extends CustomIndexer {
         }
         
         try {
-            doIndex(context.getRoot(), toIndex, Collections.<String>emptyList(), Index.get(context.getRootURI()));
+            doIndex(context.getRoot(), toIndex, Collections.<String>emptyList(), FileBasedIndex.get(context.getRootURI()));
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         }
@@ -111,7 +107,7 @@ public class CustomIndexerImpl extends CustomIndexer {
                         if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
                             return ;
 
-                        w[0].record(cc, cc.getFileObject().getURL(), cc.getCompilationUnit());
+                        w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit());
                     }
                 }, true);
             }
@@ -144,7 +140,7 @@ public class CustomIndexerImpl extends CustomIndexer {
 
             }
             try {
-                doIndex(context.getRoot(), Collections.<FileObject>emptyList(), deletedPaths, Index.get(context.getRootURI()));
+                doIndex(context.getRoot(), Collections.<FileObject>emptyList(), deletedPaths, FileBasedIndex.get(context.getRootURI()));
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
             }
@@ -155,7 +151,7 @@ public class CustomIndexerImpl extends CustomIndexer {
 
         @Override
         public String getIndexerName() {
-            return Index.NAME;
+            return FileBasedIndex.NAME;
         }
 
         @Override

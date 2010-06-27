@@ -53,7 +53,7 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
-import org.netbeans.modules.jackpot30.impl.indexing.Index;
+import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
 
 /**
@@ -63,7 +63,7 @@ import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
 public class StandaloneIndexer {
 
     public static void index(File root, boolean duplicatesIndex) throws IOException {
-        IndexWriter w = Index.get(root.toURI().toURL()).openForWriting();
+        IndexWriter w = FileBasedIndex.get(root.toURI().toURL()).openForWriting();
         DuplicatesIndex.IndexWriter dw = duplicatesIndex ? DuplicatesIndex.get(root.toURI().toURL()).openForWriting() : null;
 
         try {
@@ -103,7 +103,7 @@ public class StandaloneIndexer {
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, devNull, Arrays.asList("-bootclasspath",  bootPath), null, fos);
         CompilationUnitTree cut = ct.parse().iterator().next();
 
-        w.record(ct, source.toURI().toURL(), cut);
+        w.record(source.toURI().toURL(), cut);
 
         if (dw != null) {
             ct.analyze(ct.enter(Collections.singletonList(cut)));

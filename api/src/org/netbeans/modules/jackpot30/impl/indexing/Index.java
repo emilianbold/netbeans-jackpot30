@@ -42,48 +42,15 @@ package org.netbeans.modules.jackpot30.impl.indexing;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
 import java.util.ArrayList;
 import com.sun.source.tree.CompilationUnitTree;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import javax.tools.JavaCompiler.CompilationTask;
-import org.apache.lucene.analysis.Token;
-import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.queryParser.ParseException;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Hit;
-import org.apache.lucene.search.Hits;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Searcher;
-import org.apache.lucene.search.TermQuery;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
-import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.openide.util.Exceptions;
 import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
 
@@ -91,24 +58,12 @@ import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
  *
  * @author lahvac
  */
-public class Index {
+public abstract class Index {
 
-    private final URL  sourceRoot;
-    private final int  stripLength;
-    private final File cacheRoot;
+    protected Index() {}
 
-    private Index(URL sourceRoot, File cacheRoot) {
-        this.sourceRoot = sourceRoot;
-        this.stripLength = sourceRoot.getPath().length();
-        this.cacheRoot = cacheRoot;
-    }
-
-    public static Index create(URL sourceRoot, File indexRoot) {
-        return new Index(sourceRoot, indexRoot);
-    }
-
-    public static Index createWithRemoteIndex(URL sourceRoot, final String indexURL, final String subIndex) {
-        return new Index(sourceRoot, null) {
+    public static Index createWithRemoteIndex(final URL sourceRoot, final String indexURL, final String subIndex) {
+        return new Index() {
             @Override
             public IndexWriter openForWriting() throws IOException {
                 throw new UnsupportedOperationException();
@@ -147,238 +102,41 @@ public class Index {
                 
                 return result;
             }
+            @Override
+            public CharSequence getSourceCode(String relativePath) {
+                try {
+                    URI u = new URI(indexURL + "?path=" + escapeForQuery(subIndex) + "&relative=" + escapeForQuery(relativePath));
+
+                    return WebUtilities.requestStringResponse(u);
+                } catch (URISyntaxException ex) {
+                    //XXX: better handling?
+                    Exceptions.printStackTrace(ex);
+                    return "";
+                }
+            }
         };
     }
 
-    public static @CheckForNull Index get(URL sourceRoot) throws IOException {
-        return new Index(sourceRoot, Cache.findCache(NAME).findCacheRoot(sourceRoot)); //XXX: new!
-    }
+    public abstract IndexWriter openForWriting() throws IOException;
 
-    public IndexWriter openForWriting() throws IOException {
-        return new IndexWriter();
-    }
+    public abstract Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException;
 
-    public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
-        Collection<? extends String> candidates = findCandidatesFromLucene(pattern);
+    public abstract CharSequence getSourceCode(String relativePath);
 
-        if (candidates.isEmpty()) {
-            return candidates;
-        }
+    public abstract @NonNull IndexInfo getIndexInfo();
 
-        for (Iterator<? extends String> it = candidates.iterator(); it.hasNext();) {
-            String relative = it.next();
-            InputStream in = new FileInputStream(new File(new File(cacheRoot, "encoded"), relative));
+    public abstract static class IndexWriter {
+
+        protected IndexWriter() throws IOException {
             
-            if (!BulkSearch.getDefault().matches(in, pattern)) {
-                it.remove();
-            }
         }
 
-        return candidates;
-    }
+        public abstract void record(URL source, final CompilationUnitTree cut) throws IOException;
 
-    private Collection<? extends String> findCandidatesFromLucene(BulkPattern pattern) throws IOException {
-        File dir = new File(cacheRoot, "fulltext");
+        public abstract void remove(String relativePath) throws IOException;
 
-        if (dir.listFiles() == null || dir.listFiles().length == 0) {
-            return Collections.emptyList();
-        }
+        public abstract void close() throws IOException;
         
-        IndexReader reader = IndexReader.open(dir);
-        Searcher s = new IndexSearcher(reader);
-
-        Hits hits;
-        try {
-            hits = s.search(query(pattern));
-        } catch (ParseException ex) {
-            throw new IOException(ex);
-        }
-
-        Collection<String> result = new HashSet<String>();
-        @SuppressWarnings("unchecked")
-        Iterator<Hit> it = (Iterator<Hit>) hits.iterator();
-
-        while (it.hasNext()) {
-            Hit h = it.next();
-
-            result.add(h.getDocument().getField("path").stringValue());
-        }
-
-        return result;
     }
 
-    private Query query(BulkPattern pattern) throws ParseException {
-        BooleanQuery result = new BooleanQuery();
-
-        for (int cntr = 0; cntr < pattern.getIdentifiers().size(); cntr++) {
-            BooleanQuery q = new BooleanQuery();
-            if (!pattern.getIdentifiers().get(cntr).isEmpty()) {
-                for (String a : pattern.getIdentifiers().get(cntr)) {
-                    q.add(new TermQuery(new Term("identifiers", a)), BooleanClause.Occur.MUST);
-                }
-            }
-            if (!pattern.getKinds().get(cntr).isEmpty()) {
-                for (String t : pattern.getKinds().get(cntr)) {
-                    q.add(new TermQuery(new Term("treeKinds", t)), BooleanClause.Occur.MUST);
-                }
-            }
-
-            result.add(q, BooleanClause.Occur.SHOULD);
-        }
-
-        return result;
-    }
-
-    public CharSequence getSourceCode(String relativePath) {
-        try {
-            URI absolute = sourceRoot.toURI().resolve(relativePath);
-            StringBuilder result = new StringBuilder();
-            InputStream input = null;
-            Reader reader = null;
-
-            try {
-                input = absolute.toURL().openStream();
-                reader = new InputStreamReader(input); //XXX encoding!!!
-
-                int read;
-
-                while ((read = reader.read()) != (-1)) {
-                    result.append((char) read);
-                }
-
-                return result;
-            } finally {
-                if (reader != null) {
-                    reader.close();
-                } else {
-                    if (input != null) {
-                        input.close();
-                    }
-                }
-            }
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-            return null;
-        } catch (URISyntaxException ex) {
-            Exceptions.printStackTrace(ex);
-            return null;
-        }
-    }
-
-    public @NonNull IndexInfo getIndexInfo() {
-        File infoFile = new File(cacheRoot, "info");
-
-        if (infoFile.exists()) {
-            try {
-                return Pojson.load(IndexInfo.class, infoFile);
-            } catch (IOException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-        }
-        
-        return IndexInfo.empty();
-    }
-
-    public class IndexWriter {
-
-        private final org.apache.lucene.index.IndexWriter luceneWriter;
-        private final File infoFile;
-        private final IndexInfo info;
-
-        public IndexWriter() throws IOException {
-            luceneWriter = new org.apache.lucene.index.IndexWriter(new File(cacheRoot, "fulltext"), new StandardAnalyzer());
-
-            infoFile = new File(cacheRoot, "info");
-
-            if (infoFile.exists()) {
-                info = Pojson.load(IndexInfo.class, infoFile);
-            } else {
-                info = new IndexInfo();
-                info.majorVersion = 1;
-                info.minorVersion = 1;
-            }
-        }
-
-        public void record(final CompilationInfo info, URL source, final CompilationUnitTree cut) throws IOException {
-            record(JavaSourceAccessor.getINSTANCE().getJavacTask(info), source, cut);
-        }
-
-        public void record(final CompilationTask task, URL source, final CompilationUnitTree cut) throws IOException {
-            String relative = source.getPath().substring(stripLength);
-            OutputStream out = null;
-            EncodingContext ec = null;
-            
-            try {
-                File cacheFile = new File(new File(cacheRoot, "encoded"), relative);
-
-                if (!cacheFile.exists()) info.totalFiles++;
-                
-                cacheFile.getParentFile().mkdirs();
-
-                out = new FileOutputStream(cacheFile);
-
-                ec = new EncodingContext(out, false);
-
-                BulkSearch.getDefault().encode(cut, ec);
-
-                luceneWriter.deleteDocuments(new Term("path", relative));
-            
-                Document doc = new Document();
-
-                doc.add(new Field("identifiers", new TokenStreamImpl(ec.getIdentifiers())));
-                doc.add(new Field("treeKinds", new TokenStreamImpl(ec.getKinds())));
-                doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
-
-                luceneWriter.addDocument(doc);
-            } catch (ThreadDeath td) {
-                throw td;
-            } catch (Throwable t) {
-                Logger.getLogger(Index.class.getName()).log(Level.WARNING, null, t);
-            } finally {
-                if (out != null) {
-                    out.close();
-                }
-            }
-        }
-
-        public void remove(String relativePath) throws IOException {
-            File f = new File(new File(cacheRoot, "encoded"), relativePath);
-
-            if (f.canRead()) {
-                f.delete();
-            }
-
-            luceneWriter.deleteDocuments(new Term("path", relativePath));
-
-            info.totalFiles--;
-        }
-
-        public void close() throws IOException {
-            luceneWriter.optimize();
-            luceneWriter.close();
-            info.lastUpdate = System.currentTimeMillis();
-            Pojson.save(info, infoFile);
-        }
-    }
-
-    private static final class TokenStreamImpl extends TokenStream {
-
-        private final Iterator<? extends String> tokens;
-
-        public TokenStreamImpl(Iterable<? extends String> tokens) {
-            this.tokens = tokens != null ? tokens.iterator() : /*???*/Collections.<String>emptyList().iterator();
-        }
-
-        @Override
-        public Token next() throws IOException {
-            if (!tokens.hasNext())
-                return null;
-
-            String t = tokens.next();
-
-            return new Token(t, 0, t.length());
-        }
-    }
-
-    public static final String NAME = "jackpot30"; //NOI18N
 }

@@ -62,6 +62,7 @@ import javax.swing.event.DocumentListener;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexInfo;
 import org.openide.NotificationLineSupport;
@@ -534,7 +535,7 @@ public class AddScopePanel extends javax.swing.JPanel {
                return;
             }
             try {
-                Index idx = Index.create(folderFile.toURI().toURL(), indexFile);
+                Index idx = FileBasedIndex.create(folderFile.toURI().toURL(), indexFile);
                 IndexInfo info = idx.getIndexInfo();
 
                 indexInfo.setText(toDisplayText(info));

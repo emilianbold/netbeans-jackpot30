@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.batch;
@@ -87,6 +87,7 @@ import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
 import org.netbeans.modules.jackpot30.impl.indexing.CustomIndexerImpl;
+import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
@@ -125,7 +126,7 @@ public class BatchSearch {
             public Index findIndex(FileObject root) {
                 if (KNOWN_SOURCE_ROOTS.contains(root)) {
                     try {
-                        return Index.get(root.getURL());
+                        return FileBasedIndex.get(root.getURL());
                     } catch (IOException ex) {
                         //TODO: would log+return null be more appropriate?
                         throw new IllegalStateException(ex);
@@ -353,7 +354,7 @@ public class BatchSearch {
         Index index;
 
         try {
-            index = Index.create(src.getURL(), indexRoot);
+            index = FileBasedIndex.create(src.getURL(), indexRoot);
         } catch (FileStateInvalidException ex) {
             throw new IllegalStateException(ex);
         }

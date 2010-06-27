@@ -89,7 +89,7 @@ public class IndexTest extends IndexTestBase {
         
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
-                real.addAll(Index.get(src.getURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
+                real.addAll(FileBasedIndex.get(src.getURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
             }
         }, true);
 
