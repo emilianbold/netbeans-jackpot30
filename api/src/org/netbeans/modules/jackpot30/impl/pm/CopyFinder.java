@@ -1,7 +1,10 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 1997-2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 1997-2010 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
+ * Other names may be trademarks of their respective owners.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -13,9 +16,9 @@
  * specific language governing permissions and limitations under the
  * License.  When distributing the software, include this License Header
  * Notice in each file and include the License file at
- * nbbuild/licenses/CDDL-GPL-2-CP.  Sun designates this
+ * nbbuild/licenses/CDDL-GPL-2-CP.  Oracle designates this
  * particular file as subject to the "Classpath" exception as provided
- * by Sun in the GPL Version 2 section of the License file that
+ * by Oracle in the GPL Version 2 section of the License file that
  * accompanied this code. If applicable, add the following below the
  * License Header, with the fields enclosed by brackets [] replaced by
  * your own identifying information:
@@ -110,7 +113,7 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
     private State bindState = State.empty();
     private boolean allowVariablesRemap = false;
     private AtomicBoolean cancel;
-
+    private static final String CLASS = "class"; //NOI18N
 
     private Map<String, TypeMirror> designedTypeHack;
 
@@ -212,6 +215,10 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
     //TODO: does not currently support variables:
     public static Collection<? extends MethodDuplicateDescription> computeDuplicatesAndRemap(CompilationInfo info, Collection<? extends TreePath> searchingFor, TreePath scope, Collection<VariableElement> variablesWithAllowedRemap, AtomicBoolean cancel) {
         TreePath first = searchingFor.iterator().next();
+        boolean statement = StatementTree.class.isAssignableFrom(first.getLeaf().getKind().asInterface());
+        
+        assert statement || searchingFor.size() == 1;
+
         List<MethodDuplicateDescription> result = new LinkedList<MethodDuplicateDescription>();
 
         CopyFinder firstStatementSearcher = new CopyFinder(first, info, cancel);
@@ -224,6 +231,12 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
 
         OUTER: for (Entry<TreePath, VariableAssignments> e : firstStatementSearcher.result.entrySet()) {
             TreePath firstOccurrence = e.getKey();
+
+            if (!statement) {
+                result.add(new MethodDuplicateDescription(firstOccurrence, -1, -1, e.getValue().variablesRemapToElement, e.getValue().variablesRemapToTrees));
+                continue;
+            }
+
             List<? extends StatementTree> statements = getStatements(firstOccurrence);
             int occurrenceIndex = statements.indexOf(firstOccurrence.getLeaf());
 
@@ -405,7 +418,7 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                 TypeMirror currType = info.getTrees().getTypeMirror(currPath);
                 TypeMirror pType = ((VariableElement) remappable).asType();
 
-                if (isSameTypeForVariableRemap(currType, pType)) {
+                if (currType != null && pType != null && isSameTypeForVariableRemap(currType, pType)) {
                     bindState.variablesRemapToTrees.put(remappable, currPath);
                     return true;
                 }
@@ -1294,6 +1307,12 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
 
         if (nodeEl == null || pEl == null)
             return VerifyResult.NO_MATCH;
+
+        if (nodeEl.getKind() == pEl.getKind() && nodeEl.getKind() == ElementKind.FIELD
+                && CLASS.contentEquals(((VariableElement)nodeEl).getSimpleName())
+                && CLASS.contentEquals(((VariableElement)pEl).getSimpleName())) {
+            return VerifyResult.MATCH_CHECK_DEEPER;
+        }
 
         if (nodeEl.getKind() == pEl.getKind() && nodeEl.getKind() == ElementKind.METHOD) {
             if (info.getElements().overrides((ExecutableElement) nodeEl, (ExecutableElement) pEl, (TypeElement) nodeEl.getEnclosingElement())) {
