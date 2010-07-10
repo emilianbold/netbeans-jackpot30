@@ -64,13 +64,15 @@ public class Pattern {
 
     private final CompilationInfo info;
     private final Tree patternTree;
+    private final String patternCode;
     private final Iterable<Tree> antipatterns;
 
     private final Map<String, TypeMirror> constraintsHack;
 
-    public Pattern(CompilationInfo info, Tree patternTree, Iterable<Tree> antipatterns, Map<String, TypeMirror> constraintsHack) {
+    public Pattern(CompilationInfo info, String patternCode, Tree patternTree, Iterable<Tree> antipatterns, Map<String, TypeMirror> constraintsHack) {
         this.info = info;
         this.patternTree = patternTree;
+        this.patternCode = patternCode;
         this.antipatterns = antipatterns;
         this.constraintsHack = constraintsHack;
     }
@@ -100,7 +102,7 @@ public class Pattern {
             antipatternsTrees.add(p);
         }
         
-        return new Pattern(info, patternTree, antipatternsTrees, constraints);
+        return new Pattern(info, pattern, patternTree, antipatternsTrees, constraints);
     }
 
     public Map<String, TreePath> match(TreePath toCheck) {
@@ -161,6 +163,10 @@ public class Pattern {
         }
 
         return Utilities.parseAndAttribute(info, pattern, scope[0]);
+    }
+
+    String getPatternCode() {
+        return patternCode;
     }
 
 }

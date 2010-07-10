@@ -81,6 +81,7 @@ import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.parser.Scanner;
 import com.sun.tools.javac.parser.Token;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCCatch;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
@@ -90,6 +91,7 @@ import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Names;
+import com.sun.tools.javac.util.Position.LineMap;
 import com.sun.tools.javadoc.Messager;
 import java.io.File;
 import java.io.IOException;
@@ -140,6 +142,8 @@ import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.TreeMaker;
+import org.netbeans.modules.jackpot30.impl.JackpotTrees.CatchWildcard;
+import org.netbeans.modules.jackpot30.impl.JackpotTrees.ModifiersWildcard;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
@@ -495,7 +499,7 @@ public class Utilities {
             ParserFactory factory = ParserFactory.instance(context);
             Scanner.Factory scannerFactory = Scanner.Factory.instance(context);
             Names names = Names.instance(context);
-            Parser parser = new JackpotJavacParser(factory, scannerFactory.newScanner(buf), false, false, CancelService.instance(context), names);
+            Parser parser = new JackpotJavacParser(context, factory, scannerFactory.newScanner(buf), false, false, CancelService.instance(context), names);
             if (parser instanceof JavacParser) {
 //                if (pos != null)
 //                    pos[0] = new ParserSourcePositions((JavacParser)parser);
@@ -518,7 +522,7 @@ public class Utilities {
             Scanner.Factory scannerFactory = Scanner.Factory.instance(context);
             Names names = Names.instance(context);
             Scanner scanner = scannerFactory.newScanner(buf);
-            Parser parser = new JackpotJavacParser(factory, scanner, false, false, CancelService.instance(context), names);
+            Parser parser = new JackpotJavacParser(context, factory, scanner, false, false, CancelService.instance(context), names);
             if (parser instanceof JavacParser) {
 //                if (pos != null)
 //                    pos[0] = new ParserSourcePositions((JavacParser)parser);
@@ -1044,13 +1048,15 @@ public class Utilities {
 
     private static class JackpotJavacParser extends EndPosParser {
 
-        public JackpotJavacParser(ParserFactory fac,
+        private final Context ctx;
+        public JackpotJavacParser(Context ctx, ParserFactory fac,
                          Lexer S,
                          boolean keepDocComments,
                          boolean keepLineMap,
                          CancelService cancelService,
                          Names names) {
-            super(fac, S, keepDocComments, keepLineMap, cancelService);
+            super(fac, new PushbackLexer(S), keepDocComments, keepLineMap, cancelService);
+            this.ctx = ctx;
 
             newAnonScope(names.empty, -1);
         }
@@ -1072,9 +1078,130 @@ public class Utilities {
             return super.modifiersOpt(partial);
         }
 
+        @Override
+        protected JCCatch catchClause() {
+            if (S.token() == Token.CATCH) {
+//                S.pushState();
+                
+                Token peeked;
+                String ident;
+                
+//                try {
+                    S.nextToken();
 
+                    peeked =  S.token();
+                    ident = S.stringVal();
+//                } finally {
+//                    S.popState();
+//                }
+                
+                if (   peeked == Token.IDENTIFIER
+                    && Utilities.isMultistatementWildcard(ident)) {
+                    accept(Token.CATCH);
+                    
+                    com.sun.tools.javac.util.Name name = S.name();
+
+                    accept(Token.IDENTIFIER);
+
+                    return new CatchWildcard(ctx, name, F.Ident(name));
+                } else {
+                    ((PushbackLexer) S).add(Token.CATCH);
+                    ((PushbackLexer) S).add(null);
+                    S.nextToken();
+                }
+            }
+            return super.catchClause();
+        }
     }
 
+    private static final class PushbackLexer implements Lexer {
+
+        private final Lexer delegate;
+        private final List<Token> buffer;
+        private Token currentBufferToken;
+
+        public PushbackLexer(Lexer delegate) {
+            this.delegate = delegate;
+            this.buffer = new LinkedList<Token>();
+        }
+
+        public void add(Token token) {
+            buffer.add(token);
+        }
+        
+        public void token(Token token) {
+            delegate.token(token);
+        }
+
+        public Token token() {
+            if (currentBufferToken != null) return currentBufferToken;
+            return delegate.token();
+        }
+
+        public String stringVal() {
+            return delegate.stringVal();
+        }
+
+        public void resetDeprecatedFlag() {
+            delegate.resetDeprecatedFlag();
+        }
+
+        public int radix() {
+            return delegate.radix();
+        }
+
+        public int prevEndPos() {
+            return delegate.prevEndPos();
+        }
+
+        public int pos() {
+            return delegate.pos();
+        }
+
+        public void nextToken() {
+            if (!buffer.isEmpty()) currentBufferToken = buffer.remove(0);
+            else delegate.nextToken();
+        }
+
+        public com.sun.tools.javac.util.Name name() {
+            return delegate.name();
+        }
+
+        public char[] getRawCharacters(int beginIndex, int endIndex) {
+            return delegate.getRawCharacters(beginIndex, endIndex);
+        }
+
+        public char[] getRawCharacters() {
+            return delegate.getRawCharacters();
+        }
+
+        public LineMap getLineMap() {
+            return delegate.getLineMap();
+        }
+
+        public void errPos(int pos) {
+            delegate.errPos(pos);
+        }
+
+        public int errPos() {
+            return delegate.errPos();
+        }
+
+        public int endPos() {
+            return delegate.endPos();
+        }
+
+        public String docComment() {
+            return delegate.docComment();
+        }
+
+        public boolean deprecatedFlag() {
+            return delegate.deprecatedFlag();
+        }
+        
+        
+    }
+    
     private static final class DummyJFO extends SimpleJavaFileObject {
         private DummyJFO() {
             super(URI.create("dummy.java"), JavaFileObject.Kind.SOURCE);

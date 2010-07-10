@@ -44,6 +44,7 @@ import com.sun.javadoc.Tag;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.CatchTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ExpressionStatementTree;
@@ -52,6 +53,7 @@ import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.TryTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import java.util.Collection;
@@ -891,6 +893,16 @@ public abstract class JavaFix {
             wc.rewrite(node, nue);
             return super.visitParameterizedType(node, p);
         }
+
+        @Override
+        public Number visitTry(TryTree node, Void p) {
+            List<? extends CatchTree> catches = (List<? extends CatchTree>) resolveMultiParameters(node.getCatches());
+            TryTree nue = wc.getTreeMaker().Try(node.getBlock(), catches, node.getFinallyBlock());
+
+            wc.rewrite(node, nue);
+            return super.visitTry(node, p);
+        }
+        
         private <T extends Tree> List<T> resolveMultiParameters(List<T> list) {
             if (!Utilities.containsMultistatementTrees(list)) return list;
 

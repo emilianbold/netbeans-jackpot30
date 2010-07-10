@@ -384,6 +384,18 @@ public class JavaFixTest extends TestBase {
                            "    { if (false) ; }\n" +
 		           "}\n");
     }
+    
+    public void testRewriteCatchMultiVariable() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    { try { } catch {NullPointerException ex} { } }\n" +
+                           "}\n",
+                           "try { } catch $catches$ => try { new Object(); } catch $catches$",
+                           "package test;\n" +
+                           "public class Test {\n" +
+                           "    { try {      new Object();\n } catch {NullPointerException ex} { } }\n" +
+		           "}\n");
+    }
 
     public void performRewriteTest(String code, String rule, String golden) throws Exception {
 	prepareTest("test/Test.java", code);

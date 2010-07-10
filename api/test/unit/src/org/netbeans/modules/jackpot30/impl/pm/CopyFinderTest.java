@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.util.TreePath;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -89,6 +90,89 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
         return bulkSearchResult;
     }
 
+    protected void performVariablesTest(String code, String pattern, Pair<String, int[]>[] duplicatesPos, Pair<String, int[]>[] multiStatementPos, Pair<String, String>[] duplicatesNames, boolean noOccurrences, boolean useBulkSearch) throws Exception {
+        prepareTest(code, -1);
+
+        Pattern patternObj = Pattern.compile(info, pattern);
+        TreePath patternPath = new TreePath(new TreePath(info.getCompilationUnit()), patternObj.getPattern());
+        Map<TreePath, VariableAssignments> result;
+
+        if (useBulkSearch) {
+            result = new HashMap<TreePath, VariableAssignments>();
+            Map<String, Collection<TreePath>> bulkSearchResult = performBulkSearch(patternObj.getPatternCode());
+
+            for (Entry<String, Collection<TreePath>> e : bulkSearchResult.entrySet()) {
+                for (TreePath tp : e.getValue()) {
+                    VariableAssignments vars = computeVariables(info, patternPath, tp, new AtomicBoolean(), patternObj.getConstraints());
+
+                    if (vars != null) {
+                        result.put(tp, vars);
+                    }
+                }
+            }
+        } else {
+            result = computeDuplicates(info, patternPath, new TreePath( info.getCompilationUnit()), new AtomicBoolean(), patternObj.getConstraints());
+        }
+
+        if (noOccurrences) {
+            assertEquals(0, result.size());
+            return ;
+        }
+
+        assertSame(1, result.size());
+
+        Map<String, int[]> actual = new HashMap<String, int[]>();
+
+        for (Entry<String, TreePath> e : result.values().iterator().next().variables.entrySet()) {
+            int[] span = new int[] {
+                (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), e.getValue().getLeaf()),
+                (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), e.getValue().getLeaf())
+            };
+
+            actual.put(e.getKey(), span);
+        }
+
+        for (Pair<String, int[]> dup : duplicatesPos) {
+            int[] span = actual.remove(dup.getA());
+
+            if (span == null) {
+                fail(dup.getA());
+            }
+            assertTrue(dup.getA() + ":" + Arrays.toString(span), Arrays.equals(span, dup.getB()));
+        }
+
+        Map<String, int[]> actualMulti = new HashMap<String, int[]>();
+
+        for (Entry<String, Collection<? extends TreePath>> e : result.values().iterator().next().multiVariables.entrySet()) {
+            int[] span = new int[2 * e.getValue().size()];
+            int i = 0;
+
+            for (TreePath tp : e.getValue()) {
+                span[i++] = (int) info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), tp.getLeaf());
+                span[i++] = (int) info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), tp.getLeaf());
+            }
+
+            actualMulti.put(e.getKey(), span);
+        }
+
+        for (Pair<String, int[]> dup : multiStatementPos) {
+            int[] span = actualMulti.remove(dup.getA());
+
+            if (span == null) {
+                fail(dup.getA());
+            }
+            assertTrue(dup.getA() + ":" + Arrays.toString(span), Arrays.equals(span, dup.getB()));
+        }
+
+        Map<String, String> golden = new HashMap<String, String>();
+
+        for ( Pair<String, String> e : duplicatesNames) {
+            golden.put(e.getA(), e.getB());
+        }
+
+        assertEquals(golden, result.values().iterator().next().variables2Names);
+    }
+    
     private static VariableAssignments convert(CopyFinder.VariableAssignments va) {
         if (va == null) return null;
         return new VariableAssignments(va.variables, va.multiVariables, va.variables2Names);
@@ -96,5 +180,20 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
 
     public void testMatchInterfaceNoFQN() throws Exception {
         performTest("package test; import java.util.*; public class Test { public void test() { |List| l1; |java.util.List| l2;} }");
+    }
+    
+    public void testTryCatchVariable() throws Exception {
+        performVariablesTest("package test; public class Test { { try { throw new java.io.IOException(); } catch (java.io.IOException ex) { } } }",
+                             "try { $stmts$; } catch $catches$",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                                new Pair<String, int[]>("$stmts$", new int[] {42, 74}),
+                                new Pair<String, int[]>("$catches$", new int[] {77, 111}),
+                             },
+                             new Pair[] {
+                             },
+                             false,
+                             true);
     }
 }

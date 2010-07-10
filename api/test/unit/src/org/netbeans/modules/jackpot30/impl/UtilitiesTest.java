@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl;
@@ -198,6 +198,30 @@ public class UtilitiesTest extends TestBase {
 
         assertEquals(ElementKind.INTERFACE, info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), result)).getKind());
         assertEquals(info.getElements().getTypeElement("java.util.List"), info.getTrees().getElement(new TreePath(new TreePath(info.getCompilationUnit()), result)));
+    }
+    
+    public void testCatchMultiparam() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Tree result = Utilities.parseAndAttribute(info, "try {\n }\n catch $catch$ finally {\n }\n", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.TRY);
+
+        String golden = "try {\n }$catch$ finally {\n }";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+    }
+    
+    public void testOrdinaryCatch() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Tree result = Utilities.parseAndAttribute(info, "try {\n }\n catch (NullPointerException ex) { } finally {\n }\n", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.TRY);
+
+        String golden = "try {\n } catch (NullPointerException ex) { } finally {\n }";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
     }
 
     public void testToHumanReadableTime() {
