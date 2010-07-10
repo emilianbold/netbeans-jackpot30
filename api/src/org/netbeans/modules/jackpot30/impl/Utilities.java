@@ -1126,28 +1126,57 @@ public class Utilities {
 
                     return new CatchWildcard(ctx, name, F.Ident(name));
                 } else {
-                    ((PushbackLexer) S).add(Token.CATCH);
-                    ((PushbackLexer) S).add(null);
+                    ((PushbackLexer) S).add(Token.CATCH, null);
+                    ((PushbackLexer) S).add(null, null);
                     S.nextToken();
                 }
             }
             return super.catchClause();
         }
+
+        @Override
+        public com.sun.tools.javac.util.List<JCTree> classOrInterfaceBodyDeclaration(com.sun.tools.javac.util.Name className, boolean isInterface) {
+            if (S.token() == Token.IDENTIFIER) {
+                String ident = S.stringVal();
+
+                if (ident.startsWith("$")) {
+                    com.sun.tools.javac.util.Name name = S.name();
+
+                    S.nextToken();
+                    
+                    if (S.token() == Token.SEMI) {
+                        S.nextToken();
+                        
+                        return com.sun.tools.javac.util.List.<JCTree>of(F.Ident(name));
+                    }
+                    
+                    ((PushbackLexer) S).add(Token.IDENTIFIER, name);
+                    ((PushbackLexer) S).add(null, null);
+                    S.nextToken();
+                }
+            }
+            return super.classOrInterfaceBodyDeclaration(className, isInterface);
+        }
+        
     }
 
     private static final class PushbackLexer implements Lexer {
 
         private final Lexer delegate;
-        private final List<Token> buffer;
+        private final List<Token> tokenBuffer;
+        private final List<com.sun.tools.javac.util.Name> nameBuffer;
         private Token currentBufferToken;
+        private com.sun.tools.javac.util.Name currentBufferName;
 
         public PushbackLexer(Lexer delegate) {
             this.delegate = delegate;
-            this.buffer = new LinkedList<Token>();
+            this.tokenBuffer = new LinkedList<Token>();
+            this.nameBuffer = new LinkedList<com.sun.tools.javac.util.Name>();
         }
 
-        public void add(Token token) {
-            buffer.add(token);
+        public void add(Token token, com.sun.tools.javac.util.Name name) {
+            tokenBuffer.add(token);
+            nameBuffer.add(name);
         }
         
         public void token(Token token) {
@@ -1160,6 +1189,7 @@ public class Utilities {
         }
 
         public String stringVal() {
+            if (currentBufferToken != null) return currentBufferName != null ? currentBufferName.toString() : null;
             return delegate.stringVal();
         }
 
@@ -1180,11 +1210,15 @@ public class Utilities {
         }
 
         public void nextToken() {
-            if (!buffer.isEmpty()) currentBufferToken = buffer.remove(0);
+            if (!tokenBuffer.isEmpty()) {
+                currentBufferToken = tokenBuffer.remove(0);
+                currentBufferName  = nameBuffer.remove(0);
+            }
             else delegate.nextToken();
         }
 
         public com.sun.tools.javac.util.Name name() {
+            if (currentBufferToken != null) return currentBufferName;
             return delegate.name();
         }
 

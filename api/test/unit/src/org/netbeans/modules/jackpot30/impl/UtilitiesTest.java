@@ -248,6 +248,18 @@ public class UtilitiesTest extends TestBase {
         String golden = "try {\n } catch (NullPointerException ex) { } finally {\n }";
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
     }
+    
+    public void testClassPattern() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Tree result = Utilities.parseAndAttribute(info, "$mods$ class $name extends java.util.LinkedList { $methods$; }\n", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.CLASS);
+
+        String golden = /*"$mods$" + */" class $name extends java.util.LinkedList { $name() { super(); } $methods$ }";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+    }
 
     public void testToHumanReadableTime() {
         long time = 202;
