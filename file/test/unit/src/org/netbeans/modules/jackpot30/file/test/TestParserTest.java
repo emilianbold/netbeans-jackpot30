@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.file.test;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import javax.lang.model.SourceVersion;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.netbeans.modules.jackpot30.file.test.TestParser.TestCase;
@@ -88,4 +89,14 @@ public class TestParserTest {
         assertEquals(golden, testCases);
     }
 
+    @Test
+    public void testSourceLevelOption() {
+        String code = "%%TestCase name source-level=1.4\ncode\n%%=>\nfixed1\n%%=>\nfixed2\n";
+        TestCase[] tests = TestParser.parse(code);
+        
+        assertEquals(1, tests.length);
+
+        assertEquals(SourceVersion.RELEASE_4, tests[0].getSourceLevel());
+        assertEquals("name:code\n:[fixed1\n, fixed2\n]:0:33:[43, 55]", tests[0].toString());
+    }
 }

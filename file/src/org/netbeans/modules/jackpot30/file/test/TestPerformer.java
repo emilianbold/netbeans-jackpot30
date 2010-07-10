@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.lang.model.SourceVersion;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
@@ -84,7 +85,7 @@ public class TestPerformer {
         try {
             return performTestImpl(ruleFile, test, tests, cancel);
         } finally {
-            setData(null, null);
+            setData(null, null, null);
         }
     }
 
@@ -128,7 +129,7 @@ public class TestPerformer {
             FileObject srcRoot = scratchPad.createFolder("src" + cntr);
             FileObject src = FileUtil.createData(srcRoot, "test/Test.java");
 
-            setData(test, srcRoot);
+            setData(test, srcRoot, tests[cntr].getSourceLevel());
 
             copyStringToFile(src, tests[cntr].getCode());
 
@@ -195,10 +196,10 @@ public class TestPerformer {
         return f;
     }
 
-    private static void setData(FileObject from, FileObject sourceRoot) {
+    private static void setData(FileObject from, FileObject sourceRoot, SourceVersion sourceLevel) {
         for (ClassPathProvider cpp : Lookup.getDefault().lookupAll(ClassPathProvider.class)) {
             if (cpp instanceof TestClassPathProvider) {
-                ((TestClassPathProvider) cpp).setData(from, sourceRoot);
+                ((TestClassPathProvider) cpp).setData(from, sourceRoot, sourceLevel);
             }
         }
     }
@@ -229,6 +230,7 @@ public class TestPerformer {
 
         private FileObject from;
         private FileObject sourceRoot;
+        private String sourceLevel;
 
         public synchronized ClassPath findClassPath(FileObject file, String type) {
             if (from == null) {
@@ -242,9 +244,10 @@ public class TestPerformer {
             return null;
         }
 
-        synchronized void setData(FileObject from, FileObject sourceRoot) {
+        synchronized void setData(FileObject from, FileObject sourceRoot, SourceVersion sourceLevel) {
             this.from = from;
             this.sourceRoot = sourceRoot;
+            this.sourceLevel = sourceLevel != null ? "1." + sourceLevel.name().substring("RELEASE_".length()) : null;
         }
 
         public String getSourceLevel(FileObject file) {
@@ -253,7 +256,7 @@ public class TestPerformer {
             }
 
             if (sourceRoot.equals(file) || FileUtil.isParentOf(sourceRoot, file)) {
-                return "1.5"; //TODO
+                return sourceLevel;
             }
 
             return null;

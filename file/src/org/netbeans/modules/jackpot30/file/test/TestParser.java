@@ -45,6 +45,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.lang.model.SourceVersion;
 import javax.swing.event.ChangeListener;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Task;
@@ -117,26 +118,28 @@ public class TestParser extends Parser {
         int codeIndex = -1;
         int testCaseIndex = -1;
         String lastName = null;
+        String lastOptions = null;
         Matcher m = TEST_CASE_HEADER.matcher(tests);
 
         while (m.find()) {
             if (testCaseIndex >= 0) {
-                result.add(handleTestCase(testCaseIndex, lastName, codeIndex, tests.substring(codeIndex, m.start())));
+                result.add(handleTestCase(testCaseIndex, lastName, lastOptions, codeIndex, tests.substring(codeIndex, m.start())));
             }
 
             codeIndex = m.end();
             testCaseIndex = m.start();
             lastName = m.group(1);
+            lastOptions = m.group(2);
         }
 
         if (testCaseIndex >= 0) {
-            result.add(handleTestCase(testCaseIndex, lastName, codeIndex, tests.substring(codeIndex)));
+            result.add(handleTestCase(testCaseIndex, lastName, lastOptions, codeIndex, tests.substring(codeIndex)));
         }
 
         return result.toArray(new TestCase[result.size()]);
     }
 
-    private static TestCase handleTestCase(int testCaseIndex, String testName, int codeIndex, String testCase) {
+    private static TestCase handleTestCase(int testCaseIndex, String testName, String options, int codeIndex, String testCase) {
         Matcher m = LEADS_TO_HEADER.matcher(testCase);
         String code = null;
         List<String> results = new LinkedList<String>();
@@ -188,14 +191,36 @@ public class TestParser extends Parser {
             endIndicesArr[c++] = codeIndex + i;
         }
         
-        return new TestCase(testName, code, results.toArray(new String[0]), testCaseIndex, codeIndex, startIndicesArr, endIndicesArr);
+        SourceVersion sourceLevel = DEFAULT_SOURCE_LEVEL;
+        
+        for (String option : options.split("[ \t]+")) {
+            option = option.trim();
+            
+            if (option.startsWith(SOURCE_LEVEL)) {
+                option = option.substring(SOURCE_LEVEL.length());
+                
+                //XXX: log if not found!
+                
+                for (SourceVersion v : SourceVersion.values()) {
+                    if (option.equals("1." + v.name().substring("RELEASE_".length()))) {
+                        sourceLevel = v;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        return new TestCase(testName, sourceLevel, code, results.toArray(new String[0]), testCaseIndex, codeIndex, startIndicesArr, endIndicesArr);
     }
 
-    private static final Pattern TEST_CASE_HEADER = Pattern.compile("%%TestCase[ \t]+(.*)\n");
+    private static final Pattern TEST_CASE_HEADER = Pattern.compile("%%TestCase[ \t]+([^ \t\n]*)(([ \t]+[^ \t\n]*)*)\n");
     private static final Pattern LEADS_TO_HEADER = Pattern.compile("%%=>\n");
+    private static final String SOURCE_LEVEL = "source-level=";
+    private static final SourceVersion DEFAULT_SOURCE_LEVEL = SourceVersion.RELEASE_5;
 
     public static final class TestCase {
         private final String name;
+        private final SourceVersion sourceLevel;
         private final String code;
         private final String[] results;
 
@@ -204,8 +229,9 @@ public class TestParser extends Parser {
         private final int[] resultsStart;
         private final int[] resultsEnd;
 
-        private TestCase(String name, String code, String[] results, int testCaseStart, int codeStart, int[] resultsStart, int[] resultsEnd) {
+        private TestCase(String name, SourceVersion sourceLevel, String code, String[] results, int testCaseStart, int codeStart, int[] resultsStart, int[] resultsEnd) {
             this.name = name;
+            this.sourceLevel = sourceLevel;
             this.code = code;
             this.results = results;
             this.testCaseStart = testCaseStart;
@@ -240,6 +266,10 @@ public class TestParser extends Parser {
 
         public int getTestCaseStart() {
             return testCaseStart;
+        }
+
+        public SourceVersion getSourceLevel() {
+            return sourceLevel;
         }
 
         @Override
