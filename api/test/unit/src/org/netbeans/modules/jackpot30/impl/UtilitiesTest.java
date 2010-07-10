@@ -176,6 +176,31 @@ public class UtilitiesTest extends TestBase {
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
     }
 
+    public void testParseAndAttributeMethodDeclarationWithMultiparameters() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Tree result = Utilities.parseAndAttribute(info, "public void t($params$) {}", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.METHOD);
+
+        String golden = " public void t($params$) { }";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+    }
+
+    public void testParseAndAttributeMethodModifiersVariable() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        String code = "$mods$ $type $name() { $r$; }";
+        Tree result = Utilities.parseAndAttribute(info, code, s);
+
+//        String golden = "$mods$ java.lang.String $name";
+        String golden = "$mods$$type $name() { $r$; }";
+
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " ").trim());
+    }
+
     public void testSimpleExpression() throws Exception {
         prepareTest("test/Test.java", "package test; public class Test{}");
 

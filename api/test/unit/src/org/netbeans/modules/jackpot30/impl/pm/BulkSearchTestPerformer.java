@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.pm;
@@ -393,6 +393,15 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
 
         performTest(code,
                     Collections.singletonMap("Arrays", Arrays.asList("java.util.Arrays")), //could be imported in the input pattern
+                    Collections.<String>emptyList());
+    }
+
+    public void testLambdaInput() throws Exception {
+        String code = "package test; public class Test {public void test() { new java.io.FilenameFilter() { public boolean accept(java.io.File dir, String name) { return true; } }; } }";
+
+        performTest(code,
+                    Collections.singletonMap("new $type() {public $retType $name($params$) { $body$; } }", Arrays.asList("new java.io.FilenameFilter() { public boolean accept(java.io.File dir, String name) { return true; } }")),
+
                     Collections.<String>emptyList());
     }
 

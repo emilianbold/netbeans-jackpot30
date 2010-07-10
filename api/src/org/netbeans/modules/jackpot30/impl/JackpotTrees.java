@@ -135,6 +135,35 @@ public class JackpotTrees {
 
     }
     
+    public static class VariableWildcard extends FakeVariable implements IdentifierTree {
+
+        private final Name ident;
+
+        public VariableWildcard(Context ctx, Name ident, JCIdent jcIdent) {
+            super(ctx, ident, jcIdent);
+            this.ident = ident;
+        }
+
+        public Name getName() {
+            return ident;
+        }
+
+        @Override
+        public Kind getKind() {
+            return Kind.IDENTIFIER;
+        }
+
+        @Override
+        public <R, D> R accept(TreeVisitor<R, D> v, D d) {
+            return v.visitIdentifier(this, d);
+        }
+
+        @Override
+        public String toString() {
+            return ident.toString();
+        }
+    }
+
     private static class FakeVariable extends JCVariableDecl {
         
         private final JCIdent jcIdent;

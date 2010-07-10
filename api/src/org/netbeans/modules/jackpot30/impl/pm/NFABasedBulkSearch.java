@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.impl.pm;
 
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
@@ -365,7 +366,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                 throw new IllegalStateException(ex);
             }
         }
-        new TreeScanner<Void, Void>() {
+        new CollectIdentifiers<Void, Void>(new HashSet<String>()) {
             @Override
             public Void scan(Tree t, Void v) {
                 if (t == null) return null;
@@ -644,6 +645,9 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         @Override
         public R visitClass(ClassTree node, P p) {
+            if (node.getSimpleName().length() == 0) {
+                return scan(Utilities.filterHidden(null, node.getMembers()), p);
+            }
             addIdentifier(node.getSimpleName());
             return super.visitClass(node, p);
         }

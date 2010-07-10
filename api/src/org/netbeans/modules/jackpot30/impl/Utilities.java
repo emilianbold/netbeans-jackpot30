@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl;
@@ -52,6 +52,7 @@ import com.sun.source.tree.ImportTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.NewClassTree;
@@ -71,6 +72,7 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.comp.Todo;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.parser.EndPosParser;
@@ -84,8 +86,10 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCatch;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import com.sun.tools.javac.tree.JCTree.JCModifiers;
 import com.sun.tools.javac.tree.JCTree.JCStatement;
+import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
 import com.sun.tools.javac.util.CancelService;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.ListBuffer;
@@ -144,6 +148,7 @@ import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.modules.jackpot30.impl.JackpotTrees.CatchWildcard;
 import org.netbeans.modules.jackpot30.impl.JackpotTrees.ModifiersWildcard;
+import org.netbeans.modules.jackpot30.impl.JackpotTrees.VariableWildcard;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
@@ -1078,6 +1083,22 @@ public class Utilities {
             return super.modifiersOpt(partial);
         }
 
+        protected JCVariableDecl formalParameter() {
+            if (S.token() == Token.IDENTIFIER) {
+                String ident = S.stringVal();
+
+                if (ident.startsWith("$")) {
+                    com.sun.tools.javac.util.Name name = S.name();
+
+                    S.nextToken();
+
+                    return new VariableWildcard(ctx, name, F.Ident(name));
+                }
+            }
+
+            return super.formalParameter();
+        }
+
         @Override
         protected JCCatch catchClause() {
             if (S.token() == Token.CATCH) {
@@ -1211,4 +1232,50 @@ public class Utilities {
             return "";
         }
     };
+
+    /**
+     * Only for members (i.e. generated constructor):
+     */
+    public static List<? extends Tree> filterHidden(TreePath basePath, Iterable<? extends Tree> members) {
+        List<Tree> result = new LinkedList<Tree>();
+
+        for (Tree t : members) {
+            if (!isSynthetic(basePath != null ? basePath.getCompilationUnit() : null, t)) {
+                result.add(t);
+            }
+        }
+
+        return result;
+    }
+
+    private static boolean isSynthetic(CompilationUnitTree cut, Tree leaf) throws NullPointerException {
+        JCTree tree = (JCTree) leaf;
+
+        if (tree.pos == (-1))
+            return true;
+
+        if (leaf.getKind() == Kind.METHOD) {
+            //check for synthetic constructor:
+            return (((JCMethodDecl)leaf).mods.flags & Flags.GENERATEDCONSTR) != 0L;
+        }
+
+        //check for synthetic superconstructor call:
+        if (cut != null && leaf.getKind() == Kind.EXPRESSION_STATEMENT) {
+            ExpressionStatementTree est = (ExpressionStatementTree) leaf;
+
+            if (est.getExpression().getKind() == Kind.METHOD_INVOCATION) {
+                MethodInvocationTree mit = (MethodInvocationTree) est.getExpression();
+
+                if (mit.getMethodSelect().getKind() == Kind.IDENTIFIER) {
+                    IdentifierTree it = (IdentifierTree) mit.getMethodSelect();
+
+                    if ("super".equals(it.getName().toString())) {
+                        return ((JCCompilationUnit) cut).endPositions.get(tree) == (-1);
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
 }

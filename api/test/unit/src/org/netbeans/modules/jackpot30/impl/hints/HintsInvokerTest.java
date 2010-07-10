@@ -50,8 +50,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.type.TypeMirror;
+import junit.framework.TestSuite;
 import static org.junit.Assert.*;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.junit.NbTestSuite;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.spi.HintContext;
@@ -639,6 +641,15 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "}\n").replaceAll("[ \t\n]+", " "));
     }
 
+    public void testLambda() throws Exception {
+        performAnalysisTest("test/Test.java",
+                       "|package test;\n" +
+                       "public class Test {\n" +
+                       "     { new java.io.FileFilter() {public boolean accept(java.io.File f) { return true; } } }\n" +
+                       "}\n",
+                       "2:7-2:89:verifier:HINT");
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -679,6 +690,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testChangeFieldType2", test2Hint.get("testChangeFieldType1"));
         test2Hint.put("testChangeFieldType3", test2Hint.get("testChangeFieldType1"));
         test2Hint.put("testIdentifier", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$i", Collections.<String, String>singletonMap("$i", "int"))).setWorker(new WorkerImpl("2")).produce());
+        test2Hint.put("testLambda", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("new $type() { $mods$ $retType $name($params$) { $body$; } }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl()).produce());
     }
 
     @Override

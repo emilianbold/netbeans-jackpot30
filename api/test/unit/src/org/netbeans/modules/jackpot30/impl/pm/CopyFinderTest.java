@@ -196,4 +196,34 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
                              false,
                              true);
     }
+
+    public void testMethodMatchingMoreParams() throws Exception {
+        performVariablesTest("package test; public class Test {public void test(String s1, String s2) { } }",
+                             "public void test($params$) { }",
+                             new Pair[0],
+                             new Pair[] {new Pair<String, int[]>("$params$", new int[] {50, 59, 61, 70})},
+                             new Pair[0],
+                             false,
+                             true);
+    }
+    
+    public void testLambdaInput1() throws Exception {
+        performVariablesTest("package test; public class Test {public void test() { new java.io.FilenameFilter() { public boolean accept(File dir, String name) { } }; } }",
+                             "new $type() {public $retType $name($params$) { $body$; } }",
+                             new Pair[0],
+                             new Pair[] {new Pair<String, int[]>("$params$", new int[] { 107, 115, 117, 128 })},
+                             new Pair[] {new Pair<String, String>("$name", "accept")},
+                             false,
+                             false);
+    }
+
+    public void testLambdaInput2() throws Exception {
+        performVariablesTest("package test; public class Test {public void test() { new java.io.FilenameFilter() { public boolean accept(File dir, String name) { } }; } }",
+                             "new $type() { $mods$ $retType $name($params$) { $body$; } }",
+                             new Pair[0],
+                             new Pair[] {new Pair<String, int[]>("$params$", new int[] { 107, 115, 117, 128 })},
+                             new Pair[] {new Pair<String, String>("$name", "accept")},
+                             false,
+                             true);
+    }
 }
