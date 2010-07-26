@@ -1,7 +1,10 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2010 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
+ * Other names may be trademarks of their respective owners.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -13,9 +16,9 @@
  * specific language governing permissions and limitations under the
  * License.  When distributing the software, include this License Header
  * Notice in each file and include the License file at
- * nbbuild/licenses/CDDL-GPL-2-CP.  Sun designates this
+ * nbbuild/licenses/CDDL-GPL-2-CP.  Oracle designates this
  * particular file as subject to the "Classpath" exception as provided
- * by Sun in the GPL Version 2 section of the License file that
+ * by Oracle in the GPL Version 2 section of the License file that
  * accompanied this code. If applicable, add the following below the
  * License Header, with the fields enclosed by brackets [] replaced by
  * your own identifying information:
@@ -34,29 +37,44 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2010 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.impl.refactoring;
+package org.netbeans.modules.jackpot30.impl.refactoring.upgrade;
 
-import org.netbeans.modules.jackpot30.impl.refactoring.upgrade.UpgradeRefactoring;
-import org.netbeans.modules.jackpot30.impl.refactoring.upgrade.UpgradeRefactoringPlugin;
-import org.netbeans.modules.refactoring.api.AbstractRefactoring;
-import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
-import org.netbeans.modules.refactoring.spi.RefactoringPluginFactory;
-import org.openide.util.lookup.ServiceProvider;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.Arrays;
+import org.junit.Test;
+import static org.junit.Assert.*;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileSystem;
+import org.openide.filesystems.FileUtil;
 
-@ServiceProvider(service=RefactoringPluginFactory.class)
-public class RefactoringPluginFactoryImpl implements RefactoringPluginFactory {
+/**
+ *
+ * @author lahvac
+ */
+public class UpgradeDescriptionTest {
 
-    public RefactoringPlugin createInstance(AbstractRefactoring refactoring) {
-        if (refactoring instanceof FindDuplicatesRefactoring) {
-            return new FindDuplicatesRefactoringPlugin((FindDuplicatesRefactoring) refactoring);
-        } else if (refactoring instanceof UpgradeRefactoring) {
-            return new UpgradeRefactoringPlugin((UpgradeRefactoring) refactoring);
-        }
-
-        return null;
+    public UpgradeDescriptionTest() {
     }
-    
+
+    @Test
+    public void testCreate() throws IOException {
+        String json = "{ \"upgradeName\" : \"foo\", \"bundle\" : \"bar/Bundle\", \"hints\" : [ \"1\", \"2\" ] }";
+        FileSystem fs = FileUtil.createMemoryFileSystem();
+        FileObject f = fs.getRoot().createData("test");
+        OutputStream out = f.getOutputStream();
+
+        out.write(json.getBytes("UTF-8"));
+        out.close();
+
+        UpgradeDescription ud = UpgradeDescription.create(f);
+
+        assertEquals("bar/Bundle", ud.getBundle());
+        assertEquals("foo", ud.getUpgradeName());
+        assertEquals(Arrays.asList("1", "2"), ud.getHintIds());
+    }
+
 }

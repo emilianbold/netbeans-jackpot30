@@ -45,25 +45,17 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.text.Position.Bias;
-import org.netbeans.api.java.source.ModificationResult;
-import org.netbeans.api.java.source.ModificationResult.Difference;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Container;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
-import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
 import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
-import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.refactoring.api.Problem;
-import org.netbeans.modules.refactoring.java.spi.DiffElement;
-import org.netbeans.modules.refactoring.spi.ProgressProviderAdapter;
 import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
-import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
 import org.netbeans.modules.refactoring.spi.SimpleRefactoringElementImplementation;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.cookies.EditorCookie;
@@ -79,12 +71,12 @@ import org.openide.util.Lookup;
 import org.openide.util.lookup.Lookups;
 import org.openide.xml.XMLUtil;
 
-public class FindDuplicatesRefactoringPlugin extends ProgressProviderAdapter implements RefactoringPlugin, ProgressHandleAbstraction {
+public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactoringPlugin {
 
     private final FindDuplicatesRefactoring refactoring;
-    private final AtomicBoolean cancel = new AtomicBoolean();
 
     public FindDuplicatesRefactoringPlugin(FindDuplicatesRefactoring refactoring) {
+        super(refactoring);
         this.refactoring = refactoring;
     }
 
@@ -98,10 +90,6 @@ public class FindDuplicatesRefactoringPlugin extends ProgressProviderAdapter imp
 
     public Problem fastCheckParameters() {
         return null;
-    }
-
-    public void cancelRequest() {
-        cancel.set(true);
     }
 
      public Problem prepare(RefactoringElementsBag refactoringElements) {
@@ -229,24 +217,7 @@ public class FindDuplicatesRefactoringPlugin extends ProgressProviderAdapter imp
     }
 
     private Collection<MessageImpl> performApplyPattern(RefactoringElementsBag refactoringElements) {
-        ProgressHandleWrapper w = new ProgressHandleWrapper(this, 30, 70);
-        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w);
-        Collection<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
-        Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, w, /*XXX*/new AtomicBoolean(), problems);
-
-        refactoringElements.registerTransaction(new RetoucheCommit(new LinkedList<ModificationResult>(res)));
-
-        for (ModificationResult mr : res) {
-            for (FileObject file : mr.getModifiedFileObjects()) {
-                for (Difference d : mr.getDifferences(file)) {
-                    refactoringElements.add(refactoring, DiffElement.create(d, file, mr));
-                }
-            }
-        }
-
-        w.finish();
-
-        return problems;
+        return performApplyPattern(refactoring.getPattern(), refactoring.getScope(), refactoringElements);
     }
 
     private static String escapedSubstring(String str, int start, int end) {

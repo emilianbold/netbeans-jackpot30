@@ -23,6 +23,12 @@
                 <attr name="instanceCreate" methodvalue="org.openide.awt.Actions.alwaysEnabled"/>
                 <attr name="noIconInMenu" boolvalue="false"/>
             </file>
+            <file name="org-netbeans-modules-jackpot30-impl-refactoring-upgrade-UpgradeAction.instance">
+                <attr name="delegate" newvalue="org.netbeans.modules.jackpot30.impl.refactoring.upgrade.UpgradeAction"/>
+                <attr name="displayName" bundlevalue="org.netbeans.modules.jackpot30.impl.refactoring.upgrade.Bundle#CTL_UpgradeAction"/>
+                <attr name="instanceCreate" methodvalue="org.openide.awt.Actions.alwaysEnabled"/>
+                <attr name="noIconInMenu" boolvalue="false"/>
+            </file>
         </folder>
     </folder>
 
@@ -42,6 +48,10 @@
             <file name="org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.shadow">
                 <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-jackpot30-impl-refactoring-ApplyPatternAction.instance"/>
                 <attr name="position" intvalue="2200"/>
+            </file>
+            <file name="org-netbeans-modules-jackpot30-impl-refactoring-upgrade-UpgradeAction.shadow">
+                <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-jackpot30-impl-refactoring-upgrade-UpgradeAction.instance"/>
+                <attr name="position" intvalue="2187"/>
             </file>
         </folder>
     </folder>

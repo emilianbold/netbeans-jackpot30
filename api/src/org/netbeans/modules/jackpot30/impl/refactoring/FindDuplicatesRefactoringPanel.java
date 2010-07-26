@@ -40,9 +40,6 @@
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.CardLayout;
-import java.awt.Component;
-import java.awt.event.ItemEvent;
-import java.awt.event.ItemListener;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -50,13 +47,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
-import java.util.prefs.BackingStoreException;
-import java.util.prefs.Preferences;
-import javax.swing.DefaultComboBoxModel;
-import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
-import javax.swing.JButton;
-import javax.swing.JList;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
@@ -66,12 +57,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.ScopeType;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.openide.DialogDescriptor;
-import org.openide.DialogDisplayer;
-import org.openide.util.Exceptions;
-import org.openide.util.NbPreferences;
 import org.openide.util.Union2;
 
 /**
@@ -117,22 +103,13 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             public void changedUpdate(DocumentEvent e) {}
         };
         pattern.getDocument().addDocumentListener(dl);
-        ItemListener ilImpl = new ItemListener() {
-            public void itemStateChanged(ItemEvent e) {
-                stateChanged();
-                enableDisableEditRemove();
-            }
-        };
-
-        scope.addItemListener(ilImpl);
 
         if (!allowVerify) {
             verify.setVisible(false);
         }
-        
-        scope.setModel(new DefaultComboBoxModel());//XXX
-        scope.setRenderer(new RendererImpl());
 
+        scopesPanel.setChangeListener(changeListener);
+        
         enableDisable();
     }
 
@@ -167,12 +144,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         knowPatterns = new javax.swing.JRadioButton();
         customPattern = new javax.swing.JRadioButton();
         jPanel1 = new javax.swing.JPanel();
-        scopePanel = new javax.swing.JPanel();
-        scope = new javax.swing.JComboBox();
-        jLabel2 = new javax.swing.JLabel();
-        add = new javax.swing.JButton();
-        edit = new javax.swing.JButton();
-        removeButton = new javax.swing.JButton();
+        scopesPanel = new org.netbeans.modules.jackpot30.impl.refactoring.ScopesPanel();
 
         setLayout(new java.awt.GridBagLayout());
 
@@ -358,72 +330,14 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.weightx = 1.0;
         add(patternTypeSelectionPanel, gridBagConstraints);
-
-        scopePanel.setLayout(new java.awt.GridBagLayout());
-
-        scope.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
-        scope.setPrototypeDisplayValue(SCOPE_COMBO_PROTOTYPE);
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 1;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(0, 6, 0, 0);
-        scopePanel.add(scope, gridBagConstraints);
-
-        jLabel2.setLabelFor(scope);
-        org.openide.awt.Mnemonics.setLocalizedText(jLabel2, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.jLabel2.text")); // NOI18N
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        scopePanel.add(jLabel2, gridBagConstraints);
-
-        org.openide.awt.Mnemonics.setLocalizedText(add, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.add.text")); // NOI18N
-        add.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                addActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 2;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(0, 12, 0, 0);
-        scopePanel.add(add, gridBagConstraints);
-
-        org.openide.awt.Mnemonics.setLocalizedText(edit, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.edit.text")); // NOI18N
-        edit.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                editActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 3;
-        gridBagConstraints.gridy = 0;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(0, 12, 0, 0);
-        scopePanel.add(edit, gridBagConstraints);
-
-        org.openide.awt.Mnemonics.setLocalizedText(removeButton, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.removeButton.text")); // NOI18N
-        removeButton.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                removeButtonActionPerformed(evt);
-            }
-        });
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.WEST;
-        gridBagConstraints.insets = new java.awt.Insets(0, 12, 0, 0);
-        scopePanel.add(removeButton, gridBagConstraints);
-
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 2;
         gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
         gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.insets = new java.awt.Insets(24, 0, 0, 0);
-        add(scopePanel, gridBagConstraints);
+        gridBagConstraints.insets = new java.awt.Insets(18, 0, 0, 0);
+        add(scopesPanel, gridBagConstraints);
     }// </editor-fold>//GEN-END:initComponents
 
     private void addHintActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addHintActionPerformed
@@ -466,21 +380,6 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         enableDisable();
     }//GEN-LAST:event_knowPatternsActionPerformed
 
-    private void addActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addActionPerformed
-        addEditScope(false);
-    }//GEN-LAST:event_addActionPerformed
-
-    private void editActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_editActionPerformed
-        addEditScope(true);
-    }//GEN-LAST:event_editActionPerformed
-
-    private void removeButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeButtonActionPerformed
-        DefaultComboBoxModel model = (DefaultComboBoxModel) scope.getModel();
-        int index = model.getIndexOf(model.getSelectedItem());
-
-        model.removeElementAt(index);
-    }//GEN-LAST:event_removeButtonActionPerformed
-
     private void stateChanged() {
         if (SwingUtilities.isEventDispatchThread()) {
             changeListener.stateChanged(new ChangeEvent(this));
@@ -498,13 +397,6 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
         ((CardLayout) patternSelection.getLayout()).show(patternSelection, toSelect);
         stateChanged();
-    }
-
-    private void enableDisableEditRemove() {
-        boolean enableEditRemove = ((Scope) scope.getSelectedItem()).scopeType != ScopeType.ALL_OPENED_PROJECTS;
-        
-        edit.setEnabled(enableEditRemove);
-        removeButton.setEnabled(enableEditRemove);
     }
 
     public void setPattern(Union2<String, Iterable<? extends HintDescription>> pattern) {
@@ -553,12 +445,11 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     }
 
     public void setScope(Scope scope) {
-        this.scope.setSelectedItem(scope);
-        stateChanged();
+        scopesPanel.setScope(scope);
     }
 
     public Scope getScope() {
-        return (Scope) this.scope.getSelectedItem();
+        return scopesPanel.getScope();
     }
 
     public boolean getVerify() {
@@ -569,79 +460,20 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         this.verify.setSelected(verify);
     }
 
-    private static final String SCOPES_KEY = FindDuplicatesRefactoringPanel.class.getSimpleName() + "/scopes";
-    private static final String LAST_SELECTED_SCOPE_KEY = "lastSelected";
-
     void fillInFromSettings() {
-        Preferences prefs = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).node(SCOPES_KEY);
-        DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
-
-        dcbm.addElement(Scope.createAllOpenedProjectsScope());
-
-        String lastSelectedFolder = prefs.get(LAST_SELECTED_SCOPE_KEY, null);
-        Scope lastSelectedScope = null;
-        
-        if (prefs != null) {
-            try {
-                for (String key : prefs.keys()) {
-                    if (key.startsWith("scope")) {
-                        Scope scope = Scope.deserialize(prefs.get(key, null));
-
-                        if (scope.folder.equals(lastSelectedFolder)) {
-                            lastSelectedScope = scope;
-                        }
-                        
-                        dcbm.addElement(scope);
-                    }
-                }
-            } catch (BackingStoreException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-        }
-
-        scope.setModel(dcbm);
-        if (lastSelectedScope != null) {
-            scope.setSelectedItem(lastSelectedScope);
-        } else {
-            scope.setSelectedIndex(0);
-        }
-
-        enableDisableEditRemove();
+        scopesPanel.fillInFromSettings();
     }
 
     void saveScopesCombo() {
-        Preferences prefs = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class).node(SCOPES_KEY);
-        
-        try {
-            prefs.clear();
-        } catch (BackingStoreException ex) {
-            Exceptions.printStackTrace(ex);
-        }
-
-        for (int i = 0; i < scope.getModel().getSize(); i++) {
-            Scope currentScope = (Scope) scope.getModel().getElementAt(i);
-
-            if (currentScope.scopeType == ScopeType.ALL_OPENED_PROJECTS) continue;
-            
-            prefs.put("scope" + i, currentScope.serialize());
-        }
-
-        Scope selected = (Scope) scope.getModel().getSelectedItem();
-
-        if (selected.scopeType == ScopeType.GIVEN_FOLDER) {
-            prefs.put(LAST_SELECTED_SCOPE_KEY, selected.folder);
-        }
+        scopesPanel.saveScopesCombo();
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton add;
     private javax.swing.JButton addAllHints;
     private javax.swing.JButton addHint;
     private javax.swing.JList allHints;
     private javax.swing.JLabel allHintsLabel;
     private javax.swing.JRadioButton customPattern;
-    private javax.swing.JButton edit;
-    private javax.swing.JLabel jLabel2;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
@@ -654,61 +486,12 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     private javax.swing.JPanel patternSelection;
     private javax.swing.JPanel patternTypeSelectionPanel;
     private javax.swing.JButton removeAllHints;
-    private javax.swing.JButton removeButton;
     private javax.swing.JButton removeHint;
-    private javax.swing.JComboBox scope;
-    private javax.swing.JPanel scopePanel;
+    private org.netbeans.modules.jackpot30.impl.refactoring.ScopesPanel scopesPanel;
     private javax.swing.JList selectedHints;
     private javax.swing.JLabel selectedHintsLabel;
     private javax.swing.JCheckBox verify;
     // End of variables declaration//GEN-END:variables
 
-    private static final class RendererImpl extends DefaultListCellRenderer {
-
-        @Override
-        public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-            String displayName;
-
-            if (value instanceof Scope) {
-                displayName = ((Scope) value).getDisplayName();
-            } else {
-                displayName = value.toString();
-            }
-            
-            return super.getListCellRendererComponent(list, displayName, index, isSelected, cellHasFocus);
-        }
-
-    }
-
-    private void addEditScope(boolean edit) {
-        JButton okButton = new JButton("OK");
-        AddScopePanel panel = new AddScopePanel(okButton);
-        DialogDescriptor dd = new DialogDescriptor(panel, "Add Scope", true, new Object[] {okButton, DialogDescriptor.CANCEL_OPTION}, okButton, DialogDescriptor.DEFAULT_ALIGN, null, null);
-
-        dd.setClosingOptions(null);
-        panel.setNotificationSupport(dd.createNotificationLineSupport());
-
-        if (edit) {
-            panel.setScope((Scope) scope.getModel().getSelectedItem());
-        }
-
-        if (DialogDisplayer.getDefault().notify(dd) == okButton) {
-            DefaultComboBoxModel model = (DefaultComboBoxModel) scope.getModel();
-            Scope scope = panel.getScope();
-
-            if (edit) {
-                int index = model.getIndexOf(model.getSelectedItem());
-
-                model.removeElementAt(index);
-                model.insertElementAt(scope, index);
-            } else {
-                model.addElement(scope);
-            }
-            
-            model.setSelectedItem(scope);
-        }
-    }
-
-    private static final String SCOPE_COMBO_PROTOTYPE = "0123456789012345678901234567890123456789012345";
     private static final String HINTS_LIST_PROTOTYPE  = "012345678901234567890123456789";
 }
