@@ -5,3 +5,5 @@ java.hints/src/org/netbeans/modules/java/hints/jackpot/impl:api/src/org/netbeans
 java.hints/src/org/netbeans/modules/java/hints/jackpot/spi:api/src/org/netbeans/modules/jackpot30/spi
 java.hints/test/unit/src/org/netbeans/modules/java/hints/jackpot/file:file/test/unit/src/org/netbeans/modules/jackpot30/file
 java.hints/test/unit/src/org/netbeans/modules/java/hints/jackpot/impl/pm:api/test/unit/src/org/netbeans/modules/jackpot30/impl/pm
+java.hints/test/unit/src/org/netbeans/modules/java/hints/jackpot/impl:api/test/unit/src/org/netbeans/modules/jackpot30/impl
+java.hints/test/unit/src/org/netbeans/modules/java/hints/jackpot/spi:api/test/unit/src/org/netbeans/modules/jackpot30/spi
