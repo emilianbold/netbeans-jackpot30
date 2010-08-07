@@ -1,0 +1,6 @@
+%%example=key1
+EX1
+%%example=key2,verify,fix
+EX2
+%%example=key3,fix
+EX3

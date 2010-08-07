@@ -1,0 +1,30 @@
+%%example=double-checked-locking
+if ($var == null) {
+   synchronized ($lock) {
+       if ($var == null) {
+           $s2$;
+       }
+   }
+}
+%%example=double-checked-locking-verify,verify
+if ($var == null) {
+   synchronized ($lock) {
+       if ($var == null) {
+           $s2$;
+       }
+   }
+} :: !hasModifier($var, Modifier.VOLATILE);;
+%%example=double-checked-locking-fix,verify,fix
+if ($var == null) {
+   synchronized ($lock) {
+       if ($var == null) {
+           $s2$;
+       }
+   }
+} :: !hasModifier($var, Modifier.VOLATILE)
+=>
+synchronized ($lock) {
+   if ($var == null) {
+       $s2$;
+   }
+};;
