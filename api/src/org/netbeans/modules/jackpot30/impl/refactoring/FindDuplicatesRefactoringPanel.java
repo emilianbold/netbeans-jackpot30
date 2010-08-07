@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.CardLayout;
 import java.util.Collection;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -57,6 +58,8 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.impl.examples.Example;
+import org.netbeans.modules.jackpot30.impl.examples.Example.Option;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.openide.util.Union2;
 
@@ -68,9 +71,11 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
     private final Map<String, Collection<HintDescription>> displayName2Hints;
     private final ChangeListener changeListener;
+    private final boolean query;
     
-    public FindDuplicatesRefactoringPanel(final ChangeListener parent, boolean allowVerify) {
+    public FindDuplicatesRefactoringPanel(final ChangeListener parent, boolean query) {
         this.changeListener = parent;
+        this.query = query;
         
         Set<ClassPath> cps = new HashSet<ClassPath>();
 
@@ -104,7 +109,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         };
         pattern.getDocument().addDocumentListener(dl);
 
-        if (!allowVerify) {
+        if (!query) {
             verify.setVisible(false);
         }
 
@@ -126,8 +131,6 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         main = new javax.swing.ButtonGroup();
         verify = new javax.swing.JCheckBox();
         patternSelection = new javax.swing.JPanel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        pattern = new javax.swing.JTextPane();
         knownPatternsPanel = new javax.swing.JPanel();
         allHintsLabel = new javax.swing.JLabel();
         jScrollPane2 = new javax.swing.JScrollPane();
@@ -140,6 +143,11 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         addAllHints = new javax.swing.JButton();
         removeHint = new javax.swing.JButton();
         removeAllHints = new javax.swing.JButton();
+        customPatternPanel = new javax.swing.JPanel();
+        jScrollPane1 = new javax.swing.JScrollPane();
+        pattern = new javax.swing.JTextPane();
+        jPanel3 = new javax.swing.JPanel();
+        examplesButton = new javax.swing.JButton();
         patternTypeSelectionPanel = new javax.swing.JPanel();
         knowPatterns = new javax.swing.JRadioButton();
         customPattern = new javax.swing.JRadioButton();
@@ -159,10 +167,6 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         add(verify, gridBagConstraints);
 
         patternSelection.setLayout(new java.awt.CardLayout());
-
-        jScrollPane1.setViewportView(pattern);
-
-        patternSelection.add(jScrollPane1, "customPattern");
 
         knownPatternsPanel.setLayout(new java.awt.GridBagLayout());
 
@@ -280,6 +284,40 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
         patternSelection.add(knownPatternsPanel, "knownPatterns");
 
+        customPatternPanel.setLayout(new java.awt.GridBagLayout());
+
+        jScrollPane1.setViewportView(pattern);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.weighty = 1.0;
+        customPatternPanel.add(jScrollPane1, gridBagConstraints);
+
+        jPanel3.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 5));
+
+        examplesButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/netbeans/modules/jackpot30/impl/resources/examples_icon.png"))); // NOI18N
+        org.openide.awt.Mnemonics.setLocalizedText(examplesButton, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.examplesButton.text")); // NOI18N
+        examplesButton.setToolTipText(org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "BTN_Examples")); // NOI18N
+        examplesButton.setBorderPainted(false);
+        examplesButton.setContentAreaFilled(false);
+        examplesButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                examplesButtonActionPerformed(evt);
+            }
+        });
+        jPanel3.add(examplesButton);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
+        customPatternPanel.add(jPanel3, gridBagConstraints);
+
+        patternSelection.add(customPatternPanel, "customPattern");
+
         gridBagConstraints = new java.awt.GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 1;
@@ -380,6 +418,14 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         enableDisable();
     }//GEN-LAST:event_knowPatternsActionPerformed
 
+    private void examplesButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_examplesButtonActionPerformed
+        Example ex = ExamplesList.chooseExample(query ? EnumSet.noneOf(Option.class) : EnumSet.of(Option.FIX), query ? EnumSet.of(Option.FIX) : EnumSet.noneOf(Option.class));
+
+        if (ex != null) {
+            pattern.setText(ex.getCode());
+        }
+    }//GEN-LAST:event_examplesButtonActionPerformed
+
     private void stateChanged() {
         if (SwingUtilities.isEventDispatchThread()) {
             changeListener.stateChanged(new ChangeEvent(this));
@@ -474,8 +520,11 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     private javax.swing.JList allHints;
     private javax.swing.JLabel allHintsLabel;
     private javax.swing.JRadioButton customPattern;
+    private javax.swing.JPanel customPatternPanel;
+    private javax.swing.JButton examplesButton;
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
+    private javax.swing.JPanel jPanel3;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
