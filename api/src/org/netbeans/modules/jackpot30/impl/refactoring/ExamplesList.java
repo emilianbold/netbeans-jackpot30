@@ -74,6 +74,7 @@ public class ExamplesList extends javax.swing.JPanel {
 
         list.setModel(listModel);
         list.setCellRenderer(new ExamplesRenderer());
+        list.setSelectedIndex(0);
     }
 
     /** This method is called from within the constructor to
@@ -95,6 +96,11 @@ public class ExamplesList extends javax.swing.JPanel {
             String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
             public int getSize() { return strings.length; }
             public Object getElementAt(int i) { return strings[i]; }
+        });
+        list.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                listMouseClicked(evt);
+            }
         });
         jScrollPane1.setViewportView(list);
 
@@ -120,12 +126,26 @@ public class ExamplesList extends javax.swing.JPanel {
         );
     }// </editor-fold>//GEN-END:initComponents
 
+    private void listMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_listMouseClicked
+        if (evt.getClickCount() > 1) {
+            desc.setValue(DialogDescriptor.OK_OPTION);
+            dialog.setVisible(false);
+        }
+    }//GEN-LAST:event_listMouseClicked
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel jLabel1;
     private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JList list;
     // End of variables declaration//GEN-END:variables
+
+    private DialogDescriptor desc;
+    private Dialog           dialog;
+
+    public void setDialog(DialogDescriptor desc, Dialog dialog) {
+        this.desc = desc;
+        this.dialog = dialog;
+    }
 
     public Example getSelectedExample() {
         return (Example) list.getSelectedValue();
@@ -146,6 +166,7 @@ public class ExamplesList extends javax.swing.JPanel {
         DialogDescriptor dd = new DialogDescriptor(examples, "Choose Example", true, DialogDescriptor.OK_CANCEL_OPTION, DialogDescriptor.OK_OPTION, null);
         Dialog dialog = DialogDisplayer.getDefault().createDialog(dd);
 
+        examples.setDialog(dd, dialog);
         dialog.setVisible(true);
 
         if (dd.getValue() == DialogDescriptor.OK_OPTION) {
