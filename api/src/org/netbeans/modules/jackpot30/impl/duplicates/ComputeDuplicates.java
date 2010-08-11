@@ -110,7 +110,7 @@ public class ComputeDuplicates {
         for (URL u : forURLs) {
             try {
                 //TODO: needs to be removed for server mode
-                DuplicatesCustomIndexerImpl.updateIndex(u); //TODO: show updating progress to the user
+                new DuplicatesCustomIndexerImpl.FactoryImpl().updateIndex(u); //TODO: show updating progress to the user
                 
                 File cacheRoot = Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(u);
 
