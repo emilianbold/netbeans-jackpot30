@@ -63,7 +63,7 @@ public class DuplicatesCustomIndexerImpl extends DeferredCustomIndexer {
         super(factory);
     }
 
-    protected void doIndex(DeferredContext ctx, Collection<? extends FileObject> modifiedAndAdded, Collection<? extends String> removed) throws IOException {
+    protected void doIndex(final DeferredContext ctx, Collection<? extends FileObject> modifiedAndAdded, Collection<? extends String> removed) throws IOException {
         final IndexWriter[] w = new IndexWriter[1];
 
         try {
@@ -71,6 +71,7 @@ public class DuplicatesCustomIndexerImpl extends DeferredCustomIndexer {
 
             for (String r : removed) {
                 w[0].remove(r);
+                ctx.handledRemovedFile(r);
             }
 
             final ClasspathInfo cpInfo = ClasspathInfo.create(ctx.getRootFileObject());
@@ -81,6 +82,8 @@ public class DuplicatesCustomIndexerImpl extends DeferredCustomIndexer {
                         return ;
 
                     w[0].record(cc, cc.getFileObject().getURL(), cc.getCompilationUnit());
+
+                    ctx.handledModifiedFile(cc.getFileObject());
                 }
             }, true);
         } finally {
