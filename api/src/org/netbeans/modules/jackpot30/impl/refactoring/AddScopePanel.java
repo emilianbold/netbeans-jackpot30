@@ -39,6 +39,7 @@
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.CardLayout;
+import java.awt.Component;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -47,13 +48,17 @@ import java.net.URL;
 import java.text.DateFormat;
 import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.DefaultComboBoxModel;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
+import javax.swing.JList;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
@@ -624,10 +629,13 @@ public class AddScopePanel extends javax.swing.JPanel {
                     model.removeAllElements();
 
                     boolean containsSelection = false;
+                    Map<String, String> displayNames = new HashMap<String, String>();
 
                     for (String subindex : subindicesFinal) {
-                        if (subindex.equals(selected)) containsSelection = true;
-                        model.addElement(subindex);
+                        String[] subindexSplit = subindex.split(":", 2);
+                        if (subindexSplit[0].equals(selected)) containsSelection = true;
+                        model.addElement(subindexSplit[0]);
+                        displayNames.put(subindexSplit[0], subindexSplit[1]);
                     }
 
                     if (containsSelection) {
@@ -635,6 +643,7 @@ public class AddScopePanel extends javax.swing.JPanel {
                     }
 
                     subindexSelectionUpdated();
+                    subIndex.setRenderer(new RendererImpl(displayNames));
                 }
             });
         }
@@ -700,5 +709,18 @@ public class AddScopePanel extends javax.swing.JPanel {
         }
 
         return sb.toString();
+    }
+
+    private static final class RendererImpl extends DefaultListCellRenderer {
+        private final Map<String, String> displayNames;
+        public RendererImpl(Map<String, String> displayNames) {
+            this.displayNames = displayNames;
+        }
+
+        @Override
+        public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            return super.getListCellRendererComponent(list, displayNames.get(value), index, isSelected, cellHasFocus);
+        }
+
     }
 }

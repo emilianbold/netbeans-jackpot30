@@ -81,7 +81,7 @@ public class UI {
     public String search(@QueryParam("path") String path, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
         Map<String, Object> configurationData = new HashMap<String, Object>();
 
-        configurationData.put("paths", WebUtilities.requestStringArrayResponse(new URI("http://localhost:9998/index/list")));
+        configurationData.put("paths", list());
         configurationData.put("selectedPath", path);
         configurationData.put("pattern", pattern);
         configurationData.put("patternEscaped", escapeForQuery(pattern));
@@ -161,6 +161,21 @@ public class UI {
         return processTemplate("/org/netbeans/modules/jackpot30/server/webapi/ui-snippet.html", Collections.<String, Object>singletonMap("snippets", snippets));
     }
 
+    private static List<Map<String, String>> list() throws URISyntaxException {
+        List<Map<String, String>> result = new LinkedList<Map<String, String>>();
+
+        for (String enc : WebUtilities.requestStringArrayResponse(new URI("http://localhost:9998/index/list"))) {
+            Map<String, String> rootDesc = new HashMap<String, String>();
+            String[] col = enc.split(":", 2);
+
+            rootDesc.put("segment", col[0]);
+            rootDesc.put("displayName", col[1]);
+            result.add(rootDesc);
+        }
+
+        return result;
+    }
+    
     private static Iterable<int[]> parseSpans(String from) {
         if (from.isEmpty()) {
             return Collections.emptyList();

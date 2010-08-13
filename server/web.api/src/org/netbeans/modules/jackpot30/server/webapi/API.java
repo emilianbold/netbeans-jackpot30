@@ -62,10 +62,10 @@ public class API {
     @GET
     @Path("/find")
     @Produces("text/plain")
-    public String find(@QueryParam("path") String path, @QueryParam("pattern") String pattern) throws IOException {
+    public String find(@QueryParam("path") String segment, @QueryParam("pattern") String pattern) throws IOException {
         StringBuilder sb = new StringBuilder();
 
-        for (String candidate : StandaloneFinder.findCandidates(new File(path), pattern)) {
+        for (String candidate : StandaloneFinder.findCandidates(Cache.sourceRootForKey(segment), pattern)) {
             sb.append(candidate);
             sb.append("\n");
         }
@@ -76,10 +76,10 @@ public class API {
     @GET
     @Path("/findSpans")
     @Produces("text/plain")
-    public String findSpans(@QueryParam("path") String path, @QueryParam("relativePath") String relativePath, @QueryParam("pattern") String pattern) throws IOException {
+    public String findSpans(@QueryParam("path") String segment, @QueryParam("relativePath") String relativePath, @QueryParam("pattern") String pattern) throws IOException {
         StringBuilder sb = new StringBuilder();
 
-        for (int o : StandaloneFinder.findCandidateOccurrenceSpans(new File(path), relativePath, pattern)) {
+        for (int o : StandaloneFinder.findCandidateOccurrenceSpans(Cache.sourceRootForKey(segment), relativePath, pattern)) {
             sb.append(o);
             sb.append(":");
         }
@@ -98,7 +98,19 @@ public class API {
         StringBuilder sb = new StringBuilder();
 
         for (String root : Cache.knownSourceRoots()) {
+            URL sourceRoot = Cache.sourceRootForKey(root).toURI().toURL();
+            Index index = FileBasedIndex.get(sourceRoot);
+            String displayName;
+
+            if (index == null) {
+                displayName = root;
+            } else {
+                displayName = index.getIndexInfo().displayName != null ? index.getIndexInfo().displayName : root;
+            }
+
             sb.append(root);
+            sb.append(":");
+            sb.append(displayName);
             sb.append("\n");
         }
 
@@ -108,8 +120,8 @@ public class API {
     @GET
     @Path("/cat")
     @Produces("text/plain")
-    public String cat(@QueryParam("path") String path, @QueryParam("relative") String relative) throws IOException {
-        URL sourceRoot = new File(path).toURI().toURL();
+    public String cat(@QueryParam("path") String segment, @QueryParam("relative") String relative) throws IOException {
+        URL sourceRoot = Cache.sourceRootForKey(segment).toURI().toURL();
         Index index = FileBasedIndex.get(sourceRoot);
 
         if (index == null) {
@@ -128,8 +140,8 @@ public class API {
     @GET
     @Path("/info")
     @Produces("text/plain")
-    public String info(@QueryParam("path") String path) throws IOException {
-        URL sourceRoot = new File(path).toURI().toURL();
+    public String info(@QueryParam("path") String segment) throws IOException {
+        URL sourceRoot = Cache.sourceRootForKey(segment).toURI().toURL();
         Index index = FileBasedIndex.get(sourceRoot);
 
         if (index == null) {

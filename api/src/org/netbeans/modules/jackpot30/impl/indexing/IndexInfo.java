@@ -51,6 +51,7 @@ public class IndexInfo {
     public long lastUpdate;
     public String sourceLocation;
     public String versionControlTip;
+    public String displayName;
 
     public static IndexInfo empty() {
         IndexInfo info = new IndexInfo();

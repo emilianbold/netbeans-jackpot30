@@ -24,8 +24,8 @@
 <label for="path">Project:</label>
 <select size="1" name="path">");
     <#list paths as path>
-        <option <#if selectedPath?? && path == selectedPath>selected</#if> >
-            ${path}
+        <option <#if selectedPath?? && path.segment == selectedPath>selected</#if> value="${path.segment}">
+            ${path.displayName}
         </option>
     </#list>
 </select>

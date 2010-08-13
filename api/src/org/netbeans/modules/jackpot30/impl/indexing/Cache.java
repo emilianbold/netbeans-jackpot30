@@ -44,6 +44,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -55,6 +57,7 @@ import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.SPIAccessor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
 
 /**
  *
@@ -143,11 +146,21 @@ public class Cache {
 
         List<String> known = new LinkedList<String>();
         
-        for (String segment : invertedSegments.keySet()) {
-            known.add(segment.substring("file:".length()));
+        for (String segment : segments.stringPropertyNames()) {
+            known.add(segment);
         }
 
         return known;
+    }
+
+    public static File sourceRootForKey(String segment) throws IOException {
+        loadSegments();
+
+        try {
+            return new File(new File(new URI(segments.getProperty(segment))).getAbsolutePath());
+        } catch (URISyntaxException ex) {
+            throw new IOException(ex);
+        }
     }
 
 
