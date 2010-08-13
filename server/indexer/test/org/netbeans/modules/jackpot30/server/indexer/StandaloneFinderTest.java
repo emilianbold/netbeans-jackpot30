@@ -42,30 +42,35 @@ package org.netbeans.modules.jackpot30.server.indexer;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import junit.framework.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import junit.framework.TestCase;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 
 /**
  *
  * @author lahvac
  */
-public class StandaloneFinderTest {
+public class StandaloneFinderTest extends TestCase {
     
-    public StandaloneFinderTest() {}
+    public StandaloneFinderTest(String name) {
+        super(name);
+    }
 
     private File src;
 
-    @Before
     public void setUp() throws Exception {
         File source = new File(StandaloneFinderTest.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-        File workingDirectory = new File(source.getParentFile(), "wd");
+        File workingDirectory = new File(new File(source.getParentFile(), "wd"), this.getName());
+
+        deleteRecursively(workingDirectory);
+        
         File cache = new File(workingDirectory, "cache");
 
         src = new File(workingDirectory, "src");
@@ -74,7 +79,7 @@ public class StandaloneFinderTest {
 
         copyStringToFile(new File(src, "test/Test1.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
 
-        StandaloneIndexer.index(src, false);
+        StandaloneIndexer.index(src, false, null, null);
     }
 
     public final static void copyStringToFile (File f, String content) throws Exception {
@@ -99,16 +104,44 @@ public class StandaloneFinderTest {
 
         return res;
     }
+
+    private static void deleteRecursively(File d) throws IOException {
+        if (!d.exists()) return;
+        
+        if (d.isDirectory()) {
+            for (File c : d.listFiles()) {
+                deleteRecursively(c);
+            }
+        }
+
+        if (!d.delete()) throw new IOException();
+    }
     
-    @Test
     public void testFindSpans() throws Exception {
         Assert.assertEquals(Arrays.asList(55, 89), toIntegerList(StandaloneFinder.findCandidateOccurrenceSpans(src, "test/Test1.java", "$1.isDirectory()")));
     }
 
-    @Test
     public void testMultiplePatterns() throws Exception {
         String patterns = "$1.isDirectory();; new java.io.File($1);;";
         Assert.assertEquals(Arrays.asList("test/Test1.java"), new LinkedList<String>(StandaloneFinder.findCandidates(src, patterns)));
         Assert.assertEquals(Arrays.asList(55, 75, 55, 89), toIntegerList(StandaloneFinder.findCandidateOccurrenceSpans(src, "test/Test1.java", patterns)));
+    }
+
+    public void testUpdate() throws Exception {
+        File modified = new File(src.getParentFile(), "modified");
+        File removed  = new File(src.getParentFile(), "removed");
+
+        copyStringToFile(removed, "test/Test1.java");
+        copyStringToFile(modified, "test/Test2.java\ntest/Test3.java");
+
+        new File(src, "test/Test1.java").delete();
+
+        copyStringToFile(new File(src, "test/Test2.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
+        copyStringToFile(new File(src, "test/Test3.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
+
+        StandaloneIndexer.index(src, false, modified.getAbsolutePath(), removed.getAbsolutePath());
+
+        String patterns = "$1.isDirectory();; new java.io.File($1);;";
+        Assert.assertEquals(new HashSet<String>(Arrays.asList("test/Test2.java", "test/Test3.java")), new HashSet<String>(StandaloneFinder.findCandidates(src, patterns)));
     }
 }

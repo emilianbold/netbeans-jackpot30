@@ -3,11 +3,19 @@
 performIndexing() {
     name=`basename $1`;
     if [ -d $name ] ; then
-        (cd $name; hg pull -u;)
+        HG_OUT=$(tempfile) || exit
+        trap "rm -f -- '$HG_OUT'" EXIT
+        MODIFIED=$(tempfile) || exit
+        trap "rm -f -- '$HG_OUT' '$MODIFIED'" EXIT
+        REMOVED=$(tempfile) || exit
+        trap "rm -f -- '$HG_OUT' '$MODIFIED' '$REMOVED'" EXIT
+
+        (cd $name; hg pull; hg --verbose up >$HG_OUT; grep <$HG_OUT "^getting " | cut -d ' ' -f 2- >$MODIFIED; grep <$HG_OUT "^removing " | cut -d ' ' -f 2- >$REMOVED;)
+        java -jar indexer.jar $name $2 "$MODIFIED" "$REMOVED"
     else
         hg clone $1
+        java -jar indexer.jar $name $2
     fi;
-    java -jar indexer.jar $name $2
 }
 
 mkdir -p cache
@@ -15,3 +23,5 @@ mkdir -p cache
 for f in `echo $1 | tr ',' '\n'`; do
     performIndexing $f cache
 done
+
+exit

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,17 +34,23 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.server.indexer;
 
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
@@ -62,12 +68,18 @@ import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
  */
 public class StandaloneIndexer {
 
-    public static void index(File root, boolean duplicatesIndex) throws IOException {
+    public static void index(File root, boolean duplicatesIndex, String modified, String removed) throws IOException {
         IndexWriter w = FileBasedIndex.get(root.toURI().toURL()).openForWriting();
         DuplicatesIndex.IndexWriter dw = duplicatesIndex ? DuplicatesIndex.get(root.toURI().toURL()).openForWriting() : null;
 
         try {
-            new StandaloneIndexer().doIndex(w, dw, root);
+            StandaloneIndexer i = new StandaloneIndexer();
+
+            if (modified != null && removed != null) {
+                i.doIndex(w, dw, root, modified, removed);
+            } else {
+                i.doIndex(w, dw, root);
+            }
         } finally {
             w.close();
         }
@@ -80,6 +92,17 @@ public class StandaloneIndexer {
             }
         } else {
             indexFile(w, dw, fileOrDir);
+        }
+    }
+
+    private void doIndex(IndexWriter w, DuplicatesIndex.IndexWriter dw, File root, String modified, String removed) throws IOException {
+        for (String r : read(removed)) {
+            w.remove(r);
+            if (dw != null) dw.remove(r);
+        }
+
+        for (String m : read(modified)) {
+            indexFile(w, dw, new File(root, m));
         }
     }
 
@@ -111,5 +134,27 @@ public class StandaloneIndexer {
             dw.record(ct, source.toURI().toURL(), cut);
         }
     }
-    
+
+    private static Iterable<? extends String> read(String file) throws IOException {
+        Collection<String> result = new LinkedList<String>();
+        BufferedReader r = new BufferedReader(new FileReader(file));
+
+        try {
+            String line;
+
+            while ((line = r.readLine()) != null) {
+                if (!line.isEmpty()) {
+                    result.add(line);
+                }
+            }
+        } finally {
+            try {
+                r.close();
+            } catch (IOException ex) {
+                Logger.getLogger(StandaloneIndexer.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
+        return result;
+    }
 }

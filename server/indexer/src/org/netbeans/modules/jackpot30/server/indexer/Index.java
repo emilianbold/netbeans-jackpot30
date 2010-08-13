@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.server.indexer;
@@ -53,28 +53,49 @@ import org.netbeans.modules.jackpot30.impl.indexing.Cache;
  */
 public class Index {
 
-    private static final String PARAM_CONSTRUCT_DUPLICATES_INDEX = "-construct-duplicates-index";
+    static final String PARAM_CONSTRUCT_DUPLICATES_INDEX = "-construct-duplicates-index";
     
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) throws IOException {
+        new Index().index(args);
+    }
+
+    void index(String[] args) throws IOException {
         List<String> argsList = new ArrayList<String>(Arrays.asList(args));
         boolean constructDuplicatesIndex = !argsList.isEmpty() && PARAM_CONSTRUCT_DUPLICATES_INDEX.equals(argsList.get(0));
 
-        if (args.length != 2) {
-            System.err.println("Usage: java -jar " + Index.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [" + constructDuplicatesIndex + "] <source-root> <cache>");
+        if (constructDuplicatesIndex) argsList.remove(0);
+        
+        String modified = null;
+        String removed  = null;
+
+        if (argsList.size() != 2 && argsList.size() != 4) {
+            printHelp();
             return ;
+        }
+
+        if (argsList.size() == 4) {
+            modified = argsList.get(2);
+            removed = argsList.get(3);
         }
 
         long startTime = System.currentTimeMillis();
 
-        Cache.setStandaloneCacheRoot(new File(args[1]));
-        StandaloneIndexer.index(new File(args[0]), constructDuplicatesIndex);
+        Cache.setStandaloneCacheRoot(new File(argsList.get(1)));
+        invokeIndexer(new File(argsList.get(0)), constructDuplicatesIndex, modified, removed);
 
         long endTime = System.currentTimeMillis();
 
         System.out.println("indexing took: " + Utilities.toHumanReadableTime(endTime - startTime));
     }
 
+    protected void invokeIndexer(File root, boolean duplicatesIndex, String modified, String removed) throws IOException {
+        StandaloneIndexer.index(root, duplicatesIndex, modified, removed);
+    }
+
+    protected void printHelp() {
+        System.err.println("Usage: java -jar " + Index.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [" + PARAM_CONSTRUCT_DUPLICATES_INDEX + "] <source-root> <cache> [<modified-files> <removed-files>]");
+    }
 }
