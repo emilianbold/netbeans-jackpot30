@@ -42,11 +42,18 @@ package org.netbeans.modules.jackpot30.server.webapi;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import org.codeviation.pojson.Pojson;
+import org.netbeans.modules.jackpot30.impl.examples.Example;
+import org.netbeans.modules.jackpot30.impl.examples.Example.Option;
+import org.netbeans.modules.jackpot30.impl.examples.LoadExamples;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
@@ -151,5 +158,24 @@ public class API {
         }
 
         return Pojson.save(index.getIndexInfo());
+    }
+
+    @GET
+    @Path("/examples")
+    @Produces("text/plain")
+    public String examples() throws IOException {
+        List<Map<String, String>> examples = new LinkedList<Map<String, String>>();
+
+        for (Example ex : LoadExamples.loadExamples()) {
+            if (ex.getOptions().contains(Option.VERIFY) || ex.getOptions().contains(Option.FIX)) continue;
+            Map<String, String> desc = new HashMap<String, String>();
+
+            desc.put("displayName", ex.getDisplayName());
+            desc.put("pattern", ex.getCode());
+
+            examples.add(desc);
+        }
+
+        return Pojson.save(examples);
     }
 }

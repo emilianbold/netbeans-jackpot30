@@ -1,3 +1,0 @@
-NULL_SAFE_EQUALS=$1 != $2 && ($1 == null || !$1.equals($2));;\n\
-($1 == null) ? ($2 != null) : !$1.equals($2);;
-NULL_SAFE_EQUALS_DESCRIPTION=Null safe equals

@@ -65,6 +65,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
 import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
 
@@ -237,28 +238,9 @@ public class UI {
         return in.replaceAll("\n[ \t]*\n", "\n").trim().split("\n").length;
     }
 
-    private List<Map<String, String>> loadExamples() {
-        List<Map<String, String>> result = new LinkedList<Map<String, String>>();
-        Properties props = new Properties();
-        InputStream in = UI.class.getResourceAsStream("examples");
-        
-        try {
-            props.load(in);
-
-            for (String p : props.stringPropertyNames()) {
-                if (!p.endsWith("_DESCRIPTION")) {
-                    Map<String, String> m = new HashMap<String, String>();
-
-                    m.put("pattern", props.getProperty(p));
-                    m.put("description", props.getProperty(p + "_DESCRIPTION"));
-                    result.add(m);
-                }
-            }
-        } catch (IOException ex) {
-            Logger.getLogger(UI.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        return result;
+    @SuppressWarnings("unchecked")
+    private List<Map<String, String>> loadExamples() throws IOException, URISyntaxException {
+        return Pojson.load(LinkedList.class, new URI("http://localhost:9998/index/examples"));
     }
 
     private static String processTemplate(String template, Map<String, Object> configurationData) throws TemplateException, IOException {
