@@ -45,9 +45,15 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.tree.JCTree;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 import org.netbeans.modules.java.source.pretty.VeryPretty;
 
 /**
@@ -259,6 +265,35 @@ public class UtilitiesTest extends TestBase {
 
         String golden = /*"$mods$" + */" class $name extends java.util.LinkedList { $name() { super(); } $methods$ }";
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+    }
+
+    public void testErrorsForPatterns1() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+        Tree result = Utilities.parseAndAttribute(info, "foo bar", null, errors);
+        List<String> errorStrings = new LinkedList<String>();
+
+        for (Diagnostic<? extends JavaFileObject> d : errors) {
+            errorStrings.add(d.getCode());
+        }
+
+        assertEquals(Arrays.asList("compiler.err.expected"), errorStrings);
+    }
+
+    public void testErrorsForPatterns2() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+        Tree result = Utilities.parseAndAttribute(info, "$1.isDirectory()", s, errors);
+        List<String> errorStrings = new LinkedList<String>();
+
+        for (Diagnostic<? extends JavaFileObject> d : errors) {
+            errorStrings.add(d.getCode());
+        }
+
+        assertEquals(Arrays.asList("compiler.err.cant.resolve.location"), errorStrings);
     }
 
     public void testToHumanReadableTime() {

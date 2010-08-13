@@ -73,6 +73,8 @@ import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.comp.AttrContext;
 import com.sun.tools.javac.comp.Env;
 import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.comp.Attr;
 import com.sun.tools.javac.comp.Todo;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.parser.EndPosParser;
@@ -156,11 +158,9 @@ import org.netbeans.modules.java.source.builder.TreeFactory;
 import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.java.source.pretty.ImportAnalysis2;
 import org.netbeans.modules.java.source.transform.ImmutableTreeTranslator;
-import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
-import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
 
@@ -303,98 +303,90 @@ public class Utilities {
     }
     
     public static Tree parseAndAttribute(CompilationInfo info, String pattern, Scope scope) {
-        return parseAndAttribute(info, JavaSourceAccessor.getINSTANCE().getJavacTask(info), pattern, scope);
+        return parseAndAttribute(info, pattern, scope, null);
+    }
+
+    public static Tree parseAndAttribute(CompilationInfo info, String pattern, Scope scope, Collection<Diagnostic<? extends JavaFileObject>> errors) {
+        return parseAndAttribute(info, JavaSourceAccessor.getINSTANCE().getJavacTask(info), pattern, scope, errors);
     }
 
     public static Tree parseAndAttribute(JavacTaskImpl jti, String pattern) {
-        return parseAndAttribute(null, jti, pattern, null);
+        return parseAndAttribute(jti, pattern, null);
     }
 
-    private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope) {
+    public static Tree parseAndAttribute(JavacTaskImpl jti, String pattern, Collection<Diagnostic<? extends JavaFileObject>> errors) {
+        return parseAndAttribute(null, jti, pattern, null, errors);
+    }
+
+    private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope, Collection<Diagnostic<? extends JavaFileObject>> errors) {
         Context c = jti.getContext();
         TreeFactory make = TreeFactory.instance(c);
-        Tree patternTree = !isStatement(pattern) ? parseExpression(c, pattern, true, new SourcePositions[1]) : null;
+        List<Diagnostic<? extends JavaFileObject>> patternTreeErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+        Tree patternTree = !isStatement(pattern) ? parseExpression(c, pattern, true, new SourcePositions[1], patternTreeErrors) : null;
         boolean expression = true;
         boolean classMember = false;
 
         if (patternTree == null || isErrorTree(patternTree)) {
-            Log log = Log.instance(c);
-            DiagnosticListener<? super JavaFileObject> old = log.getDiagnosticListener();
-            DiagnosticCollector<JavaFileObject> dc = new DiagnosticCollector<JavaFileObject>();
+            List<Diagnostic<? extends JavaFileObject>> currentPatternTreeErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+            Tree currentPatternTree = parseStatement(c, "{" + pattern + "}", new SourcePositions[1], currentPatternTreeErrors);
 
-            log.setDiagnosticListener(dc);
+            assert currentPatternTree.getKind() == Kind.BLOCK : currentPatternTree.getKind();
 
-            try {
-                Tree currentPatternTree = parseStatement(c, "{" + pattern + "}", new SourcePositions[1]);
+            List<? extends StatementTree> statements = ((BlockTree) currentPatternTree).getStatements();
 
-                assert currentPatternTree.getKind() == Kind.BLOCK : currentPatternTree.getKind();
+            if (statements.size() == 1) {
+                currentPatternTree = statements.get(0);
+            } else {
+                List<StatementTree> newStatements = new LinkedList<StatementTree>();
 
-                List<? extends StatementTree> statements = ((BlockTree) currentPatternTree).getStatements();
+                newStatements.add(make.ExpressionStatement(make.Identifier("$$1$")));
+                newStatements.addAll(statements);
+                newStatements.add(make.ExpressionStatement(make.Identifier("$$2$")));
 
-                if (statements.size() == 1) {
-                    currentPatternTree = statements.get(0);
+                currentPatternTree = make.Block(newStatements, false);
+            }
+
+            if (!currentPatternTreeErrors.isEmpty() || containsError(currentPatternTree)) {
+                //maybe a class member?
+                List<Diagnostic<? extends JavaFileObject>> classPatternTreeErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+                Tree classPatternTree = parseExpression(c, "new Object() {" + pattern + "}", false, new SourcePositions[1], classPatternTreeErrors);
+
+                if (!containsError(classPatternTree)) {
+                    patternTreeErrors = classPatternTreeErrors;
+                    patternTree = classPatternTree;
+                    classMember = true;
                 } else {
-                    List<StatementTree> newStatements = new LinkedList<StatementTree>();
-
-                    newStatements.add(make.ExpressionStatement(make.Identifier("$$1$")));
-                    newStatements.addAll(statements);
-                    newStatements.add(make.ExpressionStatement(make.Identifier("$$2$")));
-
-                    currentPatternTree = make.Block(newStatements, false);
-                }
-
-                currentPatternTree = fixTree(c, currentPatternTree);
-
-                boolean hasErrors = false;
-
-                for (Diagnostic d : dc.getDiagnostics()) {
-                    if (d.getKind() == Diagnostic.Kind.ERROR && !"compiler.err.not.stmt".contentEquals(d.getCode())) {
-                        hasErrors = true;
-                    }
-                }
-
-                if (hasErrors || containsError(currentPatternTree)) {
-                    //maybe a class member?
-                    Tree classPatternTree = parseExpression(c, "new Object() {" + pattern + "}", false, new SourcePositions[1]);
-
-                    classPatternTree = fixTree(c, classPatternTree);
-
-                    if (!containsError(classPatternTree)) {
-                        patternTree = classPatternTree;
-                        classMember = true;
-                    } else {
-                        patternTree = currentPatternTree;
-                    }
-                } else {
+                    patternTreeErrors = currentPatternTreeErrors;
                     patternTree = currentPatternTree;
                 }
-
-                expression = false;
-            } finally {
-                log.setDiagnosticListener(old);
+            } else {
+                patternTreeErrors = currentPatternTreeErrors;
+                patternTree = currentPatternTree;
             }
-        } else {
-            patternTree = fixTree(c, patternTree);
+
+            expression = false;
         }
 
         int syntheticOffset = 0;
 
         if (scope != null) {
-            TypeMirror type = jti.attributeTree((JCTree) patternTree, ((JavacScope) scope).getEnv());
+            TypeMirror type = attributeTree(jti, patternTree, scope, patternTreeErrors);
 
             if (isError(type) && expression) {
                 //maybe type?
                 Elements el = jti.getElements();
                 if (Utilities.isPureMemberSelect(patternTree, false)) {
-                    Tree var = jti.parseExpression(pattern + ".class;", new SourcePositions[1]);
+                    List<Diagnostic<? extends JavaFileObject>> varErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+                    Tree var = parseExpression(c, pattern + ".class;", false, new SourcePositions[1], varErrors);
 
-                    type = jti.attributeTree((JCTree) var, ((JavacScope) scope).getEnv());
+                    type = attributeTree(jti, var, scope, varErrors);
 
                     Tree typeTree = ((MemberSelectTree) var).getExpression();
                     Trees trees = JavacTrees.instance(c);
                     CompilationUnitTree cut = ((JavacScope) scope).getEnv().toplevel;
 
                     if (!isError(trees.getElement(new TreePath(new TreePath(cut), typeTree)))) {
+                        patternTreeErrors = varErrors;
                         patternTree = typeTree;
                     }
                 }
@@ -417,6 +409,10 @@ public class Utilities {
             } else {
                 patternTree = members.get(0 + syntheticOffset);
             }
+        }
+
+        if (errors != null) {
+            errors.addAll(patternTreeErrors);
         }
 
         return patternTree;
@@ -454,51 +450,14 @@ public class Utilities {
         }.scan(t, null);
     }
 
-    private static Tree fixTree(Context c, Tree patternTree) {
-        TreeFactory make = TreeFactory.instance(c);
-        FixTree fixTree = new FixTree();
-
-        //TODO: workaround, ImmutableTreeTranslator needs a CompilationUnitTree (rewriteChildren(BlockTree))
-        //but sometimes no CompilationUnitTree (e.g. during BatchApply):
-        CompilationUnitTree cut = make.CompilationUnit(null, Collections.<ImportTree>emptyList(), Collections.<Tree>emptyList(), null);
-        ImportAnalysis2 ia = new ImportAnalysis2(c);
-
-        ia.setImports(Collections.<ImportTree>emptyList());
-        fixTree.attach(c, ia, cut, null);
-
-        return fixTree.translate(patternTree);
-    }
-
-    private static final class FixTree extends ImmutableTreeTranslator {
-
-        @Override
-        public Tree translate(Tree tree) {
-            if (tree != null && tree.getKind() == Kind.EXPRESSION_STATEMENT) {
-                ExpressionStatementTree et = (ExpressionStatementTree) tree;
-
-                if (et.getExpression().getKind() == Kind.ERRONEOUS) {
-                    ErroneousTree err = (ErroneousTree) et.getExpression();
-
-                    if (err.getErrorTrees().size() == 1 && err.getErrorTrees().get(0).getKind() == Kind.IDENTIFIER) {
-                        IdentifierTree idTree = (IdentifierTree) err.getErrorTrees().get(0);
-                        CharSequence id = idTree.getName().toString();
-
-                        if (id.length() > 0 && id.charAt(0) == '$') {
-                            return make.ExpressionStatement(idTree);
-                        }
-                    }
-                }
-            }
-            return super.translate(tree);
-        }
-
-    }
-
-    private static JCStatement parseStatement(Context context, CharSequence stmt, SourcePositions[] pos) {
+    private static JCStatement parseStatement(Context context, CharSequence stmt, SourcePositions[] pos, List<Diagnostic<? extends JavaFileObject>> errors) {
         if (stmt == null || (pos != null && pos.length != 1))
             throw new IllegalArgumentException();
         JavaCompiler compiler = JavaCompiler.instance(context);
         JavaFileObject prev = compiler.log.useSource(new DummyJFO());
+        DiagnosticListener<? super JavaFileObject> oldDiag = compiler.log.getDiagnosticListener();
+
+        compiler.log.setDiagnosticListener(new DiagnosticListenerImpl(errors));
         try {
             CharBuffer buf = CharBuffer.wrap((stmt+"\u0000").toCharArray(), 0, stmt.length());
             ParserFactory factory = ParserFactory.instance(context);
@@ -513,14 +472,18 @@ public class Utilities {
             return null;
         } finally {
             compiler.log.useSource(prev);
+            compiler.log.setDiagnosticListener(oldDiag);
         }
     }
 
-    private static JCExpression parseExpression(Context context, CharSequence expr, boolean onlyFullInput, SourcePositions[] pos) {
+    private static JCExpression parseExpression(Context context, CharSequence expr, boolean onlyFullInput, SourcePositions[] pos, List<Diagnostic<? extends JavaFileObject>> errors) {
         if (expr == null || (pos != null && pos.length != 1))
             throw new IllegalArgumentException();
         JavaCompiler compiler = JavaCompiler.instance(context);
         JavaFileObject prev = compiler.log.useSource(new DummyJFO());
+        DiagnosticListener<? super JavaFileObject> oldDiag = compiler.log.getDiagnosticListener();
+
+        compiler.log.setDiagnosticListener(new DiagnosticListenerImpl(errors));
         try {
             CharBuffer buf = CharBuffer.wrap((expr+"\u0000").toCharArray(), 0, expr.length());
             ParserFactory factory = ParserFactory.instance(context);
@@ -540,6 +503,25 @@ public class Utilities {
             return null;
         } finally {
             compiler.log.useSource(prev);
+            compiler.log.setDiagnosticListener(oldDiag);
+        }
+    }
+
+    private static TypeMirror attributeTree(JavacTaskImpl jti, Tree tree, Scope scope, List<Diagnostic<? extends JavaFileObject>> errors) {
+        Log log = Log.instance(jti.getContext());
+        JavaFileObject prev = log.useSource(new DummyJFO());
+        DiagnosticListener<? super JavaFileObject> oldDiag = log.getDiagnosticListener();
+
+        log.setDiagnosticListener(new DiagnosticListenerImpl(errors));
+        try {
+            Attr attr = Attr.instance(jti.getContext());
+            Env<AttrContext> env = ((JavacScope) scope).getEnv();
+            if (tree instanceof JCExpression)
+                return attr.attribExpr((JCTree) tree,env, Type.noType);
+            return attr.attribStat((JCTree) tree,env);
+        } finally {
+            log.useSource(prev);
+            log.setDiagnosticListener(oldDiag);
         }
     }
 
@@ -1158,6 +1140,15 @@ public class Utilities {
             return super.classOrInterfaceBodyDeclaration(className, isInterface);
         }
         
+        @Override
+        protected JCExpression checkExprStat(JCExpression t) {
+            if (t.getTag() == JCTree.IDENT) {
+                if (((IdentifierTree) t).getName().toString().startsWith("$")) {
+                    return t;
+                }
+            }
+            return super.checkExprStat(t);
+        }
     }
 
     private static final class PushbackLexer implements Lexer {
@@ -1311,5 +1302,17 @@ public class Utilities {
         }
 
         return false;
+    }
+
+    private static final class DiagnosticListenerImpl implements DiagnosticListener<JavaFileObject> {
+        private final Collection<Diagnostic<? extends JavaFileObject>> errors;
+
+        public DiagnosticListenerImpl(Collection<Diagnostic<? extends JavaFileObject>> errors) {
+            this.errors = errors;
+        }
+
+        public void report(Diagnostic<? extends JavaFileObject> diagnostic) {
+            errors.add(diagnostic);
+        }
     }
 }
