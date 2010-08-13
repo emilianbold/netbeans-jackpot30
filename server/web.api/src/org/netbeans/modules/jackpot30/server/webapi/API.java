@@ -102,10 +102,12 @@ public class API {
             Index index = FileBasedIndex.get(sourceRoot);
             String displayName;
 
-            if (index == null) {
-                displayName = root;
+            if (index != null && index.getIndexInfo().displayName != null) {
+                displayName = index.getIndexInfo().displayName;
             } else {
-                displayName = index.getIndexInfo().displayName != null ? index.getIndexInfo().displayName : root;
+                String path = sourceRoot.getPath().replaceFirst("/$", "");
+                
+                displayName = path.substring(path.lastIndexOf('/') + 1);
             }
 
             sb.append(root);
