@@ -39,13 +39,14 @@
 
 package org.netbeans.modules.jackpot30.server.webapi;
 
-import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -177,5 +178,19 @@ public class API {
         }
 
         return Pojson.save(examples);
+    }
+
+    @GET
+    @Path("/errors")
+    @Produces("text/plain")
+    public String errors(@QueryParam("pattern") String pattern) throws IOException {
+        StringBuilder sb = new StringBuilder();
+
+        for (Diagnostic<? extends JavaFileObject> d : StandaloneFinder.parseAndReportErrors(pattern)) {
+            sb.append(d.getMessage(null));
+            sb.append("\n");
+        }
+
+        return sb.toString();
     }
 }

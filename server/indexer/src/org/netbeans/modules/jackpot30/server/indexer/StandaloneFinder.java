@@ -51,6 +51,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
+import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
@@ -67,13 +68,13 @@ import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 public class StandaloneFinder {
 
     public static Collection<? extends String> findCandidates(File sourceRoot, String pattern) throws IOException {
-        BulkPattern bulkPattern = preparePattern(pattern);
+        BulkPattern bulkPattern = preparePattern(pattern, null);
         
         return FileBasedIndex.get(sourceRoot.toURI().toURL()).findCandidates(bulkPattern);
     }
 
     public static int[] findCandidateOccurrenceSpans(File sourceRoot, String relativePath, String pattern) throws IOException {
-        BulkPattern bulkPattern = preparePattern(pattern);
+        BulkPattern bulkPattern = preparePattern(pattern, null);
         CharSequence source = FileBasedIndex.get(sourceRoot.toURI().toURL()).getSourceCode(relativePath);
         JavacTaskImpl jti = prepareJavacTaskImpl();
         CompilationUnitTree cut = jti.parse(new JFOImpl(source)).iterator().next();
@@ -95,7 +96,15 @@ public class StandaloneFinder {
         return result;
     }
 
-    private static BulkPattern preparePattern(String pattern) {
+    public static Collection<Diagnostic<? extends JavaFileObject>> parseAndReportErrors(String pattern) {
+        Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+
+        preparePattern(pattern, errors);
+
+        return errors;
+    }
+    
+    private static BulkPattern preparePattern(String pattern, Collection<Diagnostic<? extends JavaFileObject>> errors) {
         Collection<String> patterns = new LinkedList<String>();
         Collection<Tree> trees = new LinkedList<Tree>();
 
@@ -105,7 +114,7 @@ public class StandaloneFinder {
                 continue;
             }
             patterns.add(s);
-            trees.add(Utilities.parseAndAttribute(prepareJavacTaskImpl(), s));
+            trees.add(Utilities.parseAndAttribute(prepareJavacTaskImpl(), s, errors));
         }
 
         return BulkSearch.getDefault().create(patterns, trees);
