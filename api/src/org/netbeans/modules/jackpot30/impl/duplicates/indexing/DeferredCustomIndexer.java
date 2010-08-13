@@ -47,8 +47,8 @@ import java.io.Writer;
 import java.net.URL;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -56,6 +56,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JButton;
+import javax.swing.SwingUtilities;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.CancellableTask;
@@ -75,10 +77,13 @@ import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
+import org.openide.DialogDescriptor;
+import org.openide.DialogDisplayer;
 import org.openide.filesystems.FileAlreadyLockedException;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
+import org.openide.util.Cancellable;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.lookup.ServiceProvider;
@@ -317,23 +322,27 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
          return done;
     }
 
-    private static final Map<DeferredCustomIndexerFactory, Collection<URL>> todo = new IdentityHashMap<DeferredCustomIndexerFactory, Collection<URL>>(); //XXX: synchronization!!!
+    private static final Map<String, TODO> todo = new HashMap<String, TODO>(); //XXX: synchronization!!!
 
     private static void add2TODO(URL root, DeferredCustomIndexerFactory factory) {
+        if (DISABLED_INDEXERS.contains(factory.getIndexerName())) return;
+        
         boolean wasEmpty = todo.isEmpty();
-        Collection<URL> roots = todo.get(factory);
+        TODO roots = todo.get(factory.getIndexerName());
 
         if (roots == null) {
-            todo.put(factory, roots = new HashSet<URL>());
+            todo.put(factory.getIndexerName(), roots = new TODO(factory));
         }
 
-        roots.add(root);
+        roots.roots.add(root);
 
         LOG.log(Level.FINE, "add2TODO, root: {0}, for factory: {1}, wasEmpty: {2}, todo: {3}", new Object[] {root.toExternalForm(), factory.getIndexerName(), wasEmpty, todo.toString()});
         
         if (wasEmpty) RunAsNeededFactory.fileChanged();
         else RunAsNeededFactory.refresh();
     }
+
+    private static final Set<String> DISABLED_INDEXERS = Collections.synchronizedSet(new HashSet<String>());
 
     private static class UpdateWorker implements CancellableTask<CompilationInfo> {
 
@@ -345,23 +354,53 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
         public void run(CompilationInfo parameter) throws Exception {
             cancel.set(false);
 
-            for (Iterator<Entry<DeferredCustomIndexerFactory, Collection<URL>>> it = todo.entrySet().iterator(); it.hasNext();) {
+            for (Iterator<Entry<String, TODO>> it = todo.entrySet().iterator(); it.hasNext();) {
                 if (cancel.get()) return;
 
-                Entry<DeferredCustomIndexerFactory, Collection<URL>> e = it.next();
+                final Entry<String, TODO> e = it.next();
 
-                if (currentFactory != e.getKey()) {
+                if (DISABLED_INDEXERS.contains(e.getKey())) {
+                    it.remove();
+                    continue;
+                }
+                
+                if (currentFactory != e.getValue().factory) {
                     if (progressForCurrentFactory != null) {
                         progressForCurrentFactory.finish();
                     }
 
-                    currentFactory = e.getKey();
-                    progressForCurrentFactory = ProgressHandleFactory.createSystemHandle("Background indexing for: " + currentFactory.getIndexerName());
+                    currentFactory = e.getValue().factory;
+                    progressForCurrentFactory = ProgressHandleFactory.createSystemHandle("Background indexing for: " + currentFactory.getIndexerName(), new Cancellable() {
+                        public boolean cancel() {
+                            assert SwingUtilities.isEventDispatchThread();
+
+                            JButton disableInThisSession = new JButton("Disable in This Session");
+                            JButton disablePermanently = new JButton("Disable Permanently");
+
+                            disablePermanently.setEnabled(false);
+
+                            Object[] buttons = new Object[]{disableInThisSession, disablePermanently, DialogDescriptor.CANCEL_OPTION};
+                            DialogDescriptor dd = new DialogDescriptor("Disable background indexing for: " + e.getValue().factory.getIndexerName(), "Disable Background Indexing", true, buttons, disableInThisSession, DialogDescriptor.DEFAULT_ALIGN, null, null);
+
+                            dd.setClosingOptions(buttons);
+
+                            Object result = DialogDisplayer.getDefault().notify(dd);
+
+                            if (result == disableInThisSession) {
+                                DISABLED_INDEXERS.add(e.getKey());
+                                return true;
+                            } else if (result == disablePermanently) {
+                                throw new UnsupportedOperationException();
+                            } else {
+                                return false;
+                            }
+                        }
+                    });
 
                     progressForCurrentFactory.start();
                 }
 
-                for (Iterator<URL> factIt = e.getValue().iterator(); factIt.hasNext();) {
+                for (Iterator<URL> factIt = e.getValue().roots.iterator(); factIt.hasNext();) {
                     if (cancel.get()) return;
 
                     URL root = factIt.next();
@@ -373,7 +412,7 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
                         continue;
                     }
 
-                    if (updateRoot(e.getKey(), root, rootFO, cancel)) {
+                    if (updateRoot(e.getValue().factory, root, rootFO, cancel)) {
                         factIt.remove();
                     } else {
                         if (!cancel.get()) {
@@ -382,7 +421,7 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
                     }
                 }
 
-                if (e.getValue().isEmpty())
+                if (e.getValue().roots.isEmpty())
                     it.remove();
 
                 progressForCurrentFactory.finish();
@@ -398,13 +437,21 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
         }
     }
 
+    private static final class TODO {
+        final DeferredCustomIndexerFactory factory;
+        final Collection<URL> roots = new HashSet<URL>();
+        TODO(DeferredCustomIndexerFactory factory) {
+            this.factory = factory;
+        }
+    }
+
     private static final FileObject EMPTY_FILE;
 
     static {
         try {
             EMPTY_FILE = FileUtil.createMemoryFileSystem().getRoot().createData("empty.java");
         } catch (IOException ex) {
-            throw new IllegalStateException();
+            throw new IllegalStateException(ex);
         }
     }
 
