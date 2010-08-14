@@ -64,7 +64,7 @@ import org.netbeans.modules.jackpot30.server.indexer.StandaloneFinder;
  *
  * @author lahvac
  */
-@Path("/index")
+@Path("/")
 public class API {
 
     @GET

@@ -73,7 +73,7 @@ import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
  *
  * @author lahvac
  */
-@Path("/index/ui")
+@Path("/ui")
 public class UI {
 
     @GET

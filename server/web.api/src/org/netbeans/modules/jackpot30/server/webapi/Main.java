@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,17 +34,19 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.server.webapi;
 
-import com.sun.grizzly.http.SelectorThread;
-import com.sun.jersey.api.container.grizzly.GrizzlyWebContainerFactory;
+import com.sun.grizzly.http.embed.GrizzlyWebServer;
+import com.sun.grizzly.http.servlet.ServletAdapter;
+import com.sun.grizzly.tcp.http11.GrizzlyAdapter;
+import com.sun.grizzly.tcp.http11.GrizzlyRequest;
+import com.sun.grizzly.tcp.http11.GrizzlyResponse;
+import com.sun.jersey.spi.container.servlet.ServletContainer;
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.Map;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 
 /**
@@ -58,31 +60,34 @@ public class Main {
      */
     public static void main(String[] args) throws IOException {
         if (args.length != 1 && args.length != 2) {
-            System.err.println("Usage: java -jar " + Main.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " <cache> [nohup]");
+            System.err.println("Usage: java -jar " + Main.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " <cache> [<static-content>]");
             return ;
         }
         
         Cache.setStandaloneCacheRoot(new File(args[0]));
 
-        final String baseUri = "http://localhost:9998/";
-        final Map<String, String> initParams = new HashMap<String, String>();
-        initParams.put("com.sun.jersey.config.property.packages",
-                "org.netbeans.modules.jackpot30.server.webapi");
-
-        System.out.println("Starting grizzly...");
-        SelectorThread threadSelector = GrizzlyWebContainerFactory.create(
-                baseUri, initParams);
-
-        if (args.length == 2 && "nohup".equals(args[1])) {
-            return ;
-        }
+        GrizzlyWebServer gws;
         
-        System.out.println(String.format(
-                "Jersey app started with WADL available at %sapplication.wadl\n" +
-                "Hit enter to stop it...", baseUri));
-        System.in.read();
-        threadSelector.stopEndpoint();
-        System.exit(0);
+        if (args.length == 2) {
+            gws = new GrizzlyWebServer(9998, args[1]);
+        } else {
+            gws = new GrizzlyWebServer(9998);
+        }
+
+        // Jersey web resources
+        ServletAdapter jerseyAdapter = new ServletAdapter();
+        jerseyAdapter.addInitParameter("com.sun.jersey.config.property.packages", "org.netbeans.modules.jackpot30.server.webapi");
+        jerseyAdapter.setContextPath("/index");
+        jerseyAdapter.setServletInstance(new ServletContainer());
+
+        // register all above defined adapters
+        gws.addGrizzlyAdapter(jerseyAdapter);
+        gws.addGrizzlyAdapter(new GrizzlyAdapter(){
+            public void service(GrizzlyRequest request, GrizzlyResponse response){}
+        });
+
+        // let Grizzly run
+        gws.start();
     }
 
 }
