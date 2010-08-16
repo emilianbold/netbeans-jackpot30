@@ -13,6 +13,8 @@
         <copy file="${nbplatform.active.dir}/platform/core/org-openide-filesystems.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util-lookup.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-api-nb-7.0-b07.jar" todir="server/lib/javac" />
+        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-impl-nb-7.0-b07.jar" todir="server/lib/javac" />
     </target>
     
     <target name="findbugs" depends="-init">

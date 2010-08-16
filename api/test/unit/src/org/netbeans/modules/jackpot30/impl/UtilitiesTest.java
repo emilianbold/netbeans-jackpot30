@@ -296,6 +296,27 @@ public class UtilitiesTest extends TestBase {
         assertEquals(Arrays.asList("compiler.err.cant.resolve.location"), errorStrings);
     }
 
+    public void testLambdaPattern() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Tree result = Utilities.parseAndAttribute(info, "new $type() {\n $mods$ $resultType $methodName($args$) {\n $statements$;\n }\n }\n", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.NEW_CLASS);
+
+        String golden = "new $type(){ () { super(); } $mods$$resultType $methodName($args$) { $statements$; } }";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+
+        Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+
+        result = Utilities.parseAndAttribute(info, "new $type() {\n $mods$ $resultType $methodName($args$) {\n $statements$;\n }\n }\n", null, errors);
+        assertTrue(result.getKind().name(), result.getKind() == Kind.NEW_CLASS);
+
+        golden = "new $type(){ $mods$$resultType $methodName($args$) { $statements$; } }";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+        assertTrue(errors.toString(), errors.isEmpty());
+    }
+
     public void testToHumanReadableTime() {
         long time = 202;
         assertEquals(    "5s", Utilities.toHumanReadableTime(time +=           5 * 1000));

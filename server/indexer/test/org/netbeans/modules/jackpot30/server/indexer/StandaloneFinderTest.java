@@ -78,6 +78,7 @@ public class StandaloneFinderTest extends TestCase {
         Cache.setStandaloneCacheRoot(cache);
 
         copyStringToFile(new File(src, "test/Test1.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
+        copyStringToFile(new File(src, "test/TestLambda.java"), "package test; public class Test1 { private void test() { Runnable r = new Runnable() { public void run() { System.err.println(); } }; } }");
 
         StandaloneIndexer.index(src, false, null, null);
     }
@@ -143,5 +144,11 @@ public class StandaloneFinderTest extends TestCase {
 
         String patterns = "$1.isDirectory();; new java.io.File($1);;";
         Assert.assertEquals(new HashSet<String>(Arrays.asList("test/Test2.java", "test/Test3.java")), new HashSet<String>(StandaloneFinder.findCandidates(src, patterns)));
+    }
+    
+    public void testLambdaPattern() throws Exception {
+        String patterns = "new $type() {\n $mods$ $resultType $methodName($args$) {\n $statements$;\n }\n }\n";
+        Assert.assertEquals(Arrays.asList("test/TestLambda.java"), new LinkedList<String>(StandaloneFinder.findCandidates(src, patterns)));
+        Assert.assertEquals(Arrays.asList(70, 132), toIntegerList(StandaloneFinder.findCandidateOccurrenceSpans(src, "test/TestLambda.java", patterns)));
     }
 }

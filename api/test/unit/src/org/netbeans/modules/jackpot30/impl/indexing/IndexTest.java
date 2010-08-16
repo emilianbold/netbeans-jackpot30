@@ -79,6 +79,17 @@ public class IndexTest extends IndexTestBase {
         verifyIndex(patterns, "test/Test1.java", "test/Test2.java");
     }
 
+    public void testLambdaPattern() throws Exception {
+        writeFilesAndWaitForScan(src,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { Runnable r = new Runnable() { public void run() { System.err.println(); } } } }"));
+
+        String[] patterns = new String[] {
+            "new $type() {\n $mods$ $resultType $methodName($args$) {\n $statements$;\n }\n }\n",
+        };
+
+        verifyIndex(patterns, "test/Test1.java");
+    }
+
     private void verifyIndex(final String[] patterns, String... containedIn) throws Exception {
         ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
         ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),
