@@ -107,12 +107,12 @@ public abstract class BulkSearch {
 
         private final List<? extends String> patterns;
         private final List<? extends Set<? extends String>> identifiers;
-        private final List<? extends Set<? extends String>> kinds;
+        private final List<List<List<String>>> requiredContent;
 
-        public BulkPattern(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<? extends Set<? extends String>> kinds) {
+        public BulkPattern(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<List<List<String>>> requiredContent) {
             this.patterns = patterns;
             this.identifiers = identifiers;//TODO: immutable, maybe clone
-            this.kinds = kinds;
+            this.requiredContent = requiredContent;
         }
 
         public List<? extends String> getPatterns() {
@@ -123,8 +123,8 @@ public abstract class BulkSearch {
             return identifiers;
         }
 
-        public List<? extends Set<? extends String>> getKinds() {
-            return kinds;
+        public List<List<List<String>>> getRequiredContent() {
+            return requiredContent;
         }
 
     }
@@ -135,6 +135,7 @@ public abstract class BulkSearch {
         private final boolean forDuplicates;
         private Set<? extends String> identifiers;
         private Set<? extends String> kinds;
+        private List<String> content;
 
         public EncodingContext(OutputStream out, boolean forDuplicates) {
             this.out = out;
@@ -163,6 +164,14 @@ public abstract class BulkSearch {
 
         public void setKinds(Set<? extends String> kinds) {
             this.kinds = kinds;
+        }
+
+        public void setContent(List<String> content) {
+            this.content = content;
+        }
+
+        public List<String> getContent() {
+            return content;
         }
 
     }

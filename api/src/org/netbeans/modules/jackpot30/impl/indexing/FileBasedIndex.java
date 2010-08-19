@@ -55,6 +55,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.tools.JavaCompiler.CompilationTask;
@@ -71,6 +72,7 @@ import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.Hit;
 import org.apache.lucene.search.Hits;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
@@ -80,6 +82,7 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
+import org.netbeans.modules.jackpot30.impl.pm.NFABasedBulkSearch.BulkPatternImpl;
 import org.openide.util.Exceptions;
 
 /**
@@ -171,19 +174,22 @@ public final class FileBasedIndex extends Index {
         BooleanQuery result = new BooleanQuery();
 
         for (int cntr = 0; cntr < pattern.getIdentifiers().size(); cntr++) {
-            BooleanQuery q = new BooleanQuery();
-            if (!pattern.getIdentifiers().get(cntr).isEmpty()) {
-                for (String a : pattern.getIdentifiers().get(cntr)) {
-                    q.add(new TermQuery(new Term("identifiers", a)), BooleanClause.Occur.MUST);
+            assert !pattern.getRequiredContent().get(cntr).isEmpty();
+            
+            BooleanQuery emb = new BooleanQuery();
+            
+            for (List<String> c : pattern.getRequiredContent().get(cntr)) {
+                if (c.isEmpty()) continue;
+                
+                PhraseQuery pq = new PhraseQuery();
+                
+                for (String s : c) {
+                    pq.add(new Term("content", s));
                 }
+                
+                emb.add(pq, BooleanClause.Occur.MUST);
             }
-            if (!pattern.getKinds().get(cntr).isEmpty()) {
-                for (String t : pattern.getKinds().get(cntr)) {
-                    q.add(new TermQuery(new Term("treeKinds", t)), BooleanClause.Occur.MUST);
-                }
-            }
-
-            result.add(q, BooleanClause.Occur.SHOULD);
+            result.add(emb, BooleanClause.Occur.SHOULD);
         }
 
         return result;
@@ -285,8 +291,7 @@ public final class FileBasedIndex extends Index {
             
                 Document doc = new Document();
 
-                doc.add(new Field("identifiers", new TokenStreamImpl(ec.getIdentifiers())));
-                doc.add(new Field("treeKinds", new TokenStreamImpl(ec.getKinds())));
+                doc.add(new Field("content", new TokenStreamImpl(ec.getContent())));
                 doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
 
                 luceneWriter.addDocument(doc);

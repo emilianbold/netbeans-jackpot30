@@ -542,7 +542,10 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
 
         for (int i = 0; i < containedPatterns.size(); i++) {
             assertTrue("expected: " + p.getIdentifiers().get(i) + ", but exist only: " + ec.getIdentifiers(), ec.getIdentifiers().containsAll(p.getIdentifiers().get(i)));
-            assertTrue("expected: " + p.getKinds().get(i) + ", but exist only: " + ec.getKinds(), ec.getKinds().containsAll(p.getKinds().get(i)));
+            
+            for (List<String> phrase : p.getRequiredContent().get(i)) {
+                assertTrue("expected: " + phrase + ", but exist only: " + ec.getContent(), Collections.indexOfSubList(ec.getContent(), phrase) != (-1));
+            }
         }
 
         data.close();
