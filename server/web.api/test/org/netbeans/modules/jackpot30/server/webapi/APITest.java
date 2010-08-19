@@ -90,7 +90,18 @@ public class APITest {
 
     @Test
     public void testFind() throws Exception {
-        Assert.assertEquals("test/Test1.java\n", new API().find(src.getAbsolutePath(), "$1.isDirectory()"));
+        String cacheKey = null;
+
+        for (String key : Cache.knownSourceRoots()) {
+            if (src.getAbsolutePath().equals(Cache.sourceRootForKey(key).getAbsolutePath())) {
+                cacheKey = key;
+                break;
+            }
+        }
+
+        Assert.assertNotNull(cacheKey);
+
+        Assert.assertEquals("test/Test1.java\n", new API().find(cacheKey, "$1.isDirectory()"));
     }
 
 }
