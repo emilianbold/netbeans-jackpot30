@@ -88,6 +88,8 @@ import org.openide.util.Exceptions;
  */
 public final class FileBasedIndex extends Index {
 
+    private static final Logger LOG = Logger.getLogger(FileBasedIndex.class.getName());
+    
     public static Index create(URL sourceRoot, File indexRoot) {
         return new FileBasedIndex(sourceRoot, indexRoot);
     }
@@ -111,7 +113,13 @@ public final class FileBasedIndex extends Index {
     }
 
     public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
+        long start = System.currentTimeMillis();
+
         Collection<? extends String> candidates = findCandidatesFromLucene(pattern);
+
+        long end = System.currentTimeMillis();
+
+        LOG.log(Level.FINE, "candidates from Lucene: count={0}, time={1}", new Object[] {candidates.size(), (end - start)});
 
         if (candidates.isEmpty()) {
             return candidates;
