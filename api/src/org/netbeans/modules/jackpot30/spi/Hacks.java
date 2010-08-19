@@ -39,17 +39,10 @@
 
 package org.netbeans.modules.jackpot30.spi;
 
-import com.sun.source.tree.BlockTree;
-import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
-import com.sun.source.util.TreePathScanner;
-import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCErroneous;
-import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Log;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -66,6 +59,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticListener;
 import javax.tools.FileObject;
 import javax.tools.ForwardingJavaFileManager;
 import javax.tools.JavaFileManager;
@@ -82,10 +77,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.ClassPath.Entry;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.java.source.JavaSourceAccessor;
-import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 
 /**
  *
@@ -106,7 +98,10 @@ public class Hacks {
     private static final String SOURCE_LEVEL = "1.5"; //TODO: could be possibly inferred from the current Java platform
 
     public static Map<String, byte[]> compile(ClassPath boot, ClassPath compile, final String code) throws IOException {
-        StandardJavaFileManager sjfm = ToolProvider.getSystemJavaCompiler().getStandardFileManager(null, null, null);
+        DiagnosticListener<JavaFileObject> devNull = new DiagnosticListener<JavaFileObject>() {
+            public void report(Diagnostic<? extends JavaFileObject> diagnostic) {}
+        };
+        StandardJavaFileManager sjfm = ToolProvider.getSystemJavaCompiler().getStandardFileManager(devNull, null, null);
 
         sjfm.setLocation(StandardLocation.PLATFORM_CLASS_PATH, toFiles(boot));
         sjfm.setLocation(StandardLocation.CLASS_PATH, toFiles(compile));
@@ -134,7 +129,7 @@ public class Hacks {
                 return code;
             }
         };
-        ToolProvider.getSystemJavaCompiler().getTask(null, jfm, null, /*XXX:*/Arrays.asList("-source", SOURCE_LEVEL, "-target", SOURCE_LEVEL, "-proc:none"), null, Arrays.asList(file)).call();
+        ToolProvider.getSystemJavaCompiler().getTask(null, jfm, devNull, /*XXX:*/Arrays.asList("-source", SOURCE_LEVEL, "-target", SOURCE_LEVEL, "-proc:none"), null, Arrays.asList(file)).call();
 
         Map<String, byte[]> result = new HashMap<String, byte[]>();
 

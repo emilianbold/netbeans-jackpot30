@@ -114,15 +114,15 @@ public class StandaloneIndexer {
         final JavaCompiler tool = ToolProvider.getSystemJavaCompiler();
         assert tool != null;
 
-        StandardJavaFileManager m = tool.getStandardFileManager(null, null, null);
+        DiagnosticListener<JavaFileObject> devNull = new DiagnosticListener<JavaFileObject>() {
+            public void report(Diagnostic<? extends JavaFileObject> diagnostic) {}
+        };
+        StandardJavaFileManager m = tool.getStandardFileManager(devNull, null, null);
 
         m.setLocation(StandardLocation.CLASS_PATH, Collections.<File>emptyList());
         m.setLocation(StandardLocation.SOURCE_PATH, Collections.<File>emptyList());
         
         Iterable<? extends JavaFileObject> fos = m.getJavaFileObjects(source);
-        DiagnosticListener<JavaFileObject> devNull = new DiagnosticListener<JavaFileObject>() {
-            public void report(Diagnostic<? extends JavaFileObject> diagnostic) {}
-        };
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, devNull, Arrays.asList("-bootclasspath",  bootPath), null, fos);
         CompilationUnitTree cut = ct.parse().iterator().next();
 
