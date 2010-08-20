@@ -68,8 +68,8 @@ import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
  */
 public class StandaloneIndexer {
 
-    public static void index(File root, boolean duplicatesIndex, String modified, String removed) throws IOException {
-        IndexWriter w = FileBasedIndex.get(root.toURI().toURL()).openForWriting();
+    public static void index(File root, boolean duplicatesIndex, boolean storeSources, String modified, String removed) throws IOException {
+        IndexWriter w = FileBasedIndex.create(root.toURI().toURL(), storeSources).openForWriting();
         DuplicatesIndex.IndexWriter dw = duplicatesIndex ? DuplicatesIndex.get(root.toURI().toURL()).openForWriting() : null;
 
         try {

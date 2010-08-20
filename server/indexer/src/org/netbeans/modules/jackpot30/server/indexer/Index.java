@@ -54,6 +54,7 @@ import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 public class Index {
 
     static final String PARAM_CONSTRUCT_DUPLICATES_INDEX = "-construct-duplicates-index";
+    static final String PARAM_STORE_SOURCES = "-store-sources";
     
     /**
      * @param args the command line arguments
@@ -67,6 +68,10 @@ public class Index {
         boolean constructDuplicatesIndex = !argsList.isEmpty() && PARAM_CONSTRUCT_DUPLICATES_INDEX.equals(argsList.get(0));
 
         if (constructDuplicatesIndex) argsList.remove(0);
+
+        boolean storeSources = !argsList.isEmpty() && PARAM_STORE_SOURCES.equals(argsList.get(0));
+
+        if (storeSources) argsList.remove(0);
         
         String modified = null;
         String removed  = null;
@@ -84,15 +89,15 @@ public class Index {
         long startTime = System.currentTimeMillis();
 
         Cache.setStandaloneCacheRoot(new File(argsList.get(1)));
-        invokeIndexer(new File(argsList.get(0)), constructDuplicatesIndex, modified, removed);
+        invokeIndexer(new File(argsList.get(0)), constructDuplicatesIndex, storeSources, modified, removed);
 
         long endTime = System.currentTimeMillis();
 
         System.out.println("indexing took: " + Utilities.toHumanReadableTime(endTime - startTime));
     }
 
-    protected void invokeIndexer(File root, boolean duplicatesIndex, String modified, String removed) throws IOException {
-        StandaloneIndexer.index(root, duplicatesIndex, modified, removed);
+    protected void invokeIndexer(File root, boolean duplicatesIndex, boolean storeSources, String modified, String removed) throws IOException {
+        StandaloneIndexer.index(root, duplicatesIndex, storeSources, modified, removed);
     }
 
     protected void printHelp() {

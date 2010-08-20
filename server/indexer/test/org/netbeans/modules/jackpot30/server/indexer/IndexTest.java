@@ -54,20 +54,25 @@ public class IndexTest extends TestCase {
     }
 
     public void testCmdLine() throws IOException {
-        assertCmdLineOk("/foo", false, null, null, "/foo", "/cache");
-        assertCmdLineOk("/foo", false, "/modified.list", "/removed.list", "/foo", "/cache", "/modified.list", "/removed.list");
-        assertCmdLineOk("/foo", true, null, null, Index.PARAM_CONSTRUCT_DUPLICATES_INDEX, "/foo", "/cache");
-        assertCmdLineOk("/foo", true, "/modified.list", "/removed.list", Index.PARAM_CONSTRUCT_DUPLICATES_INDEX, "/foo", "/cache", "/modified.list", "/removed.list");
+        assertCmdLineOk("/foo", false, false, null, null, "/foo", "/cache");
+        assertCmdLineOk("/foo", false, false, "/modified.list", "/removed.list", "/foo", "/cache", "/modified.list", "/removed.list");
+        assertCmdLineOk("/foo", true, false, null, null, Index.PARAM_CONSTRUCT_DUPLICATES_INDEX, "/foo", "/cache");
+        assertCmdLineOk("/foo", true, false, "/modified.list", "/removed.list", Index.PARAM_CONSTRUCT_DUPLICATES_INDEX, "/foo", "/cache", "/modified.list", "/removed.list");
+        assertCmdLineOk("/foo", false, true, null, null, Index.PARAM_STORE_SOURCES, "/foo", "/cache");
+        assertCmdLineOk("/foo", false, true, "/modified.list", "/removed.list", Index.PARAM_STORE_SOURCES, "/foo", "/cache", "/modified.list", "/removed.list");
+        assertCmdLineOk("/foo", true, true, null, null, Index.PARAM_CONSTRUCT_DUPLICATES_INDEX, Index.PARAM_STORE_SOURCES, "/foo", "/cache");
+        assertCmdLineOk("/foo", true, true, "/modified.list", "/removed.list", Index.PARAM_CONSTRUCT_DUPLICATES_INDEX, Index.PARAM_STORE_SOURCES, "/foo", "/cache", "/modified.list", "/removed.list");
         assertCmdLineFailed();
         assertCmdLineFailed("/foo");
     }
 
-    private static void assertCmdLineOk(final String rootGolden, final boolean duplicatesIndexGolden, final String modifiedGolden, final String removedGolden, String... cmdLine) throws IOException {
+    private static void assertCmdLineOk(final String rootGolden, final boolean duplicatesIndexGolden, final boolean storeSourcesGolden, final String modifiedGolden, final String removedGolden, String... cmdLine) throws IOException {
         new Index() {
             @Override
-            protected void invokeIndexer(File root, boolean duplicatesIndex, String modified, String removed) throws IOException {
+            protected void invokeIndexer(File root, boolean duplicatesIndex, boolean storeSources, String modified, String removed) throws IOException {
                 assertEquals(rootGolden, root.getPath());
                 assertEquals(duplicatesIndexGolden, duplicatesIndex);
+                assertEquals(storeSourcesGolden, storeSources);
                 assertEquals(modifiedGolden, modified);
                 assertEquals(removedGolden, removed);
             }
@@ -81,7 +86,7 @@ public class IndexTest extends TestCase {
     private static void assertCmdLineFailed(String... cmdLine) throws IOException {
         new Index() {
             @Override
-            protected void invokeIndexer(File root, boolean duplicatesIndex, String modified, String removed) throws IOException {
+            protected void invokeIndexer(File root, boolean duplicatesIndex, boolean storeSources, String modified, String removed) throws IOException {
                 fail();
             }
             @Override

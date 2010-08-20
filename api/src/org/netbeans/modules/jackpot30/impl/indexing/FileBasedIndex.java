@@ -39,9 +39,6 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
-import com.sun.source.tree.CompilationUnitTree;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -50,138 +47,41 @@ import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.util.BitSet;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.zip.DataFormatException;
 import org.apache.lucene.analysis.Analyzer;
-import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
-import org.apache.lucene.document.CompressionTools;
-import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter.MaxFieldLength;
-import org.apache.lucene.index.Term;
-import org.apache.lucene.queryParser.ParseException;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Collector;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.PhraseQuery;
-import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Scorer;
-import org.apache.lucene.search.Searcher;
 import org.apache.lucene.store.FSDirectory;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
 import org.openide.util.Exceptions;
 
 /**
  *
  * @author lahvac
  */
-public final class FileBasedIndex extends Index {
+public final class FileBasedIndex extends AbstractLuceneIndex {
 
-    private static final Logger LOG = Logger.getLogger(FileBasedIndex.class.getName());
-    
     public static Index create(URL sourceRoot, File indexRoot) {
-        return new FileBasedIndex(sourceRoot, indexRoot);
+        return new FileBasedIndex(sourceRoot, indexRoot, false);
     }
 
     public static @CheckForNull Index get(URL sourceRoot) throws IOException {
-        return new FileBasedIndex(sourceRoot, Cache.findCache(FileBasedIndex.NAME).findCacheRoot(sourceRoot)); //XXX: new!
+        return new FileBasedIndex(sourceRoot, Cache.findCache(FileBasedIndex.NAME).findCacheRoot(sourceRoot), false); //XXX: new!
+    }
+
+    public static @NonNull Index create(URL sourceRoot, boolean storeSources) throws IOException {
+        return new FileBasedIndex(sourceRoot, Cache.findCache(FileBasedIndex.NAME).findCacheRoot(sourceRoot), storeSources);
     }
 
     private final URL  sourceRoot;
-    private final int  stripLength;
     private final File cacheRoot;
 
-    private FileBasedIndex(URL sourceRoot, File cacheRoot) {
+    private FileBasedIndex(URL sourceRoot, File cacheRoot, boolean storeSources) {
+        super(sourceRoot.getPath().length(), false, storeSources);
         this.sourceRoot = sourceRoot;
-        this.stripLength = sourceRoot.getPath().length();
         this.cacheRoot = cacheRoot;
-    }
-
-    public IndexWriterImpl openForWriting() throws IOException {
-        return new IndexWriterImpl();
-    }
-
-    public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
-        File dir = new File(cacheRoot, "fulltext");
-
-        if (dir.listFiles() == null || dir.listFiles().length == 0) {
-            return Collections.emptyList();
-        }
-        
-        IndexReader reader = IndexReader.open(FSDirectory.open(dir), true);
-        Searcher s = new IndexSearcher(reader);
-        BitSet matchingDocuments = new BitSet(reader.maxDoc());
-        Collector c = new BitSetCollector(matchingDocuments);
-
-        try {
-            s.search(query(pattern), c);
-        } catch (ParseException ex) {
-            throw new IOException(ex);
-        }
-
-        Collection<String> result = new HashSet<String>();
-
-        for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum+1)) {
-            try {
-                final Document doc = reader.document(docNum);
-                
-                ByteArrayInputStream in = new ByteArrayInputStream(CompressionTools.decompress(doc.getField("encoded").getBinaryValue()));
-
-                try {
-                    if (!BulkSearch.getDefault().matches(in, pattern)) {
-                        continue;
-                    }
-                } finally {
-                    in.close();
-                }
-
-                result.add(doc.getField("path").stringValue());
-            } catch (DataFormatException ex) {
-                throw new IOException(ex);
-            }
-        }
-
-        return result;
-    }
-
-    private Query query(BulkPattern pattern) throws ParseException {
-        BooleanQuery result = new BooleanQuery();
-
-        for (int cntr = 0; cntr < pattern.getIdentifiers().size(); cntr++) {
-            assert !pattern.getRequiredContent().get(cntr).isEmpty();
-            
-            BooleanQuery emb = new BooleanQuery();
-            
-            for (List<String> c : pattern.getRequiredContent().get(cntr)) {
-                if (c.isEmpty()) continue;
-                
-                PhraseQuery pq = new PhraseQuery();
-                
-                for (String s : c) {
-                    pq.add(new Term("content", s));
-                }
-                
-                emb.add(pq, BooleanClause.Occur.MUST);
-            }
-            result.add(emb, BooleanClause.Occur.SHOULD);
-        }
-
-        return result;
     }
 
     public CharSequence getSourceCode(String relativePath) {
@@ -238,119 +138,27 @@ public final class FileBasedIndex extends Index {
         return IndexInfo.empty();
     }
 
-    private final class IndexWriterImpl extends IndexWriter {
+    @Override
+    protected IndexReader createReader() throws IOException {
+        File dir = new File(cacheRoot, "fulltext");
 
-        private final org.apache.lucene.index.IndexWriter luceneWriter;
-        private final File infoFile;
-        private final IndexInfo info;
-
-        public IndexWriterImpl() throws IOException {
-            luceneWriter = new org.apache.lucene.index.IndexWriter(FSDirectory.open(new File(cacheRoot, "fulltext")), new NoAnalyzer(), MaxFieldLength.UNLIMITED);
-
-            infoFile = new File(cacheRoot, "info");
-
-            if (infoFile.exists()) {
-                info = Pojson.load(IndexInfo.class, infoFile);
-            } else {
-                info = new IndexInfo();
-                info.majorVersion = 1;
-                info.minorVersion = 1;
-            }
+        if (dir.listFiles() == null || dir.listFiles().length == 0) {
+            return null;
         }
 
-        public void record(URL source, final CompilationUnitTree cut) throws IOException {
-            String relative = source.getPath().substring(stripLength);
-            ByteArrayOutputStream out = null;
-            EncodingContext ec = null;
-            
-            try {
-                out = new ByteArrayOutputStream();
-
-                ec = new EncodingContext(out, false);
-
-                BulkSearch.getDefault().encode(cut, ec);
-
-                luceneWriter.deleteDocuments(new Term("path", relative));
-            
-                Document doc = new Document();
-
-                doc.add(new Field("content", new TokenStreamImpl(ec.getContent())));
-                out.close();
-                doc.add(new Field("encoded", CompressionTools.compress(out.toByteArray()), Field.Store.YES));
-                doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
-
-                luceneWriter.addDocument(doc);
-            } catch (ThreadDeath td) {
-                throw td;
-            } catch (Throwable t) {
-                Logger.getLogger(FileBasedIndex.class.getName()).log(Level.WARNING, null, t);
-            } finally {
-                if (out != null) {
-                    out.close();
-                }
-            }
-        }
-
-        public void remove(String relativePath) throws IOException {
-            luceneWriter.deleteDocuments(new Term("path", relativePath));
-
-            info.totalFiles--;
-        }
-
-        public void close() throws IOException {
-            luceneWriter.optimize();
-            luceneWriter.close();
-            info.lastUpdate = System.currentTimeMillis();
-            Pojson.save(info, infoFile);
-        }
+        return IndexReader.open(FSDirectory.open(dir), true);
     }
 
-    private static final class TokenStreamImpl extends TokenStream {
-
-        private final Iterator<? extends String> tokens;
-
-        public TokenStreamImpl(Iterable<? extends String> tokens) {
-            this.tokens = tokens != null ? tokens.iterator() : /*???*/Collections.<String>emptyList().iterator();
-        }
-
-        @Override
-        public Token next() throws IOException {
-            if (!tokens.hasNext())
-                return null;
-
-            String t = tokens.next();
-
-            return new Token(t, 0, t.length());
-        }
+    @Override
+    protected org.apache.lucene.index.IndexWriter createWriter() throws IOException {
+        return new org.apache.lucene.index.IndexWriter(FSDirectory.open(new File(cacheRoot, "fulltext")), new NoAnalyzer(), MaxFieldLength.UNLIMITED);
     }
 
-    private static class BitSetCollector extends Collector {
+    @Override
+    protected void storeIndexInfo(IndexInfo info) throws IOException {
+        File infoFile = new File(cacheRoot, "info");
 
-        private int docBase;
-        public final BitSet bits;
-
-        public BitSetCollector(final BitSet bitSet) {
-            assert bitSet != null;
-            bits = bitSet;
-        }
-
-        // ignore scorer
-        public void setScorer(Scorer scorer) {
-        }
-
-        // accept docs out of order (for a BitSet it doesn't matter)
-        public boolean acceptsDocsOutOfOrder() {
-          return true;
-        }
-
-        public void collect(int doc) {
-          bits.set(doc + docBase);
-        }
-
-        public void setNextReader(IndexReader reader, int docBase) {
-          this.docBase = docBase;
-        }
-
+        Pojson.save(info, infoFile);
     }
 
     private static final class NoAnalyzer extends Analyzer {
