@@ -11,10 +11,10 @@ performIndexing() {
         trap "rm -f -- '$HG_OUT' '$MODIFIED' '$REMOVED'" EXIT
 
         (cd $name; hg pull; hg --verbose up >$HG_OUT; grep <$HG_OUT "^getting " | cut -d ' ' -f 2- >$MODIFIED; grep <$HG_OUT "^removing " | cut -d ' ' -f 2- >$REMOVED;)
-        java -jar indexer.jar $name $2 "$MODIFIED" "$REMOVED"
+        java -jar indexer.jar $ADDITIONAL_INDEXING_PARAMS $name $2 "$MODIFIED" "$REMOVED"
     else
         hg clone $1
-        java -jar indexer.jar $name $2
+        java -jar indexer.jar $ADDITIONAL_INDEXING_PARAMS $name $2
     fi;
 }
 
