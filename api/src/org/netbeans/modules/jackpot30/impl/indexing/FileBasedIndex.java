@@ -40,13 +40,12 @@
 package org.netbeans.modules.jackpot30.impl.indexing;
 
 import com.sun.source.tree.CompilationUnitTree;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -58,7 +57,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.tools.JavaCompiler.CompilationTask;
 import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
@@ -75,14 +73,12 @@ import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Searcher;
-import org.apache.lucene.search.TermQuery;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
-import org.netbeans.modules.jackpot30.impl.pm.NFABasedBulkSearch.BulkPatternImpl;
 import org.openide.util.Exceptions;
 
 /**
@@ -116,31 +112,6 @@ public final class FileBasedIndex extends Index {
     }
 
     public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
-        long start = System.currentTimeMillis();
-
-        Collection<? extends String> candidates = findCandidatesFromLucene(pattern);
-
-        long end = System.currentTimeMillis();
-
-        LOG.log(Level.FINE, "candidates from Lucene: count={0}, time={1}", new Object[] {candidates.size(), (end - start)});
-
-        if (candidates.isEmpty()) {
-            return candidates;
-        }
-
-        for (Iterator<? extends String> it = candidates.iterator(); it.hasNext();) {
-            String relative = it.next();
-            InputStream in = new FileInputStream(new File(new File(cacheRoot, "encoded"), relative));
-            
-            if (!BulkSearch.getDefault().matches(in, pattern)) {
-                it.remove();
-            }
-        }
-
-        return candidates;
-    }
-
-    private Collection<? extends String> findCandidatesFromLucene(BulkPattern pattern) throws IOException {
         File dir = new File(cacheRoot, "fulltext");
 
         if (dir.listFiles() == null || dir.listFiles().length == 0) {
@@ -164,7 +135,18 @@ public final class FileBasedIndex extends Index {
         while (it.hasNext()) {
             Hit h = it.next();
 
-            result.add(h.getDocument().getField("path").stringValue());
+            Document doc = h.getDocument();
+            ByteArrayInputStream in = new ByteArrayInputStream(doc.getField("encoded").getBinaryValue());
+
+            try {
+            if (!BulkSearch.getDefault().matches(in, pattern)) {
+                continue;
+            }
+            } finally {
+                in.close();
+            }
+
+            result.add(doc.getField("path").stringValue());
         }
 
         return result;
@@ -271,17 +253,11 @@ public final class FileBasedIndex extends Index {
 
         public void record(URL source, final CompilationUnitTree cut) throws IOException {
             String relative = source.getPath().substring(stripLength);
-            OutputStream out = null;
+            ByteArrayOutputStream out = null;
             EncodingContext ec = null;
             
             try {
-                File cacheFile = new File(new File(cacheRoot, "encoded"), relative);
-
-                if (!cacheFile.exists()) info.totalFiles++;
-                
-                cacheFile.getParentFile().mkdirs();
-
-                out = new FileOutputStream(cacheFile);
+                out = new ByteArrayOutputStream();
 
                 ec = new EncodingContext(out, false);
 
@@ -292,6 +268,8 @@ public final class FileBasedIndex extends Index {
                 Document doc = new Document();
 
                 doc.add(new Field("content", new TokenStreamImpl(ec.getContent())));
+                out.close();
+                doc.add(new Field("encoded", out.toByteArray(), Field.Store.COMPRESS));
                 doc.add(new Field("path", relative, Field.Store.YES, Field.Index.UN_TOKENIZED));
 
                 luceneWriter.addDocument(doc);
@@ -307,12 +285,6 @@ public final class FileBasedIndex extends Index {
         }
 
         public void remove(String relativePath) throws IOException {
-            File f = new File(new File(cacheRoot, "encoded"), relativePath);
-
-            if (f.canRead()) {
-                f.delete();
-            }
-
             luceneWriter.deleteDocuments(new Term("path", relativePath));
 
             info.totalFiles--;
