@@ -49,10 +49,13 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
+import org.netbeans.modules.parsing.api.indexing.IndexingManager;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 
 import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.writeFilesAndWaitForScan;
 
@@ -88,6 +91,37 @@ public class IndexTest extends IndexTestBase {
         };
 
         verifyIndex(patterns, "test/Test1.java");
+    }
+
+    public void testUpdates() throws Exception {
+        String[] patterns = new String[] {
+            "$1.isDirectory()",
+            "new ImageIcon($1)"
+        };
+
+        writeFilesAndWaitForScan(src,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); } }"));
+
+        verifyIndex(patterns, "test/Test1.java", "test/Test2.java");
+        assertEquals(2, FileBasedIndex.get(src.getURL()).getIndexInfo().totalFiles);
+
+        src.getFileObject("test/Test1.java").delete();
+
+        assertNull(src.getFileObject("test/Test1.java"));
+
+        IndexingManager.getDefault().refreshIndexAndWait(src.getURL(), null, true);
+
+        verifyIndex(patterns, "test/Test2.java");
+        assertEquals(1, FileBasedIndex.get(src.getURL()).getIndexInfo().totalFiles);
+
+        FileObject test3 = FileUtil.createData(src, "test/Test3.java");
+        TestUtilities.copyStringToFile(test3, "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }");
+
+        IndexingManager.getDefault().refreshIndexAndWait(src.getURL(), null, true);
+
+        verifyIndex(patterns, "test/Test2.java", "test/Test3.java");
+        assertEquals(2, FileBasedIndex.get(src.getURL()).getIndexInfo().totalFiles);
     }
 
     private void verifyIndex(final String[] patterns, String... containedIn) throws Exception {

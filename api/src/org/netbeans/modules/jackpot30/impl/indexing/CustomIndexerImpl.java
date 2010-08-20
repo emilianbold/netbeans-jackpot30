@@ -87,7 +87,7 @@ public class CustomIndexerImpl extends CustomIndexer {
     }
 
     public static void doIndex(FileObject root, Collection<? extends FileObject> toIndex, Iterable<? extends String> deleted, Index index) {
-        if (toIndex.isEmpty()) {
+        if (toIndex.isEmpty() && !deleted.iterator().hasNext()) {
             return ;
         }
 

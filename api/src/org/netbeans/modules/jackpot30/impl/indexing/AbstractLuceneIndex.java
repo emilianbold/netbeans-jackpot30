@@ -251,13 +251,12 @@ public abstract class AbstractLuceneIndex extends Index {
 
         public void remove(String relativePath) throws IOException {
             luceneWriter.deleteDocuments(new Term("path", relativePath));
-
-            info.totalFiles--;
         }
 
         public void close() throws IOException {
             luceneWriter.optimize();
             luceneWriter.close();
+            info.totalFiles = luceneWriter.numDocs();
             info.lastUpdate = System.currentTimeMillis();
             storeIndexInfo(info);
         }
