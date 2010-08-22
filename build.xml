@@ -33,4 +33,8 @@
         <subant target="test" buildpath="${server.modules}" inheritall="false"/>
     </target>
 
+    <target name="coverage-report" depends="testcoverage-suite.coverage-report">
+        <subant target="test" buildpath="${server.modules}" inheritall="false"/>
+    </target>
+
 </project>
