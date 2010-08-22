@@ -72,7 +72,7 @@ public class APITest {
 
         copyStringToFile(new File(src, "test/Test1.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
 
-        StandaloneIndexer.index(src, false, null, null);
+        StandaloneIndexer.index(src, false, false, null, null);
     }
 
     public final static void copyStringToFile (File f, String content) throws Exception {

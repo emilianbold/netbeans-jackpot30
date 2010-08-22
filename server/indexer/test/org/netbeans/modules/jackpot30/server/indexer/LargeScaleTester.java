@@ -96,7 +96,7 @@ public class LargeScaleTester extends TestCase {
 
         if (createIndex) {
             long start = System.currentTimeMillis();
-            StandaloneIndexer.index(src, false, null, null);
+            StandaloneIndexer.index(src, false, false, null, null);
             long end = System.currentTimeMillis();
             System.err.println("indexing took: " + (end - start));
             System.err.println("cache size total: " + totalSize(cache) + ", lucene=" + totalSize(new File(cache, "s1/jackpot30/fulltext")));

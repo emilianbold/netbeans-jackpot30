@@ -80,7 +80,7 @@ public class StandaloneFinderTest extends TestCase {
         copyStringToFile(new File(src, "test/Test1.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
         copyStringToFile(new File(src, "test/TestLambda.java"), "package test; public class Test1 { private void test() { Runnable r = new Runnable() { public void run() { System.err.println(); } }; } }");
 
-        StandaloneIndexer.index(src, false, null, null);
+        StandaloneIndexer.index(src, false, false, null, null);
     }
 
     public final static void copyStringToFile (File f, String content) throws Exception {
@@ -140,7 +140,7 @@ public class StandaloneFinderTest extends TestCase {
         copyStringToFile(new File(src, "test/Test2.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
         copyStringToFile(new File(src, "test/Test3.java"), "package test; public class Test {private void test() { new java.io.File(\"\").isDirectory(); } }");
 
-        StandaloneIndexer.index(src, false, modified.getAbsolutePath(), removed.getAbsolutePath());
+        StandaloneIndexer.index(src, false, false, modified.getAbsolutePath(), removed.getAbsolutePath());
 
         String patterns = "$1.isDirectory();; new java.io.File($1);;";
         Assert.assertEquals(new HashSet<String>(Arrays.asList("test/Test2.java", "test/Test3.java")), new HashSet<String>(StandaloneFinder.findCandidates(src, patterns)));
