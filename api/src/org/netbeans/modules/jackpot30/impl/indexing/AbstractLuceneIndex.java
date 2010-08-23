@@ -124,7 +124,11 @@ public abstract class AbstractLuceneIndex extends Index {
 
         for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum+1)) {
             try {
-                final Document doc = reader.document(docNum);
+                final Document doc = reader.document(docNum, new FieldSelector() {
+                    public FieldSelectorResult accept(String string) {
+                        return "encoded".equals(string) || "path".equals(string) ? FieldSelectorResult.LOAD : FieldSelectorResult.NO_LOAD;
+                    }
+                });
                 
                 ByteArrayInputStream in = new ByteArrayInputStream(CompressionTools.decompress(doc.getField("encoded").getBinaryValue()));
 
