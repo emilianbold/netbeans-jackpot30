@@ -405,6 +405,28 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testDoubleCheckedLockingWithVariable() throws Exception {
+        String dcl =  "if (o == null) {\n" +
+                      "              Object o1 = new Object();\n" +
+                      "              synchronized (Test.class) {\n" +
+                      "                  if (o == null) {\n" +
+                      "                      o = o1;\n" +
+                      "                  }\n" +
+                      "              }\n" +
+                      "          }";
+        String code = "package test;\n" +
+                      "public class Test {\n" +
+                      "     private Object o;\n" +
+                      "     private void t() {\n" +
+                      "          " + dcl + "\n" +
+                      "     }\n" +
+                      "}\n";
+
+        performTest(code,
+                    Collections.singletonMap("if ($var == null) {$pref$; synchronized ($lock) { if ($var == null) { $init$; } } }", Arrays.asList(dcl)),
+                    Collections.<String>emptyList());
+    }
+
     private long measure(String baseCode, String toInsert, int repetitions, String pattern) throws Exception {
         int pos = baseCode.indexOf('|');
 
@@ -544,7 +566,7 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
             assertTrue("expected: " + p.getIdentifiers().get(i) + ", but exist only: " + ec.getIdentifiers(), ec.getIdentifiers().containsAll(p.getIdentifiers().get(i)));
             
             for (List<String> phrase : p.getRequiredContent().get(i)) {
-                assertTrue("expected: " + phrase + ", but exist only: " + ec.getContent(), Collections.indexOfSubList(ec.getContent(), phrase) != (-1));
+                assertTrue("expected: " + phrase + ", but exist only: " + ec.getContent() + "(all phrases: " + p.getRequiredContent().get(i) + ")", Collections.indexOfSubList(ec.getContent(), phrase) != (-1));
             }
         }
 

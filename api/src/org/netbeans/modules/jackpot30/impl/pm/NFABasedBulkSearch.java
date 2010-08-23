@@ -185,6 +185,8 @@ public class NFABasedBulkSearch extends BulkSearch {
 
                         setBit(transitionTable, NFA.Key.create(currentState[0], new Input(Kind.IDENTIFIER, "$", false)), target);
                         setBit(transitionTable, NFA.Key.create(target, new Input(Kind.IDENTIFIER, "$", true)), currentState[0]);
+
+                        content.add(currentContent = new ArrayList<String>());
                         
                         return null;
                     }
@@ -218,21 +220,21 @@ public class NFABasedBulkSearch extends BulkSearch {
                         if (singletonStatement != null) {
                             int backup = currentState[0];
 
+                            boolean oldAuxPath = auxPath;
+
+                            auxPath = true;
+
                             scan(singletonStatement, null);
+
+                            auxPath = oldAuxPath;
 
                             int target = currentState[0];
 
                             setBit(transitionTable, NFA.Key.create(backup, new Input(Kind.BLOCK, null, false)), currentState[0] = nextState[0]++);
 
-                            boolean oldAuxPath = auxPath;
-
-                            auxPath = true;
-
                             for (StatementTree st : bt.getStatements()) {
                                 scan(st, null);
                             }
-                            
-                            auxPath = oldAuxPath;
 
                             setBit(transitionTable, NFA.Key.create(currentState[0], new Input(Kind.BLOCK, null, true)), target);
                             currentState[0] = target;
