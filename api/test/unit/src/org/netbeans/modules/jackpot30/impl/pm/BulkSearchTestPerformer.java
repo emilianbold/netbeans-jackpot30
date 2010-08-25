@@ -427,6 +427,22 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
                     Collections.<String>emptyList());
     }
 
+    public void testMethodName1() throws Exception {
+        String code = "package test; public class Test {public void test() { clone(); } }";
+
+        performTest(code,
+                    Collections.<String, List<String>>emptyMap(),
+                    Collections.<String>singletonList("public void clone() {$stmts$;}"));
+    }
+
+    public void testMethodName2() throws Exception {
+        String code = "package test; public class Test {public void test() { clone(); } }";
+
+        performTest(code,
+                    Collections.singletonMap("public void test() {$stmts$;}", Arrays.asList("public void test() { clone(); }")),
+                    Collections.<String>emptyList());
+    }
+
     private long measure(String baseCode, String toInsert, int repetitions, String pattern) throws Exception {
         int pos = baseCode.indexOf('|');
 

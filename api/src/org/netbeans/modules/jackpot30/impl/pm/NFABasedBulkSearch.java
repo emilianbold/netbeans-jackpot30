@@ -103,8 +103,15 @@ public class NFABasedBulkSearch extends BulkSearch {
                 boolean[] goDeeper = new boolean[1];
                 final NFA.State newActiveAfterVariable = nfa.transition(active, new Input(Kind.IDENTIFIER, "$", false));
                 Input normalizedInput = normalizeInput(node, goDeeper, null);
+                boolean ignoreKind = normalizedInput.kind == Kind.IDENTIFIER || normalizedInput.kind == Kind.MEMBER_SELECT;
 
-                active = nfa.transition(active, normalizedInput);
+                NFA.State newActiveBefore = nfa.transition(active, normalizedInput);
+
+                if (normalizedInput.name != null && !ignoreKind) {
+                    newActiveBefore = nfa.join(newActiveBefore, nfa.transition(active, new Input(normalizedInput.kind, "$", false)));
+                }
+
+                active = newActiveBefore;
 
                 if (goDeeper[0]) {
                     super.scan(node, currentPath);
@@ -112,10 +119,13 @@ public class NFABasedBulkSearch extends BulkSearch {
                     new CollectIdentifiers<Void, Void>(identifiers).scan(node, null);
                 }
 
-                NFA.State s1 = nfa.transition(active, new Input(normalizedInput.kind, normalizedInput.name, true));
-                NFA.State s2 = nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true));
+                NFA.State newActiveAfter = nfa.transition(active, new Input(normalizedInput.kind, normalizedInput.name, true));
 
-                active = nfa.join(s1, s2);
+                if (normalizedInput.name != null && !ignoreKind) {
+                    newActiveAfter = nfa.join(newActiveAfter, nfa.transition(active, new Input(normalizedInput.kind, "$", true)));
+                }
+
+                active = nfa.join(newActiveAfter, nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true)));
 
                 for (Res r : nfa.getResults(active)) {
                     addOccurrence(r, currentPath);
@@ -247,11 +257,12 @@ public class NFABasedBulkSearch extends BulkSearch {
                     Input[] bypass = new Input[1];
                     Input i = normalizeInput(t, goDeeper, bypass);
 
-                    if (i.name == null) {
-                        if (!TO_IGNORE.contains(i.kind) && !auxPath)
-                            currentContent.add(kind2EncodedString.get(i.kind));
-                    } else {
-                        if (!"$".equals(i.name) && !Utilities.isPureMemberSelect(t, false) && !auxPath) {
+                    if (!TO_IGNORE.contains(i.kind) && !auxPath) {
+                        currentContent.add(kind2EncodedString.get(i.kind));
+                    }
+
+                    if (i.name != null && !auxPath) {
+                        if (!"$".equals(i.name) && !Utilities.isPureMemberSelect(t, false)) {
                             currentContent.add(i.name);
                         } else {
                             content.add(currentContent = new ArrayList<String>());
@@ -363,7 +374,22 @@ public class NFABasedBulkSearch extends BulkSearch {
         }
 
         goDeeper[0] = true;
-        return new Input(t.getKind(), null, false);
+
+        String name;
+
+        switch (t.getKind()) {
+            case CLASS: name = ((ClassTree)t).getSimpleName().toString(); break;
+            case VARIABLE: name = ((VariableTree)t).getName().toString(); break;
+            case METHOD: name = ((MethodTree)t).getName().toString(); break;
+            default: name = null;
+        }
+
+        if (name != null) {
+            if (!name.isEmpty() && name.charAt(0) == '$') {
+                name = "$";
+            }
+        }
+        return new Input(t.getKind(), name, false);
     }
 
     @Override
@@ -372,12 +398,11 @@ public class NFABasedBulkSearch extends BulkSearch {
         return !match(info, tree, pattern).isEmpty();
     }
 
-    private static final Set<Kind> TO_IGNORE = EnumSet.of(Kind.BLOCK);
+    private static final Set<Kind> TO_IGNORE = EnumSet.of(Kind.BLOCK, Kind.IDENTIFIER, Kind.MEMBER_SELECT);
 
     @Override
     public void encode(Tree tree, final EncodingContext ctx) {
         final Set<String> identifiers = new HashSet<String>();
-        final Set<String> treeKinds = new HashSet<String>();
         final List<String> content = new ArrayList<String>();
         if (!ctx.isForDuplicates()) {
             new CollectIdentifiers<Void, Void>(identifiers).scan(tree, null);
@@ -410,11 +435,10 @@ public class NFABasedBulkSearch extends BulkSearch {
                 try {
                     ctx.getOut().write('(');
                     ctx.getOut().write(kind2Encoded.get(i.kind));
-                    if (i.name == null) {
-                        treeKinds.add(i.kind.name());
-                        if (!TO_IGNORE.contains(i.kind))
-                            content.add(kind2EncodedString.get(i.kind));
-                    } else {
+                    if (!TO_IGNORE.contains(i.kind)) {
+                        content.add(kind2EncodedString.get(i.kind));
+                    }
+                    if (i.name != null) {
                         ctx.getOut().write('$');
                         ctx.getOut().write(i.name.getBytes("UTF-8"));
                         ctx.getOut().write(';');
@@ -436,7 +460,6 @@ public class NFABasedBulkSearch extends BulkSearch {
         }.scan(tree, null);
 
         ctx.setIdentifiers(identifiers);
-        ctx.setKinds(treeKinds);
         ctx.setContent(content);
     }
 
@@ -511,17 +534,31 @@ public class NFABasedBulkSearch extends BulkSearch {
                 
                 final NFA.State newActiveAfterVariable = nfa.transition(active, new Input(Kind.IDENTIFIER, "$", false));
                 Input normalizedInput = new Input(k, name, false);
-                active = nfa.transition(active, normalizedInput);
+                boolean ignoreKind = normalizedInput.kind == Kind.IDENTIFIER || normalizedInput.kind == Kind.MEMBER_SELECT;
+
+                NFA.State newActive = nfa.transition(active, normalizedInput);
+
+                if (normalizedInput.name != null && !ignoreKind) {
+                    newActive = nfa.join(newActive, nfa.transition(active, new Input(k, "$", false)));
+                }
+
+                active = newActive;
 
                 unfinished.push(normalizedInput);
                 skips.push(newActiveAfterVariable);
             } else {
                 Input i = unfinished.pop();
                 NFA.State newActiveAfterVariable = skips.pop();
-                NFA.State s1 = nfa.transition(active, new Input(i.kind, i.name, true));
+                boolean ignoreKind = i.kind == Kind.IDENTIFIER || i.kind == Kind.MEMBER_SELECT;
+                NFA.State newActive = nfa.transition(active, new Input(i.kind, i.name, true));
+                
+                if (i.name != null && !ignoreKind) {
+                    newActive = nfa.join(newActive, nfa.transition(active, new Input(i.kind, "$", true)));
+                }
+                
                 NFA.State s2 = nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true));
 
-                active = nfa.join(s1, s2);
+                active = nfa.join(newActive, s2);
                 
                 for (Res res : nfa.getResults(active)) {
                     if (identifiers.containsAll(pattern.getIdentifiers().get(res.patternIndex))) {
