@@ -819,6 +819,9 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                     bindState.variables.put(name, getCurrentPath());
                     bindState.variables2Names.put(name, currentName);
                 }
+            } else {
+                if (!node.getSimpleName().contentEquals(name))
+                    return false;
             }
 
             if (!checkLists(node.getTypeParameters(), t.getTypeParameters(), p))
@@ -1040,6 +1043,9 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                 bindState.variables.put(name, getCurrentPath());
                 bindState.variables2Names.put(name, currentName);
             }
+        } else {
+            if (!node.getName().contentEquals(name))
+                return false;
         }
 
         if (!checkLists(node.getParameters(), t.getParameters(), p))
@@ -1328,6 +1334,9 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                 bindState.variables.put(name, getCurrentPath());
                 bindState.variables2Names.put(name, currentName);
             }
+        } else {
+            if (!node.getName().contentEquals(name))
+                return false;
         }
 
         if (allowVariablesRemap) {
