@@ -258,8 +258,13 @@ public class NFABasedBulkSearch extends BulkSearch {
                     }
 
                     if (i.name != null && !auxPath) {
-                        if (!"$".equals(i.name) && !Utilities.isPureMemberSelect(t, false)) {
-                            currentContent.add(i.name);
+                        if (!"$".equals(i.name)) {
+                            if (isIdentifierAcceptable(i.name)) {
+                                currentContent.add(i.name);
+                            }
+                            if (Utilities.isPureMemberSelect(t, false)) {
+                                content.add(currentContent = new ArrayList<String>());
+                            }
                         } else {
                             content.add(currentContent = new ArrayList<String>());
                         }
@@ -417,6 +422,7 @@ public class NFABasedBulkSearch extends BulkSearch {
             }
         }
         new CollectIdentifiers<Void, Void>(new HashSet<String>()) {
+            private boolean encode = true;
             @Override
             public Void scan(Tree t, Void v) {
                 if (t == null) return null;
@@ -435,15 +441,19 @@ public class NFABasedBulkSearch extends BulkSearch {
                         content.add(kind2EncodedString.get(i.kind));
                     }
                     if (i.name != null) {
-                        ctx.getOut().write('$');
-                        ctx.getOut().write(i.name.getBytes("UTF-8"));
-                        ctx.getOut().write(';');
-                        content.add(i.name);
+                        if (encode) {
+                            ctx.getOut().write('$');
+                            ctx.getOut().write(i.name.getBytes("UTF-8"));
+                            ctx.getOut().write(';');
+                        }
+                        if (isIdentifierAcceptable(i.name)) content.add(i.name);
                     }
 
-                    if (goDeeper[0]) {
-                        super.scan(t, v);
-                    }
+                    boolean oldEncode = encode;
+
+                    encode &= goDeeper[0];
+                    super.scan(t, v);
+                    encode = oldEncode;
 
                     ctx.getOut().write(')');
                 } catch (IOException ex) {

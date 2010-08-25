@@ -39,6 +39,25 @@
 
 package org.netbeans.modules.jackpot30.impl.pm;
 
+import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.Reader;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Map;
+import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter.MaxFieldLength;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.RAMDirectory;
+import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex;
+import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
+import org.netbeans.modules.jackpot30.impl.indexing.IndexInfo;
+
 /**
  *
  * @author lahvac
@@ -60,7 +79,90 @@ public class NFABasedBulkSearchTest extends BulkSearchTestPerformer {
 
     @Override
     protected BulkSearch createSearch() {
-        return new NFABasedBulkSearch();
+        return new BulkSearchImpl(false);
+    }
+
+    private static class BulkSearchImpl extends BulkSearch {
+
+        public BulkSearchImpl(boolean requiresLightweightVerification) {
+            super(requiresLightweightVerification);
+        }
+
+        @Override
+        public Map<String, Collection<TreePath>> match(CompilationInfo info, TreePath toSearch, BulkPattern pattern, Map<String, Long> timeLog) {
+            try {
+                IndexImpl ii = new IndexImpl();
+                IndexWriter writer = ii.openForWriting();
+
+                writer.record(toSearch.getCompilationUnit().getSourceFile().toUri().toURL(), toSearch.getCompilationUnit());
+                writer.close();
+
+                if (!ii.findCandidates(pattern).isEmpty()) {
+                    return new NFABasedBulkSearch().match(info, toSearch, pattern, timeLog);
+                } else {
+                    assertTrue(new NFABasedBulkSearch().match(info, toSearch, pattern, timeLog).isEmpty());
+                    return Collections.emptyMap();
+                }
+            } catch (IOException ex) {
+                throw new IllegalStateException(ex);
+            }
+        }
+
+        @Override
+        public boolean matches(InputStream encoded, BulkPattern pattern) {
+            return new NFABasedBulkSearch().matches(encoded, pattern);
+        }
+
+        @Override
+        public boolean matches(CompilationInfo info, TreePath toSearch, BulkPattern pattern) {
+            return new NFABasedBulkSearch().matches(info, toSearch, pattern);
+        }
+
+        @Override
+        public void encode(Tree tree, EncodingContext ctx) {
+            new NFABasedBulkSearch().encode(tree, ctx);
+        }
+
+        @Override
+        public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns) {
+            return new NFABasedBulkSearch().create(code, patterns);
+        }
+    }
+
+    private static final class IndexImpl extends AbstractLuceneIndex {
+
+        private final Directory dir = new RAMDirectory();
+
+        public IndexImpl() {
+            super(0, false, true);
+        }
+
+        @Override
+        protected IndexReader createReader() throws IOException {
+            return IndexReader.open(dir, true);
+        }
+
+        @Override
+        protected org.apache.lucene.index.IndexWriter createWriter() throws IOException {
+            return new org.apache.lucene.index.IndexWriter(dir, new NoAnalyzer(), MaxFieldLength.UNLIMITED);
+        }
+
+        @Override
+        public IndexInfo getIndexInfo() {
+            return IndexInfo.empty();
+        }
+
+        @Override
+        protected void storeIndexInfo(IndexInfo info) throws IOException {}
+    }
+
+    private static final class NoAnalyzer extends Analyzer {
+
+        @Override
+        public TokenStream tokenStream(String string, Reader reader) {
+            throw new UnsupportedOperationException("Should not be called");
+        }
+
     }
 
 }
