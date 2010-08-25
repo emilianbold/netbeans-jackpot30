@@ -119,13 +119,9 @@ public class NFABasedBulkSearch extends BulkSearch {
                     new CollectIdentifiers<Void, Void>(identifiers).scan(node, null);
                 }
 
-                NFA.State newActiveAfter = nfa.transition(active, new Input(normalizedInput.kind, normalizedInput.name, true));
+                NFA.State newActiveAfter = nfa.transition(active, UP);
 
-                if (normalizedInput.name != null && !ignoreKind) {
-                    newActiveAfter = nfa.join(newActiveAfter, nfa.transition(active, new Input(normalizedInput.kind, "$", true)));
-                }
-
-                active = nfa.join(newActiveAfter, nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true)));
+                active = nfa.join(newActiveAfter, nfa.transition(newActiveAfterVariable, UP));
 
                 for (Res r : nfa.getResults(active)) {
                     addOccurrence(r, currentPath);
@@ -194,7 +190,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                         int target = nextState[0]++;
 
                         setBit(transitionTable, NFA.Key.create(currentState[0], new Input(Kind.IDENTIFIER, "$", false)), target);
-                        setBit(transitionTable, NFA.Key.create(target, new Input(Kind.IDENTIFIER, "$", true)), currentState[0]);
+                        setBit(transitionTable, NFA.Key.create(target, UP), currentState[0]);
 
                         content.add(currentContent = new ArrayList<String>());
                         
@@ -246,7 +242,7 @@ public class NFABasedBulkSearch extends BulkSearch {
                                 scan(st, null);
                             }
 
-                            setBit(transitionTable, NFA.Key.create(currentState[0], new Input(Kind.BLOCK, null, true)), target);
+                            setBit(transitionTable, NFA.Key.create(currentState[0], UP), target);
                             currentState[0] = target;
 
                             return null;
@@ -282,7 +278,7 @@ public class NFABasedBulkSearch extends BulkSearch {
 
                         setBit(transitionTable, NFA.Key.create(backup, new Input(Kind.BLOCK, null, false)), currentState[0] = nextState[0]++);
                         handleTree(i, goDeeper, t, bypass);
-                        setBit(transitionTable, NFA.Key.create(currentState[0], new Input(Kind.BLOCK, null, true)), target);
+                        setBit(transitionTable, NFA.Key.create(currentState[0], UP), target);
                         currentState[0] = target;
                     }
 
@@ -304,17 +300,17 @@ public class NFABasedBulkSearch extends BulkSearch {
                         int aux = nextState[0]++;
                         setBit(transitionTable, NFA.Key.create(backup, new Input(Kind.MEMBER_SELECT, i.name, false)), aux);
                         setBit(transitionTable, NFA.Key.create(aux, new Input(Kind.IDENTIFIER, "$", false)), aux = nextState[0]++);
-                        setBit(transitionTable, NFA.Key.create(aux, new Input(Kind.IDENTIFIER, "$", true)), aux = nextState[0]++);
-                        setBit(transitionTable, NFA.Key.create(aux, new Input(Kind.MEMBER_SELECT, i.name, true)), target);
+                        setBit(transitionTable, NFA.Key.create(aux, UP), aux = nextState[0]++);
+                        setBit(transitionTable, NFA.Key.create(aux, UP), target);
                     }
 
-                    setBit(transitionTable, NFA.Key.create(currentState[0], new Input(i.kind, i.name, true)), target);
+                    setBit(transitionTable, NFA.Key.create(currentState[0], UP), target);
                     
                     if (bypass[0] != null) {
                         int intermediate = nextState[0]++;
                         
                         setBit(transitionTable, NFA.Key.create(backup, bypass[0]), intermediate);
-                        setBit(transitionTable, NFA.Key.create(intermediate, new Input(bypass[0].kind, bypass[0].name, true)), target);
+                        setBit(transitionTable, NFA.Key.create(intermediate, UP), target);
                     }
                     
                     currentState[0] = target;
@@ -476,7 +472,6 @@ public class NFABasedBulkSearch extends BulkSearch {
     private boolean matchesImpl(InputStream encoded, BulkPattern patternIn) throws IOException {
         BulkPatternImpl pattern = (BulkPatternImpl) patternIn;
         final NFA<Input, Res> nfa = pattern.toNFA();
-        Stack<Input> unfinished = new Stack<Input>();
         Stack<NFA.State> skips = new Stack<NFA.State>();
         NFA.State active = nfa.getStartingState();
         int identSize = 0;
@@ -544,19 +539,11 @@ public class NFABasedBulkSearch extends BulkSearch {
 
                 active = newActive;
 
-                unfinished.push(normalizedInput);
                 skips.push(newActiveAfterVariable);
             } else {
-                Input i = unfinished.pop();
                 NFA.State newActiveAfterVariable = skips.pop();
-                boolean ignoreKind = i.kind == Kind.IDENTIFIER || i.kind == Kind.MEMBER_SELECT;
-                NFA.State newActive = nfa.transition(active, new Input(i.kind, i.name, true));
-                
-                if (i.name != null && !ignoreKind) {
-                    newActive = nfa.join(newActive, nfa.transition(active, new Input(i.kind, "$", true)));
-                }
-                
-                NFA.State s2 = nfa.transition(newActiveAfterVariable, new Input(Kind.IDENTIFIER, "$", true));
+                NFA.State newActive = nfa.transition(active, UP);
+                NFA.State s2 = nfa.transition(newActiveAfterVariable, UP);
 
                 active = nfa.join(newActive, s2);
                 
@@ -681,6 +668,8 @@ public class NFABasedBulkSearch extends BulkSearch {
         }
 
     }
+
+    private static final Input UP = new Input(null, null, true);
 
     private static boolean isIdentifierAcceptable(CharSequence content) {
         if (content.length() == 0) return false;
