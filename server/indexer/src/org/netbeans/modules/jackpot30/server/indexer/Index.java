@@ -101,6 +101,6 @@ public class Index {
     }
 
     protected void printHelp() {
-        System.err.println("Usage: java -jar " + Index.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [" + PARAM_CONSTRUCT_DUPLICATES_INDEX + "] <source-root> <cache> [<modified-files> <removed-files>]");
+        System.err.println("Usage: java -jar " + Index.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [" + PARAM_CONSTRUCT_DUPLICATES_INDEX + "] [" + PARAM_STORE_SOURCES + "] <source-root> <cache> [<modified-files> <removed-files>]");
     }
 }
