@@ -1044,8 +1044,6 @@ public class Utilities {
                          Names names) {
             super(fac, new PushbackLexer(S), keepDocComments, keepLineMap, cancelService);
             this.ctx = ctx;
-
-            newAnonScope(names.empty, -1);
         }
 
         @Override
