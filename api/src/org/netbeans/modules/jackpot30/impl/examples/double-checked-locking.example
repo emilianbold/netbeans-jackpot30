@@ -1,5 +1,6 @@
 %%example=double-checked-locking
 if ($var == null) {
+   $preinit$;
    synchronized ($lock) {
        if ($var == null) {
            $s2$;
@@ -8,6 +9,7 @@ if ($var == null) {
 }
 %%example=double-checked-locking-verify,verify
 if ($var == null) {
+   $preinit$;
    synchronized ($lock) {
        if ($var == null) {
            $s2$;
@@ -16,6 +18,7 @@ if ($var == null) {
 } :: !hasModifier($var, Modifier.VOLATILE);;
 %%example=double-checked-locking-fix,verify,fix
 if ($var == null) {
+   $preinit$;
    synchronized ($lock) {
        if ($var == null) {
            $s2$;
