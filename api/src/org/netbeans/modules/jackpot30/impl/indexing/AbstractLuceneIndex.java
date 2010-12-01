@@ -266,7 +266,7 @@ public abstract class AbstractLuceneIndex extends Index {
         }
     }
 
-    private static final class TokenStreamImpl extends TokenStream {
+    public static final class TokenStreamImpl extends TokenStream {
 
         private final Iterator<? extends String> tokens;
 
@@ -285,7 +285,7 @@ public abstract class AbstractLuceneIndex extends Index {
         }
     }
 
-    private static class BitSetCollector extends Collector {
+    public static class BitSetCollector extends Collector {
 
         private int docBase;
         public final BitSet bits;

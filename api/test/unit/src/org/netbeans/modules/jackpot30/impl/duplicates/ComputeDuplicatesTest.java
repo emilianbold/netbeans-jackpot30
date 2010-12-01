@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,13 +34,16 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.duplicates;
 
+import org.netbeans.api.progress.ProgressHandle;
+import org.openide.filesystems.FileObject;
 import java.util.HashMap;
 import java.util.Map;
+import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.DuplicateDescription;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.Span;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexTestBase;
@@ -71,6 +74,19 @@ public class ComputeDuplicatesTest extends IndexTestBase {
                          "private void test() { java.io.File f = null; f.isDirectory(); }");
     }
 
+    public void testCrossIndex() throws Exception {
+        writeFilesAndWaitForScan(src,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"));
+
+        writeFilesAndWaitForScan(src2,
+                                 new File("test/Test2.java", "package test; public class Test2 { private int a; private void test() { java.io.File f = null; f.isDirectory(); } }"));
+
+        verifyDuplicates("test/Test1.java",
+                         "private void test() { java.io.File f = null; f.isDirectory(); }",
+                         "test/Test2.java",
+                         "private void test() { java.io.File f = null; f.isDirectory(); }");
+    }
+
     private void verifyDuplicates(String... fileAndDuplicateCode) throws Exception {
         Map<String, String> duplicatesGolden = new HashMap<String, String>();
 
@@ -79,14 +95,20 @@ public class ComputeDuplicatesTest extends IndexTestBase {
         }
 
         Map<String, String> duplicatesReal = new HashMap<String, String>();
+        ProgressHandle handle = ProgressHandleFactory.createHandle("test");
 
-        for (DuplicateDescription dd : new ComputeDuplicates().computeDuplicatesForAllOpenedProjects()) {
+        handle.start();;
+        
+        for (DuplicateDescription dd : new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle)) {
             for (Span s : dd.dupes) {
-                duplicatesReal.put(FileUtil.getRelativePath(src, s.file), s.span.getText());
+                duplicatesReal.put(relativePath(s.file), s.span.getText());
             }
         }
 
         assertEquals(duplicatesGolden, duplicatesReal);
     }
 
+    private String relativePath(FileObject file) {
+        return FileUtil.isParentOf(src, file) ? FileUtil.getRelativePath(src, file) : FileUtil.getRelativePath(src2, file);
+    }
 }

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 package org.netbeans.modules.jackpot30.impl.duplicates;
 
@@ -42,11 +42,13 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -59,20 +61,19 @@ import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.TermEnum;
-import org.codeviation.lutz.Lutz;
-import org.codeviation.lutz.Lutz.FieldConversion;
-import org.codeviation.lutz.Search;
-import org.codeviation.strast.IndexingStorage;
-import org.codeviation.strast.Strast;
-import org.codeviation.strast.model.Frequency;
+import org.apache.lucene.search.Collector;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Searcher;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomIndexerImpl;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
-import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex.Data;
-import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex.DuplicatesIndexRecord;
-import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex.MultiData;
+import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex.BitSetCollector;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
@@ -91,7 +92,7 @@ import org.openide.util.Exceptions;
  */
 public class ComputeDuplicates {
 
-    public Collection<? extends DuplicateDescription> computeDuplicatesForAllOpenedProjects() throws IOException {
+    public Collection<? extends DuplicateDescription> computeDuplicatesForAllOpenedProjects(ProgressHandle progress) throws IOException {
         Set<URL> urls = new HashSet<URL>();
 
         for (ClassPath cp : GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)) {
@@ -100,12 +101,13 @@ public class ComputeDuplicates {
             }
         }
 
-        return computeDuplicates(urls);
+        return computeDuplicates(urls, progress);
     }
 
-    public Collection<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs) throws IOException {
-        List<IndexReader> readers = new LinkedList<IndexReader>();
-        Map<IndexingStorage, FileObject> storages = new IdentityHashMap<IndexingStorage, FileObject>();
+    public Collection<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs, ProgressHandle progress) throws IOException {
+        Map<IndexReader, FileObject> readers2Roots = new LinkedHashMap<IndexReader, FileObject>();
+
+        progress.progress("Updating indices");
         
         for (URL u : forURLs) {
             try {
@@ -114,18 +116,21 @@ public class ComputeDuplicates {
                 
                 File cacheRoot = Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(u);
 
-                if (new File(cacheRoot, "duplicates/objects").exists()) {
-                    IndexingStorage s = Strast.createIndexingStorage(new File(cacheRoot, "duplicates/objects"), new File(cacheRoot, "duplicates/index"));
+                File dir = new File(cacheRoot, "fulltext");
 
-                    readers.add(s.getQueries().getIndexReader("di"));
-                    storages.put(s, URLMapper.findFileObject(u));
+                if (dir.listFiles() != null && dir.listFiles().length > 0) {
+                    IndexReader reader = IndexReader.open(FSDirectory.open(dir), true);
+
+                    readers2Roots.put(reader, URLMapper.findFileObject(u));
                 }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
             }
         }
         
-        MultiReader r = new MultiReader(readers.toArray(new IndexReader[0]));
+        progress.progress("Searching for duplicates");
+
+        MultiReader r = new MultiReader(readers2Roots.keySet().toArray(new IndexReader[0]));
 
         Set<String> of2 = new TreeSet<String>(new Comparator<String>() {
             public int compare(String arg0, String arg1) {
@@ -136,21 +141,19 @@ public class ComputeDuplicates {
             }
         });
         
-        CONT: for (Frequency f : getFieldValueFrequencies(r, "data", FieldConversion.NONE)) {
-            if (f.frequency > 1) {
-                for (Iterator<String> it = of2.iterator(); it.hasNext(); )  {
-                    String n = stripValue(it.next());
-                    String fValue = stripValue(f.value);
+        CONT: for (String gen : getFieldValueFrequencies(r, "generalized")) {
+            for (Iterator<String> it = of2.iterator(); it.hasNext(); )  {
+                String n = stripValue(it.next());
+                String fValue = stripValue(gen);
 
-                    if (n.contains(fValue)) {
-                        continue CONT;
-                    }
-                    if (fValue.contains(n)) {
-                        it.remove();
-                    }
+                if (n.contains(fValue)) {
+                    continue CONT;
                 }
-                of2.add(f.value);
+                if (fValue.contains(n)) {
+                    it.remove();
+                }
             }
+            of2.add(gen);
         }
 
         List<String> dd = new ArrayList<String>(of2);
@@ -158,39 +161,52 @@ public class ComputeDuplicates {
         //TODO: only show valuable duplicates?:
 //        dd = dd.subList(0, dd.size() / 10 + 1);
 
+        progress.switchToDeterminate(dd.size());
+        
         List<DuplicateDescription> result = new LinkedList<DuplicateDescription>();
+        int done = 0;
 
         for (String longest : dd) {
             List<Span> foundDuplicates = new LinkedList<Span>();
 
-            for (Entry<IndexingStorage, FileObject> e : storages.entrySet()) {
-                for (Document doc : e.getKey().getQueries().fieldQuery("di", "data", longest, Search.FieldQueryType.EXACT)) {
-                    String relPath = doc.getField("strast.path").stringValue();
-                    DuplicatesIndexRecord dir = e.getKey().get(DuplicatesIndexRecord.class, relPath.split("/"));
+            Query query = new TermQuery(new Term("generalized", longest));
 
-                    int index = (int) (long) (Long) (Object) dir.key2Index.get(longest);
-                    MultiData md = dir.index2Data[index];
+            for (Entry<IndexReader, FileObject> e : readers2Roots.entrySet()) {
+                Searcher s = new IndexSearcher(e.getKey());
+                BitSet matchingDocuments = new BitSet(e.getKey().maxDoc());
+                Collector c = new BitSetCollector(matchingDocuments);
 
-                    for (Data d : md.data) {
-                        Span span = Span.of(e.getValue().getFileObject(relPath), d);
+                s.search(query, c);
 
-                        if (span != null)
+                for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum + 1)) {
+                    final Document doc = e.getKey().document(docNum);
+                    String spanSpec = doc.getValues("positions")[Arrays.binarySearch(doc.getValues("generalized"), longest)];
+                    String relPath = doc.getField("path").stringValue();
+
+                    for (String spanPart : spanSpec.split(";")) {
+                        Span span = Span.of(e.getValue().getFileObject(relPath), spanPart);
+
+                        if (span != null) {
                             foundDuplicates.add(span);
+                        }
                     }
                 }
             }
 
-            if (foundDuplicates.size() >= 2)
+            if (foundDuplicates.size() >= 2) {
                 result.add(DuplicateDescription.of(foundDuplicates));
+            }
+
+            progress.progress(++done);
         }
+
+        progress.finish();
 
         return result;
     }
 
-    private static List<Frequency> getFieldValueFrequencies(IndexReader ir, String field, Lutz.FieldConversion conversion) throws IOException {
-        conversion = conversion == null ? Lutz.FieldConversion.NONE : conversion;
-
-        List<Frequency> values = new ArrayList<Frequency>();
+    private static List<String> getFieldValueFrequencies(IndexReader ir, String field) throws IOException {
+        List<String> values = new ArrayList<String>();
         TermEnum terms = ir.terms( new Term(field));
         //while (terms.next()) {
         do {
@@ -200,11 +216,9 @@ public class ComputeDuplicates {
                 break;
             }
 
-            Frequency f = new Frequency();
-            f.value = conversion.decode(term.text());
-            f.frequency = terms.docFreq();
+            if (terms.docFreq() < 2) continue;
 
-            values.add(f);
+            values.add(term.text());
         }
         while (terms.next());
         return values;
@@ -236,17 +250,20 @@ public class ComputeDuplicates {
             this.span = span;
         }
 
-        public static @CheckForNull Span of(FileObject file, Data d) {
+        public static @CheckForNull Span of(FileObject file, String spanSpec) {
             try {
-                if (d.start == (-1) || d.end == (-1)) return null; //XXX
+                String[] split = spanSpec.split(":");
+                int start = Integer.valueOf(split[0]);
+                int end = Integer.valueOf(split[1]);
+                if (start == (-1) || end == (-1)) return null; //XXX
                 
                 DataObject od = DataObject.find(file);
                 CloneableEditorSupport ces = (CloneableEditorSupport) od.getLookup().lookup(EditorCookie.class);
 
-                PositionRef start = ces.createPositionRef((int) d.start, Bias.Forward);
-                PositionRef end   = ces.createPositionRef((int) d.end,   Bias.Backward);
+                PositionRef startRef = ces.createPositionRef(start, Bias.Forward);
+                PositionRef endRef   = ces.createPositionRef(end,   Bias.Backward);
 
-                return new Span(file, new PositionBounds(start, end));
+                return new Span(file, new PositionBounds(startRef, endRef));
             } catch (DataObjectNotFoundException ex) {
                 Exceptions.printStackTrace(ex);
                 return null;

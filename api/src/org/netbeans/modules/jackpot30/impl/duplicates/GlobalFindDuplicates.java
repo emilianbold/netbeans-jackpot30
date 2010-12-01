@@ -66,6 +66,7 @@ public final class GlobalFindDuplicates implements ActionListener {
         JPanel panel = new JPanel(new BorderLayout());
         panel.add(new JLabel("Computing Duplicates - Please Wait"), BorderLayout.NORTH);
         panel.add(ProgressHandleFactory.createProgressComponent(handle), BorderLayout.CENTER);
+        panel.add(ProgressHandleFactory.createDetailLabelComponent(handle), BorderLayout.SOUTH);
         DialogDescriptor w = new DialogDescriptor(panel, "Computing Duplicates");
         final Dialog d = DialogDisplayer.getDefault().createDialog(w);
 
@@ -74,7 +75,7 @@ public final class GlobalFindDuplicates implements ActionListener {
                 handle.start();
 
                 try {
-                    dupes.addAll(new ComputeDuplicates().computeDuplicatesForAllOpenedProjects());
+                    dupes.addAll(new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle));
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
                 } finally {
@@ -89,6 +90,7 @@ public final class GlobalFindDuplicates implements ActionListener {
             }
         });
 
+        d.pack();
         d.setVisible(true);
 
         NotifyDescriptor nd = new NotifyDescriptor.Message(new DuplicatesListPanel(dupes));

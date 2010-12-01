@@ -161,7 +161,7 @@ public final class FileBasedIndex extends AbstractLuceneIndex {
         Pojson.save(info, infoFile);
     }
 
-    private static final class NoAnalyzer extends Analyzer {
+    public static final class NoAnalyzer extends Analyzer {
 
         @Override
         public TokenStream tokenStream(String string, Reader reader) {

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,27 +34,17 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
-import java.net.URL;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
-import org.netbeans.api.java.source.ClasspathInfo;
-import org.netbeans.api.java.source.CompilationController;
-import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
-import org.netbeans.api.java.source.Task;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
 import org.netbeans.modules.parsing.impl.indexing.Util;
@@ -79,21 +69,33 @@ public abstract class IndexTestBase extends NbTestCase {
         org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
         prepareTest();
         Util.allMimeTypes = Collections.singleton("text/x-java");
-        GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {ClassPathSupport.createClassPath(src)});
+        GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {sourceCP});
         RepositoryUpdater.getDefault().start(true);
         super.setUp();
     }
 
+    @Override
+    protected void tearDown() throws Exception {
+        super.tearDown();
+        GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+    }
+
     protected FileObject src;
+    protected FileObject src2;
+
+    private ClassPath sourceCP;
 
     private void prepareTest() throws Exception {
         FileObject workdir = SourceUtilsTestUtil.makeScratchDir(this);
 
         src = FileUtil.createFolder(workdir, "src");
+        src2 = FileUtil.createFolder(workdir, "src2");
 
         FileObject cache = FileUtil.createFolder(workdir, "cache");
 
         CacheFolder.setCacheFolder(cache);
+
+        sourceCP = ClassPathSupport.createClassPath(src, src2);
     }
 
 }

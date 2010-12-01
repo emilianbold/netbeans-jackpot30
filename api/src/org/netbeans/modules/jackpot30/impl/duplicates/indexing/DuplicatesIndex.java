@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.impl.duplicates.indexing;
@@ -51,25 +51,25 @@ import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
+import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.tools.JavaCompiler.CompilationTask;
-import org.codeviation.commons.patterns.Caches;
-import org.codeviation.commons.patterns.Factory;
-import org.codeviation.lutz.Lutz.SuppressIndexing;
-import org.codeviation.pojson.Pojson.SuppressStoring;
-import org.codeviation.strast.IndexingStorage;
-import org.codeviation.strast.Strast;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.Field.Index;
+import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.index.IndexWriter.MaxFieldLength;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
+import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex.NoAnalyzer;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
@@ -101,10 +101,10 @@ public class DuplicatesIndex {
 
     public class IndexWriter {
 
-        private final IndexingStorage s;
+        private final org.apache.lucene.index.IndexWriter luceneWriter;
 
         public IndexWriter() throws IOException {
-            s = Strast.createIndexingStorage(new File(cacheRoot, "duplicates/objects"), new File(cacheRoot, "duplicates/index"));
+            luceneWriter = new org.apache.lucene.index.IndexWriter(FSDirectory.open(new File(cacheRoot, "fulltext")), new NoAnalyzer(), MaxFieldLength.UNLIMITED);
         }
 
         public void record(final CompilationInfo info, URL source, final CompilationUnitTree cut) throws IOException {
@@ -113,22 +113,15 @@ public class DuplicatesIndex {
 
         public void record(final CompilationTask task, URL source, final CompilationUnitTree cut) throws IOException {
             String relative = source.getPath().substring(stripLength);
-            
-            try {
-                final List<Collection<Data>> data = new ArrayList<Collection<Data>>();
-                final Map<String, Integer> key2Index = new HashMap<String, Integer>();
-                final org.codeviation.commons.patterns.Cache<Integer, String> cache = Caches.permanent(new Factory<Integer, String>() {
-                    public Integer create(String key) {
-                        int index = data.size();
 
-                        data.add(new LinkedList<Data>());
-                        key2Index.put(key, index);
-                        
-                        return index;
-                    }
-                });
-                
+            try {
+                final Document doc = new Document();
+
+                doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
+
                 final SourcePositions sp = Trees.instance(task).getSourcePositions();
+                final List<String> generalized = new ArrayList<String>();
+                final Map<String, StringBuilder> positions = new TreeMap<String, StringBuilder>();
 
                 new TreePathScanner<Void, Void>() {
                     @Override
@@ -142,10 +135,16 @@ public class DuplicatesIndex {
                             if (value >= MINIMAL_VALUE) {
                                 BulkSearch.getDefault().encode( generalizedPattern, ec);
                                 try {
-                                    final String text = new String(baos.toByteArray(), "UTF-8") + ":" + value;
-                                    Integer i = cache.create(text);
-
-                                    data.get(i).add(new Data(sp.getStartPosition(cut, tree), sp.getEndPosition(cut, tree), tree.toString(), value));
+                                    String enc = new String(baos.toByteArray(), "UTF-8") + ":" + value;
+                                    generalized.add(enc);
+                                    StringBuilder spanSpecs = positions.get(enc);
+                                    
+                                    if (spanSpecs == null) {
+                                        positions.put(enc, spanSpecs = new StringBuilder());
+                                    } else {
+                                        spanSpecs.append(";");
+                                    }
+                                    spanSpecs.append(sp.getStartPosition(cut, tree)).append(":").append(sp.getEndPosition(cut, tree));
                                 } catch (UnsupportedEncodingException ex) {
                                     Exceptions.printStackTrace(ex);
                                 }
@@ -155,16 +154,12 @@ public class DuplicatesIndex {
                     }
                 }.scan(cut, null);
 
-                final DuplicatesIndexRecord r = new DuplicatesIndexRecord();
-                r.data = key2Index.keySet();
-                r.key2Index = key2Index;
-                r.index2Data = new MultiData[data.size()];
-
-                for (int c = 0; c < data.size(); c++) {
-                    r.index2Data[c] = new MultiData(data.get(c).toArray(new Data[0]));
+                for (Entry<String, StringBuilder> e : positions.entrySet()) {
+                    doc.add(new Field("generalized", e.getKey(), Store.YES, Index.NOT_ANALYZED));
+                    doc.add(new Field("positions", e.getValue().toString(), Store.YES, Index.NO));
                 }
-                
-                s.put(r, relative.split("/"));
+
+                luceneWriter.addDocument(doc);
             } catch (ThreadDeath td) {
                 throw td;
             } catch (Throwable t) {
@@ -173,49 +168,15 @@ public class DuplicatesIndex {
         }
 
         public void remove(String relativePath) throws IOException {
-            s.delete(relativePath);
+            luceneWriter.deleteDocuments(new Term("path", relativePath));
         }
         
         public void close() throws IOException {
-            s.close();
+            luceneWriter.close();
         }
     }
 
     private static final int MINIMAL_VALUE = 5;
-
-    @Strast.Index(value="di")
-    public static class DuplicatesIndexRecord {
-        @SuppressStoring
-        public Set<String> data;
-        @SuppressIndexing
-        public Map<String, Integer> key2Index;
-        @SuppressIndexing
-        public MultiData[] index2Data;
-    }
-
-    public static class MultiData {
-        public Data[] data;
-
-        public MultiData() {}
-
-        public MultiData(Data[] data) {
-            this.data = data;
-        }
-    }
-
-    public static class Data {
-        public Data() {}
-        public Data(long start, long end, String text, long value) {
-            this.start = start;
-            this.end = end;
-            this.text = text;
-            this.value = value;
-        }
-        public long start;
-        public long end;
-        public String text;
-        public long value;
-    }
 
     public static final String NAME = "duplicates"; //NOI18N
 }
