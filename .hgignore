@@ -15,6 +15,7 @@
 \.log$
 \.pdf$
 \.ps$
+\.out$
 ^server/hudson/work$
 ^server/hudson/target$
 ^server/hudson/data/compiler/.*.jar$
