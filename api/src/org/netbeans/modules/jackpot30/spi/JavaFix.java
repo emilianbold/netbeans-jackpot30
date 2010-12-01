@@ -462,7 +462,59 @@ public abstract class JavaFix {
 
             Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1], imports);
 
-            if (!isFakeBlock(parsed) && !isFakeClass(parsed) && (tp.getLeaf().getKind() != Kind.BLOCK || !parametersMulti.containsKey("$$1$") || parsed.getKind() == Kind.BLOCK)) {
+            if (isFakeBlock(parsed)) {
+                TreePath parent = tp.getParentPath();
+                List<? extends StatementTree> statements = ((BlockTree) parsed).getStatements();
+
+                statements = statements.subList(1, statements.size() - 1);
+
+                if (parent.getLeaf().getKind() == Kind.BLOCK) {
+                    List<StatementTree> newStatements = new LinkedList<StatementTree>();
+
+                    for (StatementTree st : ((BlockTree) parent.getLeaf()).getStatements()) {
+                        if (st == tp.getLeaf()) {
+                            newStatements.addAll(statements);
+                        } else {
+                            newStatements.add(st);
+                        }
+                    }
+
+                    wc.rewrite(parent.getLeaf(), wc.getTreeMaker().Block(newStatements, ((BlockTree) parent.getLeaf()).isStatic()));
+                } else {
+                    wc.rewrite(tp.getLeaf(), wc.getTreeMaker().Block(statements, false));
+                }
+            } else if (isFakeClass(parsed)) {
+                TreePath parent = tp.getParentPath();
+                List<? extends Tree> members = ((ClassTree) parsed).getMembers();
+
+                members = members.subList(1, members.size());
+
+                assert parent.getLeaf().getKind() == Kind.CLASS;
+
+                List<Tree> newMembers = new LinkedList<Tree>();
+
+                ClassTree ct = (ClassTree) parent.getLeaf();
+
+                for (Tree t : ct.getMembers()) {
+                    if (t == tp.getLeaf()) {
+                        newMembers.addAll(members);
+                    } else {
+                        newMembers.add(t);
+                    }
+                }
+
+                wc.rewrite(parent.getLeaf(), wc.getTreeMaker().Class(ct.getModifiers(), ct.getSimpleName(), ct.getTypeParameters(), ct.getExtendsClause(), ct.getImplementsClause(), newMembers));
+            } else if (tp.getLeaf().getKind() == Kind.BLOCK && parametersMulti.containsKey("$$1$") && parsed.getKind() != Kind.BLOCK && StatementTree.class.isAssignableFrom(parsed.getKind().asInterface())) {
+                List<StatementTree> newStatements = new LinkedList<StatementTree>();
+
+                newStatements.add(wc.getTreeMaker().ExpressionStatement(wc.getTreeMaker().Identifier("$$1$")));
+                newStatements.add((StatementTree) parsed);
+                newStatements.add(wc.getTreeMaker().ExpressionStatement(wc.getTreeMaker().Identifier("$$2$")));
+
+                parsed = wc.getTreeMaker().Block(newStatements, ((BlockTree) tp.getLeaf()).isStatic());
+
+                wc.rewrite(tp.getLeaf(), parsed);
+            } else {
                 while (   tp.getParentPath().getLeaf().getKind() == Kind.PARENTHESIZED
                        && tp.getLeaf().getKind() != parsed.getKind()
                        && tp.getParentPath() != null
@@ -471,60 +523,6 @@ public abstract class JavaFix {
                        && requiresParenthesis(tp.getLeaf(), tp.getParentPath().getLeaf(), tp.getParentPath().getParentPath().getLeaf()))
                     tp = tp.getParentPath();
                 wc.rewrite(tp.getLeaf(), parsed);
-            } else {
-                if (isFakeBlock(parsed)) {
-                    TreePath parent = tp.getParentPath();
-                    List<? extends StatementTree> statements = ((BlockTree) parsed).getStatements();
-
-                    statements = statements.subList(1, statements.size() - 1);
-
-                    if (parent.getLeaf().getKind() == Kind.BLOCK) {
-                        List<StatementTree> newStatements = new LinkedList<StatementTree>();
-
-                        for (StatementTree st : ((BlockTree) parent.getLeaf()).getStatements()) {
-                            if (st == tp.getLeaf()) {
-                                newStatements.addAll(statements);
-                            } else {
-                                newStatements.add(st);
-                            }
-                        }
-
-                        wc.rewrite(parent.getLeaf(), wc.getTreeMaker().Block(newStatements, ((BlockTree) parent.getLeaf()).isStatic()));
-                    } else {
-                        wc.rewrite(tp.getLeaf(), wc.getTreeMaker().Block(statements, false));
-                    }
-                } else if (isFakeClass(parsed)) {
-                    TreePath parent = tp.getParentPath();
-                    List<? extends Tree> members = ((ClassTree) parsed).getMembers();
-
-                    members = members.subList(1, members.size());
-
-                    assert parent.getLeaf().getKind() == Kind.CLASS;
-                    
-                    List<Tree> newMembers = new LinkedList<Tree>();
-
-                    ClassTree ct = (ClassTree) parent.getLeaf();
-                    
-                    for (Tree t : ct.getMembers()) {
-                        if (t == tp.getLeaf()) {
-                            newMembers.addAll(members);
-                        } else {
-                            newMembers.add(t);
-                        }
-                    }
-
-                    wc.rewrite(parent.getLeaf(), wc.getTreeMaker().Class(ct.getModifiers(), ct.getSimpleName(), ct.getTypeParameters(), ct.getExtendsClause(), ct.getImplementsClause(), newMembers));
-                } else {
-                    List<StatementTree> newStatements = new LinkedList<StatementTree>();
-
-                    newStatements.add(wc.getTreeMaker().ExpressionStatement(wc.getTreeMaker().Identifier("$$1$")));
-                    newStatements.add((StatementTree) parsed);
-                    newStatements.add(wc.getTreeMaker().ExpressionStatement(wc.getTreeMaker().Identifier("$$2$")));
-
-                    parsed = wc.getTreeMaker().Block(newStatements, ((BlockTree) tp.getLeaf()).isStatic());
-
-                    wc.rewrite(tp.getLeaf(), parsed);
-                }
             }
 
             new ReplaceParameters(wc, canShowUI, parameters, parametersMulti, parameterNames).scan(new TreePath(tp.getParentPath(), parsed), null);
