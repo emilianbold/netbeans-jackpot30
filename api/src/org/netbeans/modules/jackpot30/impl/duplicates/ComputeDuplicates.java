@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -55,6 +56,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.text.Position.Bias;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
@@ -92,7 +94,7 @@ import org.openide.util.Exceptions;
  */
 public class ComputeDuplicates {
 
-    public Collection<? extends DuplicateDescription> computeDuplicatesForAllOpenedProjects(ProgressHandle progress) throws IOException {
+    public Collection<? extends DuplicateDescription> computeDuplicatesForAllOpenedProjects(ProgressHandle progress, AtomicBoolean cancel) throws IOException {
         Set<URL> urls = new HashSet<URL>();
 
         for (ClassPath cp : GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)) {
@@ -101,10 +103,10 @@ public class ComputeDuplicates {
             }
         }
 
-        return computeDuplicates(urls, progress);
+        return computeDuplicates(urls, progress, cancel);
     }
 
-    public Collection<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs, ProgressHandle progress) throws IOException {
+    public Collection<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs, ProgressHandle progress, AtomicBoolean cancel) throws IOException {
         Map<IndexReader, FileObject> readers2Roots = new LinkedHashMap<IndexReader, FileObject>();
 
         progress.progress("Updating indices");
@@ -112,7 +114,7 @@ public class ComputeDuplicates {
         for (URL u : forURLs) {
             try {
                 //TODO: needs to be removed for server mode
-                new DuplicatesCustomIndexerImpl.FactoryImpl().updateIndex(u); //TODO: show updating progress to the user
+                new DuplicatesCustomIndexerImpl.FactoryImpl().updateIndex(u, cancel); //TODO: show updating progress to the user
                 
                 File cacheRoot = Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(u);
 
@@ -141,7 +143,9 @@ public class ComputeDuplicates {
             }
         });
         
-        CONT: for (String gen : getFieldValueFrequencies(r, "generalized")) {
+        CONT: for (String gen : getFieldValueFrequencies(r, "generalized", cancel)) {
+            if (cancel.get()) return Collections.emptyList();
+            
             for (Iterator<String> it = of2.iterator(); it.hasNext(); )  {
                 String n = stripValue(it.next());
                 String fValue = stripValue(gen);
@@ -172,6 +176,8 @@ public class ComputeDuplicates {
             Query query = new TermQuery(new Term("generalized", longest));
 
             for (Entry<IndexReader, FileObject> e : readers2Roots.entrySet()) {
+                if (cancel.get()) return Collections.emptyList();
+
                 Searcher s = new IndexSearcher(e.getKey());
                 BitSet matchingDocuments = new BitSet(e.getKey().maxDoc());
                 Collector c = new BitSetCollector(matchingDocuments);
@@ -205,11 +211,13 @@ public class ComputeDuplicates {
         return result;
     }
 
-    private static List<String> getFieldValueFrequencies(IndexReader ir, String field) throws IOException {
+    private static List<String> getFieldValueFrequencies(IndexReader ir, String field, AtomicBoolean cancel) throws IOException {
         List<String> values = new ArrayList<String>();
         TermEnum terms = ir.terms( new Term(field));
         //while (terms.next()) {
         do {
+            if (cancel.get()) return Collections.emptyList();
+
             final Term term =  terms.term();
 
             if ( !field.equals( term.field() ) ) {

@@ -221,13 +221,14 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
             return FileUtil.toFile(indexFolder);
         }
 
-        public void updateIndex(final URL root) throws IOException {
+        public void updateIndex(final URL root, final AtomicBoolean cancel) throws IOException {
             final FileObject rootFO = URLMapper.findFileObject(root);
             final ClasspathInfo cpInfo = ClasspathInfo.create(ClassPath.EMPTY, ClassPath.EMPTY, ClassPath.EMPTY);
 
             JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController parameter) throws Exception {
-                    updateRoot(DeferredCustomIndexerFactory.this, root, rootFO, new AtomicBoolean());
+                    if (cancel.get()) return ;
+                    updateRoot(DeferredCustomIndexerFactory.this, root, rootFO, cancel);
                 }
             }, true);
         }

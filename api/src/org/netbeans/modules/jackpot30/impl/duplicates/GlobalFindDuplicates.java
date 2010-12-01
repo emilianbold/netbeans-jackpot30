@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,18 +34,21 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
  */
 package org.netbeans.modules.jackpot30.impl.duplicates;
 
-import java.awt.BorderLayout;
 import java.awt.Dialog;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
@@ -56,6 +59,7 @@ import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
 import org.openide.util.Exceptions;
+import org.openide.util.HelpCtx;
 import org.openide.util.RequestProcessor;
 
 public final class GlobalFindDuplicates implements ActionListener {
@@ -63,19 +67,24 @@ public final class GlobalFindDuplicates implements ActionListener {
     public void actionPerformed(ActionEvent e) {
         final Collection<DuplicateDescription> dupes = Collections.synchronizedList(new LinkedList<DuplicateDescription>());
         final ProgressHandle handle = ProgressHandleFactory.createHandle("Compute Duplicates");
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.add(new JLabel("Computing Duplicates - Please Wait"), BorderLayout.NORTH);
-        panel.add(ProgressHandleFactory.createProgressComponent(handle), BorderLayout.CENTER);
-        panel.add(ProgressHandleFactory.createDetailLabelComponent(handle), BorderLayout.SOUTH);
-        DialogDescriptor w = new DialogDescriptor(panel, "Computing Duplicates");
+        JPanel panel = createPanel(handle);
+        final AtomicBoolean cancel = new AtomicBoolean();
+        DialogDescriptor w = new DialogDescriptor(panel, "Computing Duplicates", true, new Object[] {DialogDescriptor.CANCEL_OPTION}, DialogDescriptor.CANCEL_OPTION, DialogDescriptor.DEFAULT_ALIGN, HelpCtx.DEFAULT_HELP, new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                cancel.set(true);
+            }
+        });
+
+        w.setClosingOptions(null);
+
         final Dialog d = DialogDisplayer.getDefault().createDialog(w);
+        final AtomicBoolean done = new AtomicBoolean();
 
         WORKER.post(new Runnable() {
             public void run() {
-                handle.start();
-
                 try {
-                    dupes.addAll(new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle));
+                    dupes.addAll(new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle, cancel));
+                    done.set(true);
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
                 } finally {
@@ -90,12 +99,64 @@ public final class GlobalFindDuplicates implements ActionListener {
             }
         });
 
-        d.pack();
+        handle.start();
+        handle.progress(" ");
+
         d.setVisible(true);
+
+        if (!done.get()) {
+            cancel.set(true);
+            return;
+        }
+        
+        if (cancel.get()) return;
 
         NotifyDescriptor nd = new NotifyDescriptor.Message(new DuplicatesListPanel(dupes));
 
         DialogDisplayer.getDefault().notifyLater(nd);
+    }
+
+    private JPanel createPanel(ProgressHandle handle) {
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gridBagConstraints;
+
+        gridBagConstraints = new GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 0;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new Insets(6, 6, 0, 6);
+        panel.add(new JLabel("Computing Duplicates - Please Wait"), gridBagConstraints);
+
+        gridBagConstraints = new GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new Insets(6, 6, 0, 6);
+        panel.add(ProgressHandleFactory.createProgressComponent(handle), gridBagConstraints);
+
+        gridBagConstraints = new GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 2;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.HORIZONTAL;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.insets = new Insets(6, 6, 6, 6);
+        panel.add(ProgressHandleFactory.createDetailLabelComponent(handle), gridBagConstraints);
+
+        gridBagConstraints = new GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 3;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.weighty = 1.0;
+        panel.add(new JPanel(), gridBagConstraints);
+
+        return panel;
     }
 
     private static final RequestProcessor WORKER = new RequestProcessor(GlobalFindDuplicates.class.getName(), 1);
