@@ -25,21 +25,21 @@ done
 
 cd ../..
 
-ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans clean || exit
-ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans build || exit
-ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans coverage-report || exit
+ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans -Dnbplatform.active.dir=$PWD/nbbuild/netbeans clean || exit
+ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans -Dnbplatform.active.dir=$PWD/nbbuild/netbeans build || exit
+ant -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans -Dnbplatform.active.dir=$PWD/nbbuild/netbeans coverage-report || exit
 
 mkdir -p build/updates
 cp nbbuild/download/*.nbm build/updates
 
-ant -Ddist.base=$DIST_BASE -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans nbms || exit
+ant -Ddist.base=$DIST_BASE -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans -Dnbplatform.active.dir=$PWD/nbbuild/netbeans nbms || exit
 gzip <build/updates/updates.xml >build/updates/updates.xml.gz
 
-(cd server/compiler; ant -Dnbplatform.default.harness.dir=$PWD/../../nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/../../nbbuild/netbeans copy-to-hudson) || exit
+(cd server/compiler; ant -Dnbplatform.default.harness.dir=$PWD/../../nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/../../nbbuild/netbeans -Dnbplatform.active.dir=$PWD/../../nbbuild/netbeans copy-to-hudson) || exit
 server/compiler/test/scripted/run || exit
 (cd server/hudson; mvn clean package) || exit
 
-ant -Ddist.base=$DIST_BASE -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans findbugs || exit
+ant -Ddist.base=$DIST_BASE -Dnbplatform.default.harness.dir=$PWD/nbbuild/netbeans/harness -Dnbplatform.default.netbeans.dest.dir=$PWD/nbbuild/netbeans -Dnbplatform.active.dir=$PWD/nbbuild/netbeans findbugs || exit
 
 mkdir -p build/server
 (cp server/do-indexing server/indexer/dist; cd server/indexer/dist/; zip -r ../../../build/server/indexer.zip *)

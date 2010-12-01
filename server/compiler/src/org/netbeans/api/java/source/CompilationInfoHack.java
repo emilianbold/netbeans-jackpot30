@@ -70,6 +70,7 @@ import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.modules.java.source.parsing.CompilationInfoImpl;
 import org.netbeans.modules.java.source.parsing.HackAccessor;
+import org.netbeans.modules.java.source.save.ElementOverlay;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.SnapshotHack;
 import org.openide.filesystems.FileObject;
@@ -91,7 +92,7 @@ public class CompilationInfoHack extends WorkingCopy {
     private PositionConverter conv;
     
     public CompilationInfoHack(Context context, ClasspathInfo cpInfo, JCCompilationUnit cut) {
-        super(HackAccessor.createCII(cpInfo));
+        super(HackAccessor.createCII(cpInfo), new ElementOverlay());
         this.context = context;
         this.cpInfo = cpInfo;
         try {
