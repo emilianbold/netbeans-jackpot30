@@ -457,7 +457,11 @@ public class Utilities {
         JavaCompiler compiler = JavaCompiler.instance(context);
         JavaFileObject prev = compiler.log.useSource(new DummyJFO());
         DiagnosticListener<? super JavaFileObject> oldDiag = compiler.log.getDiagnosticListener();
+        int origNErrors = compiler.log.nerrors;
+        int origNWarnings = compiler.log.nwarnings;
+        boolean origDeferDiagnostic = compiler.log.deferDiagnostics;
 
+        compiler.log.deferDiagnostics = false;
         compiler.log.setDiagnosticListener(new DiagnosticListenerImpl(errors));
         try {
             CharBuffer buf = CharBuffer.wrap((stmt+"\u0000").toCharArray(), 0, stmt.length());
@@ -474,6 +478,9 @@ public class Utilities {
         } finally {
             compiler.log.useSource(prev);
             compiler.log.setDiagnosticListener(oldDiag);
+            compiler.log.nerrors = origNErrors;
+            compiler.log.nwarnings = origNWarnings;
+            compiler.log.deferDiagnostics = origDeferDiagnostic;
         }
     }
 
@@ -483,7 +490,11 @@ public class Utilities {
         JavaCompiler compiler = JavaCompiler.instance(context);
         JavaFileObject prev = compiler.log.useSource(new DummyJFO());
         DiagnosticListener<? super JavaFileObject> oldDiag = compiler.log.getDiagnosticListener();
+        int origNErrors = compiler.log.nerrors;
+        int origNWarnings = compiler.log.nwarnings;
+        boolean origDeferDiagnostic = compiler.log.deferDiagnostics;
 
+        compiler.log.deferDiagnostics = false;
         compiler.log.setDiagnosticListener(new DiagnosticListenerImpl(errors));
         try {
             CharBuffer buf = CharBuffer.wrap((expr+"\u0000").toCharArray(), 0, expr.length());
@@ -505,6 +516,9 @@ public class Utilities {
         } finally {
             compiler.log.useSource(prev);
             compiler.log.setDiagnosticListener(oldDiag);
+            compiler.log.nerrors = origNErrors;
+            compiler.log.nwarnings = origNWarnings;
+            compiler.log.deferDiagnostics = origDeferDiagnostic;
         }
     }
 
@@ -512,7 +526,11 @@ public class Utilities {
         Log log = Log.instance(jti.getContext());
         JavaFileObject prev = log.useSource(new DummyJFO());
         DiagnosticListener<? super JavaFileObject> oldDiag = log.getDiagnosticListener();
+        int origNErrors = log.nerrors;
+        int origNWarnings = log.nwarnings;
+        boolean origDeferDiagnostic = log.deferDiagnostics;
 
+        log.deferDiagnostics = false;
         log.setDiagnosticListener(new DiagnosticListenerImpl(errors));
         try {
             Attr attr = Attr.instance(jti.getContext());
@@ -523,6 +541,9 @@ public class Utilities {
         } finally {
             log.useSource(prev);
             log.setDiagnosticListener(oldDiag);
+            log.nerrors = origNErrors;
+            log.nwarnings = origNWarnings;
+            log.deferDiagnostics = origDeferDiagnostic;
         }
     }
 
@@ -592,7 +613,11 @@ public class Utilities {
         Context context = jti.getContext();
         JavaCompiler compiler = JavaCompiler.instance(context);
         Log log = Log.instance(context);
+        int origNErrors = log.nerrors;
+        int origNWarnings = log.nwarnings;
+        boolean origDeferDiagnostic = compiler.log.deferDiagnostics;
 
+        compiler.log.deferDiagnostics = false;
         log.nerrors = 0;
 
         JavaFileObject jfo = FileObjects.memoryFileObject("$", "$", new File("/tmp/$" + count + ".java").toURI(), System.currentTimeMillis(), clazz.toString());
@@ -626,6 +651,9 @@ public class Utilities {
             return new ScannerImpl().scan(cut, info);
         } finally {
             log.setDiagnosticListener(old);
+            log.nerrors = origNErrors;
+            log.nwarnings = origNWarnings;
+            log.deferDiagnostics = origDeferDiagnostic;
             compiler.skipAnnotationProcessing = oldSkipAPs;
         }
     }
