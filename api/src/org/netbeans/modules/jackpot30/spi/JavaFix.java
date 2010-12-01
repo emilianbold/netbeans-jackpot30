@@ -44,6 +44,7 @@ import com.sun.javadoc.Tag;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CatchTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
@@ -53,6 +54,7 @@ import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.TryTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
@@ -865,6 +867,15 @@ public abstract class JavaFix {
         }
 
         @Override
+        public Number visitCase(CaseTree node, Void p) {
+            List<? extends StatementTree> statements = (List<? extends StatementTree>) resolveMultiParameters(node.getStatements());
+            CaseTree nue = wc.getTreeMaker().Case(node.getExpression(), statements);
+
+            wc.rewrite(node, nue);
+            return super.visitCase(node, p);
+        }
+
+        @Override
         public Number visitMethodInvocation(MethodInvocationTree node, Void p) {
             List<? extends ExpressionTree> typeArgs = (List<? extends ExpressionTree>) resolveMultiParameters(node.getTypeArguments());
             List<? extends ExpressionTree> args = resolveMultiParameters(node.getArguments());
@@ -892,6 +903,15 @@ public abstract class JavaFix {
 
             wc.rewrite(node, nue);
             return super.visitParameterizedType(node, p);
+        }
+
+        @Override
+        public Number visitSwitch(SwitchTree node, Void p) {
+            List<? extends CaseTree> cases = (List<? extends CaseTree>) resolveMultiParameters(node.getCases());
+            SwitchTree nue = wc.getTreeMaker().Switch(node.getExpression(), cases);
+
+            wc.rewrite(node, nue);
+            return super.visitSwitch(node, p);
         }
 
         @Override

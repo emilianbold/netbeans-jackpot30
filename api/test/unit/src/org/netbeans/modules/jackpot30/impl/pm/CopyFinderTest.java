@@ -226,4 +226,29 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
                              false,
                              true);
     }
+
+    public void testSwitch1() throws Exception {
+        performVariablesTest("package test;\n" +
+                             "public class Test {\n" +
+                             "     {\n" +
+                             "         E e = null;\n" +
+                             "         switch (e) {\n" +
+                             "             case A: System.err.println(1); break;\n" +
+                             "             case D: System.err.println(2); break;\n" +
+                             "             case E: System.err.println(3); break;\n" +
+                             "         }\n" +
+                             "     }\n" +
+                             "     public enum E {A, B, C, D, E, F;}\n" +
+                             "}\n",
+                             "switch ($v{test.Test.E}) { case $c1$ case D: $stmts$; case $c2$ }",
+                             new Pair[] {new Pair<String, int[]>("$v", new int[] {79, 80})},
+                             new Pair[] {
+                                new Pair<String, int[]>("$stmts$", new int[] { 156, 178, 179, 185 }),
+                                new Pair<String, int[]>("$c1$", new int[] { 97, 134 }),
+                                new Pair<String, int[]>("$c2$", new int[] { 199, 236 }),
+                             },
+                             new Pair[0],
+                             false,
+                             false);
+    }
 }

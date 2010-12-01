@@ -36,11 +36,13 @@ import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.BreakTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CatchTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.ContinueTree;
 import com.sun.source.tree.DoWhileLoopTree;
 import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionStatementTree;
@@ -62,6 +64,7 @@ import com.sun.source.tree.PrimitiveTypeTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.StatementTree;
+import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.ThrowTree;
 import com.sun.source.tree.Tree;
@@ -74,6 +77,10 @@ import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
+import com.sun.tools.javac.tree.JCTree.JCExpression;
+import com.sun.tools.javac.tree.TreeMaker;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Names;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -100,6 +107,7 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.spi.HintContext;
+import org.netbeans.modules.java.source.JavaSourceAccessor;
 
 /**
  *
@@ -769,13 +777,29 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
         return checkLists(node.getStatements(), at.getStatements(), p);
     }
 
-//    public Boolean visitBreak(BreakTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
-//
-//    public Boolean visitCase(CaseTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitBreak(BreakTree node, TreePath p) {
+        if (p == null) {
+            super.visitBreak(node, p);
+            return false;
+        }
+
+        //XXX: check labels
+        return true;
+    }
+
+    public Boolean visitCase(CaseTree node, TreePath p) {
+        if (p == null) {
+            super.visitCase(node, p);
+            return false;
+        }
+
+        CaseTree ct = (CaseTree) p.getLeaf();
+
+        if (!scan(node.getExpression(), ct.getExpression(), p))
+            return false;
+
+        return checkLists(node.getStatements(), ct.getStatements(), p);
+    }
 
     public Boolean visitCatch(CatchTree node, TreePath p) {
         if (p == null) {
@@ -857,9 +881,15 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
         return scan(node.getTrueExpression(), t.getTrueExpression(), p);
     }
 
-//    public Boolean visitContinue(ContinueTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+    public Boolean visitContinue(ContinueTree node, TreePath p) {
+        if (p == null) {
+            super.visitContinue(node, p);
+            return false;
+        }
+
+        //XXX: check labels
+        return true;
+    }
 
     public Boolean visitDoWhileLoop(DoWhileLoopTree node, TreePath p) {
         if (p == null) {
@@ -1181,10 +1211,21 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
 //        throw new UnsupportedOperationException("Not supported yet.");
 //    }
 //
-//    public Boolean visitSwitch(SwitchTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
-//
+    public Boolean visitSwitch(SwitchTree node, TreePath p) {
+        if (p == null) {
+            super.visitSwitch(node, p);
+            return false;
+        }
+
+        SwitchTree st = (SwitchTree) p.getLeaf();
+
+        if (!scan(node.getExpression(), st.getExpression(), p)) {
+            return false;
+        }
+
+        return checkLists(node.getCases(), st.getCases(), p);
+    }
+
     public Boolean visitSynchronized(SynchronizedTree node, TreePath p) {
         if (p == null) {
             super.visitSynchronized(node, p);

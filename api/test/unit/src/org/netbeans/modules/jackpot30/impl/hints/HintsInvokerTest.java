@@ -650,6 +650,38 @@ public class HintsInvokerTest extends TreeRuleTestBase {
                        "2:7-2:89:verifier:HINT");
     }
 
+    public void testAddCasesToSwitch() throws Exception {
+        performFixTest("test/Test.java",
+                       "|package test;\n" +
+                       "public class Test {\n" +
+                       "     {\n" +
+                       "         E e = null;\n" +
+                       "         switch (e) {\n" +
+                       "             case A: System.err.println(1); break;\n" +
+                       "             case D: System.err.println(2); break;\n" +
+                       "             case E: System.err.println(3); break;\n" +
+                       "         }\n" +
+                       "     }\n" +
+                       "     public enum E {A, B, C, D, E, F;}\n" +
+                       "}\n",
+                       "4:9-8:10:verifier:HINT",
+                       "FixImpl",
+                       ("package test;\n" +
+                       "public class Test {\n" +
+                       "     {\n" +
+                       "         E e = null;\n" +
+                       "         switch (e) {\n" +
+                       "             case A: System.err.println(1); break;\n" +
+                       "             case B:case C:\n" +
+//                       "             case C:\n" +
+                       "             case D: System.err.println(2); break;\n" +
+                       "             case E: System.err.println(3); break;\n" +
+                       "         }\n" +
+                       "     }\n" +
+                       "     public enum E {A, B, C, D, E, F;}\n" +
+                       "}\n").replaceAll("[ \t\n]+", " "));
+    }
+
     private static final Map<String, HintDescription> test2Hint;
 
     static {
@@ -691,6 +723,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
         test2Hint.put("testChangeFieldType3", test2Hint.get("testChangeFieldType1"));
         test2Hint.put("testIdentifier", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("$i", Collections.<String, String>singletonMap("$i", "int"))).setWorker(new WorkerImpl("2")).produce());
         test2Hint.put("testLambda", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("new $type() { $mods$ $retType $name($params$) { $body$; } }", Collections.<String, String>emptyMap())).setWorker(new WorkerImpl()).produce());
+        test2Hint.put("testAddCasesToSwitch", HintDescriptionFactory.create().setTriggerPattern(PatternDescription.create("switch ($var) { case $c1$; case D: $stmts$; case $c2$; }", Collections.<String,String>singletonMap("$var", "test.Test.E"))).setWorker(new WorkerImpl("switch ($var) { case $c1$ case B: case C: case D: $stmts$; case $c2$ }")).produce());
     }
 
     @Override
@@ -752,7 +785,7 @@ public class HintsInvokerTest extends TreeRuleTestBase {
             List<Fix> fixes = new LinkedList<Fix>();
 
             if (fix != null) {
-                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), "Rewrite", ctx.getPath(), fix, ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), /*XXX*/Collections.<String, TypeMirror>emptyMap(), imports.toArray(new String[0])));
+                fixes.add(JavaFix.rewriteFix(ctx.getInfo(), "Rewrite", ctx.getPath(), fix, ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), ctx.getConstraints(), imports.toArray(new String[0])));
             }
             
             return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "HINT", fixes.toArray(new Fix[0])));

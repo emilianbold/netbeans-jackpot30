@@ -242,6 +242,18 @@ public class UtilitiesTest extends TestBase {
         String golden = "try {\n }$catch$ finally {\n }";
         assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
     }
+
+    public void testCaseMultiparam() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
+        Tree result = Utilities.parseAndAttribute(info, "switch ($v) {case $c1$ case 1: ; case $c2$; case 3: ;}", s);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.SWITCH);
+
+        String golden = "switch ($v) { $c1$ case 1: ; $c2$ case 3: ; }";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+    }
     
     public void testOrdinaryCatch() throws Exception {
         prepareTest("test/Test.java", "package test; public class Test{}");

@@ -397,6 +397,20 @@ public class JavaFixTest extends TestBase {
 		           "}\n");
     }
 
+    public void testRewriteCaseMultiVariable() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    { int i = 0; switch (i) {case 0: System.err.println(1); break; case 1: System.err.println(2); break; case 2: System.err.println(3); break; }\n" +
+                           "}\n",
+                           "switch ($v) { case $p$ case 2: $stmts$; } => switch ($v) { case $p$ case 3: $stmts$; }",
+                           "package test;\n" +
+                           "public class Test {\n" +
+                           //XXX: whitespaces:
+//                           "    { int i = 0; switch (i) {case 0: System.err.println(1); break; case 1: System.err.println(2); break; case 3: System.err.println(3); break; }\n" +
+                           "    { int i = 0; switch (i) {case 0: System.err.println(1); break; case 1: System.err.println(2); break; case   3: System.err.println(3); break; }\n" +
+		           "}\n");
+    }
+
     public void performRewriteTest(String code, String rule, String golden) throws Exception {
 	prepareTest("test/Test.java", code);
 

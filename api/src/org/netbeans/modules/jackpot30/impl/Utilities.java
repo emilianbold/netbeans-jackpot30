@@ -85,6 +85,7 @@ import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.parser.Scanner;
 import com.sun.tools.javac.parser.Token;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCCase;
 import com.sun.tools.javac.tree.JCTree.JCCatch;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.tree.JCTree.JCExpression;
@@ -1143,6 +1144,37 @@ public class Utilities {
             }
             return super.checkExprStat(t);
         }
+
+        @Override
+        protected JCCase switchBlockStatementGroup() {
+            if (S.token() == Token.CASE) {
+                S.nextToken();
+
+                if (S.token() == Token.IDENTIFIER) {
+                    String ident = S.stringVal();
+
+                    if (ident.startsWith("$") && ident.endsWith("$")) {
+                        int pos = S.pos();
+                        com.sun.tools.javac.util.Name name = S.name();
+
+                        S.nextToken();
+
+                        if (S.token() == Token.SEMI) {
+                            S.nextToken();
+                        }
+
+                        return new JackpotTrees.CaseWildcard(ctx, name, F.at(pos).Ident(name));
+                    }
+                }
+
+                ((PushbackLexer) S).add(Token.CASE, null);
+                ((PushbackLexer) S).add(null, null);
+                S.nextToken();
+            }
+
+            return super.switchBlockStatementGroup();
+        }
+
     }
 
     private static final class PushbackLexer implements Lexer {

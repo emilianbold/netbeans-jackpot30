@@ -439,7 +439,7 @@ public class HintsInvoker {
 
                     for (HintDescription hd : patternHints.get(d)) {
                         HintMetadata hm = hd.getMetadata();
-                        HintContext c = new HintContext(info, hm, candidate, verified.variables, verified.multiVariables, verified.variables2Names, problems);
+                        HintContext c = new HintContext(info, hm, candidate, verified.variables, verified.multiVariables, verified.variables2Names, constraints, problems);
 
                         if (!Collections.disjoint(suppressedWarnings, hm.suppressWarnings))
                             continue;
