@@ -123,7 +123,8 @@ public class BatchSearch {
 
         MapIndices knownSourceRootsMapper = new MapIndices() {
             private Set<FileObject> KNOWN_SOURCE_ROOTS = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
-            public Index findIndex(FileObject root) {
+            public Index findIndex(FileObject root, ProgressHandleWrapper progress) {
+                progress.startNextPart(1);
                 if (KNOWN_SOURCE_ROOTS.contains(root)) {
                     try {
                         return FileBasedIndex.get(root.getURL());
@@ -167,13 +168,14 @@ public class BatchSearch {
                 if (scope.indexURL != null) {
                     if (scope.subIndex == null) {
                         mapper = new MapIndices() {
-                            public Index findIndex(FileObject root) {
+                            public Index findIndex(FileObject root, ProgressHandleWrapper progress) {
                                 return createOrUpdateIndex(root, new File(scope.indexURL), scope.update, progress);
                             }
                         };
                     } else {
                         mapper = new MapIndices() {
-                            public Index findIndex(FileObject root) {
+                            public Index findIndex(FileObject root, ProgressHandleWrapper progress) {
+                                progress.startNextPart(1);
                                 try {
                                     return Index.createWithRemoteIndex(root.getURL(), scope.indexURL, scope.subIndex);
                                 } catch (FileStateInvalidException ex) {
@@ -213,13 +215,13 @@ public class BatchSearch {
         final BulkPattern bulkPattern = preparePattern(patterns, info);
         final Map<Container, Collection<Resource>> result = new HashMap<Container, Collection<Resource>>();
         final Collection<MessageImpl> problems = new LinkedList<MessageImpl>();
-        ProgressHandleWrapper innerForAll = progress.startNextPartWithEmbedding(ProgressHandleWrapper.prepareParts(todo.size()));
+        ProgressHandleWrapper innerForAll = progress.startNextPartWithEmbedding(ProgressHandleWrapper.prepareParts(2 * todo.size()));
         
         for (final FileObject src : todo) {
             LOG.log(Level.FINE, "Processing: {0}", FileUtil.getFileDisplayName(src));
             
             try {
-                Index i = indexMapper.findIndex(src);
+                Index i = indexMapper.findIndex(src, innerForAll);
 
                 if (i != null) {
                     innerForAll.startNextPart(1);
@@ -363,7 +365,10 @@ public class BatchSearch {
         Properties timeStamps = new Properties();
 
         if (timeStampsFile.exists()) {
-            if (!update) return index;
+            if (!update) {
+                progress.startNextPart(1);
+                return index;
+            }
 
             InputStream in = null;
 
@@ -749,7 +754,7 @@ public class BatchSearch {
     }
 
     private static interface MapIndices {
-        public Index findIndex(FileObject root); //XXX: should handle ProgressHandleWrapper
+        public Index findIndex(FileObject root, ProgressHandleWrapper progress);
     }
 
 }

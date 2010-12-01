@@ -83,6 +83,7 @@ import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 
@@ -260,6 +261,10 @@ public class BatchUtilities {
 
                     if (handle != null) {
                         handle.tick();
+                    }
+
+                    if (LOG.isLoggable(Level.FINE)) {
+                        LOG.log(Level.FINE, "performFastFixes done processing: {0}", FileUtil.getFileDisplayName(wc.getFileObject()));
                     }
                 }
             });
