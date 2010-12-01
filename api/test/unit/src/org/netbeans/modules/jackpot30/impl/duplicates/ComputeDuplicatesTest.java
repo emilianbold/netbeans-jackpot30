@@ -44,6 +44,7 @@ import org.openide.filesystems.FileObject;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.DuplicateDescription;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.Span;
@@ -98,11 +99,11 @@ public class ComputeDuplicatesTest extends IndexTestBase {
         Map<String, String> duplicatesReal = new HashMap<String, String>();
         ProgressHandle handle = ProgressHandleFactory.createHandle("test");
 
-        handle.start();;
+        handle.start();
         
         for (DuplicateDescription dd : new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle, new AtomicBoolean())) {
             for (Span s : dd.dupes) {
-                duplicatesReal.put(relativePath(s.file), s.span.getText());
+                duplicatesReal.put(relativePath(s.file), TestUtilities.copyFileToString(FileUtil.toFile(s.file)).substring(s.startOff, s.endOff));
             }
         }
 

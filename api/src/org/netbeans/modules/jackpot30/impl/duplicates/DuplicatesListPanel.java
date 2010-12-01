@@ -218,8 +218,8 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
             pane.setText(s.file.asText());
 
             Rectangle top = pane.modelToView(0);
-            Rectangle start = pane.modelToView(s.span.getBegin().getOffset());
-            Rectangle end = pane.modelToView(s.span.getEnd().getOffset());
+            Rectangle start = pane.modelToView(s.startOff);
+            Rectangle end = pane.modelToView(s.endOff);
 
             if (top != null && start != null && end != null) {
                 Rectangle toScroll = start.union(end);
@@ -231,7 +231,7 @@ public class DuplicatesListPanel extends javax.swing.JPanel {
             OffsetsBag bag = (OffsetsBag) pane.getClientProperty(DuplicatesListPanel.class);
 
             bag.clear();
-            bag.addHighlight(s.span.getBegin().getOffset(), s.span.getEnd().getOffset(), HIGHLIGHT);
+            bag.addHighlight(s.startOff, s.endOff, HIGHLIGHT);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         } catch (BadLocationException ex) {

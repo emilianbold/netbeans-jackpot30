@@ -82,6 +82,9 @@ public class StandaloneIndexer {
             }
         } finally {
             w.close();
+            if (dw != null) {
+                dw.close();
+            }
         }
     }
 

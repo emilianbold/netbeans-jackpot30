@@ -48,10 +48,10 @@ import com.sun.source.util.Trees;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
@@ -120,7 +120,6 @@ public class DuplicatesIndex {
                 doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
 
                 final SourcePositions sp = Trees.instance(task).getSourcePositions();
-                final List<String> generalized = new ArrayList<String>();
                 final Map<String, StringBuilder> positions = new TreeMap<String, StringBuilder>();
 
                 new TreePathScanner<Void, Void>() {
@@ -128,25 +127,39 @@ public class DuplicatesIndex {
                     public Void scan(Tree tree, Void p) {
                         if (tree == null) return null;
                         if (getCurrentPath() != null) {
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            final EncodingContext ec = new BulkSearch.EncodingContext(baos, true);
                             Tree generalizedPattern = Utilities.generalizePattern(task, new TreePath(getCurrentPath(), tree));
                             long value = Utilities.patternValue(generalizedPattern);
                             if (value >= MINIMAL_VALUE) {
-                                BulkSearch.getDefault().encode( generalizedPattern, ec);
-                                try {
-                                    String enc = new String(baos.toByteArray(), "UTF-8") + ":" + value;
-                                    generalized.add(enc);
-                                    StringBuilder spanSpecs = positions.get(enc);
-                                    
-                                    if (spanSpecs == null) {
-                                        positions.put(enc, spanSpecs = new StringBuilder());
-                                    } else {
-                                        spanSpecs.append(";");
+                                {
+                                    DigestOutputStream baos = null;
+                                    try {
+                                        baos = new DigestOutputStream(new ByteArrayOutputStream(), MessageDigest.getInstance("MD5"));
+                                        final EncodingContext ec = new BulkSearch.EncodingContext(baos, true);
+                                        BulkSearch.getDefault().encode( generalizedPattern, ec);
+                                        StringBuilder text = new StringBuilder();
+                                        byte[] bytes = baos.getMessageDigest().digest();
+                                        for (int cntr = 0; cntr < 4; cntr++) {
+                                            text.append(String.format("%02X", bytes[cntr]));
+                                        }
+                                        text.append(':').append(value);
+                                        String enc = text.toString();
+                                        StringBuilder spanSpecs = positions.get(enc);
+                                        if (spanSpecs == null) {
+                                            positions.put(enc, spanSpecs = new StringBuilder());
+                                        } else {
+                                            spanSpecs.append(";");
+                                        }
+                                        long start = sp.getStartPosition(cut, tree);
+                                        spanSpecs.append(start).append(":").append(sp.getEndPosition(cut, tree) - start);
+                                    } catch (NoSuchAlgorithmException ex) {
+                                        Exceptions.printStackTrace(ex);
+                                   } finally {
+                                        try {
+                                            baos.close();
+                                        } catch (IOException ex) {
+                                            Exceptions.printStackTrace(ex);
+                                        }
                                     }
-                                    spanSpecs.append(sp.getStartPosition(cut, tree)).append(":").append(sp.getEndPosition(cut, tree));
-                                } catch (UnsupportedEncodingException ex) {
-                                    Exceptions.printStackTrace(ex);
                                 }
                             }
                         }
@@ -172,11 +185,12 @@ public class DuplicatesIndex {
         }
         
         public void close() throws IOException {
+            luceneWriter.optimize();
             luceneWriter.close();
         }
     }
 
-    private static final int MINIMAL_VALUE = 5;
+    private static final int MINIMAL_VALUE = 10;
 
     public static final String NAME = "duplicates"; //NOI18N
 }

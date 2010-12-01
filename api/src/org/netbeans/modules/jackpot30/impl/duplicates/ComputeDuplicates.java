@@ -55,9 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.swing.text.Position.Bias;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiReader;
@@ -77,14 +75,8 @@ import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomI
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex.BitSetCollector;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
-import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.URLMapper;
-import org.openide.loaders.DataObject;
-import org.openide.loaders.DataObjectNotFoundException;
-import org.openide.text.CloneableEditorSupport;
-import org.openide.text.PositionBounds;
-import org.openide.text.PositionRef;
 import org.openide.util.Exceptions;
 
 
@@ -103,14 +95,19 @@ public class ComputeDuplicates {
             }
         }
 
-        return computeDuplicates(urls, progress, cancel);
+        long start = System.currentTimeMillis();
+        try {
+            return computeDuplicates(urls, progress, cancel);
+        } finally {
+            System.err.println("duplicates for all open projects: " + (System.currentTimeMillis() - start));
+        }
     }
 
     public Collection<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs, ProgressHandle progress, AtomicBoolean cancel) throws IOException {
         Map<IndexReader, FileObject> readers2Roots = new LinkedHashMap<IndexReader, FileObject>();
 
         progress.progress("Updating indices");
-        
+
         for (URL u : forURLs) {
             try {
                 //TODO: needs to be removed for server mode
@@ -134,33 +131,13 @@ public class ComputeDuplicates {
 
         MultiReader r = new MultiReader(readers2Roots.keySet().toArray(new IndexReader[0]));
 
-        Set<String> of2 = new TreeSet<String>(new Comparator<String>() {
+        List<String> dd = new ArrayList<String>(getDuplicatedValues(r, "generalized", cancel));
+
+        Collections.sort(dd, new Comparator<String>() {
             public int compare(String arg0, String arg1) {
-                long value0 = Long.parseLong(arg0.substring(arg0.lastIndexOf(":") + 1));
-                long value1 = Long.parseLong(arg1.substring(arg1.lastIndexOf(":") + 1));
-                
-                return (int) Math.signum(value1 - value0);
+                return (int) Math.signum(getValue(arg1) - getValue(arg0));
             }
         });
-        
-        CONT: for (String gen : getFieldValueFrequencies(r, "generalized", cancel)) {
-            if (cancel.get()) return Collections.emptyList();
-            
-            for (Iterator<String> it = of2.iterator(); it.hasNext(); )  {
-                String n = stripValue(it.next());
-                String fValue = stripValue(gen);
-
-                if (n.contains(fValue)) {
-                    continue CONT;
-                }
-                if (fValue.contains(n)) {
-                    it.remove();
-                }
-            }
-            of2.add(gen);
-        }
-
-        List<String> dd = new ArrayList<String>(of2);
 
         //TODO: only show valuable duplicates?:
 //        dd = dd.subList(0, dd.size() / 10 + 1);
@@ -186,7 +163,14 @@ public class ComputeDuplicates {
 
                 for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum + 1)) {
                     final Document doc = e.getKey().document(docNum);
-                    String spanSpec = doc.getValues("positions")[Arrays.binarySearch(doc.getValues("generalized"), longest)];
+                    int pos = Arrays.binarySearch(doc.getValues("generalized"), longest);
+
+                    if (pos < 0) {
+                        System.err.println("FOOBAR=" + pos);
+                        continue;
+                    }
+                    
+                    String spanSpec = doc.getValues("positions")[pos];
                     String relPath = doc.getField("path").stringValue();
 
                     for (String spanPart : spanSpec.split(";")) {
@@ -200,7 +184,25 @@ public class ComputeDuplicates {
             }
 
             if (foundDuplicates.size() >= 2) {
-                result.add(DuplicateDescription.of(foundDuplicates));
+                DuplicateDescription current = DuplicateDescription.of(foundDuplicates, getValue(longest));
+                boolean add = true;
+
+                for (Iterator<DuplicateDescription> it = result.iterator(); it.hasNext();) {
+                    DuplicateDescription existing = it.next();
+
+                    if (subsumes(existing, current)) {
+                        add = false;
+                        break;
+                    }
+
+                    if (subsumes(current, existing)) {
+                        //can happen? (note that the duplicates are sorted by value)
+                        it.remove();
+                    }
+                }
+
+                if (add)
+                    result.add(current);
             }
 
             progress.progress(++done);
@@ -211,7 +213,7 @@ public class ComputeDuplicates {
         return result;
     }
 
-    private static List<String> getFieldValueFrequencies(IndexReader ir, String field, AtomicBoolean cancel) throws IOException {
+    private static List<String> getDuplicatedValues(IndexReader ir, String field, AtomicBoolean cancel) throws IOException {
         List<String> values = new ArrayList<String>();
         TermEnum terms = ir.terms( new Term(field));
         //while (terms.next()) {
@@ -232,50 +234,72 @@ public class ComputeDuplicates {
         return values;
     }
 
-    private static String stripValue(String encoded) {
-        return encoded.substring(0, encoded.lastIndexOf(':'));
+    private static long getValue(String encoded) {
+        return Long.parseLong(encoded.substring(encoded.lastIndexOf(":") + 1));
+    }
+    
+    private static boolean subsumes(DuplicateDescription bigger, DuplicateDescription smaller) {
+        Set<FileObject> bFiles = new HashSet<FileObject>();
+
+        for (Span s : bigger.dupes) {
+            bFiles.add(s.file);
+        }
+
+        Set<FileObject> sFiles = new HashSet<FileObject>();
+
+        for (Span s : smaller.dupes) {
+            sFiles.add(s.file);
+        }
+
+        if (!bFiles.equals(sFiles)) return false;
+
+        Span testAgainst = bigger.dupes.get(0);
+
+        for (Span s : smaller.dupes) {
+            if (s.file == testAgainst.file) {
+                if (   (testAgainst.startOff <= s.startOff && testAgainst.endOff > s.endOff)
+                    || (testAgainst.startOff < s.startOff && testAgainst.endOff >= s.endOff)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     public static final class DuplicateDescription {
 
         public final List<Span> dupes;
+        public final long value;
 
-        private DuplicateDescription(List<Span> dupes) {
+        private DuplicateDescription(List<Span> dupes, long value) {
             this.dupes = dupes;
+            this.value = value;
         }
 
-        public static DuplicateDescription of(List<Span> dupes) {
-            return new DuplicateDescription(dupes);
+        public static DuplicateDescription of(List<Span> dupes, long value) {
+            return new DuplicateDescription(dupes, value);
         }
     }
 
     public static final class Span {
         public final FileObject file;
-        public final PositionBounds span;
+        public final int startOff;
+        public final int endOff;
 
-        private Span(FileObject file, PositionBounds span) {
+        public Span(FileObject file, int startOff, int endOff) {
             this.file = file;
-            this.span = span;
+            this.startOff = startOff;
+            this.endOff = endOff;
         }
 
         public static @CheckForNull Span of(FileObject file, String spanSpec) {
-            try {
-                String[] split = spanSpec.split(":");
-                int start = Integer.valueOf(split[0]);
-                int end = Integer.valueOf(split[1]);
-                if (start == (-1) || end == (-1)) return null; //XXX
-                
-                DataObject od = DataObject.find(file);
-                CloneableEditorSupport ces = (CloneableEditorSupport) od.getLookup().lookup(EditorCookie.class);
+            String[] split = spanSpec.split(":");
+            int start = Integer.valueOf(split[0]);
+            int end = start + Integer.valueOf(split[1]);
+            if (start < 0 || end < 0) return null; //XXX
 
-                PositionRef startRef = ces.createPositionRef(start, Bias.Forward);
-                PositionRef endRef   = ces.createPositionRef(end,   Bias.Backward);
-
-                return new Span(file, new PositionBounds(startRef, endRef));
-            } catch (DataObjectNotFoundException ex) {
-                Exceptions.printStackTrace(ex);
-                return null;
-            }
+            return new Span(file, start, end);
         }
 
     }

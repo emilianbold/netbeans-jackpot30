@@ -924,7 +924,11 @@ public class Utilities {
                 return null;
             }
 
-            return super.visitNewClass(node, p);
+            NewClassTree nue = make.NewClass(node.getEnclosingExpression(), Collections.<ExpressionTree>singletonList(make.Identifier("$" + currentVariableIndex++ + "$")), make.Identifier("$" + currentVariableIndex++), Collections.<ExpressionTree>singletonList(make.Identifier("$" + currentVariableIndex++ + "$")), null);
+
+            tree2Variable.put(node, nue);
+
+            return null;
         }
 
     }
@@ -1000,6 +1004,10 @@ public class Utilities {
                 if (node.getName().toString().startsWith("$")) value--;
                 
                 return super.visitIdentifier(node, p);
+            }
+            @Override
+            public Void visitNewClass(NewClassTree node, Void p) {
+                return null;
             }
         }
 
