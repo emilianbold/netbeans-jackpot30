@@ -50,6 +50,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.regex.Pattern;
 import junit.framework.TestSuite;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.junit.NbTestSuite;
@@ -90,9 +91,18 @@ public class DeclarativeHintsTestBase extends NbTestCase {
     }
 
     public static TestSuite suite(Class<?> clazz) {
+        return suite(clazz, ".*");
+    }
+
+    public static TestSuite suite(Class<?> clazz, String filePattern) {
         NbTestSuite result = new NbTestSuite();
+        Pattern patt = Pattern.compile(filePattern);
 
         for (String test : listTests(clazz)) {
+            if (!patt.matcher(test).matches()) {
+                continue;
+            }
+            
             //TODO:
             URL testURL = DeclarativeHintsTestBase.class.getClassLoader().getResource(test);
             
