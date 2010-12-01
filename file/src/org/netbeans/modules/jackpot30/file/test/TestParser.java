@@ -47,6 +47,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.SourceVersion;
 import javax.swing.event.ChangeListener;
+import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.api.Task;
 import org.netbeans.modules.parsing.spi.ParseException;
@@ -123,7 +124,11 @@ public class TestParser extends Parser {
 
         while (m.find()) {
             if (testCaseIndex >= 0) {
-                result.add(handleTestCase(testCaseIndex, lastName, lastOptions, codeIndex, tests.substring(codeIndex, m.start())));
+                TestCase tc = handleTestCase(testCaseIndex, lastName, lastOptions, codeIndex, tests.substring(codeIndex, m.start()));
+
+                if (tc != null) {
+                    result.add(tc);
+                }
             }
 
             codeIndex = m.end();
@@ -133,13 +138,17 @@ public class TestParser extends Parser {
         }
 
         if (testCaseIndex >= 0) {
-            result.add(handleTestCase(testCaseIndex, lastName, lastOptions, codeIndex, tests.substring(codeIndex)));
+            TestCase tc = handleTestCase(testCaseIndex, lastName, lastOptions, codeIndex, tests.substring(codeIndex));
+
+            if (tc != null) {
+                result.add(tc);
+            }
         }
 
         return result.toArray(new TestCase[result.size()]);
     }
 
-    private static TestCase handleTestCase(int testCaseIndex, String testName, String options, int codeIndex, String testCase) {
+    private static @CheckForNull TestCase handleTestCase(int testCaseIndex, String testName, String options, int codeIndex, String testCase) {
         Matcher m = LEADS_TO_HEADER.matcher(testCase);
         String code = null;
         List<String> results = new LinkedList<String>();
@@ -208,6 +217,10 @@ public class TestParser extends Parser {
                     }
                 }
             }
+
+            if (DISABLED.equals(option)) {
+                return null;
+            }
         }
         
         return new TestCase(testName, sourceLevel, code, results.toArray(new String[0]), testCaseIndex, codeIndex, startIndicesArr, endIndicesArr);
@@ -216,6 +229,7 @@ public class TestParser extends Parser {
     private static final Pattern TEST_CASE_HEADER = Pattern.compile("%%TestCase[ \t]+([^ \t\n]*)(([ \t]+[^ \t\n]*)*)\n");
     private static final Pattern LEADS_TO_HEADER = Pattern.compile("%%=>\n");
     private static final String SOURCE_LEVEL = "source-level=";
+    private static final String DISABLED = "DISABLED";
     private static final SourceVersion DEFAULT_SOURCE_LEVEL = SourceVersion.RELEASE_5;
 
     public static final class TestCase {
