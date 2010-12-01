@@ -65,6 +65,7 @@ import org.netbeans.modules.java.source.usages.BinaryAnalyser;
 import org.netbeans.modules.java.source.usages.ClassIndexImpl;
 import org.netbeans.modules.java.source.usages.ClassIndexManager;
 import org.netbeans.modules.java.source.usages.IndexUtil;
+import org.netbeans.modules.parsing.lucene.support.IndexManager.Action;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -246,7 +247,7 @@ public final class TestUtilities {
             public void run(CompilationController parameter) throws Exception {                
                 for (final URL url : urls) {
                     final ClassIndexImpl cii = mgr.createUsagesQuery(url, false);            
-                    ClassIndexManager.getDefault().writeLock(new ClassIndexManager.ExceptionAction<Void>() {
+                    ClassIndexManager.getDefault().writeLock(new Action<Void>() {
                         public Void run() throws IOException, InterruptedException {
                             BinaryAnalyser ba = cii.getBinaryAnalyser();            
                             ba.start(url, new AtomicBoolean(false), new AtomicBoolean(false));
