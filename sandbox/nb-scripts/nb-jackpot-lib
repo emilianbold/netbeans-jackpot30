@@ -2,10 +2,11 @@ NETBEANS=1
 JACKPOT=2
 
 function convert() {
+    MAPPING=`dirname $0i`/nb-to-jackpot.mapping;
     SCRIPT=/tmp/$$.sed
     rm -rf $SCRIPT
 
-    for map in `cat nb-to-jackpot.mapping`; do
+    for map in `cat $MAPPING`; do
         echo -n "s/" >>$SCRIPT
         FROM_PATH=`echo -n $map | cut -d ':' -f $1`;
         TO_PATH=`echo -n $map | cut -d ':' -f $2`;
