@@ -601,16 +601,25 @@ public abstract class JavaFix {
             Element e = wc.getTrees().getElement(getCurrentPath());
 
             if (e == null || (e.getKind() == ElementKind.CLASS && ((TypeElement) e).asType().getKind() == TypeKind.ERROR)) {
-                if (node.getExpression().getKind() == Kind.IDENTIFIER) {
-                    String name = ((IdentifierTree) node.getExpression()).getName().toString();
+                MemberSelectTree nue = node;
+                String selectedName = node.getIdentifier().toString();
+
+                if (selectedName.startsWith("$") && parameterNames.get(selectedName) != null) {
+                    nue = wc.getTreeMaker().MemberSelect(node.getExpression(), parameterNames.get(selectedName));
+                }
+
+                if (nue.getExpression().getKind() == Kind.IDENTIFIER) {
+                    String name = ((IdentifierTree) nue.getExpression()).getName().toString();
 
                     if (name.startsWith("$") && parameters.get(name) == null) {
                         //XXX: unbound variable, use identifier instead of member select - may cause problems?
-                        wc.rewrite(node, wc.getTreeMaker().Identifier(node.getIdentifier()));
+                        wc.rewrite(node, wc.getTreeMaker().Identifier(nue.getIdentifier()));
                         return null;
                     }
                 }
 
+                wc.rewrite(node, nue);
+                
                 return super.visitMemberSelect(node, p);
             }
 

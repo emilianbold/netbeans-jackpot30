@@ -411,6 +411,18 @@ public class JavaFixTest extends TestBase {
 		           "}\n");
     }
 
+    public void testRewriteMemberSelectVariable() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test {\n" +
+                           "    { java.io.File f = null; boolean b = f.isDirectory(); }\n" +
+                           "}\n",
+                           "$file.$m() => foo.Bar.$m($file)",
+                           "package test;\n" +
+                           "public class Test {\n" +
+                           "    { java.io.File f = null; boolean b = foo.Bar.isDirectory(f); }\n" +
+		           "}\n");
+    }
+
     public void performRewriteTest(String code, String rule, String golden) throws Exception {
 	prepareTest("test/Test.java", code);
 
