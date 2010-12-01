@@ -41,12 +41,16 @@ package org.netbeans.modules.jackpot30.server.webapi;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -192,5 +196,38 @@ public class API {
         }
 
         return sb.toString();
+    }
+
+    @GET
+    @Path("/findDuplicates")
+    @Produces("text/plain")
+    public String findDuplicates(@QueryParam("path") String segment, @QueryParam("hashes") String hashes) throws IOException {
+        Map<String, Map<String, Collection<? extends String>>> hash2Segment2Contains = new HashMap<String, Map<String, Collection<? extends String>>>();
+        Collection<String> segments = new LinkedList<String>();
+
+        if (segment != null) segments.add(segment);
+        else {
+            for (String key : Cache.knownSourceRoots()) {
+                segments.add(key);
+            }
+        }
+
+        Iterable<? extends String> hashesList = Arrays.asList(Pojson.load(String[].class, hashes));
+
+        for (String key : segments) {
+            Map<String, Collection<? extends String>> found = StandaloneFinder.containsHash(Cache.sourceRootForKey(key), hashesList);
+
+            for (Entry<String, Collection<? extends String>> e : found.entrySet()) {
+                Map<String, Collection<? extends String>> perRoot = hash2Segment2Contains.get(e.getKey());
+
+                if (perRoot == null) {
+                    hash2Segment2Contains.put(e.getKey(), perRoot = new HashMap<String, Collection<? extends String>>());
+                }
+
+                perRoot.put(key, e.getValue());
+            }
+        }
+
+        return Pojson.save(hash2Segment2Contains);
     }
 }

@@ -48,15 +48,30 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.ToolProvider;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.Collector;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.Searcher;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.store.FSDirectory;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
+import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex.BitSetCollector;
+import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
@@ -102,6 +117,38 @@ public class StandaloneFinder {
         preparePattern(pattern, errors);
 
         return errors;
+    }
+
+    public static Map<String, Collection<? extends String>> containsHash(File sourceRoot, Iterable<? extends String> hashes) throws IOException {
+        File cacheRoot = Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(sourceRoot.toURI().toURL());
+        File dir = new File(cacheRoot, "fulltext");
+
+        if (dir.listFiles() != null && dir.listFiles().length > 0) {
+            IndexReader reader = IndexReader.open(FSDirectory.open(dir), true);
+            Map<String, Collection<? extends String>> result = new HashMap<String, Collection<? extends String>>();
+
+            for (String hash : hashes) {
+                Collection<String> found = new LinkedList<String>();
+                Query query = new TermQuery(new Term("generalized", hash));
+                Searcher s = new IndexSearcher(reader);
+                BitSet matchingDocuments = new BitSet(reader.maxDoc());
+                Collector c = new BitSetCollector(matchingDocuments);
+
+                s.search(query, c);
+
+                for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum + 1)) {
+                    final Document doc = reader.document(docNum);
+
+                    found.add(doc.getField("path").stringValue());
+                }
+
+                result.put(hash, found);
+            }
+            
+            return result;
+        }
+
+        return Collections.emptyMap();
     }
     
     private static BulkPattern preparePattern(String pattern, Collection<Diagnostic<? extends JavaFileObject>> errors) {
