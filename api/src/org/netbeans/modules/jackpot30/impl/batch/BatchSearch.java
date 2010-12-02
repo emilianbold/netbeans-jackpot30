@@ -479,10 +479,13 @@ public class BatchSearch {
                     final AtomicInteger currentPointer = new AtomicInteger();
                     callback.groupStarted();
 
+//                    for (FileObject f : toProcess) {
                     while (currentPointer.get() < toProcess.size()) {
                         final AtomicBoolean stop = new AtomicBoolean();
+//                        JavaSource js = JavaSource.create(e.getKey(), f);
+                        JavaSource js = JavaSource.create(e.getKey(), toProcess.subList(currentPointer.get(), toProcess.size()));
 
-                        JavaSource.create(e.getKey(), toProcess.subList(currentPointer.get(), toProcess.size())).runUserActionTask(new Task<CompilationController>() {
+                        js.runUserActionTask(new Task<CompilationController>() {
                             public void run(CompilationController parameter) throws Exception {
                                 if (stop.get()) return;
                                 if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
