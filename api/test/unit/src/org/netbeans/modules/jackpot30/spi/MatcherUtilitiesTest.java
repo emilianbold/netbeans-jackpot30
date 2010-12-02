@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.spi;
 
+import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.Collections;
@@ -81,6 +82,20 @@ public class MatcherUtilitiesTest extends TestBase {
         HintContext ctx = HintContext.create(info, null, tp, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
 
         assertTrue(MatcherUtilities.matches(ctx, ctx.getPath().getParentPath(), "$1 $0 = $_;"));
+    }
+
+    public void testMatchClass() throws Exception {
+        String code = "package test; import java.io.File; public class Test { Fi|le f; }";
+        int pos = code.indexOf("|");
+
+        code = code.replaceAll(Pattern.quote("|"), "");
+
+        prepareTest("test/Test.java", code);
+
+        TreePath tp = info.getTreeUtilities().pathFor(pos);
+        HintContext ctx = HintContext.create(info, null, tp, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
+
+        assertTrue(MatcherUtilities.matches(ctx, ctx.getPath(), "java.io.File"));
     }
 
 }

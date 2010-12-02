@@ -188,7 +188,7 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
     }
 
     public static boolean isDuplicate(final CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, HintContext inVariables, boolean fillInVariables, AtomicBoolean cancel) {
-        if (one.getLeaf().getKind() != second.getLeaf().getKind()) {
+        if (!sameKind(one.getLeaf(), second.getLeaf())) {
             return false;
         }
 
