@@ -1,3 +1,4 @@
+<!hint="java.util.Objects">
 //java.util.Objects.equals:
 ($1 == null) ? ($2 != null) : !$1.equals($2) :: $1 instanceof java.lang.Object && $2 instanceof java.lang.Object
 =>java.util.Objects.equals($1, $2)

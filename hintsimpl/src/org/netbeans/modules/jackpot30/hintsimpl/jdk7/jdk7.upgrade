@@ -1,0 +1,12 @@
+{
+    "upgradeName" : "jdk7_upgrade",
+    "bundle" : "org/netbeans/modules/jackpot30/hintsimpl/jdk7/Bundle",
+    "hints" : [
+        "org.netbeans.modules.jackpot30.hintsimpl.jdk7.ConvertToDiamondBulkHint",
+        "org.netbeans.modules.java.hints.jdk.ConvertToStringSwitch",
+        "org.netbeans.modules.java.hints.jdk.ConvertToARM",
+        "org.netbeans.modules.java.hints.jdk.JoinCatches",
+        "org.netbeans.modules.java.hints.jdk.UseSpecificCatch",
+        "java.util.Objects"
+    ]
+}

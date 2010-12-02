@@ -45,6 +45,7 @@ made subject to such option by the copyright holder.
 
     <folder name="org-netbeans-modules-java-hints">
         <folder name="declarative">
+            <file name="Bundle.properties" url="jdk7/Bundle.properties" /> <!--XXX-->
             <file name="assert2if.hint" url="assert2if.hint" />
             <file name="variable-decl-assignment.hint" url="variable-decl-assignment.hint" />
             <file name="double-checked-locking.hint" url="double-checked-locking.hint" />
@@ -53,6 +54,9 @@ made subject to such option by the copyright holder.
             <file name="AddConditionals.hint" url="jackpot/AddConditionals.hint" />
             <file name="EnhancedFor.hint" url="jackpot/EnhancedFor.hint" />
             <file name="java.util.Objects.hint" url="jdk7/java.util.Objects.hint" />
+        </folder>
+        <folder name="upgrades">
+            <file name="jdk7.upgrade" url="jdk7/jdk7.upgrade" />
         </folder>
     </folder>
 

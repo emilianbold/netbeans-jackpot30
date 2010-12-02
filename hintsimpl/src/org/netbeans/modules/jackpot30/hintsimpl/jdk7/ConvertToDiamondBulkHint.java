@@ -65,20 +65,19 @@ import org.netbeans.spi.editor.hints.Severity;
 @Hint(category="rules15",enabled=false, hintKind=Kind.HINT_NON_GUI)
 public class ConvertToDiamondBulkHint {
 
-    private static final Set<String> CODES = new HashSet<String>(Arrays.asList("compiler.note.diamond.redundant.args", "compiler.note.diamond.redundant.args.1"));
-
     @TriggerPatterns({
         @TriggerPattern("new $clazz<$tparams$>($params$)")
     })
     public static List<ErrorDescription> compute(HintContext ctx) {
         List<ErrorDescription> result = new LinkedList<ErrorDescription>();
         ErrorRule<Void> convert = new ConvertToDiamond();
+        Set<String> codes = convert.getCodes();
         TreePath clazz = ctx.getVariables().get("$clazz");
         long start = ctx.getInfo().getTrees().getSourcePositions().getStartPosition(clazz.getCompilationUnit(), clazz.getLeaf());
 
         for (Diagnostic<?> d : ctx.getInfo().getDiagnostics()) {
             if (start != d.getStartPosition()) continue;
-            if (!CODES.contains(d.getCode())) continue;
+            if (!codes.contains(d.getCode())) continue;
 
             List<Fix> fixes = convert.run(ctx.getInfo(), d.getCode(), (int) d.getPosition(), ctx.getInfo().getTreeUtilities().pathFor((int) d.getPosition() + 1), null);
             result.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "", fixes, ctx.getInfo().getFileObject(), (int) d.getStartPosition(), (int) d.getEndPosition()));
