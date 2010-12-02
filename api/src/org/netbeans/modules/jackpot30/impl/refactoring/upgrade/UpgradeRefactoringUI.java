@@ -61,7 +61,12 @@ public class UpgradeRefactoringUI implements RefactoringUI {
 
     private volatile UpgradeDescription upgrade;
     private volatile Scope scope;
-    
+    private final UpgradeRefactoring refactoring;
+
+    public UpgradeRefactoringUI() {
+        refactoring = new UpgradeRefactoring(Lookup.EMPTY);
+    }
+
     public String getName() {
         return "Upgrade";
     }
@@ -110,7 +115,9 @@ public class UpgradeRefactoringUI implements RefactoringUI {
     }
 
     public AbstractRefactoring getRefactoring() {
-        return new UpgradeRefactoring(Lookup.EMPTY, upgrade, scope);
+        refactoring.setUpgrade(upgrade);
+        refactoring.setScope(scope);
+        return refactoring;
     }
 
     public HelpCtx getHelpCtx() {

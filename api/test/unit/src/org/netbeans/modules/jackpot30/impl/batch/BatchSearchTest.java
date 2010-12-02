@@ -64,6 +64,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.classpath.GlobalPathRegistryEvent;
 import org.netbeans.api.java.classpath.GlobalPathRegistryListener;
+import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.core.startup.Main;
@@ -214,24 +215,11 @@ public class BatchSearchTest extends NbTestCase {
         assertEquals(golden, output);
 
         //check verification:
-        Map<String, Iterable<String>> verifiedOutput = new HashMap<String, Iterable<String>>();
-        
-        for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
-            Collection<String> resourcesRepr = new LinkedList<String>();
+        Map<String, Map<String, Iterable<String>>> verifiedOutput = verifiedSpans(result);
+        Map<String, Map<String, Iterable<String>>> verifiedGolden = new HashMap<String, Map<String, Iterable<String>>>();
 
-            for (Resource r : e.getValue()) {
-                for (ErrorDescription ed : r.getVerifiedSpans(new LinkedList<MessageImpl>())) {
-                    resourcesRepr.add(ed.toString());
-                }
-            }
-
-            verifiedOutput.put(e.getKey().toDebugString(), resourcesRepr);
-        }
-
-        Map<String, Iterable<String>> verifiedGolden = new HashMap<String, Iterable<String>>();
-
-        verifiedGolden.put(src1.getURL().toExternalForm(), Arrays.<String>asList());
-        verifiedGolden.put(src3.getURL().toExternalForm(), Arrays.asList("0:75-0:86:verifier:TODO: No display name"));
+        verifiedGolden.put(src1.getURL().toExternalForm(), Collections.<String, Iterable<String>>singletonMap("test/Test1.java", Arrays.<String>asList()));
+        verifiedGolden.put(src3.getURL().toExternalForm(), Collections.<String, Iterable<String>>singletonMap("test/Test1.java", Arrays.asList("0:75-0:86:verifier:TODO: No display name")));
 
         assertEquals(verifiedGolden, verifiedOutput);
     }
@@ -270,7 +258,6 @@ public class BatchSearchTest extends NbTestCase {
         assertEquals(golden, output);
 
         //check verification:
-        Map<String, Iterable<String>> verifiedOutput = new HashMap<String, Iterable<String>>();
         final Set<FileObject> added = new HashSet<FileObject>();
         final Set<FileObject> removed = new HashSet<FileObject>();
         
@@ -287,21 +274,16 @@ public class BatchSearchTest extends NbTestCase {
             }
         });
 
-        for (Entry<? extends Container, ? extends Iterable<? extends Resource>> e : result.projectId2Resources.entrySet()) {
-            Collection<String> resourcesRepr = new LinkedList<String>();
+//        verifiedGolden.put(data.getURL().toExternalForm(), Arrays.asList("0:75-0:86:verifier:TODO: No display name"));
+        Map<String, Map<String, Iterable<String>>> verifiedOutput = verifiedSpans(result);
+        Map<String, Map<String, Iterable<String>>> verifiedGolden = new HashMap<String, Map<String, Iterable<String>>>();
 
-            for (Resource r : e.getValue()) {
-                for (ErrorDescription ed : r.getVerifiedSpans(new LinkedList<MessageImpl>())) {
-                    resourcesRepr.add(ed.toString());
-                }
-            }
+        Map<String, Iterable<String>> verifiedGoldenPart = new HashMap<String, Iterable<String>>();
 
-            verifiedOutput.put(e.getKey().toDebugString(), resourcesRepr);
-        }
+        verifiedGoldenPart.put("src1/test/Test1.java", Arrays.<String>asList());
+        verifiedGoldenPart.put("src2/test/Test1.java", Arrays.<String>asList("0:75-0:86:verifier:TODO: No display name"));
 
-        Map<String, Iterable<String>> verifiedGolden = new HashMap<String, Iterable<String>>();
-
-        verifiedGolden.put(data.getURL().toExternalForm(), Arrays.asList("0:75-0:86:verifier:TODO: No display name"));
+        verifiedGolden.put(data.getURL().toExternalForm(), verifiedGoldenPart);
 
         assertEquals(verifiedGolden, verifiedOutput);
         assertEquals(new HashSet<FileObject>(Arrays.asList(dataSrc1, dataSrc2)), added);
@@ -440,6 +422,37 @@ public class BatchSearchTest extends NbTestCase {
         }
 
         return output;
+    }
+
+    private Map<String, Map<String, Iterable<String>>> verifiedSpans(BatchResult candidates) throws Exception {
+        final Map<String, Map<String, Iterable<String>>> result = new HashMap<String, Map<String, Iterable<String>>>();
+        List<MessageImpl> errors = new LinkedList<MessageImpl>();
+        BatchSearch.getVerifiedSpans(candidates, new ProgressHandleWrapper(1), new BatchSearch.VerifiedSpansCallBack() {
+            public void groupStarted() {}
+            public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
+                Map<String, Iterable<String>> files = result.get(r.getContainer().toDebugString());
+
+                if (files == null) {
+                    result.put(r.getContainer().toDebugString(), files = new HashMap<String, Iterable<String>>());
+                }
+
+                Collection<String> currentHints = new LinkedList<String>();
+
+                for (ErrorDescription ed : hints) {
+                    currentHints.add(ed.toString());
+                }
+
+                files.put(r.getRelativePath(), currentHints);
+                
+                return true;
+            }
+            public void groupFinished() {}
+            public void cannotVerifySpan(Resource r) {
+                fail("Cannot verify: " +r.getRelativePath());
+            }
+        }, errors);
+
+        return result;
     }
 
     @ServiceProvider(service=ClassPathProvider.class)

@@ -42,12 +42,14 @@
 
 package org.netbeans.modules.jackpot30.impl.refactoring.upgrade;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -57,12 +59,12 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.codeviation.pojson.Pojson;
+import org.codeviation.pojson.Pojson.SuppressStoring;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 import org.openide.util.NbBundle;
 
 /**
@@ -71,18 +73,19 @@ import org.openide.util.NbBundle;
  */
 public class UpgradeDescription {
 
+    @SuppressStoring
+    private final FileObject sourceFile;
     private final String upgradeName;
     private final String bundle;
     private final Collection<String> hints;
+    private final Collection<String> disabledHints;
 
-    private UpgradeDescription() {
-        this(Collections.<String>emptySet(), null, null);
-    }
-
-    private UpgradeDescription(Collection<String> hints, String upgradeName, String bundle) {
-        this.hints = hints;
-        this.upgradeName = upgradeName;
-        this.bundle = bundle;
+    private UpgradeDescription(FileObject sourceFile) {
+        this.sourceFile = sourceFile;
+        this.hints = new ArrayList<String>();
+        this.disabledHints = new ArrayList<String>();
+        this.upgradeName = null;
+        this.bundle = null;
     }
 
     String getBundle() {
@@ -103,7 +106,7 @@ public class UpgradeDescription {
         return b.getString("DN_" + upgradeName);
     }
 
-    public Iterable<? extends HintDescription> getHints() {
+    public Iterable<? extends HintDescription> getEnabledHints() {
         List<HintDescription> result = new LinkedList<HintDescription>();
         Set<String> hints = new HashSet<String>(this.hints);
 
@@ -116,12 +119,59 @@ public class UpgradeDescription {
         return result;
     }
 
+    Map<HintMetadata, Boolean> getAllHints() {
+        Map<HintMetadata, Boolean> result = new LinkedHashMap<HintMetadata, Boolean>();
+        Set<String> hints = new HashSet<String>(this.hints);
+        Set<String> disabledHints = new HashSet<String>(this.disabledHints);
+
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.computeAllHints().entrySet()) {
+            if (hints.contains(e.getKey().id)) {
+                result.put(e.getKey(), true);
+            }
+            if (disabledHints.contains(e.getKey().id)) {
+                result.put(e.getKey(), false);
+            }
+        }
+
+        return result;
+    }
+
+    void putHintStates(Map<HintMetadata, Boolean> enabled) {
+        this.hints.clear();
+        this.disabledHints.clear();
+
+        for (Entry<HintMetadata, Boolean> e : enabled.entrySet()) {
+            if (e.getValue()) {
+                this.hints.add(e.getKey().id);
+            } else {
+                this.disabledHints.add(e.getKey().id);
+            }
+        }
+    }
+
+    void store() {
+        OutputStream outs = null;
+
+        try {
+            outs = sourceFile.getOutputStream();
+            Pojson.save(this, outs);
+        } catch (IOException ex) {
+            Logger.getLogger(UpgradeDescription.class.getName()).log(Level.FINE, null, ex);
+        } finally {
+            try {
+                outs.close();
+            } catch (IOException ex) {
+                Logger.getLogger(UpgradeDescription.class.getName()).log(Level.FINE, null, ex);
+            }
+        }
+    }
+
     public static UpgradeDescription create(FileObject file) {
         InputStream ins = null;
 
         try {
             ins = file.getInputStream();
-            return Pojson.update(new UpgradeDescription(), ins);
+            return Pojson.update(new UpgradeDescription(file), ins);
         } catch (IOException ex) {
             Logger.getLogger(UpgradeDescription.class.getName()).log(Level.FINE, null, ex);
             return null;

@@ -40,7 +40,9 @@
 package org.netbeans.modules.jackpot30.impl.batch;
 
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.Map;
+import java.util.Set;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
@@ -73,7 +75,7 @@ public final class JavaFixImpl implements Fix {
     public ChangeInfo implement() throws Exception {
         FileObject file = Accessor.INSTANCE.getFile(jf);
         
-        BatchUtilities.fixDependencies(Collections.singletonMap(file, Collections.singletonList(jf)));
+        BatchUtilities.fixDependencies(file, Collections.singletonList(jf), new IdentityHashMap<Project, Set<String>>());
 
         JavaSource js = JavaSource.forFileObject(file);
 

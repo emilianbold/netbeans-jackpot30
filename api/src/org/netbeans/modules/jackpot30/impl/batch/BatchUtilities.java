@@ -42,12 +42,18 @@ package org.netbeans.modules.jackpot30.impl.batch;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ImportTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.util.Log;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -58,9 +64,10 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.text.Document;
 import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo;
+import org.netbeans.api.java.source.CompilationController;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.ModificationResult;
@@ -80,11 +87,13 @@ import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.jackpot30.spi.ProjectDependencyUpgrader;
 import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
+import org.netbeans.modules.java.source.JavaSourceAccessor;
+import org.netbeans.modules.java.source.parsing.CompilationInfoImpl;
+import org.netbeans.modules.java.source.save.ElementOverlay;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 
 /**
@@ -95,75 +104,59 @@ public class BatchUtilities {
 
     private static final Logger LOG = Logger.getLogger(BatchUtilities.class.getName());
     
-    public static Collection<? extends ModificationResult> applyFixes(BatchResult candidates, @NonNull ProgressHandleWrapper progress, AtomicBoolean cancel, Collection<? super MessageImpl> problems) {
-        ProgressHandleWrapper innerProgress = progress.startNextPartWithEmbedding(60, 5, 35);
-        
-        Map<FileObject, Collection<ErrorDescription>> file2eds = new HashMap<FileObject, Collection<ErrorDescription>>();
-        
-        innerProgress.startNextPart(candidates.projectId2Resources.size());
-        
-        for (Iterable<? extends Resource> it : candidates.projectId2Resources.values()) {
-            BatchSearch.getVerifiedSpans(it, problems);
+    public static Collection<ModificationResult> applyFixes(BatchResult candidates, @NonNull ProgressHandleWrapper progress, AtomicBoolean cancel, final Collection<? super MessageImpl> problems) {
+        final Map<Project, Set<String>> processedDependencyChanges = new IdentityHashMap<Project, Set<String>>();
+        final Map<FileObject, List<ModificationResult.Difference>> result = new LinkedHashMap<FileObject, List<ModificationResult.Difference>>();
 
-            for (Resource r : it) {
-                List<ErrorDescription> eds = new LinkedList<ErrorDescription>();
+        BatchSearch.VerifiedSpansCallBack callback = new BatchSearch.VerifiedSpansCallBack() {
+            private ElementOverlay overlay;
+            public void groupStarted() {
+                overlay = new ElementOverlay();
+            }
+            public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
+                Constructor<WorkingCopy> wcConstr = WorkingCopy.class.getDeclaredConstructor(CompilationInfoImpl.class, ElementOverlay.class);
+                wcConstr.setAccessible(true);
 
-                Iterable<? extends ErrorDescription> current = r.getVerifiedSpans(problems);
+//                final WorkingCopy copy = new WorkingCopy(JavaSourceAccessor.getINSTANCE().getCompilationInfoImpl(parameter), overlay);
+                WorkingCopy copy = wcConstr.newInstance(JavaSourceAccessor.getINSTANCE().getCompilationInfoImpl(wc), overlay);
+                Method setJavaSource = CompilationInfo.class.getDeclaredMethod("setJavaSource", JavaSource.class);
+                setJavaSource.setAccessible(true);
 
-                if (current == null) {
-                    //XXX: warn?
-                    continue;
+//                copy.setJavaSource(JavaSource.this);
+                setJavaSource.invoke(copy, wc.getJavaSource());
+
+                copy.toPhase(Phase.RESOLVED);
+                
+                if (applyFixes(copy, processedDependencyChanges, hints, problems)) {
+                    return false;
                 }
 
-                for (ErrorDescription ed : current) {
-                    eds.add(ed);
+                final JavacTaskImpl jt = JavaSourceAccessor.getINSTANCE().getJavacTask(copy);
+                Log.instance(jt.getContext()).nerrors = 0;
+                Method getChanges = WorkingCopy.class.getDeclaredMethod("getChanges", Map.class);
+                getChanges.setAccessible(true);
+
+                result.put(copy.getFileObject(), (List<ModificationResult.Difference>) getChanges.invoke(copy, new HashMap<Object, int[]>()));
+
+                if (LOG.isLoggable(Level.FINE)) {
+                    LOG.log(Level.FINE, "fixes applied to: {0}", FileUtil.getFileDisplayName(wc.getFileObject()));
                 }
 
-                if (!eds.isEmpty()) {
-                    file2eds.put(r.getResolvedFile(), eds);
-                }
+                return true;
             }
 
-            innerProgress.tick();
-        }
-
-        Map<FileObject, List<JavaFix>> file2Fixes = new HashMap<FileObject, List<JavaFix>>();
-
-        innerProgress.startNextPart(file2eds.size());
-        
-        for (final Entry<FileObject, Collection<ErrorDescription>> e : file2eds.entrySet()) {
-            LinkedList<JavaFix> fixes = new LinkedList<JavaFix>();
-
-            file2Fixes.put(e.getKey(), fixes);
-
-            for (ErrorDescription ed : e.getValue()) {
-                if (!ed.getFixes().isComputed()) {
-                    throw new IllegalStateException();//TODO: should be problem
-                }
-
-                if (ed.getFixes().getFixes().size() != 1) {
-                    if (ed.getFixes().getFixes().isEmpty()) {
-                        problems.add(new MessageImpl(MessageKind.WARNING, "No fix for: " + ed.getDescription() + " at " + positionToString(ed) + "."));
-                        continue;
-                    }
-                    
-                    problems.add(new MessageImpl(MessageKind.WARNING, "More than one fix for: " + ed.getDescription() + " at " + positionToString(ed) + ", only the first one will be used."));
-                }
-
-                Fix f = ed.getFixes().getFixes().get(0);
-
-                if (!(f instanceof JavaFixImpl)) {
-                    throw new IllegalStateException();//TODO: should be problem
-                }
-
-
-                fixes.add(((JavaFixImpl) f).jf);
+            public void groupFinished() {
+                overlay = null;
             }
 
-            innerProgress.tick();
-        }
+            public void cannotVerifySpan(Resource r) {
+                problems.add(new MessageImpl(MessageKind.WARNING, "Cannot parse: " + r.getRelativePath()));
+            }
+        };
 
-        return BatchUtilities.performFastFixes(file2Fixes, innerProgress, cancel);
+        BatchSearch.getVerifiedSpans(candidates, progress, callback, problems);
+        
+        return Collections.singletonList(JavaSourceAccessor.getINSTANCE().createModificationResult(result, Collections.<Object, int[]>emptyMap()));
     }
 
     private static String positionToString(ErrorDescription ed) {
@@ -208,70 +201,40 @@ public class BatchUtilities {
         }
     }
 
-    private static List<ModificationResult> performFastFixes(Map<FileObject, List<JavaFix>> fastFixes, @NonNull ProgressHandleWrapper handle, AtomicBoolean cancel) {
-        ProgressHandleWrapper innerProgress = handle.startNextPartWithEmbedding(20, 80);
-
-        innerProgress.startNextPart(1);
-
-        Map<ClasspathInfo, Collection<FileObject>> sortedFilesForFixes = sortFiles(fastFixes.keySet());
-
-        innerProgress.tick();
-        
-        List<ModificationResult> results = new LinkedList<ModificationResult>();
-
-        innerProgress.startNextPart(fastFixes.size());
-
-        for (Entry<ClasspathInfo, Collection<FileObject>> e : sortedFilesForFixes.entrySet()) {
-            if (cancel.get()) return null;
-            
-            Map<FileObject, List<JavaFix>> filtered = new HashMap<FileObject, List<JavaFix>>();
-
-            for (FileObject f : e.getValue()) {
-                filtered.put(f, fastFixes.get(f));
+    private static boolean applyFixes(WorkingCopy copy, Map<Project, Set<String>> processedDependencyChanges, Collection<? extends ErrorDescription> hints, Collection<? super MessageImpl> problems) throws IllegalStateException, Exception {
+        List<JavaFix> fixes = new ArrayList<JavaFix>();
+        for (ErrorDescription ed : hints) {
+            if (!ed.getFixes().isComputed()) {
+                throw new IllegalStateException();//TODO: should be problem
             }
 
-            ModificationResult r = performFastFixes(e.getKey(), filtered, innerProgress, cancel);
-            
-            if (r != null) {
-                results.add(r);
-            }
-        }
-
-        return results;
-    }
-
-    private static ModificationResult performFastFixes(ClasspathInfo cpInfo, final Map<FileObject, List<JavaFix>> toProcess, @NullAllowed final ProgressHandleWrapper handle, final AtomicBoolean cancel) {
-        fixDependencies(toProcess);
-        
-        JavaSource js = JavaSource.create(cpInfo, toProcess.keySet());
-
-        try {
-            return js.runModificationTask(new Task<WorkingCopy>() {
-                public void run(WorkingCopy wc) throws Exception {
-                    if (cancel.get()) return ;
-                    
-                    if (wc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
-                        return ;
-
-                    for (JavaFix f : toProcess.get(wc.getFileObject())) {
-                        if (cancel.get()) return ;
-                        
-                        JavaFixImpl.Accessor.INSTANCE.process(f, wc, false);
-                    }
-
-                    if (handle != null) {
-                        handle.tick();
-                    }
-
-                    if (LOG.isLoggable(Level.FINE)) {
-                        LOG.log(Level.FINE, "performFastFixes done processing: {0}", FileUtil.getFileDisplayName(wc.getFileObject()));
-                    }
+            if (ed.getFixes().getFixes().size() != 1) {
+                if (ed.getFixes().getFixes().isEmpty()) {
+                    problems.add(new MessageImpl(MessageKind.WARNING, "No fix for: " + ed.getDescription() + " at " + positionToString(ed) + "."));
+                    continue;
                 }
-            });
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-            return null;
+
+                problems.add(new MessageImpl(MessageKind.WARNING, "More than one fix for: " + ed.getDescription() + " at " + positionToString(ed) + ", only the first one will be used."));
+            }
+
+            Fix f = ed.getFixes().getFixes().get(0);
+
+            if (!(f instanceof JavaFixImpl)) {
+                throw new IllegalStateException();//TODO: should be problem
+            }
+
+
+            fixes.add(((JavaFixImpl) f).jf);
         }
+        if (fixDependencies(copy.getFileObject(), fixes, processedDependencyChanges)) {
+            return true;
+        }
+        for (JavaFix f : fixes) {
+//                    if (cancel.get()) return ;
+
+            JavaFixImpl.Accessor.INSTANCE.process(f, copy, false);
+        }
+        return false;
     }
 
     public static Collection<FileObject> getSourceGroups(Iterable<? extends Project> prjs) {
@@ -289,14 +252,18 @@ public class BatchUtilities {
     }
 
     public static Map<ClasspathInfo, Collection<FileObject>> sortFiles(Collection<? extends FileObject> from) {
-        Map<List<ClassPath>, Collection<FileObject>> m = new HashMap<List<ClassPath>, Collection<FileObject>>();
+        Map<List<Object>, Collection<FileObject>> m = new HashMap<List<Object>, Collection<FileObject>>();
 
         for (FileObject f : from) {
-            List<ClassPath> cps = new ArrayList<ClassPath>(3);
+            List<Object> cps = new ArrayList<Object>(4);
 
             cps.add(ClassPath.getClassPath(f, ClassPath.BOOT));
             cps.add(ClassPath.getClassPath(f, ClassPath.COMPILE));
-            cps.add(ClassPath.getClassPath(f, ClassPath.SOURCE));
+
+            ClassPath sourceCP = ClassPath.getClassPath(f, ClassPath.SOURCE);
+
+            cps.add(sourceCP);
+            cps.add(sourceCP != null ? sourceCP.findOwnerRoot(f) : null);
 
             Collection<FileObject> files = m.get(cps);
 
@@ -307,20 +274,19 @@ public class BatchUtilities {
             files.add(f);
         }
 
-        Map<ClasspathInfo, Collection<FileObject>> result = new HashMap<ClasspathInfo, Collection<FileObject>>();
+        Map<ClasspathInfo, Collection<FileObject>> result = new IdentityHashMap<ClasspathInfo, Collection<FileObject>>();
 
-        for (Entry<List<ClassPath>, Collection<FileObject>> e : m.entrySet()) {
-            result.put(ClasspathInfo.create(e.getKey().get(0), e.getKey().get(1), e.getKey().get(2)), e.getValue());
+        for (Entry<List<Object>, Collection<FileObject>> e : m.entrySet()) {
+            result.put(ClasspathInfo.create((ClassPath) e.getKey().get(0), (ClassPath) e.getKey().get(1), (ClassPath) e.getKey().get(2)), e.getValue());
         }
 
         return result;
     }
 
-    public static void fixDependencies(Map<FileObject, List<JavaFix>> toProcess) {
-        Map<Project, Set<String>> alreadyProcessed = new IdentityHashMap<Project, Set<String>>();
-
-        for (FileObject file : toProcess.keySet()) {
-            for (JavaFix fix : toProcess.get(file)) {
+    public static boolean fixDependencies(FileObject file, List<JavaFix> toProcess, Map<Project, Set<String>> alreadyProcessed) {
+        boolean modified = false;
+//        for (FileObject file : toProcess.keySet()) {
+            for (JavaFix fix : toProcess) {
                 String updateTo = Accessor.INSTANCE.getOptions(fix).get(JavaFix.ENSURE_DEPENDENCY);
 
                 if (updateTo != null) {
@@ -335,7 +301,8 @@ public class BatchUtilities {
 
                         if (seen.add(updateTo)) {
                             for (ProjectDependencyUpgrader up : Lookup.getDefault().lookupAll(ProjectDependencyUpgrader.class)) {
-                                if (up.ensureDependency(p, updateTo, false)) {
+                                if (up.ensureDependency(p, updateTo, false)) { //XXX: should check whether the given project was actually modified
+                                    modified = true;
                                     break;
                                 }
                             }
@@ -344,6 +311,9 @@ public class BatchUtilities {
                     }
                 }
             }
-        }
+
+            return modified;
+//        }
     }
+
 }

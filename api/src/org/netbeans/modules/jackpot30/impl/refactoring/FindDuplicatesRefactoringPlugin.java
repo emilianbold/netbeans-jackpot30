@@ -41,11 +41,13 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.io.CharConversionException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
 import javax.swing.text.Position.Bias;
+import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
@@ -62,6 +64,7 @@ import org.openide.cookies.EditorCookie;
 import org.openide.cookies.LineCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.loaders.DataObject;
+import org.openide.loaders.DataObjectNotFoundException;
 import org.openide.text.CloneableEditorSupport;
 import org.openide.text.Line;
 import org.openide.text.PositionBounds;
@@ -109,30 +112,49 @@ public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactori
         return current;
     }
 
-    private List<MessageImpl> performSearchForPattern(RefactoringElementsBag refactoringElements) {
+    private List<MessageImpl> performSearchForPattern(final RefactoringElementsBag refactoringElements) {
         ProgressHandleWrapper w = new ProgressHandleWrapper(this, 50, 50);
         BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w);
         List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
 
-        int[] parts = new int[candidates.projectId2Resources.size()];
-        int   index = 0;
+        final boolean verify = refactoring.isVerify();
 
-        for (Entry<? extends Container, ? extends Collection<? extends Resource>> e : candidates.projectId2Resources.entrySet()) {
-            parts[index++] = e.getValue().size();
-        }
+        if (verify) {
+            BatchSearch.getVerifiedSpans(candidates, w, new BatchSearch.VerifiedSpansCallBack() {
+                public void groupStarted() {}
+                public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
+                    List<PositionBounds> spans = new LinkedList<PositionBounds>();
 
-        ProgressHandleWrapper inner = w.startNextPartWithEmbedding(parts);
+                    for (ErrorDescription ed : hints) {
+                        spans.add(ed.getRange());
+                    }
 
-        for (Collection<? extends Resource> it :candidates.projectId2Resources.values()) {
-            inner.startNextPart(it.size());
+                    refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r.getResolvedFile(), spans, verify));
 
-            if (refactoring.isVerify()) {
-                BatchSearch.getVerifiedSpans(it, problems);
+                    return true;
+                }
+                public void groupFinished() {}
+                public void cannotVerifySpan(Resource r) {
+                    refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r.getResolvedFile(), prepareSpansFor(r), verify));
+                }
+            }, problems);
+        } else {
+            int[] parts = new int[candidates.projectId2Resources.size()];
+            int   index = 0;
+
+            for (Entry<? extends Container, ? extends Collection<? extends Resource>> e : candidates.projectId2Resources.entrySet()) {
+                parts[index++] = e.getValue().size();
             }
 
-            for (Resource r : it) {
-                refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r, refactoring.isVerify()));
-                inner.tick();
+            ProgressHandleWrapper inner = w.startNextPartWithEmbedding(parts);
+
+            for (Collection<? extends Resource> it :candidates.projectId2Resources.values()) {
+                inner.startNextPart(it.size());
+
+                for (Resource r : it) {
+                    refactoringElements.addAll(refactoring, createRefactoringElementImplementation(r.getResolvedFile(), prepareSpansFor(r), verify));
+                    inner.tick();
+                }
             }
         }
 
@@ -141,50 +163,36 @@ public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactori
         return problems;
      }
 
-    public static Collection<RefactoringElementImplementation> createRefactoringElementImplementation(Resource r, boolean verify) {
-        FileObject file = r.getResolvedFile();
+    private static List<PositionBounds> prepareSpansFor(Resource r) {
+        List<PositionBounds> spans = new ArrayList<PositionBounds>();
 
-        if (file == null) {
-            //TODO???
-            return null;
+        try {
+            FileObject file = r.getResolvedFile();
+            DataObject d = DataObject.find(file);
+            EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
+            CloneableEditorSupport ces = (CloneableEditorSupport) ec;
+
+            spans = new LinkedList<PositionBounds>();
+
+            for (int[] span : r.getCandidateSpans()) {
+                PositionRef start = ces.createPositionRef(span[0], Bias.Forward);
+                PositionRef end = ces.createPositionRef(span[1], Bias.Forward);
+
+                spans.add(new PositionBounds(start, end));
+            }
+        } catch (DataObjectNotFoundException ex) {
+            Exceptions.printStackTrace(ex);
         }
 
+        return spans;
+    }
+
+    private static Collection<RefactoringElementImplementation> createRefactoringElementImplementation(FileObject file, List<PositionBounds> spans, boolean verified) {
         List<RefactoringElementImplementation> result = new LinkedList<RefactoringElementImplementation>();
-        
+
         try {
-            List<PositionBounds> spans = null;
-            boolean faded = false;
-
-            if (verify) {
-                Iterable<? extends ErrorDescription> errors = r.getVerifiedSpans(new LinkedList<MessageImpl>());
-
-                if (errors != null) {
-                    spans = new LinkedList<PositionBounds>();
-                    
-                    for (ErrorDescription ed : errors) {
-                        spans.add(ed.getRange());
-                    }
-                } else {
-                    faded = true;
-                }
-            }
-
             DataObject d = DataObject.find(file);
             LineCookie lc = d.getLookup().lookup(LineCookie.class);
-            
-            if (spans == null) {
-                EditorCookie ec = d.getLookup().lookup(EditorCookie.class);
-                CloneableEditorSupport ces = (CloneableEditorSupport) ec;
-
-                spans = new LinkedList<PositionBounds>();
-                
-                for (int[] span : r.getCandidateSpans()) {
-                    PositionRef start = ces.createPositionRef(span[0], Bias.Forward);
-                    PositionRef end = ces.createPositionRef(span[1], Bias.Forward);
-                    
-                    spans.add(new PositionBounds(start, end));
-                }
-            }
 
             for (PositionBounds bound : spans) {
                 PositionRef start = bound.getBegin();
@@ -197,17 +205,17 @@ public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactori
 
                 StringBuilder displayName = new StringBuilder();
 
-                if (faded) {
+                if (!verified) {
                     displayName.append("(not verified) ");
                 }
-                
+
                 displayName.append(escapedSubstring(lineText, 0, boldStart).replaceAll("^[ ]*", ""));
                 displayName.append("<b>");
                 displayName.append(escapedSubstring(lineText, boldStart, boldEnd));
                 displayName.append("</b>");
                 displayName.append(escapedSubstring(lineText, boldEnd, lineText.length()));
 
-                result.add(new RefactoringElementImpl(r, bound, displayName.toString()));
+                result.add(new RefactoringElementImpl(file, bound, displayName.toString()));
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
@@ -231,39 +239,18 @@ public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactori
         }
     }
 
-    public void start(int totalWork) {
-        fireProgressListenerStart(-1, totalWork);
-        lastWorkDone = 0;
-    }
-
-    private int lastWorkDone;
-    public void progress(int currentWorkDone) {
-        while (lastWorkDone < currentWorkDone) {
-            fireProgressListenerStep(currentWorkDone);
-            lastWorkDone++;
-        }
-    }
-
-    public void progress(String message) {
-        //ignored
-    }
-
-    public void finish() {
-        fireProgressListenerStop();
-    }
-
     private static final class RefactoringElementImpl extends SimpleRefactoringElementImplementation {
 
-        private final Resource resource;
+        private final FileObject file;
         private final PositionBounds span;
         private final String displayName;
 
         private final Lookup lookup;
         
-        public RefactoringElementImpl(Resource resource, PositionBounds span, String displayName) {
-            this.resource = resource;
+        public RefactoringElementImpl(FileObject file, PositionBounds span, String displayName) {
+            this.file = file;
             this.span = span;
-            this.lookup = Lookups.fixed(resource);
+            this.lookup = Lookups.fixed(file);
             this.displayName = displayName;
         }
 
@@ -284,7 +271,7 @@ public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactori
         }
 
         public FileObject getParentFile() {
-            return resource.getResolvedFile();
+            return file;
         }
 
         public PositionBounds getPosition() {

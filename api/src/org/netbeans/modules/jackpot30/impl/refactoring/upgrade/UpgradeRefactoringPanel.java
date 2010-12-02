@@ -40,12 +40,6 @@
  * Portions Copyrighted 2010 Sun Microsystems, Inc.
  */
 
-/*
- * UpgradeRefactoringPanel.java
- *
- * Created on Jun 6, 2010, 9:34:14 PM
- */
-
 package org.netbeans.modules.jackpot30.impl.refactoring.upgrade;
 
 import java.awt.Component;
@@ -54,7 +48,8 @@ import javax.swing.DefaultListCellRenderer;
 import javax.swing.JList;
 import javax.swing.event.ChangeListener;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.impl.refactoring.ScopesPanel;
+import org.openide.DialogDescriptor;
+import org.openide.DialogDisplayer;
 
 /**
  *
@@ -93,9 +88,17 @@ public class UpgradeRefactoringPanel extends javax.swing.JPanel {
         jLabel1 = new javax.swing.JLabel();
         upgradeCombo = new javax.swing.JComboBox();
         scopesPanel = new org.netbeans.modules.jackpot30.impl.refactoring.ScopesPanel();
+        configureButton = new javax.swing.JButton();
 
         jLabel1.setLabelFor(upgradeCombo);
         org.openide.awt.Mnemonics.setLocalizedText(jLabel1, org.openide.util.NbBundle.getMessage(UpgradeRefactoringPanel.class, "UpgradeRefactoringPanel.jLabel1.text")); // NOI18N
+
+        org.openide.awt.Mnemonics.setLocalizedText(configureButton, org.openide.util.NbBundle.getMessage(UpgradeRefactoringPanel.class, "UpgradeRefactoringPanel.configureButton.text")); // NOI18N
+        configureButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                configureButtonActionPerformed(evt);
+            }
+        });
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
@@ -104,28 +107,41 @@ public class UpgradeRefactoringPanel extends javax.swing.JPanel {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(scopesPanel, javax.swing.GroupLayout.DEFAULT_SIZE, 609, Short.MAX_VALUE)
                     .addGroup(layout.createSequentialGroup()
                         .addComponent(jLabel1)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(upgradeCombo, 0, 542, Short.MAX_VALUE)))
+                        .addComponent(upgradeCombo, 0, 507, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(configureButton))
+                    .addComponent(scopesPanel, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, 709, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addContainerGap()
+                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel1)
+                    .addComponent(configureButton)
                     .addComponent(upgradeCombo, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
-                .addComponent(scopesPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(scopesPanel, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
         );
     }// </editor-fold>//GEN-END:initComponents
 
+    private void configureButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_configureButtonActionPerformed
+        UpgradeDescription upgrade = getUpgrade();
+        ConfigureUpgrade configurePanel = new ConfigureUpgrade(upgrade);
+        DialogDescriptor dd = new DialogDescriptor(configurePanel, "Configure Upgrade");
+
+        if (DialogDisplayer.getDefault().notify(dd) == DialogDescriptor.OK_OPTION) {
+            configurePanel.store();
+        }
+    }//GEN-LAST:event_configureButtonActionPerformed
+
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton configureButton;
     private javax.swing.JLabel jLabel1;
     private org.netbeans.modules.jackpot30.impl.refactoring.ScopesPanel scopesPanel;
     private javax.swing.JComboBox upgradeCombo;
@@ -149,6 +165,7 @@ public class UpgradeRefactoringPanel extends javax.swing.JPanel {
 
     void saveScopesCombo() {
         scopesPanel.saveScopesCombo();
+        getUpgrade().store();
     }
     
     private static final class RendererImpl extends DefaultListCellRenderer {

@@ -1,0 +1,179 @@
+/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ *
+ * Copyright 2010 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
+ * Other names may be trademarks of their respective owners.
+ *
+ * The contents of this file are subject to the terms of either the GNU
+ * General Public License Version 2 only ("GPL") or the Common
+ * Development and Distribution License("CDDL") (collectively, the
+ * "License"). You may not use this file except in compliance with the
+ * License. You can obtain a copy of the License at
+ * http://www.netbeans.org/cddl-gplv2.html
+ * or nbbuild/licenses/CDDL-GPL-2-CP. See the License for the
+ * specific language governing permissions and limitations under the
+ * License.  When distributing the software, include this License Header
+ * Notice in each file and include the License file at
+ * nbbuild/licenses/CDDL-GPL-2-CP.  Oracle designates this
+ * particular file as subject to the "Classpath" exception as provided
+ * by Oracle in the GPL Version 2 section of the License file that
+ * accompanied this code. If applicable, add the following below the
+ * License Header, with the fields enclosed by brackets [] replaced by
+ * your own identifying information:
+ * "Portions Copyrighted [year] [name of copyright owner]"
+ *
+ * If you wish your version of this file to be governed by only the CDDL
+ * or only the GPL Version 2, indicate your decision by adding
+ * "[Contributor] elects to include this software in this distribution
+ * under the [CDDL or GPL Version 2] license." If you do not indicate a
+ * single choice of license, a recipient has the option to distribute
+ * your version of this file under either the CDDL, the GPL Version 2 or
+ * to extend the choice of license to its licensees as provided above.
+ * However, if you add GPL Version 2 code and therefore, elected the GPL
+ * Version 2 license, then the option applies only if the new code is
+ * made subject to such option by the copyright holder.
+ *
+ * Contributor(s):
+ *
+ * Portions Copyrighted 2010 Sun Microsystems, Inc.
+ */
+
+package org.netbeans.modules.jackpot30.impl.refactoring.upgrade;
+
+import java.awt.Point;
+import java.awt.Rectangle;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import javax.swing.DefaultListModel;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+import org.netbeans.modules.jackpot30.spi.HintMetadata;
+
+/**
+ *
+ * @author lahvac
+ */
+public class ConfigureUpgrade extends javax.swing.JPanel {
+
+    private final UpgradeDescription upgrade;
+    private final Map<HintMetadata,Boolean> enabled;
+
+    public ConfigureUpgrade(UpgradeDescription upgrade) {
+        this.upgrade = upgrade;
+
+        initComponents();
+
+        final DefaultListModel model = new DefaultListModel();
+
+        enabled = upgrade.getAllHints();
+
+        List<HintMetadata> sorted = new ArrayList<HintMetadata>(enabled.keySet());
+
+        Collections.sort(sorted, new Comparator<HintMetadata>() {
+
+            public int compare(HintMetadata m1, HintMetadata m2) {
+                return m1.displayName.compareToIgnoreCase(m2.displayName);
+            }
+        });
+        
+        for (HintMetadata hm : sorted) {
+            model.addElement(hm);
+        }
+
+        hintsList.setModel(model);
+        hintsList.setCellRenderer(new CheckBoxRenderrer(enabled));
+        hintsList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                Point p = e.getPoint();
+                int index = hintsList.locationToIndex(p);
+
+                if (index == (-1)) return;
+
+                Rectangle r = hintsList.getCellBounds(index, index);
+
+                if (r != null) {
+                    r.width = r.height;
+
+                    if (r.contains(p)) {
+                        HintMetadata hm = (HintMetadata) model.get(index);
+
+                        enabled.put(hm, !enabled.get(hm));
+                        hintsList.repaint();
+                    }
+                }
+            }
+        });
+        hintsList.addListSelectionListener(new ListSelectionListener() {
+            public void valueChanged(ListSelectionEvent e) {
+                HintMetadata selected = (HintMetadata) hintsList.getSelectedValue();
+
+                if (selected != null) {
+                    description.setText(selected.description);
+                }
+            }
+        });
+    }
+
+    void store() {
+        upgrade.putHintStates(enabled);
+    }
+
+    /** This method is called from within the constructor to
+     * initialize the form.
+     * WARNING: Do NOT modify this code. The content of this method is
+     * always regenerated by the Form Editor.
+     */
+    @SuppressWarnings("unchecked")
+    // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
+    private void initComponents() {
+
+        jScrollPane1 = new javax.swing.JScrollPane();
+        hintsList = new javax.swing.JList();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        description = new javax.swing.JEditorPane();
+
+        hintsList.setModel(new DefaultListModel());
+        jScrollPane1.setViewportView(hintsList);
+
+        description.setContentType(org.openide.util.NbBundle.getMessage(ConfigureUpgrade.class, "ConfigureUpgrade.description.contentType")); // NOI18N
+        jScrollPane2.setViewportView(description);
+
+        javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
+        this.setLayout(layout);
+        layout.setHorizontalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
+                .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE))
+                .addContainerGap())
+        );
+        layout.setVerticalGroup(
+            layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 133, Short.MAX_VALUE)
+                .addContainerGap())
+        );
+    }// </editor-fold>//GEN-END:initComponents
+
+
+    // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JEditorPane description;
+    private javax.swing.JList hintsList;
+    private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
+    // End of variables declaration//GEN-END:variables
+
+}

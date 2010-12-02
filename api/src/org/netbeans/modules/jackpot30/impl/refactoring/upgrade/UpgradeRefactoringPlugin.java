@@ -72,7 +72,8 @@ public class UpgradeRefactoringPlugin extends AbstractApplyHintsRefactoringPlugi
     }
 
     public Problem prepare(RefactoringElementsBag refactoringElements) {
-        return messagesToProblem(performApplyPattern(upgradeRefactoring.getUpgrade().getHints(), upgradeRefactoring.getScope(), refactoringElements));
+        cancel.set(false);
+        return messagesToProblem(performApplyPattern(upgradeRefactoring.getUpgrade().getEnabledHints(), upgradeRefactoring.getScope(), refactoringElements));
     }
 
 }

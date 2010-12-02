@@ -52,21 +52,27 @@ import org.openide.util.Lookup;
  */
 public class UpgradeRefactoring extends AbstractRefactoring {
 
-    private final UpgradeDescription upgrade;
-    private final Scope scope;
+    private UpgradeDescription upgrade;
+    private Scope scope;
 
-    public UpgradeRefactoring(Lookup source, UpgradeDescription upgrade, Scope scope) {
+    public UpgradeRefactoring(Lookup source) {
         super(source);
-        this.upgrade = upgrade;
-        this.scope = scope;
     }
 
-    public UpgradeDescription getUpgrade() {
+    public synchronized UpgradeDescription getUpgrade() {
         return upgrade;
     }
 
-    public Scope getScope() {
+    public synchronized void setUpgrade(UpgradeDescription upgrade) {
+        this.upgrade = upgrade;
+    }
+
+    public synchronized Scope getScope() {
         return scope;
+    }
+
+    public synchronized  void setScope(Scope scope) {
+        this.scope = scope;
     }
 
 }

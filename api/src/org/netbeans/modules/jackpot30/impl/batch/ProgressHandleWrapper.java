@@ -55,6 +55,7 @@ public final class ProgressHandleWrapper {
     private long currentPartStartTime;
     private int currentOffset;
     private final long[] spentTime;
+    private boolean debug;
 
     public ProgressHandleWrapper(int... parts) {
         this((ProgressHandleAbstraction) null, parts);
@@ -80,6 +81,10 @@ public final class ProgressHandleWrapper {
             }
             this.spentTime = new long[parts.length];
         }
+    }
+
+    public void setDebug(boolean debug) {
+        this.debug = debug;
     }
 
     public void startNextPart(int totalWork) {
@@ -122,7 +127,16 @@ public final class ProgressHandleWrapper {
 
     private void currentPartWorkDoneUpdated() {
         if (currentPartTotalWork > 0) {
-            handle.progress(currentOffset + (parts[currentPart] * currentPartWorkDone) / currentPartTotalWork);
+            int parentProgress = currentOffset + (parts[currentPart] * currentPartWorkDone) / currentPartTotalWork;
+            if (debug) {
+                System.err.println("currentOffset=" + currentOffset);
+                System.err.println("currentPart=" + currentPart);
+                System.err.println("parts[currentPart]= " +parts[currentPart]);
+                System.err.println("currentPartWorkDone=" + currentPartWorkDone);
+                System.err.println("currentPartTotalWork= " +currentPartTotalWork);
+                System.err.println("parentProgress=" + parentProgress);
+            }
+            handle.progress(parentProgress);
         } else {
             handle.progress(currentOffset + parts[currentPart]);
         }

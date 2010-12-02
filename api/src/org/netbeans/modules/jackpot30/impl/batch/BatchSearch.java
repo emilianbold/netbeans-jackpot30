@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.batch;
 
+import com.sun.org.apache.bcel.internal.classfile.InnerClass;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
@@ -54,6 +55,7 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.URL;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -66,8 +68,10 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.security.auth.callback.Callback;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -78,8 +82,10 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
+import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.api.java.source.WorkingCopy;
 import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.api.queries.VisibilityQuery;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
@@ -95,6 +101,7 @@ import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
@@ -414,24 +421,36 @@ public class BatchSearch {
         return index;
     }
     
-    public static Map<? extends Resource, Iterable<? extends ErrorDescription>> getVerifiedSpans(Iterable<? extends Resource> resources, final Collection<? super MessageImpl> problems) {
+    public static void getVerifiedSpans(BatchResult candidates, @NonNull ProgressHandleWrapper progress, final VerifiedSpansCallBack callback, final Collection<? super MessageImpl> problems) {
+        int[] parts = new int[candidates.projectId2Resources.size()];
+        int   index = 0;
+
+        for (Entry<? extends Container, ? extends Collection<? extends Resource>> e : candidates.projectId2Resources.entrySet()) {
+            parts[index++] = e.getValue().size();
+        }
+
+        ProgressHandleWrapper inner = progress.startNextPartWithEmbedding(parts);
+
+        for (Collection<? extends Resource> it :candidates.projectId2Resources.values()) {
+            inner.startNextPart(it.size());
+
+            getVerifiedSpans(it, inner, callback, problems);
+        }
+    }
+
+    private static void getVerifiedSpans(Collection<? extends Resource> resources, @NonNull final ProgressHandleWrapper progress, final VerifiedSpansCallBack callback, final Collection<? super MessageImpl> problems) {
         Collection<FileObject> files = new LinkedList<FileObject>();
         final Map<FileObject, Resource> file2Resource = new HashMap<FileObject, Resource>();
-        final Map<Resource, Iterable<? extends ErrorDescription>> resource2Errors = new HashMap<Resource, Iterable<? extends ErrorDescription>>();
 
         for (Resource r : resources) {
-            if (r.areSpansComputed()) {
-                resource2Errors.put(r, r.getVerifiedSpans(problems));
-                continue;
-            }
-            
             FileObject file = r.getResolvedFile();
 
             if (file != null) {
                 files.add(file);
                 file2Resource.put(file, r);
             } else {
-                r.setVerifiedSpans(null);
+                callback.cannotVerifySpan(r);
+                progress.tick();
             }
         }
 
@@ -456,23 +475,39 @@ public class BatchSearch {
         try {
             for (Entry<ClasspathInfo, Collection<FileObject>> e : cp2Files.entrySet()) {
                 try {
-                    JavaSource.create(e.getKey(), e.getValue()).runUserActionTask(new Task<CompilationController>() {
-                        public void run(CompilationController parameter) throws Exception {
-                            if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
-                                return ;
+                    List<FileObject> toProcess = new ArrayList<FileObject>(e.getValue());
+                    final AtomicInteger currentPointer = new AtomicInteger();
+                    callback.groupStarted();
 
-                            Resource r = file2Resource.get(parameter.getFileObject());
-                            Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = new HashMap<PatternDescription, List<HintDescription>>();
-                            Map<Kind, List<HintDescription>> sortedHintsKinds = new HashMap<Kind, List<HintDescription>>();
+                    while (currentPointer.get() < toProcess.size()) {
+                        final AtomicBoolean stop = new AtomicBoolean();
 
-                            RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
+                        JavaSource.create(e.getKey(), toProcess.subList(currentPointer.get(), toProcess.size())).runUserActionTask(new Task<CompilationController>() {
+                            public void run(CompilationController parameter) throws Exception {
+                                if (stop.get()) return;
+                                if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
+                                    return ;
 
-                            List<ErrorDescription> hints = new HintsInvoker(parameter, new AtomicBoolean()).computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
+                                progress.setMessage("processing: " + FileUtil.getFileDisplayName(parameter.getFileObject()));
+                                Resource r = file2Resource.get(parameter.getFileObject());
+                                Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = new HashMap<PatternDescription, List<HintDescription>>();
+                                Map<Kind, List<HintDescription>> sortedHintsKinds = new HashMap<Kind, List<HintDescription>>();
 
-                            r.setVerifiedSpans(hints);
-                            resource2Errors.put(r, hints);
-                        }
-                    }, true);
+                                RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
+
+                                List<ErrorDescription> hints = new HintsInvoker(parameter, new AtomicBoolean()).computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
+
+                                if (callback.spansVerified(parameter, r, hints)) {
+                                    progress.tick();
+                                    currentPointer.incrementAndGet();
+                                } else {
+                                    stop.set(true);
+                                }
+                            }
+                        }, true);
+                    }
+
+                    callback.groupFinished();
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
                 }
@@ -481,9 +516,15 @@ public class BatchSearch {
             if (toRegister != null) {
                 GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, toRegister);
             }
+            progress.finish();
         }
+    }
 
-        return resource2Errors;
+    public interface VerifiedSpansCallBack {
+        public void groupStarted();
+        public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception;
+        public void groupFinished();
+        public void cannotVerifySpan(Resource r);
     }
 
     public final static class Scope {
@@ -622,7 +663,7 @@ public class BatchSearch {
     public static final class Resource {
         private final Container container;
         private final String relativePath;
-        private final Iterable<? extends HintDescription> hints;
+        final Iterable<? extends HintDescription> hints;
         private final BulkPattern pattern;
 
         public Resource(Container container, String relativePath, Iterable<? extends HintDescription> hints, BulkPattern pattern) {
@@ -630,6 +671,10 @@ public class BatchSearch {
             this.relativePath = relativePath;
             this.hints = hints;
             this.pattern = pattern;
+        }
+
+        public Container getContainer() {
+            return container;
         }
 
         public String getRelativePath() {
@@ -730,26 +775,6 @@ public class BatchSearch {
         
         public CharSequence getSourceCode() {
             return container.getSourceCode(relativePath);
-        }
-
-        private Iterable<ErrorDescription> verifiedSpans;
-        private boolean spansComputed;
-
-        synchronized void setVerifiedSpans(Iterable<ErrorDescription> eds) {
-            this.verifiedSpans = eds;
-            this.spansComputed = true;
-        }
-
-        synchronized boolean areSpansComputed() {
-            return spansComputed;
-        }
-
-        public synchronized Iterable<ErrorDescription> getVerifiedSpans(Collection<? super MessageImpl> problems) {
-            if (!spansComputed) {
-                BatchSearch.getVerifiedSpans(Collections.singletonList(this), problems);
-            }
-            
-            return verifiedSpans;
         }
     }
 
