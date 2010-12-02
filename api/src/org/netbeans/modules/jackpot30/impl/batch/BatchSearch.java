@@ -39,10 +39,12 @@
 
 package org.netbeans.modules.jackpot30.impl.batch;
 
-import com.sun.org.apache.bcel.internal.classfile.InnerClass;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.jvm.ClassReader;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Names;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -53,6 +55,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -71,7 +74,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.security.auth.callback.Callback;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -82,10 +84,8 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
-import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.Task;
-import org.netbeans.api.java.source.WorkingCopy;
 import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.api.queries.VisibilityQuery;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
@@ -488,6 +488,19 @@ public class BatchSearch {
                         js.runUserActionTask(new Task<CompilationController>() {
                             public void run(CompilationController parameter) throws Exception {
                                 if (stop.get()) return;
+
+                                //workaround for #192481:
+                                if (parameter.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
+                                    return ;
+
+                                Context ctx = JavaSourceAccessor.getINSTANCE().getJavacTask(parameter).getContext();
+                                ClassReader reader = ClassReader.instance(ctx);
+                                Field attributeReaders = ClassReader.class.getDeclaredField("attributeReaders");
+
+                                attributeReaders.setAccessible(true);
+                                ((Map) attributeReaders.get(reader)).remove(Names.instance(ctx)._org_netbeans_ParameterNames);
+                                //workaround for #192481 end
+
                                 if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
                                     return ;
 
