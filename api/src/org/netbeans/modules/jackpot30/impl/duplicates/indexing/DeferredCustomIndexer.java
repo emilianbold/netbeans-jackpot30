@@ -446,6 +446,8 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
         }
     }
 
+    private static final boolean DEFERRED_INDEXER_ENABLED = Boolean.getBoolean(DeferredCustomIndexerFactory.class.getName() + ".enable");
+    
     private static final FileObject EMPTY_FILE;
 
     static {
@@ -470,7 +472,7 @@ public abstract class DeferredCustomIndexer extends CustomIndexer {
 
         @Override
         protected Collection<FileObject> getFileObjects() {
-            return todo.isEmpty() ? Collections.<FileObject>emptyList() : Collections.singletonList(EMPTY_FILE);
+            return DEFERRED_INDEXER_ENABLED && !todo.isEmpty() ? Collections.singletonList(EMPTY_FILE) : Collections.<FileObject>emptyList();
         }
 
         public static void fileChanged() {
