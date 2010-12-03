@@ -27,12 +27,6 @@
                     </run-dependency>
                 </dependency>
                 <dependency>
-                    <code-name-base>org.netbeans.modules.jackpot30.test.borrowed</code-name-base>
-                    <run-dependency>
-                        <specification-version>1.15</specification-version>
-                    </run-dependency>
-                </dependency>
-                <dependency>
                     <code-name-base>org.netbeans.modules.jackpot30.transformers</code-name-base>
                     <run-dependency>
                         <specification-version>1.15</specification-version>
