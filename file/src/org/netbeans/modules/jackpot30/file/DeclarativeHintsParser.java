@@ -39,6 +39,12 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import java.io.File;
+import java.net.MalformedURLException;
+import java.util.ArrayList;
+import java.util.StringTokenizer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.security.CodeSource;
 import javax.lang.model.element.Modifier;
 import com.sun.source.tree.ExpressionTree;
@@ -397,16 +403,13 @@ public class DeclarativeHintsParser {
         final Map<String, ParameterKind> params = new LinkedHashMap<String, ParameterKind>();
         CodeSource codeSource = Modifier.class.getProtectionDomain().getCodeSource();
         URL javacApiJar = codeSource != null ? codeSource.getLocation() : null;
-        ClassPath cp;
-        if (javacApiJar != null) {
-            if (FileUtil.isArchiveFile(javacApiJar)) {
-                javacApiJar = FileUtil.getArchiveRoot(javacApiJar);
-            }
-            cp = ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(javacApiJar), JavaPlatform.getDefault().getBootstrapLibraries());
-        } else {
-            cp = ClassPathSupport.createProxyClassPath(JavaPlatform.getDefault().getBootstrapLibraries());
-        }
-        JavaSource.create(ClasspathInfo.create(cp, EMPTY, EMPTY)).runUserActionTask(new Task<CompilationController>() {
+        ClasspathInfo cpInfo = Hacks.createUniversalCPInfo();
+         if (javacApiJar != null) {
+            Logger.getLogger(DeclarativeHintsParser.class.getName()).log(Level.FINE, "javacApiJar={0}", javacApiJar);
+            File aj = FileUtil.archiveOrDirForURL(javacApiJar);
+            cpInfo = ClasspathInfo.create(ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(FileUtil.urlForArchiveOrDir(aj)), cpInfo.getClassPath(ClasspathInfo.PathKind.BOOT)), ClassPath.EMPTY, ClassPath.EMPTY);
+         }
+        JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             @SuppressWarnings("fallthrough")
             public void run(CompilationController parameter) throws Exception {
                 SourcePositions[] positions = new SourcePositions[1];
@@ -461,7 +464,7 @@ public class DeclarativeHintsParser {
         
         return new MethodInvocation(not, methodName[0], params, mic);
     }
-    
+
     public static final class Result {
 
         public final Map<String, String> options;

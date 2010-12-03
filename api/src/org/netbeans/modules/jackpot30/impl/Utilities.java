@@ -44,7 +44,6 @@ import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ErroneousTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
@@ -154,6 +153,7 @@ import org.netbeans.modules.jackpot30.impl.JackpotTrees.CatchWildcard;
 import org.netbeans.modules.jackpot30.impl.JackpotTrees.ModifiersWildcard;
 import org.netbeans.modules.jackpot30.impl.JackpotTrees.VariableWildcard;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
+import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.builder.TreeFactory;
@@ -165,6 +165,7 @@ import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.util.Lookup;
 import org.openide.util.NbCollections;
+import org.openide.util.lookup.ServiceProvider;
 
 /**
  *
@@ -715,17 +716,7 @@ public class Utilities {
     }
 
     public static ClasspathInfo createUniversalCPInfo() {
-        //TODO: cannot be a class constant, would break the standalone workers
-        final ClassPath EMPTY = ClassPathSupport.createClassPath(new URL[0]);
-        JavaPlatform select = JavaPlatform.getDefault();
-
-        for (JavaPlatform p : JavaPlatformManager.getDefault().getInstalledPlatforms()) {
-            if (p.getSpecification().getVersion().compareTo(select.getSpecification().getVersion()) > 0) {
-                select = p;
-            }
-        }
-
-        return ClasspathInfo.create(select.getBootstrapLibraries(), EMPTY, EMPTY);
+        return Lookup.getDefault().lookup(SPI.class).createUniversalCPInfo();
     }
 
     @SuppressWarnings("deprecation")
@@ -880,6 +871,27 @@ public class Utilities {
         return translated;
     }
 
+    public interface SPI {
+        public ClasspathInfo createUniversalCPInfo();
+    }
+
+    @ServiceProvider(service=SPI.class)
+    public static final class NbSPIImpl implements SPI {
+
+        public ClasspathInfo createUniversalCPInfo() {
+            JavaPlatform select = JavaPlatform.getDefault();
+
+            for (JavaPlatform p : JavaPlatformManager.getDefault().getInstalledPlatforms()) {
+                if (p.getSpecification().getVersion().compareTo(select.getSpecification().getVersion()) > 0) {
+                    select = p;
+                }
+            }
+
+            return ClasspathInfo.create(select.getBootstrapLibraries(), ClassPath.EMPTY, ClassPath.EMPTY);
+        }
+
+    }
+    
     private static final class GeneralizePattern extends TreePathScanner<Void, Void> {
 
         public final Map<Tree, Tree> tree2Variable = new HashMap<Tree, Tree>();
