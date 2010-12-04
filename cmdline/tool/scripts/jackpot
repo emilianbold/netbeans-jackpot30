@@ -1,0 +1,2 @@
+#!/bin/bash
+java -Xbootclasspath/p:`dirname $0`/jackpot.jar org.netbeans.modules.jackpot30.cmdline.Main "$@"

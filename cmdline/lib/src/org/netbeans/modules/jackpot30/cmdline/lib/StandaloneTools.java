@@ -59,7 +59,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.queries.SourceForBinaryQuery;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities.SPI;
-import org.netbeans.modules.jackpot30.spi.Hacks;
+import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -76,7 +76,7 @@ import org.openide.util.NbPreferences.Provider;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 
-/**
+/**XXX: should not include JavaCustomIndexer for tools that do not strictly require it
  *
  * @author lahvac
  */
@@ -85,7 +85,7 @@ public class StandaloneTools {
     @ServiceProvider(service=MimeDataProvider.class)
     public static final class MimeDataProviderImpl implements MimeDataProvider {
 
-        private static final Lookup L = Lookups.fixed(new JavacParserFactory());
+        private static final Lookup L = Lookups.fixed(new JavacParserFactory(), new JavaCustomIndexer.Factory());
 
         public Lookup getLookup(MimePath mimePath) {
             if ("text/x-java".equals(mimePath.getPath()))
@@ -97,7 +97,7 @@ public class StandaloneTools {
 
     public static final class StandaloneMimeDataProviderImpl implements MimeDataProvider {
 
-        private static final Lookup L = Lookups.fixed(NbPreferences.forModule(StandaloneTools.class), new JavacParserFactory());
+        private static final Lookup L = Lookups.fixed(NbPreferences.forModule(StandaloneTools.class), new JavacParserFactory(), new JavaCustomIndexer.Factory());
 
         public Lookup getLookup(MimePath mimePath) {
             if ("text/x-java".equals(mimePath.getPath()))
