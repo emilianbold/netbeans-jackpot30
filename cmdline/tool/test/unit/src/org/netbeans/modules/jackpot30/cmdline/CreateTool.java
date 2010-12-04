@@ -53,7 +53,7 @@ import org.netbeans.modules.project.ui.OpenProjectsTrampolineImpl;
 public class CreateTool extends CreateStandaloneJar {
 
     public CreateTool(String name) {
-        super(name, "jackpotc");
+        super(name, "jackpot");
     }
 
     @Override
