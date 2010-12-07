@@ -47,13 +47,17 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStreamWriter;
+import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
@@ -68,10 +72,12 @@ import org.netbeans.modules.java.hints.jackpot.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.jackpot.code.FSWrapper;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.openide.util.NbPreferences.Provider;
+import org.openide.xml.EntityCatalog;
 import org.openide.xml.XMLUtil;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 /**
  *
@@ -146,15 +152,15 @@ public abstract class CreateStandaloneJar extends NbTestCase {
                 toProcess.add(classFromCP.getInternalName().replace('/', '.'));
             }
 
-            out.putNextEntry(new ZipEntry(fileName));
-            out.write(bytes);
+            out.putNextEntry(new ZipEntry(escapeJavaxLang(fileName)));
+            out.write(escapeJavaxLang(bytes));
 
             if (COPY_REGISTRATION.contains(fqn) || info.copyMetaInfRegistration.contains(fqn)) {
                 String serviceName = "META-INF/services/" + fqn;
                 Enumeration<URL> resources = this.getClass().getClassLoader().getResources(serviceName);
 
                 if (resources.hasMoreElements()) {
-                    out.putNextEntry(new ZipEntry(serviceName));
+                    out.putNextEntry(new ZipEntry(escapeJavaxLang(serviceName)));
 
                     while (resources.hasMoreElements()) {
                         URL res = resources.nextElement();
@@ -180,7 +186,12 @@ public abstract class CreateStandaloneJar extends NbTestCase {
 
         while (resources.hasMoreElements()) {
             URL res = resources.nextElement();
-            Document current = XMLUtil.parse(new InputSource(res.openStream()), false, false, null, null);
+            Document current = XMLUtil.parse(new InputSource(res.openStream()), false, false, null, new EntityCatalog() {
+                @Override
+                public InputSource resolveEntity(String publicId, String systemId) throws SAXException, IOException {
+                    return new InputSource(CreateStandaloneJar.class.getResourceAsStream("/org/openide/filesystems/filesystem1_2.dtd"));
+                }
+            });
 
             if (main == null) {
                 main = current;
@@ -193,7 +204,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             }
         }
 
-        out.putNextEntry(new ZipEntry("META-INF/generated-layer.xml"));
+        out.putNextEntry(new ZipEntry(escapeJavaxLang("META-INF/generated-layer.xml")));
         XMLUtil.write(main, out, "UTF-8");
 
         addMETA_INFRegistration(out, "java.lang.SecurityManager", "org.netbeans.modules.masterfs.filebasedfs.utils.FileChangedManager");
@@ -263,7 +274,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
                 continue;
             }
             
-            out.putNextEntry(new ZipEntry(resource));
+            out.putNextEntry(new ZipEntry(escapeJavaxLang(resource)));
             out.write(readFile(url));
         }
     }
@@ -291,12 +302,53 @@ public abstract class CreateStandaloneJar extends NbTestCase {
     }
 
     private static void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName, Integer pos) throws IOException {
-        out.putNextEntry(new ZipEntry("META-INF/services/" + apiClassName));
+        out.putNextEntry(new ZipEntry(escapeJavaxLang("META-INF/services/" + apiClassName)));
         out.write(implClassName.getBytes("UTF-8"));
         if (pos != null) {
             out.write(("\n#position=" + pos.toString() + "\n").getBytes("UTF-8"));
         }
     }
+
+    private static final Map<String, String> replaceWhat2With = new LinkedHashMap<String, String>();
+
+    static {
+        replaceWhat2With.put("javax/lang/", "jpt30/lang/");
+        replaceWhat2With.put("javax/tools/", "jpt30/tools/");
+    }
+            
+
+   private static byte[] escapeJavaxLang(byte[] source) throws UnsupportedEncodingException {
+       for (Entry<String, String> e  : replaceWhat2With.entrySet()) {
+           byte[] replaceSource = e.getKey().getBytes("UTF-8");
+           byte[] replaceTarget = e.getValue().getBytes("UTF-8");
+
+           OUTER:
+           for (int i = 0; i < source.length - replaceSource.length; i++) {
+               for (int j = 0; j < replaceSource.length; j++) {
+                   if (source[i + j] != replaceSource[j]) {
+                       continue OUTER;
+                   }
+               }
+
+               for (int j = 0; j < replaceTarget.length; j++) {
+                   source[i + j] = replaceTarget[j];
+               }
+
+               i += replaceTarget.length - 1;
+           }
+       }
+
+       return source;
+    }
+
+    private static String escapeJavaxLang(String fileName) throws UnsupportedEncodingException {
+        for (Entry<String, String> e : replaceWhat2With.entrySet()) {
+            fileName = fileName.replace(e.getKey(), e.getValue());
+        }
+
+        return fileName;
+    }
+
 
 
     private static final Set<String> INCLUDE = new HashSet<String>(Arrays.asList(
