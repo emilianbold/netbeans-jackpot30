@@ -61,4 +61,7 @@
     </target>
 
     <target name="netbeans-extra" depends="ant"/>
+    
+    <target name="test-build" depends="projectized-common.test-build,-prepare-scripted-tests" />
+    
 </project>

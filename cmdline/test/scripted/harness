@@ -37,35 +37,64 @@
 #
 # Portions Copyrighted 2010 Sun Microsystems, Inc.
 
-perform_test() {
-    create_file src/test/Test.java <<EOF
-package test;
-public class Test {
-    private void test() {
-        Character.toLowerCase('a');
-    }
-}
-EOF
+. config
 
-    create_file src/META-INF/upgrade/test.hint <<EOF
-'test':
-java.lang.Character.toLowerCase(\$1) :: \$1 instanceof char => java.lang.Character.toUpperCase($1) ;;
-EOF
+if [ "$TOOL_NAME" == "" ] ; then
+    echo "tool not specified" >&2
+    exit 1;
+fi;
 
-    run_tool src/test/Test.java
+TEST_NAME=`basename $0`
+BUILD_DIR=`cd ../../../build; pwd`
+WORK_DIR=$BUILD_DIR/test/scripted/work/$TEST_NAME
+RESULTS_DIR=$BUILD_DIR/test/scripted/results
+RESULT_FILE=$RESULTS_DIR/TEST-$TEST_NAME.xml
+COMPILER_ZIP=$BUILD_DIR/"$TOOL_NAME".zip
 
-    assert_file_content build/META-INF/upgrade/upgrade.diff <<EOF
---- $WORK_DIR/src/test/Test.java
-+++ $WORK_DIR/src/test/Test.java
-@@ -1,6 +1,6 @@
- package test;
- public class Test {
-     private void test() {
--        Character.toLowerCase('a');
-+        Character.toUpperCase();
-     }
- }
-EOF
+rm -rf $WORK_DIR
+mkdir -p $WORK_DIR
+mkdir -p `dirname $RESULT_FILE`
+cd $WORK_DIR
+unzip -q $COMPILER_ZIP
+
+mkdir -p build
+
+create_file() {
+    mkdir -p `dirname $1`
+    cat >$1 -
 }
 
-. `dirname $0`/harness
+assert_file_content() {
+     DIFF_OUTPUT=`diff $1 - 2>&1`;
+     if [ $? != 0 ] ; then
+         write_failure_results_file "$DIFF_OUTPUT"
+        exit 1;
+     fi;
+}
+
+write_passed_results_file() {
+      cat >$RESULT_FILE <<EOF
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuite errors="0" failures="0" hostname="foo" name="$TEST_NAME" tests="1" time="0" timestamp="`date`">
+  <properties/>
+  <testcase classname="$TEST_NAME" name="main" time="0" />
+</testsuite>
+EOF
+}
+
+write_failure_results_file() {
+      cat >$RESULT_FILE <<EOF
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuite errors="0" failures="1" hostname="foo" name="$TEST_NAME" tests="1" time="0" timestamp="`date`">
+  <properties/>
+  <testcase classname="$TEST_NAME" name="main" time="0">
+    <failure message="Test failed" type="junit.framework.AssertionFailedError">$1</failure>
+  </testcase>
+</testsuite>
+EOF
+}
+
+perform_test;
+write_passed_results_file;
+
+exit 0

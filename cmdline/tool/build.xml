@@ -26,4 +26,7 @@
             </zipfileset>
         </zip>
     </target>
+    
+    <target name="test-build" depends="projectized-common.test-build,-prepare-scripted-tests" />
+    
 </project>

@@ -84,4 +84,20 @@ made subject to such option by the copyright holder.
         <delete file="${report.file}" failonerror="false"/>
     </target>
 
+    <target name="-prepare-scripted-tests" depends="-check-scripted-tests" if="has.scripted.tests">
+        <mkdir dir="build/test/scripted" />
+        <copy todir="build/test/scripted">
+            <fileset dir="test/scripted"/>
+        </copy>
+        <copy todir="build/test/scripted">
+            <fileset dir="../test/scripted"/>
+        </copy>
+        <chmod dir="build/test/scripted" perm="u+x" includes="**/*" />
+    </target>
+    
+    <target name="-check-scripted-tests" depends="build-init">
+        <condition property="has.scripted.tests" value="true">
+            <available file="test/scripted/config" />
+        </condition>
+    </target>
 </project>
