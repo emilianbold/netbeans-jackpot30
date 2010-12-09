@@ -103,6 +103,7 @@ public class Main {
 //        ArgumentAcceptingOptionSpec<File> projects = parser.accepts("project", "project(s) to refactor").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> classpath = parser.accepts("classpath", "classpath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> bootclasspath = parser.accepts("bootclasspath", "bootclasspath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
+        ArgumentAcceptingOptionSpec<File> sourcepath = parser.accepts("sourcepath", "sourcepath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "source directory").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
 
@@ -187,7 +188,7 @@ public class Main {
             try {
                 ClassPath bootCP = createClassPath(parsed.has(bootclasspath) ? parsed.valuesOf(bootclasspath) : null, createDefaultBootClassPath());
                 ClassPath compileCP = createClassPath(parsed.has(classpath) ? parsed.valuesOf(classpath) : null, ClassPath.EMPTY);
-                ClassPath sourceCP = ClassPathSupport.createClassPath(roots.toArray(new FileObject[0]));
+                ClassPath sourceCP = createClassPath(parsed.has(sourcepath) ? parsed.valuesOf(sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
                 MainLookup.register(new ClassPathProviderImpl(bootCP, compileCP, sourceCP));
                 MainLookup.register(new JavaPathRecognizer());
                 MainLookup.register(new SourceLevelQueryImpl(sourceCP, "1.7"));
