@@ -1,5 +1,5 @@
 java.hints/src/org/netbeans/modules/java/hints/introduce/CopyFinder.java:api/src/org/netbeans/modules/jackpot30/impl/pm/CopyFinder.java
-java.hints/test/unit/src/org/netbeans/modules/java/hints/introduce/CopyFinderTest.java:borrowedtests/test/unit/src/org/netbeans/modules/java/hints/introduce/CopyFinderTest.java
+java.hints/test/unit/src/org/netbeans/modules/java/hints/introduce/CopyFinderTest.java:borrowedtests/src/org/netbeans/modules/java/hints/introduce/CopyFinderTest.java
 java.hints/src/org/netbeans/modules/java/hints/jackpot/file:file/src/org/netbeans/modules/jackpot30/file
 java.hints/src/org/netbeans/modules/java/hints/jackpot/impl:api/src/org/netbeans/modules/jackpot30/impl
 java.hints/src/org/netbeans/modules/java/hints/jackpot/spi:api/src/org/netbeans/modules/jackpot30/spi
