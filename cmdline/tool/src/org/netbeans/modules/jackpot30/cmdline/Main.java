@@ -40,14 +40,14 @@
 package org.netbeans.modules.jackpot30.cmdline;
 
 import java.io.BufferedOutputStream;
-import java.io.Console;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.PrintWriter;
+import java.io.PrintStream;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -114,6 +114,8 @@ public class Main {
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
 
         parser.accepts("list", "list all known hints");
+        parser.accepts("progress", "show progress");
+        parser.accepts("debug", "enable debugging loggers");
         parser.accepts("help", "prints this help");
 
         OptionSet parsed;
@@ -129,6 +131,10 @@ public class Main {
         if (parsed.has("help")) {
             parser.printHelpOn(System.out);
             return 0;
+        }
+
+        if (!parsed.has("debug")) {
+            prepareLoggers();
         }
 
         File cacheDir = parsed.valueOf(cache);
@@ -201,7 +207,7 @@ public class Main {
                 
                 FileUtil.setMIMEType("java", "text/x-java");
 
-                perform(hints, roots.toArray(new FileObject[0]), parsed.valueOf(out));
+                perform(hints, roots.toArray(new FileObject[0]), parsed.has("progress"), parsed.valueOf(out));
             } catch (Throwable e) {
                 e.printStackTrace();
             }
@@ -231,9 +237,14 @@ public class Main {
         return descs;
     }
 
-    private static void perform(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, File out) throws IOException {
-        Console c = System.console();
-        ProgressHandleWrapper w = c != null ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(c), 1, 1) : new ProgressHandleWrapper(1, 1);
+    private static final Logger TOP_LOGGER = Logger.getLogger("");
+
+    private static void prepareLoggers() {
+        TOP_LOGGER.setLevel(Level.OFF);
+    }
+    
+    private static void perform(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, boolean showProgress, File out) throws IOException {
+        ProgressHandleWrapper w = showProgress ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1, 1) : new ProgressHandleWrapper(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scope.createGivenSourceRoots(sourceRoot), w);
 
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
@@ -378,14 +389,12 @@ public class Main {
 
     private static final class ConsoleProgressHandleAbstraction implements ProgressHandleAbstraction {
 
-        private final Console console;
         private final int width = 80;
 
         private int total = -1;
         private int current = 0;
 
-        public ConsoleProgressHandleAbstraction(Console console) {
-            this.console = console;
+        public ConsoleProgressHandleAbstraction() {
         }
 
         @Override
@@ -434,7 +443,8 @@ public class Main {
                 currentShownDone = done;
             }
             
-            PrintWriter pw = console.writer();
+            int todo = width - done;
+            PrintStream pw = System.out;
 
             pw.print("[");
 
@@ -442,8 +452,6 @@ public class Main {
             while (done-- > 0) {
                 pw.print("=");
             }
-
-            int todo = width - done;
 
             while (todo-- > 0) {
                 pw.print(" ");

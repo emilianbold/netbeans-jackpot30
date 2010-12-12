@@ -351,7 +351,6 @@ public class BatchSearch {
             }
 
             for (FileObject c : children) {
-                if (depth == 0) System.err.println("finished processing of: " + c);
                 recursive(root, c, collected, inner, depth + 1, timeStamps, removedFiles);
 
                 if (progress != null) progress.tick();
