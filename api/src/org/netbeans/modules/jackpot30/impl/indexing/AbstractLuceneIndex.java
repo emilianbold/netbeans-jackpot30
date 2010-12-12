@@ -85,6 +85,9 @@ import org.openide.util.Exceptions;
  */
 public abstract class AbstractLuceneIndex extends Index {
 
+    public static final int MAJOR_VERSION = 1;
+    public static final int MINOR_VERSION = 1;
+    
     private final int  stripLength;
     private final boolean readOnly;
     private final boolean storeFullSourceCode;
@@ -257,9 +260,15 @@ public abstract class AbstractLuceneIndex extends Index {
             luceneWriter.deleteDocuments(new Term("path", relativePath));
         }
 
+        public void clear() throws IOException {
+            luceneWriter.deleteAll();
+        }
+
         public void close() throws IOException {
             luceneWriter.optimize();
             luceneWriter.close();
+            info.majorVersion = MAJOR_VERSION;
+            info.minorVersion = MINOR_VERSION;
             info.totalFiles = luceneWriter.numDocs();
             info.lastUpdate = System.currentTimeMillis();
             storeIndexInfo(info);

@@ -60,7 +60,9 @@ import javax.tools.StandardLocation;
 import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
+import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
+import org.netbeans.modules.jackpot30.impl.indexing.IndexInfo;
 
 /**
  *
@@ -69,15 +71,19 @@ import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
 public class StandaloneIndexer {
 
     public static void index(File root, boolean duplicatesIndex, boolean storeSources, String modified, String removed) throws IOException {
-        IndexWriter w = FileBasedIndex.create(root.toURI().toURL(), storeSources).openForWriting();
+        Index index = FileBasedIndex.create(root.toURI().toURL(), storeSources);
+        IndexInfo ii = index.getIndexInfo();
+        boolean clearIndexing = ii.totalFiles < 0 || ii.majorVersion != FileBasedIndex.MAJOR_VERSION || ii.minorVersion != FileBasedIndex.MINOR_VERSION;
+        IndexWriter w = index.openForWriting();
         DuplicatesIndex.IndexWriter dw = duplicatesIndex ? DuplicatesIndex.get(root.toURI().toURL()).openForWriting() : null;
 
         try {
             StandaloneIndexer i = new StandaloneIndexer();
 
-            if (modified != null && removed != null) {
+            if (!clearIndexing && modified != null && removed != null) {
                 i.doIndex(w, dw, root, modified, removed);
             } else {
+                w.clear();
                 i.doIndex(w, dw, root);
             }
         } finally {

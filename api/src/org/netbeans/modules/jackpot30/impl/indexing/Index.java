@@ -135,6 +135,8 @@ public abstract class Index {
 
         public abstract void remove(String relativePath) throws IOException;
 
+        public abstract void clear() throws IOException;
+        
         public abstract void close() throws IOException;
         
     }
