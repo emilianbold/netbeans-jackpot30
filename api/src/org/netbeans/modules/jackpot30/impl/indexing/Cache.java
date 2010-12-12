@@ -53,11 +53,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.SPIAccessor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 
 /**
  *
@@ -87,6 +88,11 @@ public class Cache {
     }
     
     public File findCacheRoot(URL sourceRoot) throws IOException {
+        try {
+            sourceRoot = sourceRoot.toURI().normalize().toURL();
+        } catch (URISyntaxException ex) {
+            Logger.getLogger(Cache.class.getName()).log(Level.SEVERE, null, ex);
+        }
         if (standaloneCacheRoot != null) {
             return getDataFolder(sourceRoot, name);
         } else {
