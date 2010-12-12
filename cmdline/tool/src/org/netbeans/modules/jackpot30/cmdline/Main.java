@@ -39,9 +39,12 @@
 
 package org.netbeans.modules.jackpot30.cmdline;
 
+import java.io.BufferedOutputStream;
 import java.io.Console;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.PrintWriter;
 import java.net.URL;
 import java.util.ArrayList;
@@ -52,6 +55,8 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.swing.event.ChangeListener;
 import joptsimple.ArgumentAcceptingOptionSpec;
@@ -105,6 +110,7 @@ public class Main {
         ArgumentAcceptingOptionSpec<File> bootclasspath = parser.accepts("bootclasspath", "bootclasspath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> sourcepath = parser.accepts("sourcepath", "sourcepath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "source directory").withRequiredArg().ofType(File.class);
+        ArgumentAcceptingOptionSpec<File> out = parser.accepts("out", "output diff").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
 
         parser.accepts("list", "list all known hints");
@@ -195,7 +201,7 @@ public class Main {
                 
                 FileUtil.setMIMEType("java", "text/x-java");
 
-                perform(hints, roots.toArray(new FileObject[0]));
+                perform(hints, roots.toArray(new FileObject[0]), parsed.valueOf(out));
             } catch (Throwable e) {
                 e.printStackTrace();
             }
@@ -225,7 +231,7 @@ public class Main {
         return descs;
     }
 
-    private static void perform(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot) throws IOException {
+    private static void perform(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, File out) throws IOException {
         Console c = System.console();
         ProgressHandleWrapper w = c != null ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(c), 1, 1) : new ProgressHandleWrapper(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scope.createGivenSourceRoots(sourceRoot), w);
@@ -233,8 +239,26 @@ public class Main {
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
         Collection<ModificationResult> diffs = BatchUtilities.applyFixes(occurrences, w, new AtomicBoolean(), problems);
 
-        for (ModificationResult mr : diffs) {
-            mr.commit();
+        if (out != null) {
+            OutputStream outS = null;
+
+            try {
+                outS = new BufferedOutputStream(new FileOutputStream(out));
+
+                for (ModificationResult mr : diffs) {
+                    BatchUtilities.exportDiff(mr, outS);
+                }
+            } finally {
+                try {
+                    outS.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        } else {
+            for (ModificationResult mr : diffs) {
+                mr.commit();
+            }
         }
     }
 

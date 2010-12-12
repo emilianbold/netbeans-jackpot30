@@ -123,6 +123,7 @@ import org.netbeans.modules.diff.builtin.visualizer.TextDiffVisualizer;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintRegistry;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
 import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
@@ -316,8 +317,6 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
 
                 if (fixPerformed) {
                     ModificationResult mr = info.computeResult();
-                    String orig = info.getText();
-                    String nue = mr.getResultingSource(info.getFileObject());
 
                     if (diff == null) {
                         FileObject upgradeDiffFO = processingEnv.getFiler().createResource(StandardLocation.SOURCE_OUTPUT, "", "META-INF/upgrade/upgrade.diff");
@@ -325,7 +324,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
                         diff = upgradeDiffFO.openOutputStream();
                     }
 
-                    exportDiff(cut.sourcefile.toUri().getPath(), orig, nue, diff);
+                    BatchUtilities.exportDiff(mr, diff);
                 }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
@@ -411,54 +410,7 @@ public class HintsAnnotationProcessing extends AbstractProcessor {
         }
     }
 
-    //copied from the diff module:
-    private static void exportDiff(String name, String original, String modified, OutputStream out) throws IOException {
-        DiffProvider diff = new BuiltInDiffProvider();//(DiffProvider) Lookup.getDefault().lookup(DiffProvider.class);
 
-        Reader r1 = null;
-        Reader r2 = null;
-        Difference[] differences;
-
-        try {
-            r1 = new StringReader(original);
-            r2 = new StringReader(modified);
-            differences = diff.computeDiff(r1, r2);
-        } finally {
-            if (r1 != null) try { r1.close(); } catch (Exception e) {}
-            if (r2 != null) try { r2.close(); } catch (Exception e) {}
-        }
-
-        try {
-            InputStream is;
-            r1 = new StringReader(original);
-            r2 = new StringReader(modified);
-            TextDiffVisualizer.TextDiffInfo info = new TextDiffVisualizer.TextDiffInfo(
-                name, // NOI18N
-                name,  // NOI18N
-                null,
-                null,
-                r1,
-                r2,
-                differences
-            );
-            info.setContextMode(true, 3);
-            String diffText;
-//            if (format == unifiedFilter) {
-                diffText = TextDiffVisualizer.differenceToUnifiedDiffText(info);
-//            } else {
-//                diffText = TextDiffVisualizer.differenceToNormalDiffText(info);
-//            }
-            is = new ByteArrayInputStream(diffText.getBytes("utf8"));  // NOI18N
-            while(true) {
-                int i = is.read();
-                if (i == -1) break;
-                out.write(i);
-            }
-        } finally {
-            if (r1 != null) try { r1.close(); } catch (Exception e) {}
-            if (r2 != null) try { r2.close(); } catch (Exception e) {}
-        }
-    }
 
     static {
         try {

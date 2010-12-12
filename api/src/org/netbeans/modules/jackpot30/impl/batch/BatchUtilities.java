@@ -44,9 +44,16 @@ import com.sun.source.tree.ImportTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.util.Log;
+import java.io.ByteArrayInputStream;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.Reader;
+import java.io.StringReader;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -79,6 +86,9 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
+import org.netbeans.api.queries.FileEncodingQuery;
+import org.netbeans.modules.diff.builtin.provider.BuiltInDiffProvider;
+import org.netbeans.modules.diff.builtin.visualizer.TextDiffVisualizer;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
@@ -90,6 +100,7 @@ import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.parsing.CompilationInfoImpl;
 import org.netbeans.modules.java.source.save.ElementOverlay;
+import org.netbeans.spi.diff.DiffProvider;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileObject;
@@ -314,6 +325,71 @@ public class BatchUtilities {
 
             return modified;
 //        }
+    }
+
+    public static void exportDiff(ModificationResult result, OutputStream out) throws IOException {
+        for (FileObject f : result.getModifiedFileObjects()) {
+            Charset c = FileEncodingQuery.getEncoding(f);
+            String orig = new String(f.asBytes(), c);
+            String nue = result.getResultingSource(f);
+
+            if (orig.equals(nue)) {
+                continue;
+            }
+            
+            File jiFile = FileUtil.toFile(f);
+            
+            doExportDiff(jiFile.getAbsolutePath(), orig, nue, out);
+        }
+    }
+
+    //copied from the diff module:
+    private static void doExportDiff(String name, String original, String modified, OutputStream out) throws IOException {
+        DiffProvider diff = new BuiltInDiffProvider();//(DiffProvider) Lookup.getDefault().lookup(DiffProvider.class);
+
+        Reader r1 = null;
+        Reader r2 = null;
+        org.netbeans.api.diff.Difference[] differences;
+
+        try {
+            r1 = new StringReader(original);
+            r2 = new StringReader(modified);
+            differences = diff.computeDiff(r1, r2);
+        } finally {
+            if (r1 != null) try { r1.close(); } catch (Exception e) {}
+            if (r2 != null) try { r2.close(); } catch (Exception e) {}
+        }
+
+        try {
+            InputStream is;
+            r1 = new StringReader(original);
+            r2 = new StringReader(modified);
+            TextDiffVisualizer.TextDiffInfo info = new TextDiffVisualizer.TextDiffInfo(
+                name, // NOI18N
+                name,  // NOI18N
+                null,
+                null,
+                r1,
+                r2,
+                differences
+            );
+            info.setContextMode(true, 3);
+            String diffText;
+//            if (format == unifiedFilter) {
+                diffText = TextDiffVisualizer.differenceToUnifiedDiffText(info);
+//            } else {
+//                diffText = TextDiffVisualizer.differenceToNormalDiffText(info);
+//            }
+            is = new ByteArrayInputStream(diffText.getBytes("utf8"));  // NOI18N
+            while(true) {
+                int i = is.read();
+                if (i == -1) break;
+                out.write(i);
+            }
+        } finally {
+            if (r1 != null) try { r1.close(); } catch (Exception e) {}
+            if (r2 != null) try { r2.close(); } catch (Exception e) {}
+        }
     }
 
 }
