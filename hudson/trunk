@@ -50,6 +50,7 @@ call_ant -Ddist.base=$DIST_BASE nbms || exit
 gzip <build/updates/updates.xml >build/updates/updates.xml.gz
 
 (cd cmdline/compiler; call_ant copy-to-hudson) || exit
+(cd server/indexer; call_ant copy-to-hudson) || exit
 (cd server/hudson; mvn clean package) || exit
 (cd cmdline/tool; call_ant create-standalone-tool) || exit
 

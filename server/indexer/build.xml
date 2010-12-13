@@ -72,4 +72,15 @@
     nbproject/build-impl.xml file. 
 
     -->
+
+    <target name="copy-to-hudson" depends="jar">
+        <mkdir dir="${hudson.compiler.dir}" /> <!--only to be sure, should exist-->
+        <copy todir="${hudson.compiler.dir}/indexer">
+            <fileset dir="${dist.dir}"/>
+        </copy>
+    </target>
+
+    <target name="-post-clean">
+        <delete dir="${hudson.compiler.dir}/indexer"/>
+    </target>
 </project>

@@ -1,0 +1,16 @@
+<j:jelly xmlns:j="jelly:core" xmlns:st="jelly:stapler" xmlns:d="jelly:define" xmlns:l="/lib/layout" xmlns:t="/lib/hudson" xmlns:f="/lib/form">
+
+    <f:entry title="Project Name:" field="projectName">
+        <f:textbox />
+    </f:entry>
+
+    <j:forEach var="indexerDescription" items="${descriptor.getIndexers()}" varStatus="loop">
+        <f:optionalBlock name="${indexerDescription.getJsonSafeClassName()}"
+                         title="${indexerDescription.getDisplayName()}"
+                         checked="${instance != null ? instance.isIndexerEnabled(indexerDescription.getJsonSafeClassName()) : false}"
+                         help="${indexerDescription.getHelpFile()}">
+            <st:include from="${indexerDescription}" page="${indexerDescription.configPage}" />
+        </f:optionalBlock>
+    </j:forEach>
+
+</j:jelly>
