@@ -57,6 +57,7 @@ import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.StatementTree;
+import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.TypeParameterTree;
@@ -114,6 +115,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -313,6 +315,10 @@ public class Utilities {
         return parseAndAttribute(info, JavaSourceAccessor.getINSTANCE().getJavacTask(info), pattern, scope, errors);
     }
 
+    public static Tree parseAndAttribute(CompilationInfo info, String pattern, Scope scope, SourcePositions[] sourcePositions, Collection<Diagnostic<? extends JavaFileObject>> errors) {
+        return parseAndAttribute(info, JavaSourceAccessor.getINSTANCE().getJavacTask(info), pattern, scope, sourcePositions, errors);
+    }
+
     public static Tree parseAndAttribute(JavacTaskImpl jti, String pattern) {
         return parseAndAttribute(jti, pattern, null);
     }
@@ -322,16 +328,31 @@ public class Utilities {
     }
 
     private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope, Collection<Diagnostic<? extends JavaFileObject>> errors) {
+        return parseAndAttribute(info, jti, pattern, scope, new SourcePositions[1], errors);
+    }
+
+    private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope, SourcePositions[] sourcePositions, Collection<Diagnostic<? extends JavaFileObject>> errors) {
         Context c = jti.getContext();
         TreeFactory make = TreeFactory.instance(c);
         List<Diagnostic<? extends JavaFileObject>> patternTreeErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
-        Tree patternTree = !isStatement(pattern) ? parseExpression(c, pattern, true, new SourcePositions[1], patternTreeErrors) : null;
+        Tree patternTree = !isStatement(pattern) ? parseExpression(c, pattern, true, sourcePositions, patternTreeErrors) : null;
+        int offset = 0;
         boolean expression = true;
         boolean classMember = false;
 
-        if (patternTree == null || isErrorTree(patternTree)) {
+        if (pattern.startsWith("case ")) {//XXX: should be a lexer token
             List<Diagnostic<? extends JavaFileObject>> currentPatternTreeErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
-            Tree currentPatternTree = parseStatement(c, "{" + pattern + "}", new SourcePositions[1], currentPatternTreeErrors);
+            Tree switchTree = parseStatement(c, "switch ($$foo) {" + pattern + "}", sourcePositions, currentPatternTreeErrors);
+
+            offset = "switch ($$foo) {".length();
+            patternTreeErrors = currentPatternTreeErrors;
+            patternTree = ((SwitchTree) switchTree).getCases().get(0);
+        }
+
+        if (patternTree == null || isErrorTree(patternTree)) {
+            SourcePositions[] currentPatternTreePositions = new SourcePositions[1];
+            List<Diagnostic<? extends JavaFileObject>> currentPatternTreeErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+            Tree currentPatternTree = parseStatement(c, "{" + pattern + "}", currentPatternTreePositions, currentPatternTreeErrors);
 
             assert currentPatternTree.getKind() == Kind.BLOCK : currentPatternTree.getKind();
 
@@ -351,18 +372,25 @@ public class Utilities {
 
             if (!currentPatternTreeErrors.isEmpty() || containsError(currentPatternTree)) {
                 //maybe a class member?
+                SourcePositions[] classPatternTreePositions = new SourcePositions[1];
                 List<Diagnostic<? extends JavaFileObject>> classPatternTreeErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
-                Tree classPatternTree = parseExpression(c, "new Object() {" + pattern + "}", false, new SourcePositions[1], classPatternTreeErrors);
+                Tree classPatternTree = parseExpression(c, "new Object() {" + pattern + "}", false, classPatternTreePositions, classPatternTreeErrors);
 
                 if (!containsError(classPatternTree)) {
+                    sourcePositions[0] = classPatternTreePositions[0];
+                    offset = "new Object() {".length();
                     patternTreeErrors = classPatternTreeErrors;
                     patternTree = classPatternTree;
                     classMember = true;
                 } else {
+                    sourcePositions[0] = currentPatternTreePositions[0];
+                    offset = 1;
                     patternTreeErrors = currentPatternTreeErrors;
                     patternTree = currentPatternTree;
                 }
             } else {
+                sourcePositions[0] = currentPatternTreePositions[0];
+                offset = 1;
                 patternTreeErrors = currentPatternTreeErrors;
                 patternTree = currentPatternTree;
             }
@@ -379,8 +407,9 @@ public class Utilities {
                 //maybe type?
                 Elements el = jti.getElements();
                 if (Utilities.isPureMemberSelect(patternTree, false)) {
+                    SourcePositions[] varPositions = new SourcePositions[1];
                     List<Diagnostic<? extends JavaFileObject>> varErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
-                    Tree var = parseExpression(c, pattern + ".class;", false, new SourcePositions[1], varErrors);
+                    Tree var = parseExpression(c, pattern + ".class;", false, varPositions, varErrors);
 
                     type = attributeTree(jti, var, scope, varErrors);
 
@@ -389,6 +418,8 @@ public class Utilities {
                     CompilationUnitTree cut = ((JavacScope) scope).getEnv().toplevel;
 
                     if (!isError(trees.getElement(new TreePath(new TreePath(cut), typeTree)))) {
+                        sourcePositions[0] = varPositions[0];
+                        offset = 0;
                         patternTreeErrors = varErrors;
                         patternTree = typeTree;
                     }
@@ -415,9 +446,13 @@ public class Utilities {
         }
 
         if (errors != null) {
-            errors.addAll(patternTreeErrors);
+            for (Diagnostic<? extends JavaFileObject> d : patternTreeErrors) {
+                errors.add(new OffsetDiagnostic<JavaFileObject>(d, -offset));
+            }
         }
 
+        sourcePositions[0] = new OffsetSourcePositions(sourcePositions[0], -offset);
+        
         return patternTree;
     }
 
@@ -472,8 +507,8 @@ public class Utilities {
             Names names = Names.instance(context);
             Parser parser = new JackpotJavacParser(context, factory, scannerFactory.newScanner(buf, false), false, false, CancelService.instance(context), names);
             if (parser instanceof JavacParser) {
-//                if (pos != null)
-//                    pos[0] = new ParserSourcePositions((JavacParser)parser);
+                if (pos != null)
+                    pos[0] = new ParserSourcePositions((JavacParser)parser);
                 return parser.parseStatement();
             }
             return null;
@@ -506,8 +541,8 @@ public class Utilities {
             Scanner scanner = scannerFactory.newScanner(buf, false);
             Parser parser = new JackpotJavacParser(context, factory, scanner, false, false, CancelService.instance(context), names);
             if (parser instanceof JavacParser) {
-//                if (pos != null)
-//                    pos[0] = new ParserSourcePositions((JavacParser)parser);
+                if (pos != null)
+                    pos[0] = new ParserSourcePositions((JavacParser)parser);
                 JCExpression result = parser.parseExpression();
 
                 if (!onlyFullInput || scanner.token() == Token.EOF) {
@@ -1128,6 +1163,7 @@ public class Utilities {
         @Override
         protected JCCatch catchClause() {
             if (S.token() == Token.CATCH) {
+                int origPos = S.pos();
 //                S.pushState();
                 
                 Token peeked;
@@ -1152,8 +1188,8 @@ public class Utilities {
 
                     return new CatchWildcard(ctx, name, F.Ident(name));
                 } else {
-                    ((PushbackLexer) S).add(Token.CATCH, null);
-                    ((PushbackLexer) S).add(null, null);
+                    ((PushbackLexer) S).add(Token.CATCH, origPos, null);
+                    ((PushbackLexer) S).add(null, -1, null);
                     S.nextToken();
                 }
             }
@@ -1163,6 +1199,7 @@ public class Utilities {
         @Override
         public com.sun.tools.javac.util.List<JCTree> classOrInterfaceBodyDeclaration(com.sun.tools.javac.util.Name className, boolean isInterface) {
             if (S.token() == Token.IDENTIFIER) {
+                int identPos = S.pos();
                 String ident = S.stringVal();
 
                 if (ident.startsWith("$")) {
@@ -1176,8 +1213,8 @@ public class Utilities {
                         return com.sun.tools.javac.util.List.<JCTree>of(F.Ident(name));
                     }
                     
-                    ((PushbackLexer) S).add(Token.IDENTIFIER, name);
-                    ((PushbackLexer) S).add(null, null);
+                    ((PushbackLexer) S).add(Token.IDENTIFIER, identPos, name);
+                    ((PushbackLexer) S).add(null, -1, null);
                     S.nextToken();
                 }
             }
@@ -1197,6 +1234,8 @@ public class Utilities {
         @Override
         protected JCCase switchBlockStatementGroup() {
             if (S.token() == Token.CASE) {
+                int origPos = S.pos();
+
                 S.nextToken();
 
                 if (S.token() == Token.IDENTIFIER) {
@@ -1216,8 +1255,8 @@ public class Utilities {
                     }
                 }
 
-                ((PushbackLexer) S).add(Token.CASE, null);
-                ((PushbackLexer) S).add(null, null);
+                ((PushbackLexer) S).add(Token.CASE, origPos, null);
+                ((PushbackLexer) S).add(null, -1, null);
                 S.nextToken();
             }
 
@@ -1230,18 +1269,22 @@ public class Utilities {
 
         private final Lexer delegate;
         private final List<Token> tokenBuffer;
+        private final List<Integer> posBuffer;
         private final List<com.sun.tools.javac.util.Name> nameBuffer;
         private Token currentBufferToken;
+        private int   currentBufferPos;
         private com.sun.tools.javac.util.Name currentBufferName;
 
         public PushbackLexer(Lexer delegate) {
             this.delegate = delegate;
             this.tokenBuffer = new LinkedList<Token>();
+            this.posBuffer = new LinkedList<Integer>();
             this.nameBuffer = new LinkedList<com.sun.tools.javac.util.Name>();
         }
 
-        public void add(Token token, com.sun.tools.javac.util.Name name) {
+        public void add(Token token, int pos, com.sun.tools.javac.util.Name name) {
             tokenBuffer.add(token);
+            posBuffer.add(pos);
             nameBuffer.add(name);
         }
         
@@ -1272,12 +1315,14 @@ public class Utilities {
         }
 
         public int pos() {
+            if (currentBufferToken != null) return currentBufferPos;
             return delegate.pos();
         }
 
         public void nextToken() {
             if (!tokenBuffer.isEmpty()) {
                 currentBufferToken = tokenBuffer.remove(0);
+                currentBufferPos = posBuffer.remove(0);
                 currentBufferName  = nameBuffer.remove(0);
             }
             else delegate.nextToken();
@@ -1388,6 +1433,90 @@ public class Utilities {
 
         public void report(Diagnostic<? extends JavaFileObject> diagnostic) {
             errors.add(diagnostic);
+        }
+    }
+
+    private static final class OffsetSourcePositions implements SourcePositions {
+
+        private final SourcePositions delegate;
+        private final long offset;
+
+        public OffsetSourcePositions(SourcePositions delegate, long offset) {
+            this.delegate = delegate;
+            this.offset = offset;
+        }
+
+        public long getStartPosition(CompilationUnitTree cut, Tree tree) {
+            return delegate.getStartPosition(cut, tree) + offset;
+        }
+
+        public long getEndPosition(CompilationUnitTree cut, Tree tree) {
+            return delegate.getEndPosition(cut, tree) + offset;
+        }
+
+    }
+
+    private static final class OffsetDiagnostic<S> implements Diagnostic<S> {
+        private final Diagnostic<? extends S> delegate;
+        private final long offset;
+
+        public OffsetDiagnostic(Diagnostic<? extends S> delegate, long offset) {
+            this.delegate = delegate;
+            this.offset = offset;
+        }
+
+        public Diagnostic.Kind getKind() {
+            return delegate.getKind();
+        }
+
+        public S getSource() {
+            return delegate.getSource();
+        }
+
+        public long getPosition() {
+            return delegate.getPosition() + offset;
+        }
+
+        public long getStartPosition() {
+            return delegate.getStartPosition() + offset;
+        }
+
+        public long getEndPosition() {
+            return delegate.getEndPosition() + offset;
+        }
+
+        public long getLineNumber() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        public long getColumnNumber() {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+        public String getCode() {
+            return delegate.getCode();
+        }
+
+        public String getMessage(Locale locale) {
+            return delegate.getMessage(locale);
+        }
+
+    }
+
+    private static class ParserSourcePositions implements SourcePositions {
+
+        private JavacParser parser;
+
+        private ParserSourcePositions(JavacParser parser) {
+            this.parser = parser;
+        }
+
+        public long getStartPosition(CompilationUnitTree file, Tree tree) {
+            return parser.getStartPos((JCTree)tree);
+        }
+
+        public long getEndPosition(CompilationUnitTree file, Tree tree) {
+            return parser.getEndPos((JCTree)tree);
         }
     }
 }

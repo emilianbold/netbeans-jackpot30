@@ -43,8 +43,11 @@ import com.sun.source.tree.IfTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.tree.JCTree;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -282,30 +285,66 @@ public class UtilitiesTest extends TestBase {
     public void testErrorsForPatterns1() throws Exception {
         prepareTest("test/Test.java", "package test; public class Test{}");
 
+        SourcePositions[] positions = new SourcePositions[1];
         Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
-        Tree result = Utilities.parseAndAttribute(info, "foo bar", null, errors);
-        List<String> errorStrings = new LinkedList<String>();
+        String code = "foo bar";
+        Tree result = Utilities.parseAndAttribute(info, code, null, positions, errors);
 
-        for (Diagnostic<? extends JavaFileObject> d : errors) {
-            errorStrings.add(d.getCode());
-        }
-
-        assertEquals(Arrays.asList("compiler.err.expected"), errorStrings);
+        assertDiagnostics(errors, "7-7:compiler.err.expected");
+        assertPositions(result, positions[0], code, "foo", "foo bar");
     }
 
     public void testErrorsForPatterns2() throws Exception {
         prepareTest("test/Test.java", "package test; public class Test{}");
 
+        SourcePositions[] positions = new SourcePositions[1];
         Scope s = Utilities.constructScope(info, Collections.<String, TypeMirror>emptyMap());
         Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
-        Tree result = Utilities.parseAndAttribute(info, "$1.isDirectory()", s, errors);
-        List<String> errorStrings = new LinkedList<String>();
+        String code = "$1.isDirectory()";
+        Tree result = Utilities.parseAndAttribute(info, code, s, positions, errors);
 
-        for (Diagnostic<? extends JavaFileObject> d : errors) {
-            errorStrings.add(d.getCode());
-        }
+        assertDiagnostics(errors, "0-0:compiler.err.cant.resolve.location");
+        assertPositions(result, positions[0], code, "$1", "$1.isDirectory", "$1.isDirectory()");
+    }
 
-        assertEquals(Arrays.asList("compiler.err.cant.resolve.location"), errorStrings);
+    public void testErrorsForPatterns3() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        SourcePositions[] positions = new SourcePositions[1];
+        Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+        String code = "if ($cond) { foo() } else $else;";
+        Tree result = Utilities.parseAndAttribute(info, code, null, positions, errors);
+
+        assertDiagnostics(errors, "18-18:compiler.err.expected");
+        assertPositions(result, positions[0], code, "$cond", "$else", "$else;", "($cond)", "foo", "foo()", "foo() ", "if ($cond) { foo() } else $else;", "{ foo() }");
+    }
+
+    public void testPositionsForCorrectStatement() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        SourcePositions[] positions = new SourcePositions[1];
+        Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+        String code = "assert true;";
+        Tree result = Utilities.parseAndAttribute(info, code, null, positions, errors);
+
+        assertTrue(errors.isEmpty());
+        assertPositions(result, positions[0], code, "assert true;", "true");
+    }
+
+    public void testCasePattern() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        SourcePositions[] positions = new SourcePositions[1];
+        Collection<Diagnostic<? extends JavaFileObject>> errors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+        String code = "case $expr: foo bar $stmts$;\n";
+        Tree result = Utilities.parseAndAttribute(info, code, null, positions, errors);
+
+        assertTrue(result.getKind().name(), result.getKind() == Kind.CASE);
+
+        String golden = "case $expr: foo bar; $stmts$; ";
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " "));
+        assertDiagnostics(errors, "19-19:compiler.err.expected");
+        assertPositions(result, positions[0], code, "$expr", "$stmts$", "$stmts$;", "case $expr: foo bar $stmts$;", "foo", "foo bar ");
     }
 
     public void testLambdaPattern() throws Exception {
@@ -372,6 +411,43 @@ public class UtilitiesTest extends TestBase {
 
         assertEquals(generalized.replaceAll("[ \n\t]+", " "),
                      repr.replaceAll("[ \n\t]+", " "));
+    }
+
+    private void assertDiagnostics(Collection<Diagnostic<? extends JavaFileObject>> errors, String... golden) {
+        List<String> actual = new ArrayList<String>(errors.size());
+
+        for (Diagnostic<? extends JavaFileObject> d : errors) {
+            actual.add(d.getStartPosition() + "-" + d.getEndPosition() + ":" + d.getCode());
+        }
+
+        assertEquals(Arrays.asList(golden), actual);
+    }
+
+    private void assertPositions(Tree t, final SourcePositions sp, final String code, String... golden) {
+        final List<String> actual = new ArrayList<String>(golden.length);
+
+        new TreeScanner<Void, Void>() {
+            @Override
+            public Void scan(Tree node, Void p) {
+                if (node != null) {
+                    int start = (int) sp.getStartPosition(null, node);
+                    int end = (int) sp.getEndPosition(null, node);
+
+                    if (start >= 0 && end >= 0) {
+                        actual.add(code.substring(start, end));
+                    }
+                }
+                return super.scan(node, p);
+            }
+        }.scan(t, null);
+
+        Collections.sort(actual);
+
+        List<String> goldenList = new ArrayList<String>(Arrays.asList(golden));
+
+        Collections.sort(goldenList);
+
+        assertEquals(goldenList, actual);
     }
 
 }
