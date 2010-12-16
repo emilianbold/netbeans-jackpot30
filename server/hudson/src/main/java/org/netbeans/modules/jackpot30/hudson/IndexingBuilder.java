@@ -130,8 +130,14 @@ public final class IndexingBuilder extends Builder {
         String jsonContent = readFully(info);
         JSONObject json = JSONObject.fromObject(jsonContent);
 
-        if (!projectName.equals(json.get("displayName"))) {
-            json.put("displayName", projectName);
+        String prjName = projectName;
+
+        if (prjName == null || prjName.isEmpty()) {
+            prjName = build.getParent().getDisplayName();
+        }
+
+        if (!prjName.equals(json.get("displayName"))) {
+            json.put("displayName", prjName);
             write(info, JSONSerializer.toJSON(json).toString());
         }
 
