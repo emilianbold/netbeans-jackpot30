@@ -102,6 +102,7 @@ public class Cache {
 
 
     private static Properties segments;
+    private static long lastSegmentsTimeStamp = -1;
     private static Map<String, String> invertedSegments;
     private static int index = 0;
 
@@ -109,12 +110,18 @@ public class Cache {
     private static final String SLICE_PREFIX = "s";              //NOI18N
 
     private static void loadSegments () throws IOException {
+        final File folder = standaloneCacheRoot;
+        assert folder != null;
+        final File segmentsFile = new File(folder, SEGMENTS_FILE);
+
+        if (lastSegmentsTimeStamp != segmentsFile.lastModified()) {
+            lastSegmentsTimeStamp = segmentsFile.lastModified();
+            segments = null;
+        }
+
         if (segments == null) {
-            final File folder = standaloneCacheRoot;
-            assert folder != null;
             segments = new Properties ();
             invertedSegments = new HashMap<String,String> ();
-            final File segmentsFile =  new File(folder, SEGMENTS_FILE);
             if (segmentsFile.canRead()) {
                 final InputStream in = new FileInputStream(segmentsFile);
                 try {
@@ -136,7 +143,7 @@ public class Cache {
         }
     }
 
-    public static Iterable<? extends String> knownSourceRoots() throws IOException {
+    public static synchronized Iterable<? extends String> knownSourceRoots() throws IOException {
         loadSegments();
 
         List<String> known = new LinkedList<String>();
@@ -148,7 +155,7 @@ public class Cache {
         return known;
     }
 
-    public static File sourceRootForKey(String segment) throws IOException {
+    public static synchronized File sourceRootForKey(String segment) throws IOException {
         loadSegments();
 
         try {
