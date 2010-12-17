@@ -44,6 +44,7 @@ import com.sun.tools.javac.tree.JCTree;
 import java.util.regex.Pattern;
 import org.netbeans.modules.jackpot30.impl.TestBase;
 import org.netbeans.modules.java.source.pretty.VeryPretty;
+import org.netbeans.modules.java.source.save.DiffContext;
 
 /**
  *
@@ -124,7 +125,7 @@ public class FindDuplicatesTest extends TestBase {
         prepareTest("test/Test.java", code);
 
         Tree generalizedTree = FindDuplicates.resolveAndGeneralizePattern(info, start, end);
-        VeryPretty vp = new VeryPretty(info);
+        VeryPretty vp = new VeryPretty(new DiffContext(info));
 
         vp.print((JCTree) generalizedTree);
         

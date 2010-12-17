@@ -195,7 +195,7 @@ public class CompilationInfoHack extends WorkingCopy {
 
     @Override
     public Snapshot getSnapshot() {
-        throw new UnsupportedOperationException();
+        return org.netbeans.modules.parsing.api.Source.create(file).createSnapshot();
     }
 
     @Override

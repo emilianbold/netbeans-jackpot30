@@ -58,6 +58,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import org.netbeans.modules.java.source.pretty.VeryPretty;
+import org.netbeans.modules.java.source.save.DiffContext;
 
 /**
  *
@@ -403,7 +404,7 @@ public class UtilitiesTest extends TestBase {
         prepareTest("test/Test.java", code);
 
         Tree generalizedTree = Utilities.generalizePattern(info, new TreePath(info.getCompilationUnit()));
-        VeryPretty vp = new VeryPretty(info);
+        VeryPretty vp = new VeryPretty(new DiffContext(info));
 
         vp.print((JCTree) generalizedTree);
 
