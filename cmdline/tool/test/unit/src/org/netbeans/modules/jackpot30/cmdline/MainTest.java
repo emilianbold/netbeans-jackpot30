@@ -39,11 +39,15 @@
 
 package org.netbeans.modules.jackpot30.cmdline;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.PrintStream;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.junit.NbTestCase;
 
@@ -66,19 +70,54 @@ public class MainTest extends NbTestCase {
             "    }\n" +
             "}\n";
 
-        doRunCompiler(golden, "src/test/Test.java",
-                              "package test;\n" +
-                              "public class Test {\n" +
-                              "    private void test(java.util.Collection c) {\n" +
-                              "        boolean b = c.size() == 0;\n" +
-                              "    }\n" +
-                              "}\n",
-                              null,
-                              "--hint",
-                              "Usage of .size() == 0");
+        doRunCompiler(golden,
+                      null,
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b = c.size() == 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      null,
+                      "--hint",
+                      "Usage of .size() == 0");
     }
 
-    private void doRunCompiler(String golden, String... fileContentAndExtraOptions) throws Exception {
+    public void testDoNotApply() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b1 = c.size() == 0;\n" +
+            "\tboolean b2 = c.size() == 0;\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      "${workdir}/src/test/Test.java:3:Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "                     ^\n" +
+                      "${workdir}/src/test/Test.java:4:Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                      "\tboolean b2 = c.size() == 0;\n" +
+                      "\t             ^\n",
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "\tboolean b2 = c.size() == 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      null,
+                      "--hint",
+                      "Usage of .size() == 0",
+                      "--no-apply");
+    }
+
+    private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
         List<String> fileAndContent = new LinkedList<String>();
         List<String> extraOptions = new LinkedList<String>();
         List<String> fileContentAndExtraOptionsList = Arrays.asList(fileContentAndExtraOptions);
@@ -114,20 +153,44 @@ public class MainTest extends NbTestCase {
         options.addAll(extraOptions);
         options.add(wd.getAbsolutePath());
 
-        reallyRunCompiler(wd, options.toArray(new String[0]));
+        String[] output = new String[2];
+
+        reallyRunCompiler(wd, output, options.toArray(new String[0]));
 
         assertEquals(golden, TestUtilities.copyFileToString(source));
+
+        if (stdOut != null) {
+            assertEquals(stdOut, output[0].replaceAll(Pattern.quote(wd.getAbsolutePath()), Matcher.quoteReplacement("${workdir}")));
+        }
+
+        if (stdErr != null) {
+            assertEquals(stdErr, output[1].replaceAll(Pattern.quote(wd.getAbsolutePath()), Matcher.quoteReplacement("${workdir}")));
+        }
     }
 
-    protected void reallyRunCompiler(File workDir, String... params) throws Exception {
+    protected void reallyRunCompiler(File workDir, String[] output, String... params) throws Exception {
         String oldUserDir = System.getProperty("user.dir");
 
         System.setProperty("user.dir", workDir.getAbsolutePath());
+        
+        PrintStream oldOut = System.out;
+        ByteArrayOutputStream outData = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(outData, true, "UTF-8"));
+
+        PrintStream oldErr = System.err;
+        ByteArrayOutputStream errData = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(errData, true, "UTF-8"));
 
         try {
             assertEquals(0, Main.compile(params));
         } finally {
             System.setProperty("user.dir", oldUserDir);
+            System.out.close();
+            output[0] = new String(outData.toByteArray(), "UTF-8");
+            System.setOut(oldOut);
+            System.err.close();
+            output[1] = new String(errData.toByteArray(), "UTF-8");
+            System.setErr(oldErr);
         }
     }
 

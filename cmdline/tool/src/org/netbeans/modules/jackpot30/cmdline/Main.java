@@ -47,7 +47,6 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
@@ -64,13 +63,16 @@ import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.VerifiedSpansCallBack;
 import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
 import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
 import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
@@ -79,6 +81,7 @@ import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.java.source.parsing.JavaPathRecognizer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.java.queries.SourceLevelQueryImplementation2;
@@ -97,6 +100,8 @@ import org.openide.util.lookup.ServiceProvider;
  */
 public class Main {
 
+    private static final String OPTION_NO_APPLY = "no-apply";
+    
     public static void main(String... args) throws IOException, ClassNotFoundException {
         System.exit(compile(args));
     }
@@ -117,6 +122,7 @@ public class Main {
         parser.accepts("progress", "show progress");
         parser.accepts("debug", "enable debugging loggers");
         parser.accepts("help", "prints this help");
+        parser.accepts(OPTION_NO_APPLY, "do not apply changes - only print locations were the hint would be applied");
 
         OptionSet parsed;
 
@@ -207,7 +213,13 @@ public class Main {
                 
                 FileUtil.setMIMEType("java", "text/x-java");
 
-                perform(hints, roots.toArray(new FileObject[0]), parsed.has("progress"), parsed.valueOf(out));
+                ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1) : new ProgressHandleWrapper(1);
+
+                if (parsed.has(OPTION_NO_APPLY)) {
+                    findOccurrences(hints, roots.toArray(new FileObject[0]), progress, parsed.valueOf(out));
+                } else {
+                    apply(hints, roots.toArray(new FileObject[0]), progress, parsed.valueOf(out));
+                }
             } catch (Throwable e) {
                 e.printStackTrace();
             }
@@ -243,8 +255,49 @@ public class Main {
         TOP_LOGGER.setLevel(Level.OFF);
     }
     
-    private static void perform(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, boolean showProgress, File out) throws IOException {
-        ProgressHandleWrapper w = showProgress ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1, 1) : new ProgressHandleWrapper(1, 1);
+    private static void findOccurrences(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
+        ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
+        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scope.createGivenSourceRoots(sourceRoot), w);
+
+        List<MessageImpl> problems = new LinkedList<MessageImpl>();
+        BatchSearch.getVerifiedSpans(occurrences, progress, new VerifiedSpansCallBack() {
+            @Override public void groupStarted() {}
+            @Override public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
+                for (ErrorDescription ed : hints) {
+                    print(ed);
+                }
+                return true;
+            }
+            @Override public void groupFinished() {}
+            @Override public void cannotVerifySpan(Resource r) {
+                //TODO: ignored - what to do?
+            }
+        }, problems);
+    }
+
+    private static void print(ErrorDescription error) throws IOException {
+        int lineNumber = error.getRange().getBegin().getLine();
+        String line = error.getFile().asLines().get(lineNumber);
+        int column = error.getRange().getBegin().getColumn();
+        StringBuilder b = new StringBuilder();
+
+        for (int i = 0; i < column; i++) {
+            if (Character.isWhitespace(line.charAt(i))) {
+                b.append(line.charAt(i));
+            } else {
+                b.append(' ');
+            }
+        }
+
+        b.append('^');
+
+        System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + lineNumber + ":" + error.getDescription());
+        System.out.println(line);
+        System.out.println(b);
+    }
+
+    private static void apply(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
+        ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scope.createGivenSourceRoots(sourceRoot), w);
 
         List<MessageImpl> problems = new LinkedList<MessageImpl>();

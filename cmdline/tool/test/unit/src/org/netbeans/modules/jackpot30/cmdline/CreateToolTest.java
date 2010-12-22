@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.cmdline;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,7 +66,7 @@ public class CreateToolTest extends MainTest {
     private static File compiler;
 
     @Override
-    protected void reallyRunCompiler(File workingDir, String... params) throws IOException, Exception {
+    protected void reallyRunCompiler(File workingDir, String[] output, String... params) throws Exception {
         assertNotNull(compiler);
         List<String> ll = new LinkedList<String>();
         ll.add("java");
@@ -78,11 +79,16 @@ public class CreateToolTest extends MainTest {
         ll.addAll(Arrays.asList(params));
         try {
             Process p = Runtime.getRuntime().exec(ll.toArray(new String[0]), null, workingDir);
+            CopyStream outCopy = new CopyStream(p.getInputStream(), output, 0);
+            CopyStream errCopy = new CopyStream(p.getErrorStream(), output, 1);
 
-            new CopyStream(p.getInputStream(), System.out).start();
-            new CopyStream(p.getErrorStream(), System.err).start();
+            outCopy.start();
+            errCopy.start();
 
             assertEquals(0, p.waitFor());
+
+            outCopy.doJoin();
+            errCopy.doJoin();
         } catch (Throwable t) {
             throw new IOException(t);
         }
@@ -90,11 +96,15 @@ public class CreateToolTest extends MainTest {
 
     private static final class CopyStream extends Thread {
         private final InputStream ins;
-        private final OutputStream out;
+        private final ByteArrayOutputStream out;
+        private final String[] target;
+        private final int targetIndex;
 
-        public CopyStream(InputStream ins, OutputStream out) {
+        public CopyStream(InputStream ins, String[] target, int targetIndex) {
             this.ins = ins;
-            this.out = out;
+            this.out = new ByteArrayOutputStream();
+            this.target = target;
+            this.targetIndex = targetIndex;
         }
 
         @Override
@@ -110,6 +120,12 @@ public class CreateToolTest extends MainTest {
                     Exceptions.printStackTrace(ex);
                 }
             }
+        }
+
+        public void doJoin() throws InterruptedException, IOException {
+            join(60000);
+            out.close();
+            target[targetIndex] = new String(out.toByteArray());
         }
 
     }
