@@ -40,13 +40,7 @@
 package org.netbeans.modules.jackpot30.hudson;
 
 import hudson.Extension;
-import hudson.Launcher;
 import hudson.Proc;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
-import hudson.scm.ChangeLogSet.AffectedFile;
-import hudson.scm.ChangeLogSet.Entry;
-import hudson.scm.EditType;
 import hudson.util.ArgumentListBuilder;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -55,7 +49,6 @@ import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.HashSet;
 import java.util.Set;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -75,27 +68,14 @@ public class JackpotIndexBuilder extends IndexBuilder {
     public JackpotIndexBuilder() {}
 
     @Override
-    public boolean index(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
-        listener.getLogger().println("Jackpot 3.0 indexing:");
-
-        Set<String> addedFiles = new HashSet<String>();
-        Set<String> removedFiles = new HashSet<String>();
-
-        for (Entry e : build.getChangeSet()) {
-            for (AffectedFile f : e.getAffectedFiles()) {
-                if (f.getEditType() == EditType.DELETE) {
-                    removedFiles.add(f.getPath());
-                } else {
-                    addedFiles.add(f.getPath());
-                }
-            }
-        }
+    public boolean index(IndexingContext context) throws IOException, InterruptedException {
+        context.listener.getLogger().println("Jackpot 3.0 indexing:");
 
         File a = File.createTempFile("jck30", "");
         File r = File.createTempFile("jck30", "");
 
-        dumpToFile(a, addedFiles);
-        dumpToFile(r, removedFiles);
+        dumpToFile(a, context.addedOrModified);
+        dumpToFile(r, context.removed);
 
         ArgumentListBuilder args = new ArgumentListBuilder();
 
@@ -105,14 +85,14 @@ public class JackpotIndexBuilder extends IndexBuilder {
         args.add(new File(indexerLocation, "indexer.jar").getAbsolutePath());
         args.add("-store-sources");
         args.add(".");
-        args.add(cacheDir);
+        args.add(context.cacheDir);
         args.add(a.getAbsolutePath());
         args.add(r.getAbsolutePath());
 
-        Proc indexer = launcher.launch().pwd(build.getWorkspace())
-                                        .cmds(args)
-                                        .stdout(listener)
-                                        .start();
+        Proc indexer = context.launcher.launch().pwd(context.build.getWorkspace())
+                                                .cmds(args)
+                                                .stdout(context.listener)
+                                                .start();
 
         indexer.join();
 

@@ -49,6 +49,7 @@ import hudson.model.Descriptor;
 import hudson.model.Hudson;
 import java.io.File;
 import java.io.IOException;
+import java.util.Set;
 
 /**
  *
@@ -60,7 +61,7 @@ public abstract class IndexBuilder implements Describable<IndexBuilder>, Extensi
         return (IndexBuilderDescriptor)Hudson.getInstance().getDescriptor(getClass());
     }
 
-    public abstract boolean index(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException;
+    public abstract boolean index(IndexingContext context) throws InterruptedException, IOException;
 
     public static DescriptorExtensionList<IndexBuilder, IndexBuilderDescriptor> all() {
         return Hudson.getInstance().getDescriptorList(IndexBuilder.class);
@@ -74,5 +75,22 @@ public abstract class IndexBuilder implements Describable<IndexBuilder>, Extensi
         }
     }
 
-}
+    public static final class IndexingContext {
+        public final File cacheDir;
+        public final AbstractBuild<?, ?> build;
+        public final Launcher launcher;
+        public final BuildListener listener;
+        public final Set<String> addedOrModified;
+        public final Set<String> removed;
 
+        public IndexingContext(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener, Set<String> addedOrModified, Set<String> removed) {
+            this.cacheDir = cacheDir;
+            this.build = build;
+            this.launcher = launcher;
+            this.listener = listener;
+            this.addedOrModified = addedOrModified;
+            this.removed = removed;
+        }
+
+    }
+}

@@ -46,6 +46,9 @@ import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.model.Descriptor.FormException;
 import hudson.model.Hudson;
+import hudson.scm.ChangeLogSet.AffectedFile;
+import hudson.scm.ChangeLogSet.Entry;
+import hudson.scm.EditType;
 import hudson.tasks.Builder;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -53,7 +56,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
@@ -69,6 +71,7 @@ import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 import org.netbeans.api.jackpot.hudson.IndexBuilder;
 import org.netbeans.api.jackpot.hudson.IndexBuilder.IndexBuilderDescriptor;
+import org.netbeans.api.jackpot.hudson.IndexBuilder.IndexingContext;
 
 /**
  *
@@ -120,10 +123,23 @@ public final class IndexingBuilder extends Builder {
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+        Set<String> addedFiles = new HashSet<String>();
+        Set<String> removedFiles = new HashSet<String>();
+
+        for (Entry e : build.getChangeSet()) {
+            for (AffectedFile f : e.getAffectedFiles()) {
+                if (f.getEditType() == EditType.DELETE) {
+                    removedFiles.add(stripLeadingSlash(f.getPath()));
+                } else {
+                    addedFiles.add(stripLeadingSlash(f.getPath()));
+                }
+            }
+        }
+
         boolean success = true;
 
         for (IndexBuilder indexer : getIndexers()) {
-            success &= indexer.index(getDescriptor().getCacheDir(), build, launcher, listener);
+            success &= indexer.index(new IndexingContext(getDescriptor().getCacheDir(), build, launcher, listener, addedFiles, removedFiles));
         }
         //XXX:
         File info = new File(Cache.findCache("jackpot30").findCacheRoot(build.getWorkspace().toURI().toURL()), "info");
@@ -187,6 +203,14 @@ public final class IndexingBuilder extends Builder {
         }
     }
 
+    private String stripLeadingSlash(String path) {
+        if (path.length() > 0 && path.charAt(0) == '/') {
+            return path.substring(1);
+        }
+
+        return path;
+    }
+    
     @Extension // this marker indicates Hudson that this is an implementation of an extension point.
     public static final class DescriptorImpl extends Descriptor<Builder> {
 
