@@ -117,6 +117,44 @@ public class MainTest extends NbTestCase {
                       "--no-apply");
     }
 
+    public void testConfig() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private int test(String str) {\n" +
+            "        if (\"a\" == str) {\n" +
+            "            return 1;\n" +
+            "        } else if (\"b\" == str) {\n" +
+            "            return 2;\n" +
+            "        } else {\n" +
+            "            return 3;\n" +
+            "        }\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      null,
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private int test(String str) {\n" +
+                      "        if (\"a\" == str) {\n" +
+                      "            return 1;\n" +
+                      "        } else if (\"b\" == str) {\n" +
+                      "            return 2;\n" +
+                      "        } else {\n" +
+                      "            return 3;\n" +
+                      "        }\n" +
+                      "    }\n" +
+                      "}\n",
+                      null,
+                      "--hint",
+                      "Use switch over Strings where possible.",
+                      "--config",
+                      "also-equals=false");
+    }
+
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
         List<String> fileAndContent = new LinkedList<String>();
         List<String> extraOptions = new LinkedList<String>();

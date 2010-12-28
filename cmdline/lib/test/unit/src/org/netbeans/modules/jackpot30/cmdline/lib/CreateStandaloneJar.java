@@ -68,6 +68,7 @@ import org.netbeans.modules.classfile.ClassName;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
 import org.netbeans.modules.jackpot30.impl.Utilities.SPI;
 import org.netbeans.modules.jackpot30.java.hints.JavaHintsHintProvider;
+import org.netbeans.modules.jackpot30.spi.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.java.hints.jackpot.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.jackpot.code.FSWrapper;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
@@ -209,7 +210,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
 
         addMETA_INFRegistration(out, "java.lang.SecurityManager", "org.netbeans.modules.masterfs.filebasedfs.utils.FileChangedManager");
         addMETA_INFRegistration(out, "org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation", StandaloneTools.EmptySourceForBinaryQueryImpl.class.getName(), 0);
-        addMETA_INFRegistration(out, Provider.class.getName(), StandaloneTools.PreferencesProvider.class.getName());
+        addMETA_INFRegistration(out, Provider.class.getName(), StandaloneTools.PreferencesProvider.class.getName(), 0);
         addMETA_INFRegistration(out, MimeDataProvider.class.getName(), StandaloneTools.StandaloneMimeDataProviderImpl.class.getName());
         addMETA_INFRegistration(out, SPI.class.getName(), StandaloneTools.UtilitiesSPIImpl.class.getName());
 
@@ -358,6 +359,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             StandaloneTools.StandaloneMimeDataProviderImpl.class.getName(),
             CodeHintProviderImpl.class.getName(),
             JavaHintsHintProvider.class.getName(),
+            JavaHintsHintProvider.HPPImpl.class.getName(),
             JavaSource.class.getName(),
             DumpHints.class.getName(),
             RepositoryImpl.class.getName(),
@@ -382,7 +384,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.netbeans.modules.java.hints.jackpot.spi.HintProvider",
             "org.openide.filesystems.URLMapper",
             "org.openide.util.Lookup",
-            "org.netbeans.modules.openide.util.PreferencesProvider"
+            "org.netbeans.modules.openide.util.PreferencesProvider",
+            HintPreferencesProvider.class.getName()
             ));
 
     private static final Set<String> RESOURCES = new HashSet<String>(Arrays.asList(

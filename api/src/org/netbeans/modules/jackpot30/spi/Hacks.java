@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.Preferences;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
@@ -199,5 +200,9 @@ public class Hacks {
 
     public static ClasspathInfo createUniversalCPInfo() {
         return Utilities.createUniversalCPInfo();
+    }
+
+    public static interface HintPreferencesProvider {
+        public Preferences findPreferences(HintMetadata hm);
     }
 }

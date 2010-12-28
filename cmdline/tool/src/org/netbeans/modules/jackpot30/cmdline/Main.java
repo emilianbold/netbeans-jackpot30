@@ -48,6 +48,7 @@ import java.io.PrintStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map.Entry;
@@ -56,6 +57,7 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
 import javax.swing.event.ChangeListener;
 import joptsimple.ArgumentAcceptingOptionSpec;
@@ -117,6 +119,7 @@ public class Main {
         ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "source directory").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<File> out = parser.accepts("out", "output diff").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
+        ArgumentAcceptingOptionSpec<String> config = parser.accepts("config", "configurations").withRequiredArg().ofType(String.class);
 
         parser.accepts("list", "list all known hints");
         parser.accepts("progress", "show progress");
@@ -201,6 +204,42 @@ public class Main {
             if (!hints.iterator().hasNext()) {
                 System.err.println("no hints specified");
                 return 1;
+            }
+
+            if (parsed.has(config)) {
+                Iterator<? extends HintDescription> hit = hints.iterator();
+                HintDescription hd = hit.next();
+
+                if (hit.hasNext()) {
+                    System.err.println("--config cannot specified when more than one hint is specified");
+
+                    return 1;
+                }
+
+                Preferences prefs = RulesManager.getInstance().getHintPreferences(hd.getMetadata());
+
+                if (prefs == null) {
+                    System.err.println("hint '" + parsed.valueOf(hint) + "' cannot be configured");
+                    return 1;
+                }
+                
+                boolean stop = false;
+
+                for (String c : parsed.valuesOf(config)) {
+                    int assign = c.indexOf('=');
+
+                    if (assign == (-1)) {
+                        System.err.println("configuration option is missing '=' (" + c + ")");
+                        stop = true;
+                        continue;
+                    }
+
+                    prefs.put(c.substring(0, assign), c.substring(assign + 1));
+                }
+
+                if (stop) {
+                    return 1;
+                }
             }
 
             try {

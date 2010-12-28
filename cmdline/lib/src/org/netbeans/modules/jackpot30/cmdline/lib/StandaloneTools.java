@@ -127,6 +127,7 @@ public class StandaloneTools {
         };
     }
 
+    @ServiceProvider(service=Provider.class, position=0)
     public static class PreferencesProvider implements Provider {
 
         private final MemoryPreferencesFactory f;

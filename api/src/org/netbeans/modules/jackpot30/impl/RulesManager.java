@@ -53,13 +53,16 @@ import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.ElementBasedHintProvider;
+import org.netbeans.modules.jackpot30.spi.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
+import org.openide.util.NbPreferences;
 
 /**
  *
@@ -142,6 +145,16 @@ public class RulesManager {
     }
 
     public Preferences getHintPreferences(HintMetadata hm) {
+        if (hm == null || hm.id == null) return null;
+
+        for (HintPreferencesProvider p : Lookup.getDefault().lookupAll(HintPreferencesProvider.class)) {
+            Preferences prefs = p.findPreferences(hm);
+
+            if (prefs != null) {
+                return prefs;
+            }
+        }
+
         return null;
     }
 

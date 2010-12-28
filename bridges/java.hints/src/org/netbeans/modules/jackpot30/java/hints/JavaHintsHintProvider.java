@@ -48,9 +48,11 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.prefs.Preferences;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.WorkingCopy;
+import org.netbeans.modules.jackpot30.spi.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
@@ -61,6 +63,7 @@ import org.netbeans.modules.jackpot30.spi.HintMetadata.Kind;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
 import org.netbeans.modules.jackpot30.spi.JavaFix;
 import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
+import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.Fix;
@@ -197,6 +200,14 @@ public class JavaHintsHintProvider implements HintProvider {
             } catch (Exception ex) {
                 throw new IllegalStateException(ex);
             }
+        }
+    }
+
+    @ServiceProvider(service=HintPreferencesProvider.class, position=1000)
+    public static final class HPPImpl implements HintPreferencesProvider {
+        @Override
+        public Preferences findPreferences(HintMetadata hm) {
+            return RulesManager.getPreferences(hm.id, HintsSettings.getCurrentProfileId());
         }
     }
 
