@@ -161,7 +161,7 @@ public class CustomIndexerImpl extends CustomIndexer {
 
         @Override
         public int getIndexVersion() {
-            return Cache.VERSION;
+            return FileBasedIndex.VERSION;
         }
 
     }

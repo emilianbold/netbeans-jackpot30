@@ -113,7 +113,7 @@ public class ComputeDuplicates {
                 //TODO: needs to be removed for server mode
                 new DuplicatesCustomIndexerImpl.FactoryImpl().updateIndex(u, cancel); //TODO: show updating progress to the user
                 
-                File cacheRoot = Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(u);
+                File cacheRoot = Cache.findCache(DuplicatesIndex.NAME, DuplicatesIndex.VERSION).findCacheRoot(u);
 
                 File dir = new File(cacheRoot, "fulltext");
 

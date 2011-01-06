@@ -66,25 +66,25 @@ import org.openide.filesystems.FileUtil;
  */
 public class Cache {
 
-    public static final int VERSION = 1;
-
     private static File standaloneCacheRoot;
     private static Map<String, Cache> name2Cache = new HashMap<String, Cache>();
 
-    public static Cache findCache(String indexName) {
+    public static Cache findCache(String indexName, int version) {
         Cache cache = name2Cache.get(indexName);
 
         if (cache == null) {
-            name2Cache.put(indexName, cache = new Cache(indexName));
+            name2Cache.put(indexName, cache = new Cache(indexName, version));
         }
 
         return cache;
     }
 
     private final String name;
+    private final int version;
 
-    private Cache(String name) {
+    private Cache(String name, int version) {
         this.name = name;
+        this.version = version;
     }
     
     public File findCacheRoot(URL sourceRoot) throws IOException {
@@ -96,13 +96,13 @@ public class Cache {
         if (standaloneCacheRoot != null) {
             return getDataFolder(sourceRoot, name);
         } else {
-            return findCacheRootNB(sourceRoot);
+            return findCacheRootNB(sourceRoot, version);
         }
     }
 
-    private File findCacheRootNB(URL sourceRoot) throws IOException {
+    private File findCacheRootNB(URL sourceRoot, int version) throws IOException {
         FileObject indexBaseFolder = CacheFolder.getDataFolder(sourceRoot);
-        String path = SPIAccessor.getInstance().getIndexerPath(name, VERSION);
+        String path = SPIAccessor.getInstance().getIndexerPath(name, version);
         FileObject indexFolder = FileUtil.createFolder(indexBaseFolder, path);
         return FileUtil.toFile(indexFolder);
     }

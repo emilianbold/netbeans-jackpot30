@@ -59,6 +59,8 @@ import org.openide.util.Exceptions;
  */
 public class DuplicatesCustomIndexerImpl extends DeferredCustomIndexer {
 
+    private static final String NAME = "";
+    private static final int VERSION = 1;
     public DuplicatesCustomIndexerImpl(DeferredCustomIndexerFactory factory) {
         super(factory);
     }
@@ -111,12 +113,12 @@ public class DuplicatesCustomIndexerImpl extends DeferredCustomIndexer {
 
         @Override
         public int getIndexVersion() {
-            return Cache.VERSION;
+            return DuplicatesIndex.VERSION;
         }
 
         @Override
         protected File cacheRoot(URL root) throws IOException {
-            return Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(root);
+            return Cache.findCache(DuplicatesIndex.NAME, DuplicatesIndex.VERSION).findCacheRoot(root);
         }
 
     }

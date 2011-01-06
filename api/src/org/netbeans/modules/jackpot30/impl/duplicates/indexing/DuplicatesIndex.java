@@ -92,7 +92,7 @@ public class DuplicatesIndex {
     }
 
     public static @CheckForNull DuplicatesIndex get(URL sourceRoot) throws IOException {
-        return new DuplicatesIndex(sourceRoot, Cache.findCache(NAME).findCacheRoot(sourceRoot)); //XXX: new!
+        return new DuplicatesIndex(sourceRoot, Cache.findCache(NAME, VERSION).findCacheRoot(sourceRoot)); //XXX: new!
     }
 
     public IndexWriter openForWriting() throws IOException {
@@ -193,4 +193,5 @@ public class DuplicatesIndex {
     private static final int MINIMAL_VALUE = 10;
 
     public static final String NAME = "duplicates"; //NOI18N
+    public static final int    VERSION = 1; //NOI18N
 }

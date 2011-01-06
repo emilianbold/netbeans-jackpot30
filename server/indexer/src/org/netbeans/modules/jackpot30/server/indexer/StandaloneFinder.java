@@ -120,7 +120,7 @@ public class StandaloneFinder {
     }
 
     public static Map<String, Collection<? extends String>> containsHash(File sourceRoot, Iterable<? extends String> hashes) throws IOException {
-        File cacheRoot = Cache.findCache(DuplicatesIndex.NAME).findCacheRoot(sourceRoot.toURI().toURL());
+        File cacheRoot = Cache.findCache(DuplicatesIndex.NAME, DuplicatesIndex.VERSION).findCacheRoot(sourceRoot.toURI().toURL());
         File dir = new File(cacheRoot, "fulltext");
 
         if (dir.listFiles() != null && dir.listFiles().length > 0) {

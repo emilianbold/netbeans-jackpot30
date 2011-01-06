@@ -68,11 +68,11 @@ public final class FileBasedIndex extends AbstractLuceneIndex {
     }
 
     public static @CheckForNull Index get(URL sourceRoot) throws IOException {
-        return new FileBasedIndex(sourceRoot, Cache.findCache(FileBasedIndex.NAME).findCacheRoot(sourceRoot), false); //XXX: new!
+        return new FileBasedIndex(sourceRoot, Cache.findCache(FileBasedIndex.NAME, FileBasedIndex.VERSION).findCacheRoot(sourceRoot), false); //XXX: new!
     }
 
     public static @NonNull Index create(URL sourceRoot, boolean storeSources) throws IOException {
-        return new FileBasedIndex(sourceRoot, Cache.findCache(FileBasedIndex.NAME).findCacheRoot(sourceRoot), storeSources);
+        return new FileBasedIndex(sourceRoot, Cache.findCache(FileBasedIndex.NAME, FileBasedIndex.VERSION).findCacheRoot(sourceRoot), storeSources);
     }
 
     private final URL  sourceRoot;
@@ -171,4 +171,6 @@ public final class FileBasedIndex extends AbstractLuceneIndex {
     }
     
     public static final String NAME = "jackpot30"; //NOI18N
+    public static final int VERSION = AbstractLuceneIndex.MAJOR_VERSION * 1000 + AbstractLuceneIndex.MINOR_VERSION;
+
 }
