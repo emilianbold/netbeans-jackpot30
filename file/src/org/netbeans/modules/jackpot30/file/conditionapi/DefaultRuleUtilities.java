@@ -39,6 +39,9 @@
 
 package org.netbeans.modules.jackpot30.file.conditionapi;
 
+import java.util.Arrays;
+import java.util.EnumSet;
+import java.util.Set;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -80,8 +83,12 @@ public final class DefaultRuleUtilities {
         return matcher.matchesAny(parent, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
     }
 
-    public boolean elementKindMatches(Variable variable, ElementKind kind) {
-        return kind == context.elementKind(variable);
+    public boolean elementKindMatches(Variable variable, ElementKind... kind) {
+        Set<ElementKind> kinds = EnumSet.noneOf(ElementKind.class);
+        
+        kinds.addAll(Arrays.asList(kind));
+
+        return kinds.contains(context.elementKind(variable));
     }
 
     public boolean isNullLiteral(@NonNull Variable var) {
