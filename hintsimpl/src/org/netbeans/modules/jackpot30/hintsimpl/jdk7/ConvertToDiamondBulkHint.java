@@ -41,11 +41,18 @@ package org.netbeans.modules.jackpot30.hintsimpl.jdk7;
 
 import com.sun.source.util.TreePath;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.prefs.Preferences;
 import javax.tools.Diagnostic;
+import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
 import org.netbeans.modules.java.hints.errors.ConvertToDiamond;
 import org.netbeans.modules.java.hints.jackpot.code.spi.Hint;
 import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPattern;
@@ -65,6 +72,16 @@ import org.netbeans.spi.editor.hints.Severity;
 @Hint(category="rules15",enabled=false, hintKind=Kind.HINT_NON_GUI)
 public class ConvertToDiamondBulkHint {
 
+    private static final Map<String, Collection<String>> key2Pattern = new LinkedHashMap<String, Collection<String>>();
+
+    static {
+        key2Pattern.put("initializer", Arrays.asList("$mods$ $type $name = $_;"));
+        key2Pattern.put("assignment", Arrays.asList("$var = $_"));
+        key2Pattern.put("return", Arrays.asList("return $_;"));
+        key2Pattern.put("argument", Arrays.asList("$site.<$T$>$name($p$, $_, $s$)"));
+        key2Pattern.put("other", Arrays.asList(new String[] {null}));
+    }
+    
     @TriggerPatterns({
         @TriggerPattern("new $clazz<$tparams$>($params$)")
     })
@@ -74,16 +91,41 @@ public class ConvertToDiamondBulkHint {
         Set<String> codes = convert.getCodes();
         TreePath clazz = ctx.getVariables().get("$clazz");
         long start = ctx.getInfo().getTrees().getSourcePositions().getStartPosition(clazz.getCompilationUnit(), clazz.getLeaf());
+        org.netbeans.modules.jackpot30.spi.HintContext newCTX = new org.netbeans.modules.jackpot30.spi.HintContext(ctx.getInfo(), null, ctx.getPath(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames());
 
-        for (Diagnostic<?> d : ctx.getInfo().getDiagnostics()) {
+        OUTER: for (Diagnostic<?> d : ctx.getInfo().getDiagnostics()) {
             if (start != d.getStartPosition()) continue;
             if (!codes.contains(d.getCode())) continue;
+
+            FOUND: for (Entry<String, Collection<String>> e : key2Pattern.entrySet()) {
+                for (String p : e.getValue()) {
+                    if (p == null || MatcherUtilities.matches(newCTX, ctx.getPath().getParentPath(), p)) {
+                        boolean enabled = isEnabled(ctx, e.getKey());
+
+                        if (!enabled) {
+                            continue OUTER;
+                        } else {
+                            break FOUND;
+                        }
+                    }
+                }
+            }
 
             List<Fix> fixes = convert.run(ctx.getInfo(), d.getCode(), (int) d.getPosition(), ctx.getInfo().getTreeUtilities().pathFor((int) d.getPosition() + 1), null);
             result.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "", fixes, ctx.getInfo().getFileObject(), (int) d.getStartPosition(), (int) d.getEndPosition()));
         }
 
         return result;
+    }
+
+    static final String ALL = "initializer,assignment,return,argument,other";
+    
+    static String getConfiguration(Preferences p) {
+        return p.get("enabled", ALL);
+    }
+
+    private static boolean isEnabled(HintContext ctx, String key) {
+        return ("," + getConfiguration(ctx.getPreferences()) + ",").contains("," + key + ",");
     }
 
 }
