@@ -182,23 +182,84 @@ public class ConvertToDiamondBulkHintTest extends TestBase {
                             "}\n");
     }
 
-    public void testConfiguration6() throws Exception {
+    public void testConfiguration6a() throws Exception {
         setSourceLevel("1.7");
         allBut("argument");
         performAnalysisTest("test/Test.java",
                             "package test;\n" +
-                            "public class Test {\n" +
-                            "    private l(java.util.LinkedList<String> a) { l(new java.util.LinkedList<String>()); }\n" +
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    private void l(java.util.LinkedList<? extends CharSequence> a) { l(new Test<CharSequence>()); }\n" +
                             "}\n");
     }
 
-    public void testConfiguration7() throws Exception {
+    public void testConfiguration6b() throws Exception {
+        setSourceLevel("1.7");
+        allBut("argument");
+        performAnalysisTest("test/Test.java",
+                            "package test;\n" +
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    private void l(java.util.LinkedList<? extends CharSequence> a) { this.l(new Test<CharSequence>()); }\n" +
+                            "}\n");
+    }
+
+    public void testConfiguration6c() throws Exception {
+        setSourceLevel("1.7");
+        allBut("argument");
+        performAnalysisTest("test/Test.java",
+                            "package test;\n" +
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    public Test(java.util.LinkedList<? extends CharSequence> a) { new Test(new Test<CharSequence>(null)); }\n" +
+                            "}\n");
+    }
+    
+    public void testConfiguration6d() throws Exception {
+        setSourceLevel("1.7");
+        allBut("argument");
+        performAnalysisTest("test/Test.java",
+                            "package test;\n" +
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    public Test(java.util.LinkedList<? extends CharSequence> a) { new Test<String>(new Test<CharSequence>(null)); }\n" +
+                            "}\n");
+    }
+
+    public void testConfiguration7a() throws Exception {
         setSourceLevel("1.7");
         performAnalysisTest("test/Test.java",
                             "package test;\n" +
-                            "public class Test {\n" +
-                            "    private l(java.util.LinkedList<String> a) { l(new java.util.LinkedList<String>()); }\n" +
-                            "}\n");
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    private void l(java.util.LinkedList<? extends CharSequence> a) { l(new Test<CharSequence>()); }\n" +
+                            "}\n",
+                            "2:75-2:93:error:");
+    }
+
+    public void testConfiguration7b() throws Exception {
+        setSourceLevel("1.7");
+        performAnalysisTest("test/Test.java",
+                            "package test;\n" +
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    private void l(java.util.LinkedList<? extends CharSequence> a) { this.l(new Test<CharSequence>()); }\n" +
+                            "}\n",
+                            "2:80-2:98:error:");
+    }
+
+    public void testConfiguration7c() throws Exception {
+        setSourceLevel("1.7");
+        performAnalysisTest("test/Test.java",
+                            "package test;\n" +
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    public Test(java.util.LinkedList<? extends CharSequence> a) { new Test(new Test<CharSequence>(null)); }\n" +
+                            "}\n",
+                            "2:79-2:97:error:");
+    }
+
+    public void testConfiguration7d() throws Exception {
+        setSourceLevel("1.7");
+        performAnalysisTest("test/Test.java",
+                            "package test;\n" +
+                            "public class Test<T extends CharSequence> extends java.util.LinkedList<T> {\n" +
+                            "    public Test(java.util.LinkedList<? extends CharSequence> a) { new Test<String>(new Test<CharSequence>(null)); }\n" +
+                            "}\n",
+                            "2:87-2:105:error:");
     }
 
     public void testConfiguration8() throws Exception {

@@ -78,7 +78,7 @@ public class ConvertToDiamondBulkHint {
         key2Pattern.put("initializer", Arrays.asList("$mods$ $type $name = $_;"));
         key2Pattern.put("assignment", Arrays.asList("$var = $_"));
         key2Pattern.put("return", Arrays.asList("return $_;"));
-        key2Pattern.put("argument", Arrays.asList("$site.<$T$>$name($p$, $_, $s$)"));
+        key2Pattern.put("argument", Arrays.asList("$site.<$T$>$name($p$, $_, $s$)", "$name($p$, $_, $s$)", "new $type<$T$>($p$, $_, $s$)", "new $type($p$, $_, $s$)"));
         key2Pattern.put("other", Arrays.asList(new String[] {null}));
     }
     
