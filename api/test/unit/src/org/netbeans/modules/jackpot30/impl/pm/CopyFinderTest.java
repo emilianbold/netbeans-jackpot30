@@ -43,6 +43,7 @@ import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -251,4 +252,17 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
                              false,
                              false);
     }
+
+    public void testWildcard1() throws Exception {
+        performTest("package test; import java.util.*; public class Test { public void test() { |List<?>| l1; |List<?>| l2;} }");
+    }
+
+    public void testWildcard2() throws Exception {
+        performTest("package test; import java.util.*; public class Test { public void test() { |List<? extends String>| l1; |List<? extends String>| l2;} }");
+    }
+
+    public void testWildcard3() throws Exception {
+        performTest("package test; import java.util.*; public class Test { public void test() { |List<? super String>| l1; |List<? super String>| l2;} }");
+    }
+
 }

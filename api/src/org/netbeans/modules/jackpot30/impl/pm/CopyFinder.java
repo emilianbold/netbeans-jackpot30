@@ -74,6 +74,7 @@ import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
+import com.sun.source.tree.WildcardTree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
@@ -1383,10 +1384,15 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
 
         return scan(node.getStatement(), t.getStatement(), p);
     }
-///
-//    public Boolean visitWildcard(WildcardTree node, TreePath p) {
-//        throw new UnsupportedOperationException("Not supported yet.");
-//    }
+
+    public Boolean visitWildcard(WildcardTree node, TreePath p) {
+        if (p == null)
+            return super.visitWildcard(node, p);
+
+        WildcardTree t = (WildcardTree) p.getLeaf();
+
+        return scan(node.getBound(), t.getBound(), p);
+    }
 //
 //    public Boolean visitOther(Tree node, TreePath p) {
 //        throw new UnsupportedOperationException("Not supported yet.");

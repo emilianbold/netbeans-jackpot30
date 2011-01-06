@@ -141,6 +141,16 @@ public class ConvertToDiamondBulkHintTest extends TestBase {
                             "2:43-2:71:error:");
     }
 
+    public void testConfiguration2c() throws Exception {
+        setSourceLevel("1.7");
+        allBut("initializer");
+        performAnalysisTest("test/Test.java",
+                            "package test;\n" +
+                            "public class Test {\n" +
+                            "    { java.util.LinkedList<java.util.LinkedList<?>> l = new java.util.LinkedList<java.util.LinkedList<?>>(); }\n" +
+                            "}\n");
+    }
+
     public void testConfiguration3() throws Exception {
         setSourceLevel("1.7");
         allBut("initializer");
