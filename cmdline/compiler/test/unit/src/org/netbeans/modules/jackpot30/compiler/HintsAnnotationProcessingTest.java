@@ -82,7 +82,10 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
         doRunCompiler(golden, "src/test/Test.java",
                               "package test; public class Test {private void test(java.io.File f) {f.isDirectory();}}\n",
                               "src/META-INF/upgrade/joFile.hint",
-                              "'test':\n$1.isDirectory() :: $1 instanceof java.io.File => !$1.isFile();;");
+                              "'test':\n$1.isDirectory() :: $1 instanceof java.io.File => !$1.isFile();;",
+                              null,
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_ENABLE + "=true",
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_FIXES_ENABLE + "=true");
     }
 
     public void testRunCompiler2() throws Exception {
@@ -96,7 +99,10 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
         doRunCompiler(golden, "src/test/Test.java",
                               "package test; public class Test {private void test() {Character.toLowerCase('a');}}\n",
                               "src/META-INF/upgrade/joFile.hint",
-                              "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;");
+                              "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;",
+                              null,
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_ENABLE + "=true",
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_FIXES_ENABLE + "=true");
     }
 
     public void testRunCompilerMulti() throws Exception {
@@ -117,7 +123,10 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                               "src/test/Dep.java",
                               "package test; public class Dep {static void test() {Character.toLowerCase('a');}}\n",
                               "src/META-INF/upgrade/joFile.hint",
-                              "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;");
+                              "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;",
+                              null,
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_ENABLE + "=true",
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_FIXES_ENABLE + "=true");
     }
 
 //    public void testNPEFromAttribute() throws Exception {//TODO: does not reproduce the problem - likely caused by null Env<AttrContext> for annonymous innerclasses
@@ -217,7 +226,9 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                               "'test':\njava.lang.Character.toLowerCase($1) :: $1 instanceof char => java.lang.Character.toUpperCase($1) ;;",
                               null,
                               "-classpath",
-                              "comp");
+                              "comp",
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_ENABLE + "=true",
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_FIXES_ENABLE + "=true");
     }
 
     public void testNoDebugInfo() throws Exception {
@@ -233,7 +244,9 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
                               "src/META-INF/upgrade/joFile.hint",
                               "'test':\n$1.isDirectory() :: $1 instanceof java.io.File => !$1.isFile();;",
                               null,
-                              "-g:none");
+                              "-g:none",
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_ENABLE + "=true",
+                              "-A" + HintsAnnotationProcessing.CLASSPATH_HINTS_FIXES_ENABLE + "=true");
     }
 
     private void doRunCompiler(String goldenDiff, String... fileContentAndExtraOptions) throws Exception {

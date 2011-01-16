@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2011 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,30 +34,30 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2011 Sun Microsystems, Inc.
  */
 package org.netbeans.modules.jackpot30.compiler;
 
-import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar;
-import javax.annotation.processing.Processor;
-import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import java.util.Set;
+import javax.annotation.processing.ProcessingEnvironment;
+import org.netbeans.api.java.source.CompilationInfoHack;
 
 /**
  *
  * @author lahvac
  */
-public class CreateStandaloneCompilerJar extends CreateStandaloneJar {
+public abstract class AbstractHintsAnnotationProcessing {
 
-    public CreateStandaloneCompilerJar(String name) {
-        super(name, "jackpotc");
-    }
+    protected abstract boolean initialize(ProcessingEnvironment processingEnv);
 
-    @Override
-    protected Info computeInfo() {
-        return new Info().addAdditionalRoots(UtilitiesSPIImpl.class.getName(), "com.sun.tools.javac.Main", HintsAnnotationProcessing.class.getName(), HintsAnnotationProcessingImpl.class.getName())
-                         .addMetaInfRegistrations(new MetaInfRegistration(Utilities.SPI.class, UtilitiesSPIImpl.class))
-                         .addMetaInfRegistrations(new MetaInfRegistration(Processor.class, HintsAnnotationProcessingImpl.class))
-                         .addMetaInfRegistrationToCopy(AbstractHintsAnnotationProcessing.class.getName());
+    protected abstract void doProcess(CompilationInfoHack info, ProcessingEnvironment processingEnv, Reporter reporter);
+
+    protected abstract void finish();
+
+    protected abstract Set<String> getSupportedOptions();
+
+    protected static interface Reporter {
+        public void warning(int offset, String message);
     }
 
 }
