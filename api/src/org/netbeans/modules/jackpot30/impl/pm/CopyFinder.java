@@ -174,10 +174,10 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
     }
 
     public static boolean isDuplicate(CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, AtomicBoolean cancel) {
-        return isDuplicate(info, one, second, fullElementVerify, null, false, cancel);
+        return isDuplicate(info, one, second, fullElementVerify, null, null, null, cancel);
     }
 
-    public static boolean isDuplicate(final CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, HintContext inVariables, boolean fillInVariables, AtomicBoolean cancel) {
+    public static boolean isDuplicate(final CompilationInfo info, TreePath one, TreePath second, boolean fullElementVerify, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variables2Names, AtomicBoolean cancel) {
         if (!sameKind(one.getLeaf(), second.getLeaf())) {
             return false;
         }
@@ -186,14 +186,8 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                        ? new CopyFinder(one, info, cancel)
                        : new UnattributedCopyFinder(one, info, cancel);
 
-        if (inVariables != null) {
-            if (fillInVariables) {
-                f.bindState = State.from(inVariables.getVariables(), inVariables.getMultiVariables(), inVariables.getVariableNames());
-            } else {
-                f.bindState.variables.putAll(inVariables.getVariables());
-                f.bindState.variables2Names.putAll(inVariables.getVariableNames());
-                f.bindState.multiVariables.putAll(inVariables.getMultiVariables());
-            }
+        if (variables != null) {
+            f.bindState = State.from(variables, multiVariables, variables2Names);
         }
 
         f.allowGoDeeper = false;
@@ -1583,7 +1577,7 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
         }
 
         public static State from(Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variables2Names) {
-            return new State(variables, multiVariables, variables2Names, null, null);
+            return new State(variables, multiVariables, variables2Names, new HashMap<Element, Element>(), new HashMap<Element, TreePath>());
         }
     }
 

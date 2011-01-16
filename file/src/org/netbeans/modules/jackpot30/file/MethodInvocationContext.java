@@ -61,7 +61,6 @@ import org.netbeans.modules.jackpot30.file.conditionapi.DefaultRuleUtilities;
 import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;
 import org.netbeans.modules.jackpot30.file.conditionapi.Variable;
 import org.netbeans.modules.jackpot30.spi.Hacks;
-import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
@@ -145,7 +144,7 @@ public class MethodInvocationContext {
         return varArgMethod;
     }
 
-    public boolean invokeMethod(HintContext ctx, @NonNull Method method, Map<? extends String, ? extends ParameterKind> params) {
+    public boolean invokeMethod(Context ctx, @NonNull Method method, Map<? extends String, ? extends ParameterKind> params) {
         Collection<Object> paramValues = new LinkedList<Object>();
         int i = 0;
         Collection<Object> vararg = null;
@@ -181,7 +180,6 @@ public class MethodInvocationContext {
             paramValues.add(arr);
         }
 
-        Context context = new Context(ctx);
         Matcher matcher = new Matcher(ctx);
 
         Class<?> clazz = method.getDeclaringClass();
@@ -191,7 +189,7 @@ public class MethodInvocationContext {
             method.setAccessible(true);
             c.setAccessible(true);
 
-            Object instance = c.newInstance(context, matcher);
+            Object instance = c.newInstance(ctx, matcher);
 
             return (Boolean) method.invoke(instance, paramValues.toArray(new Object[0]));
         } catch (InstantiationException ex) {

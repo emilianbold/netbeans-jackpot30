@@ -67,11 +67,13 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.file.APIAccessor;
 import org.netbeans.modules.jackpot30.file.Condition;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
+import org.netbeans.modules.jackpot30.file.conditionapi.Context;
+import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;
 import org.netbeans.modules.jackpot30.file.test.TestTokenId;
 import org.netbeans.modules.jackpot30.spi.HintContext;
-import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.spi.CursorMovedSchedulerEvent;
 import org.netbeans.modules.parsing.spi.Parser.Result;
@@ -209,24 +211,31 @@ public class EvaluationSpanTask extends JavaParserResultTask<Result> {
 
             HintContext ctx = new HintContext(info, null, tp, variables, multiVariables, variableNames);
             String pattern = d.spec.substring(d.desc.textStart, d.desc.textEnd);
+            Context context = new Context(ctx);
 
-            boolean matches = MatcherUtilities.matches(ctx, tp, pattern, true);
+            context.enterScope();
+ 
+            boolean matches = new Matcher(context).matchesWithBind(context.variableForName("$_"), pattern);
 
             List<int[]> target = matches ? passed : failed;
 
             target.add(trim(d.spec, new int[] {d.desc.textStart, d.desc.textEnd}));
 
             if (matches) {
-                evaluateConditions(d.desc.conditions, d.desc.conditionSpans, ctx, passed, failed, d);
+                evaluateConditions(d.desc.conditions, d.desc.conditionSpans, context, passed, failed, d);
+
+                context.enterScope();
 
                 for (FixTextDescription f : d.desc.fixes) {
-                    evaluateConditions(f.conditions, f.conditionSpans, ctx, passed, failed, d);
+                    evaluateConditions(f.conditions, f.conditionSpans, context, passed, failed, d);
                 }
+
+                context.leaveScope();
             }
         }
     }
 
-    private static void evaluateConditions(Iterable<Condition> conditions, Iterable<int[]> conditionSpans, HintContext ctx, List<int[]> passed, List<int[]> failed, HintWrapper d) {
+    private static void evaluateConditions(Iterable<Condition> conditions, Iterable<int[]> conditionSpans, Context ctx, List<int[]> passed, List<int[]> failed, HintWrapper d) {
         Iterator<Condition> cond = conditions.iterator();
         Iterator<int[]> span = conditionSpans.iterator();
 

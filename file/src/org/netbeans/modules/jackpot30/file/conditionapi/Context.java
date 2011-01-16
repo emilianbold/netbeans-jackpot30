@@ -45,7 +45,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.lang.model.SourceVersion;
@@ -57,6 +60,7 @@ import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.queries.SourceLevelQuery;
+import org.netbeans.modules.jackpot30.file.APIAccessor;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 
@@ -66,12 +70,18 @@ import org.netbeans.modules.jackpot30.spi.HintContext;
  */
 public class Context {
 
-    private final HintContext ctx;
+            final HintContext ctx;
+            final List<Map<String, TreePath>> variables = new LinkedList<Map<String, TreePath>>();
+            final List<Map<String, Collection<? extends TreePath>>> multiVariables = new LinkedList<Map<String, Collection<? extends TreePath>>>();
+            final List<Map<String, String>> variableNames = new LinkedList<Map<String, String>>();
     private final AtomicInteger auxiliaryVariableCounter = new AtomicInteger();
 
     //XXX: should not be public:
     public Context(HintContext ctx) {
         this.ctx = ctx;
+        this.variables.add(Collections.unmodifiableMap(ctx.getVariables()));
+        this.multiVariables.add(Collections.unmodifiableMap(ctx.getMultiVariables()));
+        this.variableNames.add(Collections.unmodifiableMap(ctx.getVariableNames()));
     }
 
     public @NonNull SourceVersion sourceVersion() {
@@ -88,7 +98,7 @@ public class Context {
     }
 
     public @NonNull Set<Modifier> modifiers(@NonNull Variable variable) {
-        final Element e = ctx.getInfo().getTrees().getElement(ctx.getVariables().get(variable.variableName));
+        final Element e = ctx.getInfo().getTrees().getElement(getSingleVariable(variable));
 
         if (e == null) {
             return Collections.unmodifiableSet(EnumSet.noneOf(Modifier.class));
@@ -98,7 +108,7 @@ public class Context {
     }
 
     public @CheckForNull ElementKind elementKind(@NonNull Variable variable) {
-        final Element e = ctx.getInfo().getTrees().getElement(getSingleVariable(ctx, variable));
+        final Element e = ctx.getInfo().getTrees().getElement(getSingleVariable(variable));
 
         if (e == null) {
             return null;
@@ -108,7 +118,7 @@ public class Context {
     }
 
     public @CheckForNull TypeKind typeKind(@NonNull Variable variable) {
-        final TypeMirror tm = ctx.getInfo().getTrees().getTypeMirror(getSingleVariable(ctx, variable));
+        final TypeMirror tm = ctx.getInfo().getTrees().getTypeMirror(getSingleVariable(variable));
 
         if (tm == null) {
             return null;
@@ -118,7 +128,7 @@ public class Context {
     }
 
     public @CheckForNull String name(@NonNull Variable variable) {
-        final Element e = ctx.getInfo().getTrees().getElement(getSingleVariable(ctx, variable));
+        final Element e = ctx.getInfo().getTrees().getElement(getSingleVariable(variable));
 
         if (e == null) {
             return null;
@@ -128,43 +138,45 @@ public class Context {
     }
 
     public @CheckForNull Variable parent(@NonNull Variable variable) {
-        TreePath tp = ctx.getVariables().get(variable.variableName);
+        TreePath tp = getSingleVariable(variable);
 
         if (tp.getParentPath() == null) {
             return null;
         }
-        
+
         String output = "*" + auxiliaryVariableCounter.getAndIncrement();
 
-        ctx.getVariables().put(output, tp.getParentPath());
+        variables.get(0).put(output, tp.getParentPath());
 
         return new Variable(output);
     }
 
     public @NonNull Variable variableForName(@NonNull String variableName) {
-        if (!ctx.getVariables().containsKey(variableName)) {
+        Variable result = new Variable(variableName);
+
+        if (getSingleVariable(result) == null) {
             throw new IllegalStateException("Unknown variable");
         }
         
-        return new Variable(variableName);
+        return result;
     }
 
     public void createRenamed(@NonNull Variable from, @NonNull Variable to, @NonNull String newName) {
         //TODO: check (the variable should not exist)
-        ctx.getVariableNames().put(to.variableName, newName);
-        TreePath origVariablePath = ctx.getVariables().get(from.variableName);
+        variableNames.get(0).put(to.variableName, newName);
+        TreePath origVariablePath = getSingleVariable(from);
         TreePath newVariablePath = new TreePath(origVariablePath.getParentPath(), Hacks.createRenameTree(origVariablePath.getLeaf(), newName));
-        ctx.getVariables().put(to.variableName, newVariablePath);
+        variables.get(0).put(to.variableName, newVariablePath);
     }
 
     public boolean isNullLiteral(@NonNull Variable var) {
-        TreePath varPath = ctx.getVariables().get(var.variableName);
+        TreePath varPath = getSingleVariable(var);
 
         return varPath.getLeaf().getKind() == Kind.NULL_LITERAL;
     }
 
     public @NonNull Iterable<? extends Variable> getIndexedVariables(@NonNull Variable multiVariable) {
-        Collection<? extends TreePath> paths = ctx.getMultiVariables().get(multiVariable.variableName);
+        Iterable<? extends TreePath> paths = getMultiVariable(multiVariable);
 
         if (paths == null) {
             throw new IllegalArgumentException("TODO: explanation");
@@ -180,11 +192,23 @@ public class Context {
         return result;
     }
 
-    static Iterable<? extends TreePath> getVariable(HintContext ctx, Variable v) {
-        if (isMultistatementWildcard(v.variableName)) {
-            return ctx.getMultiVariables().get(v.variableName);
+    public void enterScope() {
+        variables.add(0, new HashMap<String, TreePath>());
+        multiVariables.add(0, new HashMap<String, Collection<? extends TreePath>>());
+        variableNames.add(0, new HashMap<String, String>());
+    }
+
+    public void leaveScope() {
+        variables.remove(0);
+        multiVariables.remove(0);
+        variableNames.remove(0);
+    }
+
+    Iterable<? extends TreePath> getVariable(Variable v) {
+        if (isMultistatementWildcard(v.variableName) && v.index == (-1)) {
+            return getMultiVariable(v);
         } else {
-            return Collections.singletonList(ctx.getVariables().get(v.variableName));
+            return Collections.singletonList(getSingleVariable(v));
         }
     }
 
@@ -194,11 +218,88 @@ public class Context {
     }
 
     //TODO: check if correct variable is provided:
-    private static TreePath getSingleVariable(HintContext ctx, Variable v) {
+    TreePath getSingleVariable(Variable v) {
         if (v.index == (-1)) {
-            return ctx.getVariables().get(v.variableName);
+            for (Map<String, TreePath> map : variables) {
+                if (map.containsKey(v.variableName)) {
+                    return map.get(v.variableName);
+                }
+            }
+            
+            return null;
         } else {
-            return new ArrayList<TreePath>(ctx.getMultiVariables().get(v.variableName)).get(v.index);
+            return new ArrayList<TreePath>(getMultiVariable(v)).get(v.index);
         }
+    }
+
+    private Collection<? extends TreePath> getMultiVariable(Variable v) {
+        for (Map<String, Collection<? extends TreePath>> multi : multiVariables) {
+            if (multi.containsKey(v.variableName)) {
+                return multi.get(v.variableName);
+            }
+        }
+
+        return null;
+    }
+
+    static {
+        APIAccessor.IMPL = new APIAccessorImpl();
+    }
+
+    static final class APIAccessorImpl extends APIAccessor {
+
+        @Override
+        public TreePath getSingleVariable(Context ctx, Variable var) {
+            return ctx.getSingleVariable(var);
+        }
+
+        @Override
+        public HintContext getHintContext(Context ctx) {
+            return ctx.ctx;
+        }
+
+        @Override
+        public Map<String, TreePath> getVariables(Context ctx) {
+            Map<String, TreePath> result = new HashMap<String, TreePath>();
+
+            for (Map<String, TreePath> m : reverse(ctx.variables)) {
+                result.putAll(m);
+            }
+
+            return result;
+        }
+
+        @Override
+        public Map<String, Collection<? extends TreePath>> getMultiVariables(Context ctx) {
+            Map<String, Collection<? extends TreePath>> result = new HashMap<String, Collection<? extends TreePath>>();
+
+            for (Map<String, Collection<? extends TreePath>> m : reverse(ctx.multiVariables)) {
+                result.putAll(m);
+            }
+
+            return result;
+        }
+
+        @Override
+        public Map<String, String> getVariableNames(Context ctx) {
+            Map<String, String> result = new HashMap<String, String>();
+
+            for (Map<String, String> m : reverse(ctx.variableNames)) {
+                result.putAll(m);
+            }
+
+            return result;
+        }
+
+        private <T> List<T> reverse(List<T> original) {
+            List<T> result = new LinkedList<T>();
+
+            for (T t : original) {
+                result.add(0, t);
+            }
+
+            return result;
+        }
+
     }
 }

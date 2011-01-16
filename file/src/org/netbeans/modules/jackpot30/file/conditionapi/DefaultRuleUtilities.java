@@ -103,6 +103,10 @@ public final class DefaultRuleUtilities {
         return matchesAny(current, pattern); //XXX: $_ currently not part of variables map, so this won't work!!!
     }
 
+    public boolean matchesWithBind(Variable var, String pattern) {
+        return matcher.matchesWithBind(var, pattern);
+    }
+
     public boolean matchesAny(Variable var, String... patterns) {
         return matcher.matchesAny(var, patterns);
     }

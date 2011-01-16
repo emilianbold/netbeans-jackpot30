@@ -40,18 +40,13 @@
 package org.netbeans.modules.jackpot30.file;
 
 import com.sun.source.util.TreePath;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.LinkedList;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
+import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.Hacks;
-import org.netbeans.modules.jackpot30.spi.HintContext;
-import org.openide.util.Exceptions;
 
 /**
  *
@@ -65,7 +60,7 @@ public abstract class Condition {
         this.not = not;
     }
 
-    public abstract boolean holds(HintContext ctx, boolean global);
+    public abstract boolean holds(Context ctx, boolean global);
 
     @Override
     public abstract String toString();
@@ -84,18 +79,19 @@ public abstract class Condition {
         }
 
         @Override
-        public boolean holds(HintContext ctx, boolean global) {
+        public boolean holds(Context ctx, boolean global) {
             if (global && !not) {
                 //if this is a global condition, not == false, then the computation should always lead to true
                 //note that ctx.getVariables().get(variable) might even by null (implicit this)
                 return true;
             }
 
-            TreePath boundTo = ctx.getVariables().get(variable);
-            TypeMirror realType = ctx.getInfo().getTrees().getTypeMirror(boundTo);
-            TypeMirror designedType = Hacks.parseFQNType(ctx.getInfo(), constraint);
+            TreePath boundTo = APIAccessor.IMPL.getSingleVariable(ctx, ctx.variableForName(variable));
+            CompilationInfo info = APIAccessor.IMPL.getHintContext(ctx).getInfo();
+            TypeMirror realType = info.getTrees().getTypeMirror(boundTo);
+            TypeMirror designedType = Hacks.parseFQNType(info, constraint);
 
-            return not ^ ctx.getInfo().getTypes().isSubtype(realType, designedType);
+            return not ^ info.getTypes().isSubtype(realType, designedType);
         }
 
         @Override
@@ -120,7 +116,7 @@ public abstract class Condition {
         }
 
         @Override
-        public boolean holds(HintContext ctx, boolean global) {
+        public boolean holds(Context ctx, boolean global) {
             if (toCall.get() == null) {
                 //not linked yet?
                 if (!link()) {
@@ -158,7 +154,7 @@ public abstract class Condition {
         }
 
         @Override
-        public boolean holds(HintContext ctx, boolean global) {
+        public boolean holds(Context ctx, boolean global) {
             return false;
         }
 

@@ -46,6 +46,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.type.TypeMirror;
+import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
@@ -88,8 +89,12 @@ class DeclarativeHintsWorker implements Worker {
     }
 
     public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
+        Context context = new Context(ctx);
+
+        context.enterScope();
+
         for (Condition c : conditions) {
-            if (!c.holds(ctx, true)) {
+            if (!c.holds(context, true)) {
                 return null;
             }
         }
@@ -97,17 +102,34 @@ class DeclarativeHintsWorker implements Worker {
         List<Fix> editorFixes = new LinkedList<Fix>();
 
         OUTER: for (DeclarativeFix fix : fixes) {
-            for (Condition c : fix.getConditions()) {
-                if (!c.holds(ctx, false)) {
-                    continue OUTER;
+            context.enterScope();
+
+            try {
+                for (Condition c : fix.getConditions()) {
+                    if (!c.holds(context, false)) {
+                        continue OUTER;
+                    }
                 }
+
+                reportErrorWarning(ctx, fix.getOptions());
+
+                //XXX: empty/noop fixes should not be realized:
+                editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(),
+                                                   fix.getDisplayName(),
+                                                   ctx.getPath(),
+                                                   fix.getPattern(),
+                                                   APIAccessor.IMPL.getVariables(context),
+                                                   APIAccessor.IMPL.getMultiVariables(context),
+                                                   APIAccessor.IMPL.getVariableNames(context),
+                                                   ctx.getConstraints(),
+                                                   fix.getOptions(),
+                                                   imports));
+            } finally {
+                context.leaveScope();
             }
-
-            reportErrorWarning(ctx, fix.getOptions());
-
-            //XXX: empty/noop fixes should not be realized:
-            editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(), fix.getDisplayName(), ctx.getPath(), fix.getPattern(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), ctx.getConstraints(), fix.getOptions(), imports));
         }
+
+        context.leaveScope();
 
 //        if (primarySuppressWarningsKey != null && primarySuppressWarningsKey.length() > 0) {
 //            editorFixes.addAll(FixFactory.createSuppressWarnings(ctx.getInfo(), ctx.getPath(), primarySuppressWarningsKey));

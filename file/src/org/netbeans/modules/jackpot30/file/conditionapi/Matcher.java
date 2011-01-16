@@ -42,10 +42,8 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
-import java.util.Collections;
 import javax.lang.model.element.Element;
 import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
 
 /**
@@ -54,10 +52,10 @@ import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
  */
 public final class Matcher {
 
-    private final HintContext ctx;
+    private final Context ctx;
 
     //XXX: should not be public:
-    public Matcher(HintContext ctx) {
+    public Matcher(Context ctx) {
         this.ctx = ctx;
     }
 
@@ -66,14 +64,13 @@ public final class Matcher {
     }
 
     public boolean matchesAny(@NonNull Variable var, @NonNull String /*of @NonNull*/... patterns) {
-        TreePath path = ctx.getVariables().get(var.variableName);
-        Iterable<? extends TreePath> paths = path != null ? Collections.singletonList(path) : ctx.getMultiVariables().get(var.variableName);
+        Iterable<? extends TreePath> paths = ctx.getVariable(var);
 
         if (paths == null) return false;
 
         for (String pattern : patterns) {
             for (TreePath toSearch : paths) {
-                if (MatcherUtilities.matches(ctx, toSearch, pattern)) {
+                if (MatcherUtilities.matches(ctx.ctx, toSearch, pattern)) {
                     return true;
                 }
             }
@@ -83,8 +80,7 @@ public final class Matcher {
     }
 
     public boolean containsAny(@NonNull Variable var, @NonNull final String /*of @NonNull*/... patterns) {
-        TreePath path = ctx.getVariables().get(var.variableName);
-        Iterable<? extends TreePath> paths = path != null ? Collections.singletonList(path) : ctx.getMultiVariables().get(var.variableName);
+        Iterable<? extends TreePath> paths = ctx.getVariable(var);
         final boolean[] result = new boolean[1];
 
         if (paths == null) return false;
@@ -99,7 +95,7 @@ public final class Matcher {
                     TreePath tp = new TreePath(getCurrentPath(), tree);
 
                     for (String pattern : patterns) {
-                        if (MatcherUtilities.matches(ctx, tp, pattern)) {
+                        if (MatcherUtilities.matches(ctx.ctx, tp, pattern)) {
                             result[0] = true;
                         }
                     }
@@ -113,13 +109,13 @@ public final class Matcher {
     }
 
     public boolean referencedIn(@NonNull Variable variable, @NonNull Variable in) {
-        final Element e = ctx.getInfo().getTrees().getElement(ctx.getVariables().get(variable.variableName));
+        final Element e = ctx.ctx.getInfo().getTrees().getElement(ctx.getSingleVariable(variable));
 
         if (e == null) { //TODO: check also error
             return false;
         }
 
-        for (TreePath tp : Context.getVariable(ctx, in)) {
+        for (TreePath tp : ctx.getVariable(in)) {
             boolean occurs = new TreePathScanner<Boolean, Void>() {
                 @Override
                 public Boolean scan(Tree tree, Void p) {
@@ -128,7 +124,7 @@ public final class Matcher {
                     }
 
                     TreePath currentPath = new TreePath(getCurrentPath(), tree);
-                    Element currentElement = ctx.getInfo().getTrees().getElement(currentPath);
+                    Element currentElement = ctx.ctx.getInfo().getTrees().getElement(currentPath);
 
                     if (e.equals(currentElement)) {
                         return true; //TODO: throwing an exception might be faster...
@@ -155,6 +151,20 @@ public final class Matcher {
             if (occurs) {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    public boolean matchesWithBind(Variable var, String pattern) {
+        TreePath path = ctx.getSingleVariable(var);
+
+        if (path == null) {
+            return false;
+        }
+
+        if (MatcherUtilities.matches(ctx.ctx, path, pattern, ctx.variables.get(0), ctx.multiVariables.get(0), ctx.variableNames.get(0))) {
+            return true;
         }
 
         return false;
