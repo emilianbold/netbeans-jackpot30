@@ -71,6 +71,7 @@ import java.util.Stack;
 import javax.lang.model.element.Name;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.openide.util.Exceptions;
 
 /**
@@ -153,7 +154,7 @@ public class NFABasedBulkSearch extends BulkSearch {
     }
 
     @Override
-    public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns) {
+    public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns, Collection<? extends AdditionalQueryConstraints> additionalConstraints) {
         int startState = 0;
         final int[] nextState = new int[] {1};
         final Map<NFA.Key<Input>, NFA.State> transitionTable = new LinkedHashMap<NFA.Key<Input>, NFA.State>();
@@ -331,7 +332,7 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         NFA<Input, Res> nfa = NFA.<Input, Res>create(startState, nextState[0], null, transitionTable, finalStates);
 
-        return new BulkPatternImpl(new LinkedList<String>(code), identifiers, requiredContent, nfa);
+        return new BulkPatternImpl(new LinkedList<String>(code), identifiers, requiredContent, new LinkedList<AdditionalQueryConstraints>(additionalConstraints), nfa);
     }
 
     private static void setBit(Map<NFA.Key<Input>, NFA.State> transitionTable, NFA.Key<Input> input, int state) {
@@ -605,8 +606,8 @@ public class NFABasedBulkSearch extends BulkSearch {
 
         private final NFA<Input, Res> nfa;
 
-        private BulkPatternImpl(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<List<List<String>>> requiredContent, NFA<Input, Res> nfa) {
-            super(patterns, identifiers, requiredContent);
+        private BulkPatternImpl(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<List<List<String>>> requiredContent, List<AdditionalQueryConstraints> additionalConstraints, NFA<Input, Res> nfa) {
+            super(patterns, identifiers, requiredContent, additionalConstraints);
             this.nfa = nfa;
         }
 
@@ -614,10 +615,6 @@ public class NFABasedBulkSearch extends BulkSearch {
             return nfa;
         }
         
-        private static BulkPattern create(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<List<List<String>>> requiredContent, NFA<Input, Res> nfa) {
-            return new BulkPatternImpl(patterns, identifiers, requiredContent, nfa);
-        }
-
     }
 
     private static final class Res {

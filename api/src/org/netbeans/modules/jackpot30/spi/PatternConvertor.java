@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.spi;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import org.netbeans.api.annotations.common.CheckForNull;
@@ -58,26 +59,43 @@ public abstract class PatternConvertor {
     protected abstract @CheckForNull Iterable<? extends HintDescription> parseString(@NonNull String code);
 
     public static @CheckForNull Iterable<? extends HintDescription> create(@NonNull String code) {
+        Collection<String> patterns = new ArrayList<String>();
+        
         //XXX:
         if (code.contains(";;")) {
             PatternConvertor c = Lookup.getDefault().lookup(PatternConvertor.class);
 
-            if (c == null) {
-                return null;
+            if (c != null) {
+                return c.parseString(code);
             }
 
-            return c.parseString(code);
+            for (String s : code.split(";;")) {
+                s = s.trim();
+                if (s.isEmpty()) {
+                    continue;
+                }
+                
+                patterns.add(s);
+            }
+        } else {
+            patterns.add(code);
         }
 
-        PatternDescription pd = PatternDescription.create(code, Collections.<String, String>emptyMap());
+        Collection<HintDescription> result = new ArrayList<HintDescription>(patterns.size());
 
-        HintDescription desc = HintDescriptionFactory.create()
-//                                                     .setDisplayName("Pattern Matches")
-                                                     .setTriggerPattern(pd)
-                                                     .setWorker(new WorkerImpl())
-                                                     .produce();
+        for (String pattern : patterns) {
+            PatternDescription pd = PatternDescription.create(pattern, Collections.<String, String>emptyMap());
 
-        return Collections.singletonList(desc);
+            HintDescription desc = HintDescriptionFactory.create()
+    //                                                     .setDisplayName("Pattern Matches")
+                                                         .setTriggerPattern(pd)
+                                                         .setWorker(new WorkerImpl())
+                                                         .produce();
+            
+            result.add(desc);
+        }
+
+        return result;
     }
 
     private static final class WorkerImpl implements Worker {

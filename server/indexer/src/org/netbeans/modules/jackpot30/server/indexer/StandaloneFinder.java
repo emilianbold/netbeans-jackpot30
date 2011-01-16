@@ -75,6 +75,9 @@ import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
+import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 
 /**
  *
@@ -152,19 +155,25 @@ public class StandaloneFinder {
     }
     
     private static BulkPattern preparePattern(String pattern, Collection<Diagnostic<? extends JavaFileObject>> errors) {
-        Collection<String> patterns = new LinkedList<String>();
-        Collection<Tree> trees = new LinkedList<Tree>();
+        return preparePattern(PatternConvertor.create(pattern), errors);
+    }
 
-        for (String s : pattern.split(";;")) {
-            s = s.trim();
-            if (s.isEmpty()) {
-                continue;
-            }
-            patterns.add(s);
-            trees.add(Utilities.parseAndAttribute(prepareJavacTaskImpl(), s, errors));
+    //XXX: copied from BatchSearch, may be possible to merge once CompilationInfo is accessible in server mode
+    private static BulkPattern preparePattern(final Iterable<? extends HintDescription> patterns, Collection<Diagnostic<? extends JavaFileObject>> errors) {
+        JavacTaskImpl javac = prepareJavacTaskImpl();
+        Collection<String> code = new LinkedList<String>();
+        Collection<Tree> trees = new LinkedList<Tree>();
+        Collection<AdditionalQueryConstraints> additionalConstraints = new LinkedList<AdditionalQueryConstraints>();
+
+        for (HintDescription pattern : patterns) {
+            String textPattern = pattern.getTriggerPattern().getPattern();
+
+            code.add(textPattern);
+            trees.add(Utilities.parseAndAttribute(javac, textPattern, errors));
+            additionalConstraints.add(pattern.getAdditionalConstraints());
         }
 
-        return BulkSearch.getDefault().create(patterns, trees);
+        return BulkSearch.getDefault().create(code, trees, additionalConstraints);
     }
 
     private static JavacTaskImpl prepareJavacTaskImpl() {

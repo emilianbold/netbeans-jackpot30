@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import java.util.Collections;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashSet;

@@ -52,6 +52,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.openide.util.Parameters;
 
 /**
@@ -93,7 +94,7 @@ public class CopyFinderBasedBulkSearch extends BulkSearch {
     }
 
     @Override
-    public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns) {
+    public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns, Collection<? extends AdditionalQueryConstraints> additionalConstraints) {
         Map<Tree, String> pattern2Code = new HashMap<Tree, String>();
 
         Iterator<? extends String> itCode = code.iterator();
@@ -103,7 +104,7 @@ public class CopyFinderBasedBulkSearch extends BulkSearch {
             pattern2Code.put(itPatt.next(), itCode.next());
         }
 
-        return new BulkPatternImpl(pattern2Code);
+        return new BulkPatternImpl(additionalConstraints, pattern2Code);
     }
 
     @Override
@@ -120,8 +121,8 @@ public class CopyFinderBasedBulkSearch extends BulkSearch {
 
         private final Map<Tree, String> pattern2Code;
         
-        public BulkPatternImpl(Map<Tree, String> pattern2Code) {
-            super(new LinkedList<String>(pattern2Code.values()), null, null);
+        public BulkPatternImpl(Collection<? extends AdditionalQueryConstraints> additionalConstraints, Map<Tree, String> pattern2Code) {
+            super(new LinkedList<String>(pattern2Code.values()), null, null, new LinkedList<AdditionalQueryConstraints>(additionalConstraints));
             this.pattern2Code = pattern2Code;
         }
 

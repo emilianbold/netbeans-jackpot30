@@ -100,6 +100,7 @@ import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.CopyFinder;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -306,15 +307,17 @@ public class BatchSearch {
     private static BulkPattern preparePattern(final Iterable<? extends HintDescription> patterns, CompilationInfo info) {
         Collection<String> code = new LinkedList<String>();
         Collection<Tree> trees = new LinkedList<Tree>();
+        Collection<AdditionalQueryConstraints> additionalConstraints = new LinkedList<AdditionalQueryConstraints>();
 
         for (HintDescription pattern : patterns) {
             String textPattern = pattern.getTriggerPattern().getPattern();
 
             code.add(textPattern);
             trees.add(Utilities.parseAndAttribute(info, textPattern, null));
+            additionalConstraints.add(pattern.getAdditionalConstraints());
         }
 
-        return BulkSearch.getDefault().create(code, trees);
+        return BulkSearch.getDefault().create(code, trees, additionalConstraints);
     }
 
     private static void recursive(FileObject root, FileObject file, Collection<FileObject> collected, ProgressHandleWrapper progress, int depth, Properties timeStamps, Set<String> removedFiles) {

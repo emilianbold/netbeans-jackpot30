@@ -43,6 +43,7 @@ import com.sun.source.tree.Tree.Kind;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
 import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
@@ -57,6 +58,7 @@ public class HintDescriptionFactory {
     private       Kind triggerKind;
     private       PatternDescription triggerPattern;
     private       Worker worker;
+    private       AdditionalQueryConstraints additionalConstraints;
     private       boolean finished;
 
     private HintDescriptionFactory() {
@@ -94,14 +96,22 @@ public class HintDescriptionFactory {
         return this;
     }
 
+    public HintDescriptionFactory setAdditionalConstraints(AdditionalQueryConstraints additionalConstraints) {
+        this.additionalConstraints = additionalConstraints;
+        return this;
+    }
+
     public HintDescription produce() {
         if (metadata == null) {
             metadata = new HintMetadata("no-id", "", "", "", true, HintMetadata.Kind.HINT_NON_GUI, HintSeverity.WARNING, null, Collections.<String>emptyList());
         }
+        if (this.additionalConstraints == null) {
+            this.additionalConstraints = AdditionalQueryConstraints.empty();
+        }
         if (this.triggerKind == null) {
-            return HintDescription.create(metadata, triggerPattern, worker);
+            return HintDescription.create(metadata, triggerPattern, worker, additionalConstraints);
         } else {
-            return HintDescription.create(metadata, triggerKind, worker);
+            return HintDescription.create(metadata, triggerKind, worker, additionalConstraints);
         }
     }
     

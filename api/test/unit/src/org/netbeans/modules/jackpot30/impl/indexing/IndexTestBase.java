@@ -80,6 +80,7 @@ public abstract class IndexTestBase extends NbTestCase {
         GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {sourceCP});
     }
 
+    protected FileObject sources;
     protected FileObject src;
     protected FileObject src2;
 
@@ -88,8 +89,9 @@ public abstract class IndexTestBase extends NbTestCase {
     private void prepareTest() throws Exception {
         FileObject workdir = SourceUtilsTestUtil.makeScratchDir(this);
 
-        src = FileUtil.createFolder(workdir, "src");
-        src2 = FileUtil.createFolder(workdir, "src2");
+        sources = FileUtil.createFolder(workdir, "sources");
+        src = FileUtil.createFolder(sources, "src");
+        src2 = FileUtil.createFolder(sources, "src2");
 
         FileObject cache = FileUtil.createFolder(workdir, "cache");
 

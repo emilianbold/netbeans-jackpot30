@@ -57,6 +57,7 @@ import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexInfo;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 
 /**
  *
@@ -94,7 +95,7 @@ public class NFABasedBulkSearchTest extends BulkSearchTestPerformer {
                 IndexImpl ii = new IndexImpl();
                 IndexWriter writer = ii.openForWriting();
 
-                writer.record(toSearch.getCompilationUnit().getSourceFile().toUri().toURL(), toSearch.getCompilationUnit());
+                writer.record(toSearch.getCompilationUnit().getSourceFile().toUri().toURL(), toSearch.getCompilationUnit(), null);
                 writer.close();
 
                 if (!ii.findCandidates(pattern).isEmpty()) {
@@ -124,8 +125,8 @@ public class NFABasedBulkSearchTest extends BulkSearchTestPerformer {
         }
 
         @Override
-        public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns) {
-            return new NFABasedBulkSearch().create(code, patterns);
+        public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns, Collection<? extends AdditionalQueryConstraints> additionalConstraints) {
+            return new NFABasedBulkSearch().create(code, patterns, additionalConstraints);
         }
     }
 

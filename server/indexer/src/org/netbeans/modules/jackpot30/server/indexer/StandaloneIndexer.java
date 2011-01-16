@@ -135,7 +135,7 @@ public class StandaloneIndexer {
         JavacTaskImpl ct = (JavacTaskImpl)tool.getTask(null, null, devNull, Arrays.asList("-bootclasspath",  bootPath), null, fos);
         CompilationUnitTree cut = ct.parse().iterator().next();
 
-        w.record(source.toURI().toURL(), cut);
+        w.record(source.toURI().toURL(), cut, null);
 
         if (dw != null) {
             ct.analyze(ct.enter(Collections.singletonList(cut)));

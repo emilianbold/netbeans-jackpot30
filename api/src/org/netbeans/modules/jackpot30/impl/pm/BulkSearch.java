@@ -51,6 +51,7 @@ import java.util.Map;
 import java.util.Set;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 
 /**
  *
@@ -93,26 +94,30 @@ public abstract class BulkSearch {
 
     public final BulkPattern create(CompilationInfo info, Collection<? extends String> code) {
         List<Tree> patterns = new LinkedList<Tree>();
+        List<AdditionalQueryConstraints> additionalConstraints = new LinkedList<AdditionalQueryConstraints>();
 
         for (String c : code) {
             patterns.add(Utilities.parseAndAttribute(info, c, null));
+            additionalConstraints.add(AdditionalQueryConstraints.empty());
         }
 
-        return create(code, patterns);
+        return create(code, patterns, additionalConstraints);
     }
     
-    public abstract BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns);
+    public abstract BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns, Collection<? extends AdditionalQueryConstraints> additionalConstraints);
 
     public static abstract class BulkPattern {
 
         private final List<? extends String> patterns;
         private final List<? extends Set<? extends String>> identifiers;
         private final List<List<List<String>>> requiredContent;
+        private final List<AdditionalQueryConstraints> additionalConstraints;
 
-        public BulkPattern(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<List<List<String>>> requiredContent) {
+        public BulkPattern(List<? extends String> patterns, List<? extends Set<? extends String>> identifiers, List<List<List<String>>> requiredContent, List<AdditionalQueryConstraints> additionalConstraints) {
             this.patterns = patterns;
             this.identifiers = identifiers;//TODO: immutable, maybe clone
             this.requiredContent = requiredContent;
+            this.additionalConstraints = additionalConstraints;
         }
 
         public List<? extends String> getPatterns() {
@@ -125,6 +130,10 @@ public abstract class BulkSearch {
 
         public List<List<List<String>>> getRequiredContent() {
             return requiredContent;
+        }
+
+        public List<AdditionalQueryConstraints> getAdditionalConstraints() {
+            return additionalConstraints;
         }
 
     }

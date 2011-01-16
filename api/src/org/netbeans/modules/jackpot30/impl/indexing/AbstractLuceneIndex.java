@@ -40,6 +40,9 @@
 package org.netbeans.modules.jackpot30.impl.indexing;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -50,9 +53,13 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.DataFormatException;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.document.CompressionTools;
@@ -77,6 +84,7 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.openide.util.Exceptions;
 
 /**
@@ -86,7 +94,8 @@ import org.openide.util.Exceptions;
 public abstract class AbstractLuceneIndex extends Index {
 
     public static final int MAJOR_VERSION = 1;
-    public static final int MINOR_VERSION = 1;
+    //2: partial attribution added (erased types that occur in the file)
+    public static final int MINOR_VERSION = 2;
     
     private final int  stripLength;
     private final boolean readOnly;
@@ -106,6 +115,7 @@ public abstract class AbstractLuceneIndex extends Index {
     protected abstract IndexReader createReader() throws IOException;
     protected abstract org.apache.lucene.index.IndexWriter createWriter() throws IOException;
 
+    @Override
     public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
         IndexReader reader = createReader();
 
@@ -171,6 +181,24 @@ public abstract class AbstractLuceneIndex extends Index {
                 
                 emb.add(pq, BooleanClause.Occur.MUST);
             }
+            
+            AdditionalQueryConstraints additionalConstraints = pattern.getAdditionalConstraints().get(cntr);
+
+            if (additionalConstraints != null && !additionalConstraints.requiredErasedTypes.isEmpty()) {
+                BooleanQuery constraintsQuery = new BooleanQuery();
+
+                constraintsQuery.add(new TermQuery(new Term("attributed", "false")), BooleanClause.Occur.SHOULD);
+
+                BooleanQuery constr = new BooleanQuery();
+
+                for (String tc : additionalConstraints.requiredErasedTypes) {
+                    constr.add(new TermQuery(new Term("erasedTypes", tc)), BooleanClause.Occur.MUST);
+                }
+
+                constraintsQuery.add(constr, BooleanClause.Occur.SHOULD);
+                emb.add(constraintsQuery, BooleanClause.Occur.MUST);
+            }
+
             result.add(emb, BooleanClause.Occur.SHOULD);
         }
 
@@ -220,7 +248,8 @@ public abstract class AbstractLuceneIndex extends Index {
             info = getIndexInfo();
         }
 
-        public void record(URL source, final CompilationUnitTree cut) throws IOException {
+        @Override
+        public void record(URL source, final CompilationUnitTree cut, final AttributionWrapper attributed) throws IOException {
             String relative = source.getPath().substring(stripLength);
             ByteArrayOutputStream out = null;
             EncodingContext ec = null;
@@ -244,6 +273,38 @@ public abstract class AbstractLuceneIndex extends Index {
                 }
                 doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
 
+                if (attributed != null) {
+                    final Set<String> erased = new HashSet<String>();
+
+                    new TreePathScanner<Void, Void>() {
+                        @Override
+                        public Void scan(Tree tree, Void p) {
+                            if (tree != null) {
+                                TreePath tp = new TreePath(getCurrentPath(), tree);
+                                TypeMirror type = attributed.trees.getTypeMirror(tp);
+
+                                if (type != null) {
+                                    if (type.getKind() == TypeKind.ARRAY) {
+                                        erased.add(attributed.types.erasure(type).toString());
+                                        type = ((ArrayType) type).getComponentType();
+                                    }
+
+                                    if (type.getKind().isPrimitive() || type.getKind() == TypeKind.DECLARED) {
+                                        addErasedTypeAndSuperTypes(attributed, erased, type);
+                                    }
+                                }
+
+                                //bounds for type variables!!!
+                            }
+                            return super.scan(tree, p);
+                        }
+                    }.scan(cut, null);
+
+                    doc.add(new Field("attributed", "true", Field.Store.YES, Field.Index.NOT_ANALYZED));
+                    doc.add(new Field("erasedTypes", new TokenStreamImpl(erased)));
+                } else {
+                    doc.add(new Field("attributed", "false", Field.Store.YES, Field.Index.NOT_ANALYZED));
+                }
                 luceneWriter.addDocument(doc);
             } catch (ThreadDeath td) {
                 throw td;
@@ -272,6 +333,18 @@ public abstract class AbstractLuceneIndex extends Index {
             info.totalFiles = luceneWriter.numDocs();
             info.lastUpdate = System.currentTimeMillis();
             storeIndexInfo(info);
+        }
+    }
+
+    private static void addErasedTypeAndSuperTypes(AttributionWrapper attributed, Set<String> types, TypeMirror type) {
+        if (type.getKind() == TypeKind.DECLARED) {
+            if (types.add(attributed.types.erasure(type).toString())) {
+                for (TypeMirror sup : attributed.types.directSupertypes(type)) {
+                    addErasedTypeAndSuperTypes(attributed, types, sup);
+                }
+            }
+        } else if (type.getKind().isPrimitive()) {
+            types.add(type.toString());
         }
     }
 

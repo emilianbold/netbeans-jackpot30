@@ -39,6 +39,9 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
+import com.sun.source.util.Trees;
+import javax.lang.model.util.Types;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
 import java.util.ArrayList;
 import com.sun.source.tree.CompilationUnitTree;
@@ -50,6 +53,7 @@ import java.util.Collection;
 import java.util.Collections;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.openide.util.Exceptions;
 import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
@@ -127,11 +131,9 @@ public abstract class Index {
 
     public abstract static class IndexWriter {
 
-        protected IndexWriter() throws IOException {
-            
-        }
+        protected IndexWriter() throws IOException {}
 
-        public abstract void record(URL source, final CompilationUnitTree cut) throws IOException;
+        public abstract void record(URL source, final CompilationUnitTree cut, AttributionWrapper attributed) throws IOException;
 
         public abstract void remove(String relativePath) throws IOException;
 
@@ -139,6 +141,22 @@ public abstract class Index {
         
         public abstract void close() throws IOException;
         
+    }
+
+    public static final class AttributionWrapper {
+        public final Trees trees;
+        public final Types types;
+
+        public AttributionWrapper(CompilationInfo info) {
+            trees = info.getTrees();
+            types = info.getTypes();
+        }
+
+        public AttributionWrapper(Trees trees, Types types) {
+            this.trees = trees;
+            this.types = types;
+        }
+
     }
 
 }

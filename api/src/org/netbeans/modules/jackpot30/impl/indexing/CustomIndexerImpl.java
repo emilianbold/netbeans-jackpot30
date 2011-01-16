@@ -48,6 +48,7 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.modules.jackpot30.impl.indexing.Index.AttributionWrapper;
 import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
@@ -104,10 +105,10 @@ public class CustomIndexerImpl extends CustomIndexer {
             if (!toIndex.isEmpty()) {
                 JavaSource.create(cpInfo, toIndex).runUserActionTask(new Task<CompilationController>() {
                     public void run(final CompilationController cc) throws Exception {
-                        if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
+                        if (cc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
                             return ;
 
-                        w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit());
+                        w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit(), new AttributionWrapper(cc));
                     }
                 }, true);
             }

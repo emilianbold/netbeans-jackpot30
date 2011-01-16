@@ -39,6 +39,8 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import org.netbeans.modules.jackpot30.impl.Utilities;
+import java.util.Collections;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -52,11 +54,14 @@ import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.parsing.api.indexing.IndexingManager;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 
+import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.indexFiles;
 import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.writeFilesAndWaitForScan;
 
 /**
@@ -124,6 +129,26 @@ public class IndexTest extends IndexTestBase {
         assertEquals(2, FileBasedIndex.get(src.getURL()).getIndexInfo().totalFiles);
     }
 
+    public void testPartiallyAttributed1() throws Exception {
+        Index index = FileBasedIndex.get(src.getURL());
+        indexFiles(src.getURL().toURI(),
+                   index,
+                   new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }", true),
+                   new File("test/Test2.java", "package test; public class Test2 { private void isDirectory() { this.isDirectory(); } }", true),
+                   new File("test/Test3.java", "package test; public class Test3 { private void isDirectory() { this.isDirectory(); } }", false));
+
+        verifyIndex("$1.isDirectory()", new AdditionalQueryConstraints(Collections.singleton("java.io.File")), "test/Test1.java", "test/Test3.java");
+    }
+
+    public void testPartiallyAttributed2() throws Exception {
+        Index index = FileBasedIndex.get(src.getURL());
+        indexFiles(src.getURL().toURI(),
+                   index,
+                   new File("test/Test1.java", "package test; public class Test1 { private void test() { String str = null; int l = str.length(); } }", true));
+
+        verifyIndex("$1.length()", new AdditionalQueryConstraints(Collections.singleton("java.lang.CharSequence")), "test/Test1.java");
+    }
+
     private void verifyIndex(final String[] patterns, String... containedIn) throws Exception {
         ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
         ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),
@@ -135,6 +160,29 @@ public class IndexTest extends IndexTestBase {
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
                 real.addAll(FileBasedIndex.get(src.getURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
+            }
+        }, true);
+
+        Set<String> golden = new HashSet<String>(Arrays.asList(containedIn));
+
+        assertEquals(golden, real);
+    }
+
+    private void verifyIndex(final String pattern, final AdditionalQueryConstraints additionalConstraints, String... containedIn) throws Exception {
+        ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
+        ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),
+                                                    EMPTY,
+                                                    EMPTY);
+
+        final Set<String> real = new HashSet<String>();
+
+        JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
+            public void run(CompilationController parameter) throws Exception {
+                BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singletonList(pattern),
+                                                                          Collections.singletonList(Utilities.parseAndAttribute(parameter, pattern, null)),
+                                                                          Collections.singletonList(additionalConstraints));
+                
+                real.addAll(FileBasedIndex.get(src.getURL()).findCandidates(bulkPattern));
             }
         }, true);
 
