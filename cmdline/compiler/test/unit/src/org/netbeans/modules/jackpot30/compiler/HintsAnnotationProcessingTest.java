@@ -38,21 +38,9 @@
  */
 package org.netbeans.modules.jackpot30.compiler;
 
-import com.sun.tools.javac.Main;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.Writer;
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.LinkedList;
-import java.util.List;
 import javax.lang.model.type.TypeMirror;
-import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.java.hints.jackpot.code.spi.Hint;
 import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerCompileTime;
 import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPattern;
@@ -65,7 +53,7 @@ import org.netbeans.spi.editor.hints.ErrorDescription;
  *
  * @author lahvac
  */
-public class HintsAnnotationProcessingTest extends NbTestCase {
+public class HintsAnnotationProcessingTest extends HintsAnnotationProcessingTestBase {
 
     public HintsAnnotationProcessingTest(String name) {
         super(name);
@@ -250,91 +238,13 @@ public class HintsAnnotationProcessingTest extends NbTestCase {
     }
 
     private void doRunCompiler(String goldenDiff, String... fileContentAndExtraOptions) throws Exception {
-        List<String> fileAndContent = new LinkedList<String>();
-        List<String> extraOptions = new LinkedList<String>();
-        List<String> fileContentAndExtraOptionsList = Arrays.asList(fileContentAndExtraOptions);
-        int nullPos = fileContentAndExtraOptionsList.indexOf(null);
+        runCompiler(fileContentAndExtraOptions);
 
-        if (nullPos == (-1)) {
-            fileAndContent = fileContentAndExtraOptionsList;
-            extraOptions = Collections.emptyList();
-        } else {
-            fileAndContent = fileContentAndExtraOptionsList.subList(0, nullPos);
-            extraOptions = fileContentAndExtraOptionsList.subList(nullPos + 1, fileContentAndExtraOptionsList.size());
-        }
-
-        assertTrue(fileAndContent.size() % 2 == 0);
-
-        clearWorkDir();
-
-        for (int cntr = 0; cntr < fileAndContent.size(); cntr += 2) {
-            createAndFill(fileAndContent.get(cntr), fileAndContent.get(cntr + 1));
-        }
-
-        File wd = getWorkDir();
-        File source = new File(wd, "src/test/Test.java");
-
-        File sourceOutput = new File(wd, "src-out");
-
-        sourceOutput.mkdirs();
-
-        List<String> options = new LinkedList<String>();
-        
-        options.add(source.getAbsolutePath());
-        options.add("-sourcepath");
-        options.add(source.getParentFile().getParentFile().getAbsolutePath());
-        options.add("-s");
-        options.add(sourceOutput.getAbsolutePath());
-        options.add("-source");
-        options.add("1.5");
-        options.add("-Xjcov");
-        options.addAll(extraOptions);
-
-        reallyRunCompiler(wd, options.toArray(new String[0]));
-        
         File diff = new File(sourceOutput, "META-INF/upgrade/upgrade.diff");
         String diffText = readFully(diff);
 
-        goldenDiff = goldenDiff != null ? goldenDiff.replace("{0}", wd.getAbsolutePath()) : null;
+        goldenDiff = goldenDiff != null ? goldenDiff.replace("{0}", workDir.getAbsolutePath()) : null;
         assertEquals(goldenDiff, diffText);
-    }
-
-    protected void reallyRunCompiler(File workDir, String... params) throws Exception {
-        String oldUserDir = System.getProperty("user.dir");
-
-        System.setProperty("user.dir", workDir.getAbsolutePath());
-        
-        try {
-            assertEquals(0, Main.compile(params));
-        } finally {
-            System.setProperty("user.dir", oldUserDir);
-        }
-    }
-
-    private void createAndFill(String path, String content) throws IOException {
-        File wd = getWorkDir();
-        File source = new File(wd, path);
-
-        source.getParentFile().mkdirs();
-        
-        Writer out = new OutputStreamWriter(new FileOutputStream(source));
-
-        out.write(content);
-
-        out.close();
-    }
-
-    private String readFully(File file) throws IOException {
-        if (!file.canRead()) return null;
-        StringBuilder res = new StringBuilder();
-        Reader in = new InputStreamReader(new FileInputStream(file));
-        int read;
-        
-        while ((read = in.read()) != (-1)) {
-            res.append((char) read);
-        }
-
-        return res.toString();
     }
 
     @Hint(category="general")

@@ -60,7 +60,8 @@ public class CreateTool extends CreateStandaloneJar {
     protected Info computeInfo() {
         return new Info().addAdditionalRoots(Utilities.SPIImpl.class.getName(), Main.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName(), ConvertToDiamondBulkHint.class.getName())
                          .addMetaInfRegistrations(new MetaInfRegistration(Utilities.SPI.class, Utilities.SPIImpl.class))
-                         .addMetaInfRegistrations(new MetaInfRegistration(org.netbeans.modules.project.uiapi.OpenProjectsTrampoline.class, OpenProjectsTrampolineImpl.class));
+                         .addMetaInfRegistrations(new MetaInfRegistration(org.netbeans.modules.project.uiapi.OpenProjectsTrampoline.class, OpenProjectsTrampolineImpl.class))
+                         .setEscapeJavaxLang();
     }
 
 }

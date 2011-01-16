@@ -40,86 +40,29 @@
 package org.netbeans.modules.jackpot30.compiler;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
 import junit.extensions.TestSetup;
 import junit.framework.Test;
+import org.netbeans.junit.NbTestCase;
 import org.netbeans.junit.NbTestSuite;
-import org.openide.filesystems.FileUtil;
-import org.openide.util.Exceptions;
 
 /**
  *
  * @author lahvac
  */
-public class CreateStandaloneCompilerJarTest extends HintsAnnotationProcessingTest {
+public class CreateStandaloneCompilerJarTest extends NbTestCase {
 
     public CreateStandaloneCompilerJarTest(String name) {
         super(name);
     }
 
-    private static File compiler;
-
-    @Override
-    protected void reallyRunCompiler(File workingDir, String... params) throws IOException, Exception {
-        assertNotNull(compiler);
-        List<String> ll = new LinkedList<String>();
-        ll.add("java");
-        ll.add("-Xbootclasspath/p:" + compiler.getAbsolutePath());
-        ll.add("com.sun.tools.javac.Main");
-        ll.addAll(Arrays.asList(params));
-        try {
-            Process p = Runtime.getRuntime().exec(ll.toArray(new String[0]), null, workingDir);
-
-            new CopyStream(p.getInputStream(), System.out).start();
-            new CopyStream(p.getErrorStream(), System.err).start();
-
-            assertEquals(0, p.waitFor());
-        } catch (Throwable t) {
-            throw new IOException(t);
-        }
-    }
-
-    @Override
-    public void testCodeAPI() throws Exception {
-    }
-
-    private static final class CopyStream extends Thread {
-        private final InputStream ins;
-        private final OutputStream out;
-
-        public CopyStream(InputStream ins, OutputStream out) {
-            this.ins = ins;
-            this.out = out;
-        }
-
-        @Override
-        public void run() {
-            try {
-                FileUtil.copy(ins, out);
-            } catch (IOException ex) {
-                Exceptions.printStackTrace(ex);
-            } finally {
-                try {
-                    ins.close();
-                } catch (IOException ex) {
-                    Exceptions.printStackTrace(ex);
-                }
-            }
-        }
-
-    }
-
     public static Test suite() {
         NbTestSuite suite = new NbTestSuite();
         
-        suite.addTestSuite(CreateStandaloneCompilerJarTest.class);
+        suite.addTestSuite(HintsAnnotationProcessingTest.class);
+        suite.addTestSuite(IndexingAnnotationProcessorTest.class);
 
         return new TestSetup(suite) {
+            private File compiler;
             private File hintsList;
             protected void setUp() throws Exception {
                 compiler = File.createTempFile("jackpotc", ".jar");
@@ -128,6 +71,7 @@ public class CreateStandaloneCompilerJarTest extends HintsAnnotationProcessingTe
 //                if (!compiler.canRead()) {
                     new CreateStandaloneCompilerJar("").createCompiler(compiler, hintsList);
 //                }
+                System.setProperty("test.javacJar", compiler.getAbsolutePath());
             }
             protected void tearDown() {
                 compiler.delete();

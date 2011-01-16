@@ -43,13 +43,17 @@ import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import org.apache.tools.ant.BuildException;
+import org.apache.tools.ant.Project;
 import org.apache.tools.ant.taskdefs.Javac;
 import org.apache.tools.ant.taskdefs.compilers.JavacExternal;
 import org.apache.tools.ant.types.Commandline;
 import org.apache.tools.ant.types.Commandline.Argument;
 import org.netbeans.modules.jackpot30.compiler.HintsAnnotationProcessing;
+import org.netbeans.modules.jackpot30.compiler.IndexingAnnotationProcessor;
 import org.openide.util.Exceptions;
 
 /**
@@ -85,10 +89,13 @@ public class JackpotCompiler extends JavacExternal {
         URL jackpotCompiler = HintsAnnotationProcessing.class.getProtectionDomain().getCodeSource().getLocation();
         String jackpotCompilerPath = jackpotCompiler.getPath();
         Argument arg = cmd.createArgument(true);
-
+        List<String> options = new LinkedList<String>();
         StringBuilder enabledHintsProp = new StringBuilder();
 
-        for (String prop : HintsAnnotationProcessing.OPTIONS) {
+        options.addAll(HintsAnnotationProcessing.OPTIONS);
+        options.addAll(IndexingAnnotationProcessor.OPTIONS);
+
+        for (String prop : options) {
             String val = getProject().getProperty(prop);
 
             if (val != null) {

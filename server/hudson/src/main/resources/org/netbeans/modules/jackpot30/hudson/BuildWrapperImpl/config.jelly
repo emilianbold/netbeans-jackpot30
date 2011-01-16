@@ -63,6 +63,12 @@
     </table>
   </f:block>
 
+  <f:block>
+    <table>
+        <f:checkbox name="indexingEnabled" checked="${instance != null ? instance.isIndexingEnabled() : true}"/>
+        <label class="attach-previous">Run Indexing</label>
+    </table>
+  </f:block>
 <!--  <j:forEach var="d" items="${descriptor.getHints()}" varStatus="loop">
   <f:entry description="${descriptor.getHintDescription(d)}">
     <f:checkbox name="${d}" checked="${instance.isHintEnabled(d)}"/>

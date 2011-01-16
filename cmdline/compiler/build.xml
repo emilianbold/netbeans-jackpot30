@@ -21,9 +21,9 @@
         <copy todir="build/antclasses">
             <fileset dir="antsrc" excludes="${jar-excludes}"/>
         </copy>
-        <property name="ant.library.dir" value="${cluster}/antextra" />
-        <mkdir dir="${ant.library.dir}"/>
-        <jar jarfile="${ant.library.dir}/${code.name.base.dashes}.jar" compress="false">
+        <property name="ant.library.target.dir" value="${cluster}/antextra" />
+        <mkdir dir="${ant.library.target.dir}"/>
+        <jar jarfile="${ant.library.target.dir}/${code.name.base.dashes}.jar" compress="false">
             <fileset dir="build/antclasses"/>
         </jar>
     </target>
@@ -36,7 +36,7 @@
 
     <target name="create-standalone-compiler" depends="init,ant">
         <mkdir dir="${build.classes.dir}/../jackpotc" />
-        <copy file="${ant.library.dir}/${code.name.base.dashes}.jar" tofile="${build.classes.dir}/../jackpotc/ant-jackpotc.jar"/>
+        <copy file="${ant.library.target.dir}/${code.name.base.dashes}.jar" tofile="${build.classes.dir}/../jackpotc/ant-jackpotc.jar"/>
         <copy todir="${build.classes.dir}/../jackpotc">
             <fileset dir="scripts"/>
         </copy>

@@ -54,7 +54,7 @@ public class CreateStandaloneLibJar extends CreateStandaloneJar {
 
     @Override
     protected Info computeInfo() {
-        return new Info().addAdditionalRoots(NonNBComputer.class.getName());
+        return new Info().addAdditionalRoots(NonNBComputer.class.getName()).setEscapeJavaxLang();
     }
 
 }

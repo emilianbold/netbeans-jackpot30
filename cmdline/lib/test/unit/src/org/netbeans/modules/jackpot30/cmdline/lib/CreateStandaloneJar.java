@@ -50,8 +50,11 @@ import java.io.OutputStreamWriter;
 import java.io.UnsupportedEncodingException;
 import java.io.Writer;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -153,15 +156,15 @@ public abstract class CreateStandaloneJar extends NbTestCase {
                 toProcess.add(classFromCP.getInternalName().replace('/', '.'));
             }
 
-            out.putNextEntry(new ZipEntry(escapeJavaxLang(fileName)));
-            out.write(escapeJavaxLang(bytes));
+            out.putNextEntry(new ZipEntry(escapeJavaxLang(info, fileName)));
+            out.write(escapeJavaxLang(info, bytes));
 
             if (COPY_REGISTRATION.contains(fqn) || info.copyMetaInfRegistration.contains(fqn)) {
                 String serviceName = "META-INF/services/" + fqn;
                 Enumeration<URL> resources = this.getClass().getClassLoader().getResources(serviceName);
 
                 if (resources.hasMoreElements()) {
-                    out.putNextEntry(new ZipEntry(escapeJavaxLang(serviceName)));
+                    out.putNextEntry(new ZipEntry(escapeJavaxLang(info, serviceName)));
 
                     while (resources.hasMoreElements()) {
                         URL res = resources.nextElement();
@@ -179,7 +182,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         }
 
         bundlesToCopy.addAll(RESOURCES);
-        copyResources(out, bundlesToCopy);
+        copyResources(out, info, bundlesToCopy);
 
         //generated-layer.xml:
         Enumeration<URL> resources = this.getClass().getClassLoader().getResources("META-INF/generated-layer.xml");
@@ -205,17 +208,32 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             }
         }
 
-        out.putNextEntry(new ZipEntry(escapeJavaxLang("META-INF/generated-layer.xml")));
+        out.putNextEntry(new ZipEntry(escapeJavaxLang(info, "META-INF/generated-layer.xml")));
         XMLUtil.write(main, out, "UTF-8");
 
-        addMETA_INFRegistration(out, "java.lang.SecurityManager", "org.netbeans.modules.masterfs.filebasedfs.utils.FileChangedManager");
-        addMETA_INFRegistration(out, "org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation", StandaloneTools.EmptySourceForBinaryQueryImpl.class.getName(), 0);
-        addMETA_INFRegistration(out, Provider.class.getName(), StandaloneTools.PreferencesProvider.class.getName(), 0);
-        addMETA_INFRegistration(out, MimeDataProvider.class.getName(), StandaloneTools.StandaloneMimeDataProviderImpl.class.getName());
-        addMETA_INFRegistration(out, SPI.class.getName(), StandaloneTools.UtilitiesSPIImpl.class.getName());
+        List<MetaInfRegistration> registrations = new ArrayList<MetaInfRegistration>();
 
-        for (MetaInfRegistration r : info.metaInf) {
-            addMETA_INFRegistration(out, r.apiClassName, r.implClassName, r.pos);
+        registrations.add(new MetaInfRegistration("java.lang.SecurityManager", "org.netbeans.modules.masterfs.filebasedfs.utils.FileChangedManager"));
+        registrations.add(new MetaInfRegistration("org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation", StandaloneTools.EmptySourceForBinaryQueryImpl.class.getName(), 0));
+        registrations.add(new MetaInfRegistration(Provider.class.getName(), StandaloneTools.PreferencesProvider.class.getName(), 0));
+        registrations.add(new MetaInfRegistration(MimeDataProvider.class.getName(), StandaloneTools.StandaloneMimeDataProviderImpl.class.getName()));
+        registrations.add(new MetaInfRegistration(SPI.class.getName(), StandaloneTools.UtilitiesSPIImpl.class.getName()));
+        registrations.addAll(info.metaInf);
+
+        Map<String, Collection<MetaInfRegistration>> api2Registrations = new HashMap<String, Collection<MetaInfRegistration>>();
+
+        for (MetaInfRegistration r : registrations) {
+            Collection<MetaInfRegistration> regs = api2Registrations.get(r.apiClassName);
+
+            if (regs == null) {
+                api2Registrations.put(r.apiClassName, regs = new ArrayList<MetaInfRegistration>());
+            }
+
+            regs.add(r);
+        }
+
+        for (Entry<String, Collection<MetaInfRegistration>> e : api2Registrations.entrySet()) {
+            addMETA_INFRegistration(out, info, e.getValue());
         }
 
         out.close();
@@ -231,6 +249,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         private final Set<String> additionalRoots = new HashSet<String>();
         private final List<MetaInfRegistration> metaInf = new LinkedList<MetaInfRegistration>();
         private final Set<String> copyMetaInfRegistration = new HashSet<String>();
+        private       boolean escapeJavaxLang;
         public Info() {}
         public Info addAdditionalRoots(String... fqns) {
             additionalRoots.addAll(Arrays.asList(fqns));
@@ -242,6 +261,10 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         }
         public Info addMetaInfRegistrationToCopy(String... registrationsToCopy) {
             copyMetaInfRegistration.addAll(Arrays.asList(registrationsToCopy));
+            return this;
+        }
+        public Info setEscapeJavaxLang() {
+            this.escapeJavaxLang = true;
             return this;
         }
     }
@@ -267,7 +290,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
 
     }
 
-    private void copyResources(JarOutputStream out, Set<String> res) throws IOException {
+    private void copyResources(JarOutputStream out, Info info, Set<String> res) throws IOException {
         for (String resource : res) {
             URL url = this.getClass().getClassLoader().getResource(resource);
 
@@ -275,7 +298,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
                 continue;
             }
             
-            out.putNextEntry(new ZipEntry(escapeJavaxLang(resource)));
+            out.putNextEntry(new ZipEntry(escapeJavaxLang(info, resource)));
             out.write(readFile(url));
         }
     }
@@ -298,15 +321,17 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         return data.toByteArray();
     }
 
-    private static void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName) throws IOException {
-        addMETA_INFRegistration(out, apiClassName, implClassName, null);
-    }
+    private static void addMETA_INFRegistration(JarOutputStream out, Info info, Iterable<MetaInfRegistration> registrations) throws IOException {
+        String apiClassName = registrations.iterator().next().apiClassName;
+        out.putNextEntry(new ZipEntry(escapeJavaxLang(info, "META-INF/services/" + apiClassName)));
 
-    private static void addMETA_INFRegistration(JarOutputStream out, String apiClassName, String implClassName, Integer pos) throws IOException {
-        out.putNextEntry(new ZipEntry(escapeJavaxLang("META-INF/services/" + apiClassName)));
-        out.write(implClassName.getBytes("UTF-8"));
-        if (pos != null) {
-            out.write(("\n#position=" + pos.toString() + "\n").getBytes("UTF-8"));
+        for (MetaInfRegistration r : registrations) {
+            assert apiClassName.equals(r.apiClassName);
+            out.write(r.implClassName.getBytes("UTF-8"));
+            out.write("\n".getBytes("UTF-8"));
+            if (r.pos != null) {
+                out.write(("#position=" + r.pos.toString() + "\n").getBytes("UTF-8"));
+            }
         }
     }
 
@@ -318,7 +343,9 @@ public abstract class CreateStandaloneJar extends NbTestCase {
     }
             
 
-   private static byte[] escapeJavaxLang(byte[] source) throws UnsupportedEncodingException {
+   private static byte[] escapeJavaxLang(Info info, byte[] source) throws UnsupportedEncodingException {
+       if (!info.escapeJavaxLang) return source;
+
        for (Entry<String, String> e  : replaceWhat2With.entrySet()) {
            byte[] replaceSource = e.getKey().getBytes("UTF-8");
            byte[] replaceTarget = e.getValue().getBytes("UTF-8");
@@ -342,7 +369,9 @@ public abstract class CreateStandaloneJar extends NbTestCase {
        return source;
     }
 
-    private static String escapeJavaxLang(String fileName) throws UnsupportedEncodingException {
+    private static String escapeJavaxLang(Info info, String fileName) throws UnsupportedEncodingException {
+       if (!info.escapeJavaxLang) return fileName;
+
         for (Entry<String, String> e : replaceWhat2With.entrySet()) {
             fileName = fileName.replace(e.getKey(), e.getValue());
         }

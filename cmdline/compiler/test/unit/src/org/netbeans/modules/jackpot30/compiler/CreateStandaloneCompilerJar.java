@@ -54,7 +54,7 @@ public class CreateStandaloneCompilerJar extends CreateStandaloneJar {
 
     @Override
     protected Info computeInfo() {
-        return new Info().addAdditionalRoots(UtilitiesSPIImpl.class.getName(), "com.sun.tools.javac.Main", HintsAnnotationProcessing.class.getName(), HintsAnnotationProcessingImpl.class.getName())
+        return new Info().addAdditionalRoots(UtilitiesSPIImpl.class.getName(), "com.sun.tools.javac.Main", HintsAnnotationProcessing.class.getName(), HintsAnnotationProcessingImpl.class.getName(), IndexingAnnotationProcessor.class.getName())
                          .addMetaInfRegistrations(new MetaInfRegistration(Utilities.SPI.class, UtilitiesSPIImpl.class))
                          .addMetaInfRegistrations(new MetaInfRegistration(Processor.class, HintsAnnotationProcessingImpl.class))
                          .addMetaInfRegistrationToCopy(AbstractHintsAnnotationProcessing.class.getName());

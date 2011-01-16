@@ -94,7 +94,7 @@ public class Cache {
             Logger.getLogger(Cache.class.getName()).log(Level.SEVERE, null, ex);
         }
         if (standaloneCacheRoot != null) {
-            return getDataFolder(sourceRoot, name);
+            return getDataFolder(sourceRoot, name, version);
         } else {
             return findCacheRootNB(sourceRoot, version);
         }
@@ -109,6 +109,10 @@ public class Cache {
 
     public static void setStandaloneCacheRoot(File standaloneCacheRoot) {
         Cache.standaloneCacheRoot = standaloneCacheRoot;
+        segments = null;
+        lastSegmentsTimeStamp = -1;
+        invertedSegments = null;
+        index = 0;
     }
 
 
@@ -128,6 +132,9 @@ public class Cache {
         if (lastSegmentsTimeStamp != segmentsFile.lastModified()) {
             lastSegmentsTimeStamp = segmentsFile.lastModified();
             segments = null;
+            lastSegmentsTimeStamp = -1;
+            invertedSegments = null;
+            index = 0;
         }
 
         if (segments == null) {
@@ -190,7 +197,7 @@ public class Cache {
         }
     }
 
-    private static synchronized File getDataFolder (final URL root, String name) throws IOException {
+    private static synchronized File getDataFolder (final URL root, String name, int version) throws IOException {
         loadSegments ();
         final String rootName = root.toExternalForm();
         String slice = invertedSegments.get (rootName);
@@ -204,12 +211,7 @@ public class Cache {
             storeSegments ();
         }
         final File folder = standaloneCacheRoot;
-        return new File(new File(folder, slice), name);
+        return new File(new File(new File(folder, slice), name), Integer.toString(version));
     }
-
-    private static synchronized File getCacheFolder () {
-        return standaloneCacheRoot;
-    }
-
 
 }

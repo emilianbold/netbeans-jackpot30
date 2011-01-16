@@ -46,6 +46,7 @@ import hudson.Proc;
 import hudson.model.AbstractBuild;
 import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
+import hudson.model.Descriptor;
 import hudson.model.Run.RunnerAbortedException;
 import hudson.remoting.Channel;
 import hudson.tasks.BuildWrapper;
@@ -89,6 +90,7 @@ public final class BuildWrapperImpl extends BuildWrapper {
     private final boolean classpathBasedHintsEnabled;
     private final boolean classpathBasedHintFixesEnabled;
     private final boolean hardcodedHintsEnabled;
+    private final boolean indexingEnabled;
     private final Map<String, Boolean> id2Enabled;
     private final Map<String, Boolean> id2Apply;
     
@@ -118,13 +120,16 @@ public final class BuildWrapperImpl extends BuildWrapper {
                 }
             }
         }
+
+        indexingEnabled = json.containsKey("indexingEnabled") && json.getBoolean("indexingEnabled");
     }
 
     @DataBoundConstructor
-    public BuildWrapperImpl(boolean classpathBasedHintsEnabled, boolean classpathBasedHintFixesEnabled, boolean hardcodedHintsEnabled, Map<String, Boolean> id2Enabled, Map<String, Boolean> id2Apply) {
+    public BuildWrapperImpl(boolean classpathBasedHintsEnabled, boolean classpathBasedHintFixesEnabled, boolean hardcodedHintsEnabled, boolean indexingEnabled, Map<String, Boolean> id2Enabled, Map<String, Boolean> id2Apply) {
         this.classpathBasedHintsEnabled = classpathBasedHintsEnabled;
         this.classpathBasedHintFixesEnabled = classpathBasedHintFixesEnabled;
         this.hardcodedHintsEnabled = hardcodedHintsEnabled;
+        this.indexingEnabled = indexingEnabled;
         this.id2Enabled = id2Enabled;
         this.id2Apply = id2Apply;
     }
@@ -157,6 +162,10 @@ public final class BuildWrapperImpl extends BuildWrapper {
         return id2Apply.containsKey(id) ? id2Apply.get(id) == Boolean.TRUE : getDescriptor().isHintApplyEnabledByDefault(id);
     }
 
+    public boolean isIndexingEnabled() {
+        return indexingEnabled;
+    }
+
     @Override
     public DescriptorImpl getDescriptor() {
         return (DescriptorImpl) super.getDescriptor();
@@ -169,7 +178,7 @@ public final class BuildWrapperImpl extends BuildWrapper {
 
     @Override
     public Launcher decorateLauncher(AbstractBuild build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException, RunnerAbortedException {
-        return new LauncherWrapper(launcher);
+        return new LauncherWrapper(build, launcher);
     }
 
     private static String dumpToString(Map<String, Boolean> id2Include) {
@@ -197,10 +206,12 @@ public final class BuildWrapperImpl extends BuildWrapper {
 
     private final class LauncherWrapper extends Launcher {
 
+        private final AbstractBuild build;
         private final Launcher delegate;
 
-        public LauncherWrapper(Launcher delegate) {
+        public LauncherWrapper(AbstractBuild build, Launcher delegate) {
             super(delegate.getListener(), delegate.getChannel());//XXX???
+            this.build = build;
             this.delegate = delegate;
         }
 
@@ -223,8 +234,20 @@ public final class BuildWrapperImpl extends BuildWrapper {
                 args.add("-Djackpot30_apply_hc_hints=" + dumpToString(id2Apply));
             }
 
+            if (indexingEnabled) {
+                args.add("-Djackpot30_cache_root=" + ((IndexingBuilder.DescriptorImpl) Descriptor.find(IndexingBuilder.DescriptorImpl.class.getName())).getCacheDir().getAbsolutePath());
+                
+                try {
+                    args.add("-Djackpot30_root=" + new File(build.getWorkspace().toURI()).getAbsolutePath());
+                } catch (InterruptedException ex) {
+                    throw new IOException(ex);
+                }
+            }
+
             args.add("-Dbuild.compiler=org.netbeans.modules.jackpot30.compiler.ant.JackpotCompiler");
 
+            System.err.println("args=" + args);
+            
             boolean[] origMasks = ps.masks();
             boolean[] mask = new boolean[args.size()];
 
