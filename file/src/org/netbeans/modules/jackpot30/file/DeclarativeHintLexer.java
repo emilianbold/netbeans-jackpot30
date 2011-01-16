@@ -257,6 +257,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         map.put(";;", DeclarativeHintTokenId.DOUBLE_SEMICOLON);
         map.put("%%", DeclarativeHintTokenId.DOUBLE_PERCENT);
         map.put("instanceof", DeclarativeHintTokenId.INSTANCEOF);
+        map.put("otherwise", DeclarativeHintTokenId.OTHERWISE);
         map.put(":", DeclarativeHintTokenId.COLON);
 
         TOKENS = Collections.unmodifiableMap(map);

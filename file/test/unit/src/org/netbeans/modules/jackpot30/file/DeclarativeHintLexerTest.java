@@ -275,7 +275,7 @@ public class DeclarativeHintLexerTest {
 
     @Test
     public void testImportsAndPredicates() {
-        String text = "<?import java.util.List;?>'test': 1 + 1 => 1 + 1;;<?private boolean doTest() {return false;}?>'test2': 1 + 1 => 1 + 1;;";
+        String text = "<?import java.util.List;?>'test': 1 + 1 => 1 + 1;;<?private boolean doTest() {return false;}?>'test2': 1 + 1 => 1 + 1 :: otherwise;;";
         TokenHierarchy<?> hi = TokenHierarchy.create(text, language());
         TokenSequence<?> ts = hi.tokenSequence();
         assertNextTokenEquals(ts, JAVA_BLOCK, "<?import java.util.List;?>");
@@ -290,7 +290,10 @@ public class DeclarativeHintLexerTest {
         assertNextTokenEquals(ts, COLON, ":");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
-        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
+        assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1 ");
+        assertNextTokenEquals(ts, DOUBLE_COLON, "::");
+        assertNextTokenEquals(ts, WHITESPACE, " ");
+        assertNextTokenEquals(ts, OTHERWISE, "otherwise");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
 
         assertFalse(ts.moveNext());

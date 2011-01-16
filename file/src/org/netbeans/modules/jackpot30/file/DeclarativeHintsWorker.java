@@ -46,6 +46,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.type.TypeMirror;
+import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
@@ -106,6 +107,13 @@ class DeclarativeHintsWorker implements Worker {
 
             try {
                 for (Condition c : fix.getConditions()) {
+                    if (c instanceof Otherwise) {
+                        if (editorFixes.isEmpty()) {
+                            continue;
+                        } else {
+                            continue OUTER;
+                        }
+                    }
                     if (!c.holds(context, false)) {
                         continue OUTER;
                     }

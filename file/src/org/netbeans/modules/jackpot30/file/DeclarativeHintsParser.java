@@ -40,9 +40,6 @@
 package org.netbeans.modules.jackpot30.file;
 
 import java.io.File;
-import java.net.MalformedURLException;
-import java.util.ArrayList;
-import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.security.CodeSource;
@@ -72,7 +69,6 @@ import javax.lang.model.element.TypeElement;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
-import org.netbeans.api.java.platform.JavaPlatform;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
@@ -83,6 +79,7 @@ import org.netbeans.modules.jackpot30.file.Condition.False;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
+import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
@@ -269,6 +266,14 @@ public class DeclarativeHintsParser {
 
     private void parseCondition(List<Condition> conditions, List<int[]> spans) {
         int conditionStart = input.offset();
+
+        if (id() == OTHERWISE) {
+            nextToken();
+            conditions.add(new Otherwise());
+            spans.add(new int[] {conditionStart, input.offset()});
+            return ;
+        }
+
         boolean not = false;
 
         if (id() == NOT) {

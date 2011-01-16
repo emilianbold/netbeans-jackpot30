@@ -163,4 +163,22 @@ public abstract class Condition {
             return "(FALSE)";
         }
     }
+
+    public static final class Otherwise extends Condition {
+
+        public Otherwise() {
+            super(false);
+        }
+
+        @Override
+        public boolean holds(Context ctx, boolean global) {
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return "(OTHERWISE)";
+        }
+    }
+    
 }

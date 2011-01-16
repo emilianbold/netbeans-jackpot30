@@ -64,6 +64,7 @@ public enum DeclarativeHintTokenId implements TokenId {
     LEADS_TO("operator"),
     AND("operator"),
     INSTANCEOF("keyword"),
+    OTHERWISE("keyword"),
     NOT("operator"),
     DOUBLE_SEMICOLON("operator"),
     DOUBLE_PERCENT("operator"),
