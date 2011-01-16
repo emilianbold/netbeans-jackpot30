@@ -46,6 +46,8 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TaskEvent;
+import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
@@ -83,6 +85,7 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.prefs.PreferencesFactory;
 import javax.annotation.processing.AbstractProcessor;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.Processor;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -90,6 +93,7 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.util.ElementFilter;
 import javax.swing.event.ChangeListener;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.JavaFileManager;
@@ -123,55 +127,12 @@ import org.openide.util.lookup.ServiceProvider;
 @ServiceProvider(service=Processor.class)
 public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
 
-    private final Collection<Element> types = new LinkedList<Element>();
+    private final Collection<String> seenTypes = new LinkedList<String>();
+    private final Collection<AbstractHintsAnnotationProcessing> processors = new LinkedList<AbstractHintsAnnotationProcessing>();
 
     @Override
-    public final boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        try {
-            return doProcess(annotations, roundEnv);
-        } catch (Throwable ex) {
-            ex.printStackTrace();
-            return false;
-        }
-    }
-
-    private boolean doProcess(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        types.addAll(roundEnv.getRootElements());
-        
-        if (!roundEnv.processingOver())
-            return false;
-
-        try {
-            File tmp = File.createTempFile("jackpot30", null);
-
-            tmp.delete();
-            tmp.mkdirs();
-            tmp.deleteOnExit();
-
-            tmp = FileUtil.normalizeFile(tmp);
-            FileUtil.refreshFor(tmp.getParentFile());
-
-            org.openide.filesystems.FileObject tmpFO = FileUtil.toFileObject(tmp);
-
-            if (tmpFO == null) {
-                return false;
-            }
-
-            CacheFolder.setCacheFolder(tmpFO);
-        } catch (IOException ex) {
-            ex.printStackTrace();
-        }
-
-        Context c = ((JavacProcessingEnvironment) processingEnv).getContext();
-        StandardJavaFileManager s = (StandardJavaFileManager) c.get(JavaFileManager.class);
-        ClassPath boot = computeClassPath(s, StandardLocation.PLATFORM_CLASS_PATH);
-        ClassPath compile = computeClassPath(s, StandardLocation.CLASS_PATH);
-        ClassPath source = computeClassPath(s, StandardLocation.SOURCE_PATH);
-        Trees trees = JavacTrees.instance(c);
-        Collection<CompilationUnitTree> toClean = new LinkedList<CompilationUnitTree>();
-        final Log log = Log.instance(c);
-
-        List<AbstractHintsAnnotationProcessing> processors = new ArrayList<AbstractHintsAnnotationProcessing>();
+    public synchronized void init(ProcessingEnvironment processingEnv) {
+        super.init(processingEnv);
 
         for (AbstractHintsAnnotationProcessing p : Lookup.getDefault().lookupAll(AbstractHintsAnnotationProcessing.class)) {
             if (p.initialize(processingEnv)) {
@@ -179,63 +140,85 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
             }
         }
 
+        if (processors.isEmpty()) {
+            return;
+        }
+
+        if (!(processingEnv instanceof JavacProcessingEnvironment)) {
+            throw new UnsupportedOperationException("Not a JavacProcessingEnvironment");
+        }
+
+        Context c = ((JavacProcessingEnvironment) processingEnv).getContext();
+        TaskListener prev = c.get(TaskListener.class);
+
+        c.put(TaskListener.class, (TaskListener) null);
+        c.put(TaskListener.class, new TaskListenerImpl(prev));
+    }
+
+    @Override
+    public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
+        for (TypeElement type : ElementFilter.typesIn(roundEnv.getRootElements())) {
+            seenTypes.add(type.getQualifiedName().toString());
+        }
+
+        if (roundEnv.processingOver()) {
+            try {
+                //XXX: workarounding a bug in CRTable (see HintsAnnotationProcessingTest.testCRTable):
+                Context c = ((JavacProcessingEnvironment) processingEnv).getContext();
+                Options.instance(c).remove("-Xjcov");
+                Field f = Gen.class.getDeclaredField("genCrt");
+                f.setAccessible(true);
+                f.set(Gen.instance(c), false);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        return false;
+    }
+
+    private void doProcessing(TypeElement type) {
+        if (!seenTypes.remove(type.getQualifiedName().toString())) return;
+        
+        Context c = ((JavacProcessingEnvironment) processingEnv).getContext();
+        StandardJavaFileManager s = (StandardJavaFileManager) c.get(JavaFileManager.class);
+        ClassPath boot = computeClassPath(s, StandardLocation.PLATFORM_CLASS_PATH);
+        ClassPath compile = computeClassPath(s, StandardLocation.CLASS_PATH);
+        ClassPath source = computeClassPath(s, StandardLocation.SOURCE_PATH);
+        Trees trees = JavacTrees.instance(c);
+        final Log log = Log.instance(c);
+
         try {
-            for (Element el : types) {
-                if (!el.getKind().isClass() && !el.getKind().isInterface()) {
-    //                processingEnv.getMessager().printMessage(Kind.NOTE, "Not a class", el);
-                    continue;
+            TreePath elTree = trees.getPath(type);
+            JCCompilationUnit cut = (JCCompilationUnit) elTree.getCompilationUnit();
+
+            if (!cut.sourcefile.toUri().isAbsolute()) {
+                processingEnv.getMessager().printMessage(Kind.NOTE, "Not an absolute URI: " + cut.sourcefile.toUri().toASCIIString(), type);
+                return ; //XXX
+            }
+
+            CompilationInfoHack info = new CompilationInfoHack(c, ClasspathInfo.create(boot, compile, source), cut);
+            JavaFileObject origSourceFile = log.currentSourceFile();
+
+            try {
+                log.useSource(cut.sourcefile);
+
+                for (AbstractHintsAnnotationProcessing p : processors) {
+                    p.doProcess(info, processingEnv, new Reporter() {
+                        @Override public void warning(int offset, String message) {
+                            log.warning(offset, "proc.messager", message);
+                        }
+                    });
                 }
-
-                TreePath elTree = trees.getPath(el);
-                JCCompilationUnit cut = (JCCompilationUnit) elTree.getCompilationUnit();
-
-                if (!cut.sourcefile.toUri().isAbsolute()) {
-                    processingEnv.getMessager().printMessage(Kind.NOTE, "Not an absolute URI: " + cut.sourcefile.toUri().toASCIIString(), el);
-                    continue; //XXX
-                }
-
-                toClean.add(cut);
-
-                doAttribute(c, cut);
-
-                CompilationInfoHack info = new CompilationInfoHack(c, ClasspathInfo.create(boot, compile, source), cut);
-                JavaFileObject origSourceFile = log.currentSourceFile();
-
-                try {
-                    log.useSource(cut.sourcefile);
-
-                    for (AbstractHintsAnnotationProcessing p : processors) {
-                        p.doProcess(info, processingEnv, new Reporter() {
-                            @Override public void warning(int offset, String message) {
-                                log.warning(offset, "proc.messager", message);
-                            }
-                        });
-                    }
-                } finally {
-                    log.useSource(origSourceFile);
-                }
+            } finally {
+                log.useSource(origSourceFile);
             }
         } finally {
-            for (AbstractHintsAnnotationProcessing p : processors) {
-                p.finish();
+            if (seenTypes.isEmpty()) {
+                for (AbstractHintsAnnotationProcessing p : processors) {
+                    p.finish();
+                }
             }
         }
-
-        for (CompilationUnitTree cut : toClean) {
-            new ThoroughTreeCleaner(cut, trees.getSourcePositions()).scan(cut, null);
-        }
-
-        try {
-            //XXX: workarounding a bug in CRTable (see HintsAnnotationProcessingTest.testCRTable):
-            Options.instance(c).remove("-Xjcov");
-            Field f = Gen.class.getDeclaredField("genCrt");
-            f.setAccessible(true);
-            f.set(Gen.instance(c), false);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        
-        return false;
     }
 
     @Override
@@ -267,30 +250,35 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
         return ClassPathSupport.createClassPath(urls.toArray(new URL[0]));
     }
 
-    private static void doAttribute(Context c, JCCompilationUnit cut) {
-        JavaCompiler jc = JavaCompiler.instance(c);
-        final Enter enter = Enter.instance(c);
-        final Queue<Env<AttrContext>> queued = new LinkedList<Env<AttrContext>>();
+    private final class TaskListenerImpl implements TaskListener {
 
-        queued.add(enter.getTopLevelEnv(cut));
+        private final TaskListener delegate;
 
-        new TreeScanner<Void, Void>() {
-            @Override
-            public Void visitClass(ClassTree node, Void p) {
-                Env<AttrContext> env = enter.getEnv(((JCClassDecl) node).sym);
-
-                if (env != null)
-                    queued.add(env);
-
-                return super.visitClass(node, p);
-            }
-        }.scan(cut, null);
-
-        Attr attr = Attr.instance(c);
-
-        for (Env<AttrContext> env : queued) {
-            attr.attribClass(env.tree.pos(), env.enclClass.sym);
+        public TaskListenerImpl(TaskListener delegate) {
+            this.delegate = delegate;
         }
+
+        @Override
+        public void started(TaskEvent te) {
+            if (delegate != null) {
+                delegate.started(te);
+            }
+        }
+
+        @Override
+        public void finished(TaskEvent te) {
+            if (delegate != null) {
+                delegate.finished(te);
+            }
+
+            if (te.getKind() == TaskEvent.Kind.ANALYZE) {
+                TypeElement toProcess = te.getTypeElement();
+
+                assert toProcess != null;
+                doProcessing(toProcess);
+            }
+        }
+
     }
 
 
@@ -307,66 +295,6 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
         } catch (Throwable t) {
             t.printStackTrace();
         }
-    }
-
-    private static final class ThoroughTreeCleaner extends TreeScanner<Void, Void> {
-
-        private final CompilationUnitTree cut;
-        private final SourcePositions positions;
-
-        public ThoroughTreeCleaner(CompilationUnitTree cut, SourcePositions positions) {
-            this.cut = cut;
-            this.positions = positions;
-        }
-
-        @Override
-        public Void scan(Tree node, Void p) {
-            if (node != null) ((JCTree) node).type = null;
-            return super.scan(node, p);
-        }
-
-        @Override
-        public Void visitParameterizedType(ParameterizedTypeTree node, Void p) {
-            return super.visitParameterizedType(node, p);
-        }
-
-        @Override
-        public Void visitMemberSelect(MemberSelectTree node, Void p) {
-            ((JCFieldAccess) node).sym = null;
-            return super.visitMemberSelect(node, p);
-        }
-
-        @Override
-        public Void visitIdentifier(IdentifierTree node, Void p) {
-            ((JCIdent) node).sym = null;
-            return super.visitIdentifier(node, p);
-        }
-
-        @Override
-        public Void visitMethod(MethodTree node, Void p) {
-            JCMethodDecl method = (JCMethodDecl) node;
-
-            if (method.sym != null && method.sym.getKind() == ElementKind.CONSTRUCTOR && method.sym.owner.getKind() == ElementKind.ENUM) {
-                if (positions.getEndPosition(cut, method.body.stats.head) == (-1)) {
-                    method.body.stats = method.body.stats.tail;
-                }
-            }
-
-            return super.visitMethod(node, p);
-        }
-
-        @Override
-        public Void visitClass(ClassTree node, Void p) {
-            JCClassDecl decl = (JCClassDecl) node;
-
-            if (decl.sym.getKind() == ElementKind.ENUM) {
-                if (positions.getEndPosition(cut, decl.defs.head) == (-1)) {
-                    decl.defs = decl.defs.tail;
-                }
-            }
-            return super.visitClass(node, p);
-        }
-
     }
 
     @ServiceProvider(service=MimeDataProvider.class)

@@ -71,6 +71,7 @@ import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintsRunner;
+import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileUtil;
@@ -101,6 +102,27 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
 
     @Override
     protected boolean initialize(ProcessingEnvironment processingEnv) {
+        try {
+            File tmp = File.createTempFile("jackpot30", null);
+
+            tmp.delete();
+            tmp.mkdirs();
+            tmp.deleteOnExit();
+
+            tmp = FileUtil.normalizeFile(tmp);
+            FileUtil.refreshFor(tmp.getParentFile());
+
+            org.openide.filesystems.FileObject tmpFO = FileUtil.toFileObject(tmp);
+
+            if (tmpFO == null) {
+                return false;
+            }
+
+            CacheFolder.setCacheFolder(tmpFO);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+
         return true;
     }
 

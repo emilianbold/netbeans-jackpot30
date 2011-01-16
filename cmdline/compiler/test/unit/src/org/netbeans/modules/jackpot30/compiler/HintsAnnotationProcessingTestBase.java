@@ -146,6 +146,8 @@ public class HintsAnnotationProcessingTestBase extends NbTestCase {
             List<String> ll = new LinkedList<String>();
 
             ll.add("java");
+//            ll.add("-Xdebug");
+//            ll.add("-Xrunjdwp:transport=dt_socket,suspend=y,server=y,address=8889");
             ll.add("-Xbootclasspath/p:" + compiler.getAbsolutePath());
             ll.add("com.sun.tools.javac.Main");
             ll.addAll(Arrays.asList(params));
