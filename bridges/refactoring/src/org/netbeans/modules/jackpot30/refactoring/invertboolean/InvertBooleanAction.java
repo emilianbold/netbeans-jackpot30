@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2010-2011 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,42 +34,42 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2010 Sun Microsystems, Inc.
+ * Portions Copyrighted 2010-2011 Sun Microsystems, Inc.
  */
+package org.netbeans.modules.jackpot30.refactoring.invertboolean;
 
-package org.netbeans.modules.jackpot30.refactoring;
+import javax.swing.Action;
+import org.netbeans.modules.jackpot30.refactoring.RefactoringActionsProviderExt;
+import org.netbeans.modules.refactoring.java.ui.JavaRefactoringGlobalAction;
+import org.openide.util.HelpCtx;
+import org.openide.util.Lookup;
+import org.openide.util.NbBundle.Messages;
 
-import org.netbeans.modules.jackpot30.refactoring.invertboolean.InvertBooleanRefactoring;
-import org.netbeans.modules.jackpot30.refactoring.invertboolean.InvertBooleanRefactoringPluginImpl;
-import org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorRefactoring;
-import org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorRefactoringPluginImpl;
-import org.netbeans.modules.refactoring.api.AbstractRefactoring;
-import org.netbeans.modules.refactoring.api.RenameRefactoring;
-import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
-import org.netbeans.modules.refactoring.spi.RefactoringPluginFactory;
-import org.openide.util.lookup.ServiceProvider;
+public final class InvertBooleanAction extends JavaRefactoringGlobalAction {
 
-/**
- *
- * @author Jan Lahoda
- */
-@ServiceProvider(service=RefactoringPluginFactory.class)
-public class RefactoringPluginFactoryImpl implements RefactoringPluginFactory {
-
-    public RefactoringPlugin createInstance(AbstractRefactoring refactoring) {
-        if (refactoring instanceof RenameRefactoring) {
-            return new RenameRefactoringPluginImpl((RenameRefactoring) refactoring);
-        }
-
-        if (refactoring instanceof ReplaceConstructorRefactoring) {
-            return new ReplaceConstructorRefactoringPluginImpl((ReplaceConstructorRefactoring) refactoring);
-        }
-
-        if (refactoring instanceof InvertBooleanRefactoring) {
-            return new InvertBooleanRefactoringPluginImpl((InvertBooleanRefactoring) refactoring);
-        }
-
-        return null;
+    @Messages("LBL_InvertBooleanAction=Invert Boolean")
+    public InvertBooleanAction() {
+        super(Bundle.LBL_InvertBooleanAction(), null); // NOI18N
+        putValue("noIconInMenu", Boolean.TRUE); // NOI18N
     }
 
+    public final void performAction(Lookup context) {
+        RefactoringActionsProviderExt.doInvertBoolean(context);
+    }
+
+    public org.openide.util.HelpCtx getHelpCtx() {
+        return HelpCtx.DEFAULT_HELP;
+    }
+
+    protected boolean asynchronous() {
+        return false;
+    }
+
+    protected boolean enable(Lookup context) {
+        return RefactoringActionsProviderExt.canInvertBoolean(context);
+    }
+
+    public static Action create() {
+        return InvertBooleanAction.findObject(InvertBooleanAction.class, true);
+    }
 }

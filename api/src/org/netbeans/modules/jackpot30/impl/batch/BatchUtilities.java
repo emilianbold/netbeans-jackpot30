@@ -212,7 +212,7 @@ public class BatchUtilities {
         }
     }
 
-    private static boolean applyFixes(WorkingCopy copy, Map<Project, Set<String>> processedDependencyChanges, Collection<? extends ErrorDescription> hints, Collection<? super MessageImpl> problems) throws IllegalStateException, Exception {
+    public static boolean applyFixes(WorkingCopy copy, Map<Project, Set<String>> processedDependencyChanges, Collection<? extends ErrorDescription> hints, Collection<? super MessageImpl> problems) throws IllegalStateException, Exception {
         List<JavaFix> fixes = new ArrayList<JavaFix>();
         for (ErrorDescription ed : hints) {
             if (!ed.getFixes().isComputed()) {

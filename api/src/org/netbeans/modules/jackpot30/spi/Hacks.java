@@ -41,15 +41,14 @@ package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCErroneous;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -58,7 +57,8 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.StringTokenizer;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
@@ -82,9 +82,17 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.ClassPath.Entry;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.WorkingCopy;
+import org.netbeans.api.project.Project;
+import org.netbeans.modules.jackpot30.impl.MessageImpl;
+import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
+import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
+import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
 
 /**
  *
@@ -204,5 +212,46 @@ public class Hacks {
 
     public static interface HintPreferencesProvider {
         public Preferences findPreferences(HintMetadata hm);
+    }
+
+    public static void findHintsAndApplyFixes(WorkingCopy copy, Iterable<? extends HintDescription> hints, TreePath on, AtomicBoolean cancel) {
+        Map<Tree.Kind, List<HintDescription>> kindHints = new HashMap<Tree.Kind, List<HintDescription>>();
+        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>();
+
+        RulesManager.sortOut(hints, kindHints, patternHints);
+
+        if (!kindHints.isEmpty()) {
+            throw new IllegalStateException();
+        }
+
+        HintsInvoker inv = new HintsInvoker(copy, cancel);
+        Map<String, List<PatternDescription>> patterns = HintsInvoker.computePatternTests(patternHints);
+        Map<String, Collection<TreePath>> occurringPattern = new HashMap<String, Collection<TreePath>>();
+
+        for (String key : patterns.keySet()) {
+            occurringPattern.put(key, Collections.singleton(on));
+        }
+
+        List<ErrorDescription> errs = new ArrayList<ErrorDescription>();
+
+        for (List<ErrorDescription> v : inv.doComputeHints(copy, occurringPattern, patterns, patternHints).values()) {
+            errs.addAll(v);
+        }
+
+        List<MessageImpl> problems = new LinkedList<MessageImpl>();
+
+        try {
+            if (BatchUtilities.applyFixes(copy, Collections.<Project, Set<String>>emptyMap(), errs, problems)) {
+                throw new IllegalStateException();
+            }
+        } catch (IllegalStateException ex) {
+            Exceptions.printStackTrace(ex);
+        } catch (Exception ex) {
+            Exceptions.printStackTrace(ex);
+        }
+
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException(problems.get(0).text);
+        }
     }
 }

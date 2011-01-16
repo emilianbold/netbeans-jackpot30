@@ -6,6 +6,9 @@
             <file name="org-netbeans-modules-jackpot30-refactoring-noconstructor-ReplaceConstructorAction.instance">
                 <attr name="instanceCreate" methodvalue="org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorAction.create"/>
             </file>
+            <file name="org-netbeans-modules-jackpot30-refactoring-invertboolean-InvertBooleanAction.instance">
+                <attr name="instanceCreate" methodvalue="org.netbeans.modules.jackpot30.refactoring.invertboolean.InvertBooleanAction.create"/>
+            </file>
         </folder>
     </folder>
     <folder name="Menu">
@@ -21,6 +24,10 @@
             <file name="org-netbeans-modules-jackpot30-refactoring-noconstructor-ReplaceConstructorAction.shadow">
                 <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-jackpot30-refactoring-noconstructor-ReplaceConstructorAction.instance"/>
                 <attr name="position" intvalue="2150"/>
+            </file>
+            <file name="org-netbeans-modules-jackpot30-refactoring-invertboolean-InvertBooleanAction.shadow">
+                <attr name="originalFile" stringvalue="Actions/Refactoring/org-netbeans-modules-jackpot30-refactoring-invertboolean-InvertBooleanAction.instance"/>
+                <attr name="position" intvalue="2152"/>
             </file>
         </folder>
     </folder>

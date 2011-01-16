@@ -43,8 +43,12 @@ import java.util.HashSet;
 import java.util.logging.Logger;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.TreePathHandle;
+import org.netbeans.modules.jackpot30.refactoring.invertboolean.InvertBooleanRefactoringUI;
 import org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorRefactoringUI;
 import org.netbeans.modules.refactoring.api.RenameRefactoring;
 import org.netbeans.modules.refactoring.java.RetoucheUtils;
@@ -112,6 +116,53 @@ public class RefactoringActionsProviderExt extends RefactoringActionsProvider {
         RetoucheUtils.invokeAfterScanFinished(task, "Remove Constructor");//getActionName(RefactoringActionsFactory.renameAction()));
     }
 
+    private static RefactoringUI doInvertBooleanImpl(TreePathHandle selectedElement, CompilationInfo info) {
+        Element selected = selectedElement.resolveElement(info);
+        if (selected==null) {
+//            logger().log(Level.INFO, "doRename: " + selectedElement, new NullPointerException("selected")); // NOI18N
+            return null;
+        }
+        if (selected.getKind().isField() && ((VariableElement) selected).asType().getKind() == TypeKind.BOOLEAN) {
+            return new InvertBooleanRefactoringUI(selectedElement, ((VariableElement) selected).getSimpleName().toString());
+        }
+        if (selected.getKind() == ElementKind.METHOD && ((ExecutableElement) selected).getReturnType().getKind() == TypeKind.BOOLEAN) {
+            return new InvertBooleanRefactoringUI(selectedElement, ((ExecutableElement) selected).getSimpleName().toString());
+        }
+
+        return null;
+    }
+
+    public static void doInvertBoolean(final Lookup lookup) {
+        Runnable task;
+        EditorCookie ec = lookup.lookup(EditorCookie.class);
+        if (isFromEditor(ec)) {
+            task = new TextComponentTask(ec) {
+                @Override
+                protected RefactoringUI createRefactoringUI(TreePathHandle selectedElement,int startOffset,int endOffset, final CompilationInfo info) {
+                    return doInvertBooleanImpl(selectedElement, info);
+                }
+            };
+        } else {
+            task = new TreePathHandleTask(new HashSet<Node>(lookup.lookupAll(Node.class)), true) {
+
+                RefactoringUI ui;
+
+                @Override
+                protected void treePathHandleResolved(TreePathHandle handle, CompilationInfo javac) {
+                    ui = doInvertBooleanImpl(handle, javac);
+                }
+
+                @Override
+                protected RefactoringUI createRefactoringUI(Collection<TreePathHandle> handles) {
+                    return ui;
+                }
+
+            };
+        }
+
+        RetoucheUtils.invokeAfterScanFinished(task, "Remove Constructor");//getActionName(RefactoringActionsFactory.renameAction()));
+    }
+
 //    static String getActionName(Action action) {
 //        String arg = (String) action.getValue(Action.NAME);
 //        arg = arg.replace("&", ""); // NOI18N
@@ -120,6 +171,14 @@ public class RefactoringActionsProviderExt extends RefactoringActionsProvider {
 
 
     public static boolean canReplaceConstructor(Lookup lookup) {
+        return canRefactor(lookup);
+    }
+
+    public static boolean canInvertBoolean(Lookup lookup) {
+        return canRefactor(lookup);
+    }
+
+    private static boolean canRefactor(Lookup lookup) {
         Collection<? extends Node> nodes = new HashSet<Node>(lookup.lookupAll(Node.class));
         if(nodes.size() != 1)
             return false;
