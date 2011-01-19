@@ -75,6 +75,11 @@ public enum DeclarativeHintTokenId implements TokenId {
     BLOCK_COMMENT("comment"),
     JAVA_BLOCK("java"),
     OPTIONS("options"),
+    DOT("symbol"),
+    EQUALS("operator"),
+    NOT_EQUALS("operator"),
+    ASSIGN("operator"),
+    IDENTIFIER("identifier"),
     ERROR("error");
 
     private final String cat;

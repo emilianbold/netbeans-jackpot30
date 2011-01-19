@@ -64,8 +64,13 @@ import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
+import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
+import org.netbeans.modules.jackpot30.spi.HintContext;
+import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
@@ -258,7 +263,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints, imports));
 
-            List<DeclarativeFix> fixes = new LinkedList<DeclarativeFix>();
+            List<DeclarativeFixDescription> fixes = new LinkedList<DeclarativeFixDescription>();
 
             for (FixTextDescription fix : hint.fixes) {
                 int[] fixRange = fix.fixSpan;
@@ -267,7 +272,9 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
                 options.putAll(fix.options);
 
-                fixes.add(DeclarativeFix.create(fixDisplayName, spec.substring(fixRange[0], fixRange[1]), fix.conditions, options));
+                //XXX:
+//                fixes.add(DeclarativeFix.create(fixDisplayName, spec.substring(fixRange[0], fixRange[1]), fix.conditions, options));
+                fixes.add(new DeclarativeFixDescription(filterConditions(fix.conditions), new HintsFixAcceptor(fix.conditions, fix.options), spec.substring(fixRange[0], fixRange[1])));
             }
 
             HintMetadata currentMeta = meta;
@@ -295,7 +302,9 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             options.putAll(hint.options);
 
-            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
+            //XXX:
+//            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
+            f = f.setWorker(new HintDescription.MarksWorker(filterConditions(hint.conditions), new HintsFixAcceptor(hint.conditions, hint.options), fixes));
             f = f.setMetadata(currentMeta);
 
             Collection<HintDescription> hints = result.get(currentMeta);
@@ -360,6 +369,57 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         }
 
         return hintFile.getName();
+    }
+
+    private static void reportErrorWarning(HintContext ctx, Map<String, String> options) {
+        String errorText = options.get("error");
+
+        if (errorText != null)  {
+            ctx.reportMessage(MessageKind.ERROR, errorText);
+        }
+
+        String warningText = options.get("warning");
+
+        if (warningText != null)  {
+            ctx.reportMessage(MessageKind.WARNING, warningText);
+        }
+    }
+    
+    private static final class HintsFixAcceptor implements Acceptor {
+
+        private final List<Condition> conditions;
+        private final Map<String, String> options;
+
+        public HintsFixAcceptor(List<Condition> conditions, Map<String, String> options) {
+            this.conditions = conditions;
+            this.options = options;
+        }
+
+        public boolean accept(HintContext ctx) {
+            for (Condition c : conditions) {
+                //XXX: creating declarative context!!!
+                Context context = new Context(ctx);
+                if (!c.holds(context, false)) {
+                    return false;
+                }
+            }
+
+            reportErrorWarning(ctx, options);
+
+            return true;
+        }
+    }
+
+    private static List<HintDescription.MarkCondition> filterConditions(List<Condition> conds) {
+        List<HintDescription.MarkCondition> result = new LinkedList<HintDescription.MarkCondition>();
+
+        for (Condition c : conds) {
+            if (c instanceof Condition.MarkCondition) {
+                result.add(((Condition.MarkCondition) c).getCondition());
+            }
+        }
+
+        return result;
     }
 
 }

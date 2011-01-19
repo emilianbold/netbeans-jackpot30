@@ -369,6 +369,17 @@ public class UtilitiesTest extends TestBase {
         assertTrue(errors.toString(), errors.isEmpty());
     }
 
+    public void testParseCasePattern() throws Exception {
+        prepareTest("test/Test.java", "package test; public class Test{}");
+
+        String code = "case $cond: $statement;";
+        Tree result = Utilities.parseAndAttribute(info, code, null);
+
+        String golden = "case $cond: $statement;";
+
+        assertEquals(golden.replaceAll("[ \n\r]+", " "), result.toString().replaceAll("[ \n\r]+", " ").trim());
+    }
+
     public void testToHumanReadableTime() {
         long time = 202;
         assertEquals(    "5s", Utilities.toHumanReadableTime(time +=           5 * 1000));

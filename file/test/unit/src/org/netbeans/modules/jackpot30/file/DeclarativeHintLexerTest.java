@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import java.util.EnumSet;
 import org.junit.Test;
 import static org.junit.Assert.*;
 import org.netbeans.api.lexer.TokenHierarchy;
@@ -130,13 +131,17 @@ public class DeclarativeHintLexerTest {
         assertNextTokenEquals(ts, VARIABLE, "$1");
         assertNextTokenEquals(ts, WHITESPACE, " ");
         assertNextTokenEquals(ts, INSTANCEOF, "instanceof");
-        assertNextTokenEquals(ts, JAVA_SNIPPET, " something ");
+        assertNextTokenEquals(ts, WHITESPACE, " ");
+        assertNextTokenEquals(ts, IDENTIFIER, "something");
+        assertNextTokenEquals(ts, WHITESPACE, " ");
         assertNextTokenEquals(ts, AND, "&&");
         assertNextTokenEquals(ts, WHITESPACE, " ");
         assertNextTokenEquals(ts, VARIABLE, "$test");
         assertNextTokenEquals(ts, WHITESPACE, " ");
         assertNextTokenEquals(ts, INSTANCEOF, "instanceof");
-        assertNextTokenEquals(ts, JAVA_SNIPPET, " somethingelse ");
+        assertNextTokenEquals(ts, WHITESPACE, " ");
+        assertNextTokenEquals(ts, IDENTIFIER, "somethingelse");
+        assertNextTokenEquals(ts, WHITESPACE, " ");
         assertNextTokenEquals(ts, LEADS_TO, "=>");
         assertNextTokenEquals(ts, JAVA_SNIPPET, " 1 + 1");
         assertNextTokenEquals(ts, DOUBLE_SEMICOLON, ";;");
@@ -325,6 +330,21 @@ public class DeclarativeHintLexerTest {
         TestUtils.assertNextTokenEquals(ts, LEADS_TO, "=>");
         TestUtils.assertNextTokenEquals(ts, NOT, "!");
 
+        assertFalse(ts.moveNext());
+    }
+
+    @Test
+    public void testMarkRelatedTokens() {
+        String text = "== != = . test.test";
+        TokenHierarchy<?> hi = TokenHierarchy.create(text, true, language(), EnumSet.of(WHITESPACE), null);
+        TokenSequence<?> ts = hi.tokenSequence();
+        assertNextTokenEquals(ts, EQUALS, "==");
+        assertNextTokenEquals(ts, NOT_EQUALS, "!=");
+        assertNextTokenEquals(ts, ASSIGN, "=");
+        assertNextTokenEquals(ts, DOT, ".");
+        assertNextTokenEquals(ts, IDENTIFIER, "test");
+        assertNextTokenEquals(ts, DOT, ".");
+        assertNextTokenEquals(ts, IDENTIFIER, "test");
         assertFalse(ts.moveNext());
     }
 

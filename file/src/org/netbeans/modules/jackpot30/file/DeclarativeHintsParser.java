@@ -55,12 +55,14 @@ import com.sun.source.util.TreePath;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
@@ -81,6 +83,11 @@ import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
 import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
 import org.netbeans.modules.jackpot30.spi.Hacks;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Literal;
+import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Operator;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Value;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.Severity;
@@ -156,6 +163,16 @@ public class DeclarativeHintsParser {
         return false;
     }
 
+    private void readUntil(DeclarativeHintTokenId first, DeclarativeHintTokenId... other) {
+        Set<DeclarativeHintTokenId> ids = EnumSet.of(first, other);
+
+        while (   !ids.contains(id())
+               && !eof)
+            nextToken();
+
+        //XXX: iff eof produce an error
+    }
+
     private void parseInput() {
         boolean wasFirstRule = false;
         
@@ -194,13 +211,7 @@ public class DeclarativeHintsParser {
         String displayName = parseDisplayName();
         int patternStart = input.offset();
         
-        while (   id() != LEADS_TO
-               && id() != DOUBLE_COLON
-               && id() != DOUBLE_SEMICOLON
-               && id() != OPTIONS
-               && !eof) {
-            nextToken();
-        }
+        readUntil(LEADS_TO, DOUBLE_COLON, DOUBLE_SEMICOLON, OPTIONS);
 
         if (eof) {
             //XXX: should report an error
@@ -229,13 +240,7 @@ public class DeclarativeHintsParser {
 
             int targetStart = input.offset();
 
-            while (   id() != LEADS_TO
-                   && id() != DOUBLE_COLON
-                   && id() != DOUBLE_SEMICOLON
-                   && id() != OPTIONS
-                   && !eof) {
-                nextToken();
-            }
+            readUntil(LEADS_TO, DOUBLE_COLON, DOUBLE_SEMICOLON, OPTIONS);
 
             int targetEnd = input.offset();
             
@@ -286,6 +291,11 @@ public class DeclarativeHintsParser {
 
             nextToken();
 
+            if (id() == DOT) {
+                parseMarkConditionRest(name, conditionStart, not, conditions, spans);
+                return ;
+            }
+
             if (id() != INSTANCEOF) {
                 //XXX: report an error
                 return ;
@@ -295,7 +305,7 @@ public class DeclarativeHintsParser {
 
             int typeStart = input.offset();
 
-            nextToken();
+            readUntil(LEADS_TO, AND, DOUBLE_SEMICOLON);
 
             int typeEnd = input.offset();
 
@@ -306,9 +316,7 @@ public class DeclarativeHintsParser {
 
         int start   = input.offset();
         
-        while (id() != AND && id() != LEADS_TO && id() != DOUBLE_SEMICOLON && !eof) {
-            nextToken();
-        }
+        readUntil(LEADS_TO, AND, DOUBLE_SEMICOLON);
         
         int end = input.offset();
 
@@ -363,6 +371,84 @@ public class DeclarativeHintsParser {
         }
 
         return null;
+    }
+
+    private void parseMarkConditionRest(String name, int conditionStart, boolean not, List<Condition> conditions, List<int[]> spans) {
+        Value left = parseSelectorRest(name);
+        Operator op;
+
+        switch (id()) {
+            case EQUALS:
+                op = Operator.EQUALS;
+                break;
+            case NOT_EQUALS:
+                op = Operator.NOT_EQUALS;
+                break;
+            case ASSIGN:
+                op = Operator.ASSIGN;
+                break;
+            default:
+                op = null;
+                break;
+        }
+
+        Value right;
+
+        if (op != null) {
+            nextToken();
+            right = parseSelectorOrValue();
+        } else {
+            op = not ? Operator.NOT_EQUALS : Operator.EQUALS;
+            right = new Literal(true);
+        }
+
+        MarkCondition cond = new MarkCondition(left, op, right);
+
+        conditions.add(new Condition.MarkCondition(cond));
+        spans.add(new int[] {conditionStart, input.offset()});
+    }
+    
+    private Selector parseSelectorRest(String name) {
+        List<String> selected = new LinkedList<String>();
+
+        selected.add(name);
+
+        while (id() == DOT) {
+            nextToken();
+
+            if (id() != IDENTIFIER) {
+                //TODO: report error:
+                selected.add("<error>");
+                break;
+            }
+
+            selected.add(token().text().toString());
+            nextToken();
+        }
+
+        return new Selector(selected);
+    }
+
+    private Value parseSelectorOrValue() {
+        if (id() != VARIABLE && id() != IDENTIFIER) {
+            //XXX: produce error
+            return new Literal(false);
+        }
+
+        String name = token().text().toString();
+
+        if ("true".contentEquals(name) || "false".contentEquals(name)) {
+            nextToken();
+            return new Literal(Boolean.valueOf(name));
+        }
+
+        nextToken();
+
+        if (id() == DOT) {
+            return parseSelectorRest(name);
+        } else {
+            return new Selector(name);
+        }
     }
     }
 

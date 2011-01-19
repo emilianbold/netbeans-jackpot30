@@ -107,6 +107,10 @@ public final class DefaultRuleUtilities {
         return matcher.matchesWithBind(var, pattern);
     }
 
+    public boolean matches(@NonNull Variable var, @NonNull String pattern) {
+        return matcher.matches(var, pattern);
+    }
+
     public boolean matchesAny(Variable var, String... patterns) {
         return matcher.matchesAny(var, patterns);
     }

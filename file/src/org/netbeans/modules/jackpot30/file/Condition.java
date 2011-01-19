@@ -47,6 +47,8 @@ import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.Hacks;
+import org.netbeans.modules.jackpot30.spi.HintContext;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
 
 /**
  *
@@ -145,6 +147,31 @@ public abstract class Condition {
             STRING_LITERAL,
             ENUM_CONSTANT;
         }
+    }
+
+    public static final class MarkCondition extends Condition {
+
+        private final HintDescription.MarkCondition condition;
+
+        public MarkCondition(HintDescription.MarkCondition condition) {
+            super(false);
+            this.condition = condition;
+        }
+
+        @Override
+        public boolean holds(Context ctx, boolean global) {
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return condition.toString();
+        }
+
+        public HintDescription.MarkCondition getCondition() {
+            return condition;
+        }
+
     }
 
     public static final class False extends Condition {

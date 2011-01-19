@@ -42,7 +42,6 @@ package org.netbeans.modules.jackpot30.impl.hints;
 import com.sun.source.tree.Tree;
 import java.util.Stack;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.logging.Logger;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
@@ -65,12 +64,12 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.prefs.Preferences;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -85,10 +84,21 @@ import org.netbeans.modules.jackpot30.impl.pm.Pattern;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Literal;
+import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
+import org.netbeans.modules.jackpot30.spi.HintDescription.MarksWorker;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Operator;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Value;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
+import org.netbeans.modules.jackpot30.spi.JavaFix;
+import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.Fix;
 import org.openide.util.Exceptions;
 
 /**
@@ -415,6 +425,7 @@ public class HintsInvoker {
 
     private Map<HintDescription, List<ErrorDescription>> doComputeHints(CompilationInfo info, Map<String, Collection<TreePath>> occurringPatterns, Map<String, List<PatternDescription>> patterns, Map<PatternDescription, List<HintDescription>> patternHints, Collection<? super MessageImpl> problems) throws IllegalStateException {
         Map<HintDescription, List<ErrorDescription>> errors = new HashMap<HintDescription, List<ErrorDescription>>();
+        List<HintEvaluationData> evaluationData = new LinkedList<HintEvaluationData>();
 
         for (Entry<String, Collection<TreePath>> occ : occurringPatterns.entrySet()) {
             for (PatternDescription d : patterns.get(occ.getKey())) {
@@ -444,6 +455,20 @@ public class HintsInvoker {
                         if (!Collections.disjoint(suppressedWarnings, hm.suppressWarnings))
                             continue;
 
+                        if (hd.getWorker() instanceof MarksWorker) {
+                            MarksWorker mw = (MarksWorker) hd.getWorker();
+                            List<FixEvaluationData> fixData = new LinkedList<FixEvaluationData>();
+
+                            for (DeclarativeFixDescription fd : mw.fixes) {
+                                fixData.add(new FixEvaluationData(new LinkedList<MarkCondition>(fd.marks), fd.acceptor, fd.fix));
+                            }
+
+                            HintEvaluationData data = new HintEvaluationData(c, hd, new LinkedList<MarkCondition>(mw.marks), mw.acceptor, fixData);
+
+                            evaluationData.add(data);
+                            continue;
+                        }
+
                         Collection<? extends ErrorDescription> workerErrors = runHint(hd, c);
 
                         if (workerErrors != null) {
@@ -452,6 +477,87 @@ public class HintsInvoker {
                     }
                 }
             }
+        }
+
+        Map<Tree, Map<String, Object>> marks = new HashMap<Tree, Map<String, Object>>();
+
+        for (HintEvaluationData hed : evaluationData) {
+            enterSpeculativeAssignments(hed.ctx, hed.marks, marks);
+
+            for (FixEvaluationData fed : hed.fixDescriptions) {
+                //XXX: there is currently no test that would test this: (seee testSpeculativeAssignmentForFixes)
+                enterSpeculativeAssignments(hed.ctx, fed.marks, marks);
+            }
+        }
+
+        boolean wasChange = true;
+
+        while (wasChange /*!evaluationData.isEmpty()*/) {
+            boolean currentWasChange = false;
+
+            for (Iterator<HintEvaluationData> it = evaluationData.iterator(); it.hasNext(); ) {
+                HintEvaluationData hed = it.next();
+                HintContext ctx = hed.ctx;
+                int origMarksSize = hed.marks.size();
+
+                Boolean hres = processConditions(ctx, marks, hed.marks);
+
+                currentWasChange |= origMarksSize != hed.marks.size();
+
+                if (hres == null) {
+                    //XXX???
+                    continue;
+                }
+
+                if (hres != null && !hres) {
+                    currentWasChange = true;
+                    clearSpeculativeAssignments(ctx, hed.marks, marks);
+                    for (FixEvaluationData fed : hed.fixDescriptions) {
+                        clearSpeculativeAssignments(ctx, fed.marks, marks);
+                    }
+                    it.remove();
+                    continue;
+                }
+
+                for (Iterator<FixEvaluationData> fixes = hed.fixDescriptions.iterator(); fixes.hasNext(); ) {
+                    FixEvaluationData fed = fixes.next();
+                    int o = fed.marks.size();
+                    Boolean res = processConditions(ctx, marks, fed.marks);
+
+                    currentWasChange |= o != fed.marks.size();
+
+                    if (res == null) continue;
+
+                    if (res) {
+                        if (fed.acceptor.accept(ctx)) {
+                            Fix fix = JavaFix.rewriteFix(ctx.getInfo(), "XXX: todo", ctx.getPath(), fed.fix, ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/ /*XXX: , imports*/);
+
+                            hed.createdFixes.add(fix);
+                        }
+                    } else {
+                        clearSpeculativeAssignments(ctx, fed.marks, marks);
+                    }
+
+                    fixes.remove();
+                    currentWasChange = true;
+                }
+
+                if (!wasChange && !currentWasChange) {
+                    hed.fixDescriptions.clear();
+                }
+
+                if (hed.fixDescriptions.isEmpty()) {
+                    if (hed.acceptor.accept(ctx)) {
+                        //XXX: @SuppressWarnings!
+                        ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), hed.hd.getMetadata().displayName, hed.createdFixes.toArray(new Fix[0]));
+
+                        merge(errors, hed.hd, ed);
+                    }
+                    it.remove();
+                }
+            }
+
+            wasChange = currentWasChange;
         }
 
         return errors;
@@ -747,4 +853,239 @@ public class HintsInvoker {
             System.err.println(e.getKey() + "=" + String.format("%3.2f", e.getValue() / 1000000.0));
         }
     }
+
+
+    private void enterSpeculativeAssignments(HintContext ctx, List<MarkCondition> conditions, Map<Tree, Map<String, Object>> marks) {
+        for (MarkCondition mc : conditions) {
+            if (mc.op != Operator.ASSIGN) {
+                continue;
+            }
+
+            assert mc.left instanceof Selector;
+
+            Selector s = (Selector) mc.left;
+            String treeName = s.selected.get(0);
+            String markName = s.selected.get(1);
+            TreePath tree = ctx.getVariables().get(treeName);
+
+            assert tree != null;
+
+            System.err.println("speculative assignment to: " + tree.getLeaf());
+
+            Map<String, Object> variables = marks.get(tree.getLeaf());
+
+            if (variables == null) {
+                marks.put(tree.getLeaf(), variables = new HashMap<String, Object>());
+            }
+
+            PossibleValue pv = (PossibleValue) variables.get(markName);
+
+            if (pv == null) {
+                variables.put(markName, pv = new PossibleValue());
+            }
+
+            pv.add(mc);
+        }
+    }
+
+    private void clearSpeculativeAssignments(HintContext ctx, List<MarkCondition> conditions, Map<Tree, Map<String, Object>> marks) {
+        for (MarkCondition mc : conditions) {
+            if (mc.op != Operator.ASSIGN) {
+                continue;
+            }
+
+            assert mc.left instanceof Selector;
+
+            Selector s = (Selector) mc.left;
+            String treeName = s.selected.get(0);
+            String markName = s.selected.get(1);
+            TreePath tree = ctx.getVariables().get(treeName);
+
+            assert tree != null;
+
+            System.err.println("clearing speculative assignment from: " + tree.getLeaf());
+
+            Map<String, Object> variables = marks.get(tree.getLeaf());
+
+            assert variables != null;
+
+            Object value = variables.get(markName);
+
+            if (!(value instanceof PossibleValue))
+                continue;//XXX: correct?
+
+            PossibleValue pv = (PossibleValue) value;
+
+            assert pv != null;
+
+            pv.remove(mc);
+
+            if (pv.isEmpty()) {
+                variables.remove(markName);
+            }
+        }
+    }
+
+    /**true==accepted
+     * false==rejected
+     * null==nothing
+     *
+     * @return
+     */
+    private static Boolean processConditions(HintContext ctx, Map<Tree, Map<String, Object>> marks, List<MarkCondition> cond) {
+        if (cond.isEmpty()) {
+            return true; //implicitly accept
+        }
+
+        for (Iterator<MarkCondition> it = cond.iterator(); it.hasNext(); ) {
+            MarkCondition c = it.next();
+
+            System.err.println("processing: " + c);
+            switch (c.op) {
+                case ASSIGN:
+                    assert c.left instanceof Selector;
+
+                    Object value = readValue(ctx, marks, c.right);
+
+                    assert value != null;
+
+                    Selector s = (Selector) c.left;
+                    String treeName = s.selected.get(0);
+                    String markName = s.selected.get(1);
+                    TreePath tree = ctx.getVariables().get(treeName);
+
+                    assert tree != null; //more gracefull handling, in some case may warn during parsing
+
+                    Map<String, Object> variables = marks.get(tree.getLeaf());
+
+                    if (variables == null) {
+                        marks.put(tree.getLeaf(), variables = new HashMap<String, Object>());
+                    }
+
+                    variables.put(markName, value);
+                    break;
+                case EQUALS: {
+                    Object left = readValue(ctx, marks, c.left);
+                    Object right = readValue(ctx, marks, c.right);
+
+                    System.err.println("left=" + left);
+                    System.err.println("right=" + right);
+
+                    if (left == null || right == null) {
+//                        System.err.println("marks=" + marks);
+//                        System.err.println("left=" + left);
+//                        System.err.println("right=" + right);
+                        //can never be true:
+                        return false;
+                    }
+
+                    if (left instanceof PossibleValue || right instanceof PossibleValue) {
+                        //nothing to set yet.
+                        return null;
+                    }
+
+                    if (!left.equals(right)) {
+                        return false;
+                    }
+
+                    break;
+                }
+                case NOT_EQUALS: {
+                    Object left = readValue(ctx, marks, c.left);
+                    Object right = readValue(ctx, marks, c.right);
+
+                    if (left instanceof PossibleValue || right instanceof PossibleValue) {
+                        //nothing to set yet.
+                        return null;
+                    }
+
+                    if (left == right || (left != null && left.equals(right))) {
+                        return false;
+                    }
+
+                    break;
+                }
+                default:
+                    throw new UnsupportedOperationException();
+            }
+
+            it.remove();
+        }
+
+        assert cond.isEmpty();
+
+        return true;
+    }
+
+    private static Object readValue(HintContext ctx, Map<Tree, Map<String, Object>> marks, Value v) {
+        if (v instanceof Selector) {
+            Selector s = (Selector) v;
+
+            if (s.selected.size() == 1) {
+                String name = s.selected.get(0);
+                TreePath tree = ctx.getVariables().get(name);
+
+                assert tree != null;
+
+                return ctx.getInfo().getTrees().getElement(tree);
+            }
+
+            if (s.selected.size() == 2) {
+                String treeName = s.selected.get(0);
+                String markName = s.selected.get(1);
+                TreePath tree = ctx.getVariables().get(treeName);
+
+                assert tree != null; //more gracefull handling, in some case may warn during parsing
+
+                System.err.println("reading=" + tree.getLeaf() + "." + markName);
+
+                Map<String, Object> variables = marks.get(tree.getLeaf());
+
+                if (variables == null) return null;
+
+                return variables.get(markName);
+            }
+
+            assert false;
+        }
+
+        //XXX: not tested!
+        if (v instanceof Literal) {
+            return ((Literal) v).value;
+        }
+
+        assert false;
+
+        return null;
+    }
+
+    private static final class PossibleValue extends HashSet<MarkCondition> {}
+
+    private static final class HintEvaluationData {
+        public final HintContext ctx;
+        public final HintDescription hd;
+        public final List<MarkCondition> marks;
+        public final Acceptor acceptor;
+        public final List<FixEvaluationData> fixDescriptions;
+        public final List<Fix> createdFixes = new LinkedList<Fix>();
+        public HintEvaluationData(HintContext ctx, HintDescription hd, List<MarkCondition> marks, Acceptor acceptor, List<FixEvaluationData> fixDescriptions) {
+            this.ctx = ctx;
+            this.hd = hd;
+            this.marks = marks;
+            this.acceptor = acceptor;
+            this.fixDescriptions = fixDescriptions;
+        }
+    }
+
+    private static final class FixEvaluationData {
+        public final List<MarkCondition> marks;
+        public final Acceptor acceptor;
+        public final String fix;
+        public FixEvaluationData(List<MarkCondition> marks, Acceptor acceptor, String fix) {
+            this.marks = marks;
+            this.acceptor = acceptor;
+            this.fix = fix;
+        }
+    }
+
 }

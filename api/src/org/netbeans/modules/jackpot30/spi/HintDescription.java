@@ -44,6 +44,8 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -121,6 +123,11 @@ public final class HintDescription {
             this.imports = Arrays.asList(imports);
         }
 
+        //for tests:
+        public static PatternDescription create(String pattern) {
+            return create(pattern, Collections.<String, String>emptyMap(), new String[0]);
+        }
+
         public static PatternDescription create(String pattern, Map<String, String> constraints, String... imports) {
             Parameters.notNull("pattern", pattern);
             Parameters.notNull("constraints", constraints);
@@ -177,9 +184,102 @@ public final class HintDescription {
 
     }
 
+    public static final class MarkCondition {
+        public final Value left;
+        public final Operator op;
+        public final Value right;
+
+        public MarkCondition(Value left, Operator op, Value right) {
+            this.left = left;
+            this.op = op;
+            this.right = right;
+        }
+
+        @Override
+        public String toString() {
+            return left.toString() + op.name() + right.toString();
+        }
+    }
+
+    public static class Value {}
+
+    public static final class Selector extends Value {
+        public final List<String> selected;
+
+        public Selector(String... selected) {
+            this(Arrays.asList(selected));
+        }
+
+        public Selector(List<String> selected) {
+            this.selected = Collections.unmodifiableList(new LinkedList<String>(selected));
+        }
+
+        @Override
+        public String toString() {
+            return selected.toString();
+        }
+    }
+
+    public static final class Literal extends Value {
+        public Boolean value;
+
+        public Literal(boolean value) {
+            this.value = value;
+        }
+
+        @Override
+        public String toString() {
+            return value.toString();
+        }
+    }
+
+    public static enum Operator {
+        ASSIGN,
+        EQUALS,
+        NOT_EQUALS;
+    }
+
     public static interface Worker {
 
         public Collection<? extends ErrorDescription> createErrors(HintContext ctx);
+
+    }
+
+    public static interface Acceptor {
+        public boolean accept(HintContext ctx);
+    }
+
+    //XXX: should be a method on the factory:
+    //XXX: currently the mark conditions do not allow the clients to do any scoping, which is required by semantics of matchesWithBind
+    public static final class MarksWorker implements Worker {
+
+        public final List<MarkCondition> marks;
+        public final Acceptor acceptor;
+        public final List<DeclarativeFixDescription> fixes;
+
+        public MarksWorker(List<MarkCondition> marks, Acceptor acceptor, List<DeclarativeFixDescription> fixes) {
+            this.marks = marks;
+            this.acceptor = acceptor;
+            this.fixes = fixes;
+        }
+
+        public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
+            throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+    }
+
+    //XXX: should be a method on the factory:
+    public static final class DeclarativeFixDescription {
+        public final List<MarkCondition> marks;
+        public final Acceptor acceptor;
+        public final String fix;
+
+        public DeclarativeFixDescription(List<MarkCondition> marks, Acceptor acceptor, String fix) {
+            this.marks = marks;
+            this.acceptor = acceptor;
+            this.fix = fix;
+        }
 
     }
 

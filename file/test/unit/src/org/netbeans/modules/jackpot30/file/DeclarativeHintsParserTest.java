@@ -63,6 +63,10 @@ import static org.junit.Assert.*;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
 import org.netbeans.modules.jackpot30.file.conditionapi.Variable;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Literal;
+import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Operator;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -254,6 +258,17 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
     public void testVarArgs1() throws Exception {
         performErrorGatheringTest("$a + $b :: test($a, \"a\", \"b\");;");
+    }
+
+    public void testMarkCondition() throws Exception {
+        performTest("$1 + $2 :: $_.a = $1.b && $2.b == $_.a && $1.a != $2.b && $1.a && $2.v = false;;",
+                    StringHintDescription.create("$1 + $2 ")
+                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$_", "a"), Operator.ASSIGN, new Selector("$1", "b"))))
+                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$2", "b"), Operator.EQUALS, new Selector("$_", "a"))))
+                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$1", "a"), Operator.NOT_EQUALS, new Selector("$2", "b"))))
+                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$1", "a"), Operator.EQUALS, new Literal(true))))
+                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$2", "v"), Operator.ASSIGN, new Literal(false))))
+                   );
     }
 
     protected void setUp() throws Exception {
