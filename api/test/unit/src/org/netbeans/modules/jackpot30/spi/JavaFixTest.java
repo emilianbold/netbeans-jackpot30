@@ -423,6 +423,18 @@ public class JavaFixTest extends TestBase {
 		           "}\n");
     }
 
+    public void testCarefulRewriteInImports() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "import javax.swing.text.AbstractDocument;\n" +
+                           "public class Test {\n" +
+                           "}\n",
+                           "javax.swing.text.AbstractDocument => javax.swing.text.Document",
+                           "package test;\n" +
+                           "import javax.swing.text.Document;\n" +
+                           "public class Test {\n" +
+		           "}\n");
+    }
+
     public void performRewriteTest(String code, String rule, String golden) throws Exception {
 	prepareTest("test/Test.java", code);
 

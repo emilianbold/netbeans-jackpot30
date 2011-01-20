@@ -525,7 +525,17 @@ public abstract class JavaFix {
                 wc.rewrite(tp.getLeaf(), parsed);
             }
 
-            new ReplaceParameters(wc, canShowUI, parameters, parametersMulti, parameterNames).scan(new TreePath(tp.getParentPath(), parsed), null);
+            //prevent generating QualIdents inside import clauses - might be better to solve that inside ImportAnalysis2,
+            //but that seems not to be straightforward:
+            boolean inImport = parsed.getKind() == Kind.IMPORT;
+            TreePath w = tp.getParentPath();
+
+            while (!inImport && w != null) {
+                inImport |= w.getLeaf().getKind() == Kind.IMPORT;
+                w = w.getParentPath();
+            }
+
+            new ReplaceParameters(wc, canShowUI, inImport, parameters, parametersMulti, parameterNames).scan(new TreePath(tp.getParentPath(), parsed), null);
         }
     }
 
@@ -535,14 +545,16 @@ public abstract class JavaFix {
 
         private final WorkingCopy wc;
         private final boolean canShowUI;
+        private final boolean inImport;
         private final Map<String, TreePath> parameters;
         private final Map<String, Collection<TreePath>> parametersMulti;
         private final Map<String, String> parameterNames;
 
-        public ReplaceParameters(WorkingCopy wc, boolean canShowUI, Map<String, TreePath> parameters, Map<String, Collection<TreePath>> parametersMulti, Map<String, String> parameterNames) {
+        public ReplaceParameters(WorkingCopy wc, boolean canShowUI, boolean inImport, Map<String, TreePath> parameters, Map<String, Collection<TreePath>> parametersMulti, Map<String, String> parameterNames) {
             this.parameters = parameters;
             this.wc = wc;
             this.canShowUI = canShowUI;
+            this.inImport = inImport;
             this.parametersMulti = parametersMulti;
             this.parameterNames = parameterNames;
         }
@@ -589,7 +601,7 @@ public abstract class JavaFix {
 
             Element e = wc.getTrees().getElement(getCurrentPath());
 
-            if (e != null && isStaticElement(e)) {
+            if (e != null && isStaticElement(e) && !inImport) {
                 wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
             }
 
@@ -626,7 +638,7 @@ public abstract class JavaFix {
             //check correct dependency:
             checkDependency(wc, e, canShowUI);
 
-            if (isStaticElement(e)) {
+            if (isStaticElement(e) && !inImport) {
                 wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
 
                 return null;
