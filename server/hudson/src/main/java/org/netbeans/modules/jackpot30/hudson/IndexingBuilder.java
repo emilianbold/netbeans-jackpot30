@@ -142,7 +142,7 @@ public final class IndexingBuilder extends Builder {
             success &= indexer.index(new IndexingContext(getDescriptor().getCacheDir(), build, launcher, listener, addedFiles, removedFiles));
         }
         //XXX:
-        File info = new File(Cache.findCache("jackpot30").findCacheRoot(build.getWorkspace().toURI().toURL()), "info");
+        File info = new File(Cache.findCache("jackpot30", 1002).findCacheRoot(build.getWorkspace().toURI().toURL()), "info");
         String jsonContent = readFully(info);
         JSONObject json = JSONObject.fromObject(jsonContent);
 

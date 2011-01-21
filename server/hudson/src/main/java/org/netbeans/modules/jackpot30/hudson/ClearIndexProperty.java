@@ -89,7 +89,7 @@ public class ClearIndexProperty extends JobProperty<Job<?, ?>> {
         public void doDynamic(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, InterruptedException {
             String jobName = job.getName();
             Project<?, ?> prj = Hudson.getInstance().getItemByFullName(jobName, Project.class);
-            File cacheRoot = Cache.findCache("clear-workspace").findCacheRoot(prj.getSomeWorkspace().toURI().toURL()).getParentFile();
+            File cacheRoot = Cache.findCache("clear-workspace", 0).findCacheRoot(prj.getSomeWorkspace().toURI().toURL()).getParentFile().getParentFile();
 
             deleteRecursivelly(cacheRoot);
             
