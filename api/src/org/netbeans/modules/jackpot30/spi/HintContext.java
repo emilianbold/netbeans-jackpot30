@@ -44,6 +44,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.prefs.Preferences;
 import javax.lang.model.type.TypeMirror;
@@ -63,9 +64,9 @@ public class HintContext {
     private final HintSeverity severity;
     private final Collection<? extends String> suppressWarningsKeys;
     private final TreePath path;
-    private final Map<String, TreePath> variables;
-    private final Map<String, Collection<? extends TreePath>> multiVariables;
-    private final Map<String, String> variableNames;
+    private final List<Map<String, TreePath>> variables = new LinkedList<Map<String, TreePath>>();
+    private final List<Map<String, Collection<? extends TreePath>>> multiVariables = new LinkedList<Map<String, Collection<? extends TreePath>>>();
+    private final List<Map<String, String>> variableNames = new LinkedList<Map<String, String>>();
     private final Collection<? super MessageImpl> messages;
     private final Map<String, TypeMirror> constraints;
 
@@ -87,11 +88,24 @@ public class HintContext {
         variables = new HashMap<String, TreePath>(variables);
         variables.put("$_", path);
         
-        this.variables = variables;
-        this.multiVariables = multiVariables;
-        this.variableNames = variableNames;
+        this.variables.add(Collections.unmodifiableMap(variables));
+        this.multiVariables.add(Collections.unmodifiableMap(multiVariables));
+        this.variableNames.add(Collections.unmodifiableMap(variableNames));
         this.messages = problems;
         this.constraints = constraints;
+    }
+
+    public HintContext(HintContext orig) {
+        this.info = orig.info;
+        this.preferences = orig.preferences;
+        this.severity = orig.severity;
+        this.suppressWarningsKeys = orig.suppressWarningsKeys;
+        this.path = orig.path;
+        this.variables.addAll(orig.variables);
+        this.multiVariables.addAll(orig.multiVariables);
+        this.variableNames.addAll(orig.variableNames);
+        this.messages = orig.messages;
+        this.constraints = orig.constraints;
     }
 
     public CompilationInfo getInfo() {
@@ -110,16 +124,56 @@ public class HintContext {
         return path;
     }
 
+    public void putVariable(String name, TreePath path) {
+        variables.get(0).put(name, path);
+    }
+    
     public Map<String, TreePath> getVariables() {
-        return variables;
+        Map<String, TreePath> result = new HashMap<String, TreePath>();
+
+        for (Map<String, TreePath> m : reverse(variables)) {
+            result.putAll(m);
+        }
+
+        return result;
     }
 
+    public void putMultiVariable(String name, Collection<? extends TreePath> path) {
+        multiVariables.get(0).put(name, path);
+    }
+    
     public Map<String, Collection<? extends TreePath>> getMultiVariables() {
-        return multiVariables;
+        Map<String, Collection<? extends TreePath>> result = new HashMap<String, Collection<? extends TreePath>>();
+
+        for (Map<String, Collection<? extends TreePath>> m : reverse(multiVariables)) {
+            result.putAll(m);
+        }
+
+        return result;
     }
 
+    public void putVariableName(String variable, String name) {
+        variableNames.get(0).put(variable, name);
+    }
+    
     public Map<String, String> getVariableNames() {
-        return variableNames;
+        Map<String, String> result = new HashMap<String, String>();
+
+        for (Map<String, String> m : reverse(variableNames)) {
+            result.putAll(m);
+        }
+
+        return result;
+    }
+
+    private <T> List<T> reverse(List<T> original) {
+        List<T> result = new LinkedList<T>();
+
+        for (T t : original) {
+            result.add(0, t);
+        }
+
+        return result;
     }
 
     public Collection<? extends String> getSuppressWarningsKeys() {
@@ -141,6 +195,18 @@ public class HintContext {
         messages.add(new MessageImpl(kind, text));
     }
 
+    public void enterScope() {
+        variables.add(0, new HashMap<String, TreePath>());
+        multiVariables.add(0, new HashMap<String, Collection<? extends TreePath>>());
+        variableNames.add(0, new HashMap<String, String>());
+    }
+
+    public void leaveScope() {
+        variables.remove(0);
+        multiVariables.remove(0);
+        variableNames.remove(0);
+    }
+    
     //XXX: probably should not be visible to clients:
     public static HintContext create(CompilationInfo info, HintMetadata metadata, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames) {
         return new HintContext(info, metadata, path, variables, multiVariables, variableNames);

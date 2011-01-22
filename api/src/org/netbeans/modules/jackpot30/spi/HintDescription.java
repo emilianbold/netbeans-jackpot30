@@ -250,7 +250,7 @@ public final class HintDescription {
     }
 
     //XXX: should be a method on the factory:
-    //XXX: currently the mark conditions do not allow the clients to do any scoping, which is required by semantics of matchesWithBind
+    //XXX: currently does not support ordering of custom conditions:
     public static final class MarksWorker implements Worker {
 
         public final List<MarkCondition> marks;

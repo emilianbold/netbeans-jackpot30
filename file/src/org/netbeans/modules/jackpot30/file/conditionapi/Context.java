@@ -71,17 +71,11 @@ import org.netbeans.modules.jackpot30.spi.HintContext;
 public class Context {
 
             final HintContext ctx;
-            final List<Map<String, TreePath>> variables = new LinkedList<Map<String, TreePath>>();
-            final List<Map<String, Collection<? extends TreePath>>> multiVariables = new LinkedList<Map<String, Collection<? extends TreePath>>>();
-            final List<Map<String, String>> variableNames = new LinkedList<Map<String, String>>();
     private final AtomicInteger auxiliaryVariableCounter = new AtomicInteger();
 
     //XXX: should not be public:
     public Context(HintContext ctx) {
         this.ctx = ctx;
-        this.variables.add(Collections.unmodifiableMap(ctx.getVariables()));
-        this.multiVariables.add(Collections.unmodifiableMap(ctx.getMultiVariables()));
-        this.variableNames.add(Collections.unmodifiableMap(ctx.getVariableNames()));
     }
 
     public @NonNull SourceVersion sourceVersion() {
@@ -146,7 +140,7 @@ public class Context {
 
         String output = "*" + auxiliaryVariableCounter.getAndIncrement();
 
-        variables.get(0).put(output, tp.getParentPath());
+        ctx.putVariable(output, tp.getParentPath());
 
         return new Variable(output);
     }
@@ -163,10 +157,10 @@ public class Context {
 
     public void createRenamed(@NonNull Variable from, @NonNull Variable to, @NonNull String newName) {
         //TODO: check (the variable should not exist)
-        variableNames.get(0).put(to.variableName, newName);
+        ctx.putVariableName(to.variableName, newName);
         TreePath origVariablePath = getSingleVariable(from);
         TreePath newVariablePath = new TreePath(origVariablePath.getParentPath(), Hacks.createRenameTree(origVariablePath.getLeaf(), newName));
-        variables.get(0).put(to.variableName, newVariablePath);
+        ctx.putVariable(to.variableName, newVariablePath);
     }
 
     public boolean isNullLiteral(@NonNull Variable var) {
@@ -193,15 +187,11 @@ public class Context {
     }
 
     public void enterScope() {
-        variables.add(0, new HashMap<String, TreePath>());
-        multiVariables.add(0, new HashMap<String, Collection<? extends TreePath>>());
-        variableNames.add(0, new HashMap<String, String>());
+        ctx.enterScope();
     }
 
     public void leaveScope() {
-        variables.remove(0);
-        multiVariables.remove(0);
-        variableNames.remove(0);
+        ctx.leaveScope();
     }
 
     Iterable<? extends TreePath> getVariable(Variable v) {
@@ -220,10 +210,10 @@ public class Context {
     //TODO: check if correct variable is provided:
     TreePath getSingleVariable(Variable v) {
         if (v.index == (-1)) {
-            for (Map<String, TreePath> map : variables) {
-                if (map.containsKey(v.variableName)) {
-                    return map.get(v.variableName);
-                }
+            Map<String, TreePath> map = ctx.getVariables();
+            
+            if (map.containsKey(v.variableName)) {
+                return map.get(v.variableName);
             }
             
             return null;
@@ -233,10 +223,10 @@ public class Context {
     }
 
     private Collection<? extends TreePath> getMultiVariable(Variable v) {
-        for (Map<String, Collection<? extends TreePath>> multi : multiVariables) {
-            if (multi.containsKey(v.variableName)) {
-                return multi.get(v.variableName);
-            }
+        Map<String, Collection<? extends TreePath>> multi = ctx.getMultiVariables();
+        
+        if (multi.containsKey(v.variableName)) {
+            return multi.get(v.variableName);
         }
 
         return null;
@@ -258,47 +248,19 @@ public class Context {
             return ctx.ctx;
         }
 
-        @Override
+        @Override //XXX can be removed:
         public Map<String, TreePath> getVariables(Context ctx) {
-            Map<String, TreePath> result = new HashMap<String, TreePath>();
-
-            for (Map<String, TreePath> m : reverse(ctx.variables)) {
-                result.putAll(m);
-            }
-
-            return result;
+            return ctx.ctx.getVariables();
         }
 
-        @Override
+        @Override //XXX can be removed:
         public Map<String, Collection<? extends TreePath>> getMultiVariables(Context ctx) {
-            Map<String, Collection<? extends TreePath>> result = new HashMap<String, Collection<? extends TreePath>>();
-
-            for (Map<String, Collection<? extends TreePath>> m : reverse(ctx.multiVariables)) {
-                result.putAll(m);
-            }
-
-            return result;
+            return ctx.ctx.getMultiVariables();
         }
 
-        @Override
+        @Override //XXX can be removed:
         public Map<String, String> getVariableNames(Context ctx) {
-            Map<String, String> result = new HashMap<String, String>();
-
-            for (Map<String, String> m : reverse(ctx.variableNames)) {
-                result.putAll(m);
-            }
-
-            return result;
-        }
-
-        private <T> List<T> reverse(List<T> original) {
-            List<T> result = new LinkedList<T>();
-
-            for (T t : original) {
-                result.add(0, t);
-            }
-
-            return result;
+            return ctx.ctx.getVariableNames();
         }
 
     }

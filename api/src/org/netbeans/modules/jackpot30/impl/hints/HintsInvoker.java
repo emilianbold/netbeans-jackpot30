@@ -456,14 +456,21 @@ public class HintsInvoker {
                             continue;
 
                         if (hd.getWorker() instanceof MarksWorker) {
+                            HintContext workerContext = new HintContext(c);
+
+                            workerContext.enterScope();
+                            
                             MarksWorker mw = (MarksWorker) hd.getWorker();
                             List<FixEvaluationData> fixData = new LinkedList<FixEvaluationData>();
 
                             for (DeclarativeFixDescription fd : mw.fixes) {
-                                fixData.add(new FixEvaluationData(new LinkedList<MarkCondition>(fd.marks), fd.acceptor, fd.fix));
+                                HintContext fixContext = new HintContext(workerContext);
+
+                                fixContext.enterScope();
+                                fixData.add(new FixEvaluationData(fixContext, new LinkedList<MarkCondition>(fd.marks), fd.acceptor, fd.fix));
                             }
 
-                            HintEvaluationData data = new HintEvaluationData(c, hd, new LinkedList<MarkCondition>(mw.marks), mw.acceptor, fixData);
+                            HintEvaluationData data = new HintEvaluationData(workerContext, hd, new LinkedList<MarkCondition>(mw.marks), mw.acceptor, fixData);
 
                             evaluationData.add(data);
                             continue;
@@ -497,10 +504,9 @@ public class HintsInvoker {
 
             for (Iterator<HintEvaluationData> it = evaluationData.iterator(); it.hasNext(); ) {
                 HintEvaluationData hed = it.next();
-                HintContext ctx = hed.ctx;
                 int origMarksSize = hed.marks.size();
 
-                Boolean hres = processConditions(ctx, marks, hed.marks);
+                Boolean hres = processConditions(hed.ctx, marks, hed.marks);
 
                 currentWasChange |= origMarksSize != hed.marks.size();
 
@@ -511,9 +517,9 @@ public class HintsInvoker {
 
                 if (hres != null && !hres) {
                     currentWasChange = true;
-                    clearSpeculativeAssignments(ctx, hed.marks, marks);
+                    clearSpeculativeAssignments(hed.ctx, hed.marks, marks);
                     for (FixEvaluationData fed : hed.fixDescriptions) {
-                        clearSpeculativeAssignments(ctx, fed.marks, marks);
+                        clearSpeculativeAssignments(hed.ctx, fed.marks, marks);
                     }
                     it.remove();
                     continue;
@@ -522,20 +528,20 @@ public class HintsInvoker {
                 for (Iterator<FixEvaluationData> fixes = hed.fixDescriptions.iterator(); fixes.hasNext(); ) {
                     FixEvaluationData fed = fixes.next();
                     int o = fed.marks.size();
-                    Boolean res = processConditions(ctx, marks, fed.marks);
+                    Boolean res = processConditions(fed.ctx, marks, fed.marks);
 
                     currentWasChange |= o != fed.marks.size();
 
                     if (res == null) continue;
 
                     if (res) {
-                        if (fed.acceptor.accept(ctx)) {
-                            Fix fix = JavaFix.rewriteFix(ctx.getInfo(), "XXX: todo", ctx.getPath(), fed.fix, ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/ /*XXX: , imports*/);
+                        if (fed.acceptor.accept(fed.ctx)) {
+                            Fix fix = JavaFix.rewriteFix(fed.ctx.getInfo(), "XXX: todo", fed.ctx.getPath(), fed.fix, fed.ctx.getVariables(), fed.ctx.getMultiVariables(), fed.ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/ /*XXX: , imports*/);
 
                             hed.createdFixes.add(fix);
                         }
                     } else {
-                        clearSpeculativeAssignments(ctx, fed.marks, marks);
+                        clearSpeculativeAssignments(fed.ctx, fed.marks, marks);
                     }
 
                     fixes.remove();
@@ -547,9 +553,9 @@ public class HintsInvoker {
                 }
 
                 if (hed.fixDescriptions.isEmpty()) {
-                    if (hed.acceptor.accept(ctx)) {
+                    if (hed.acceptor.accept(hed.ctx)) {
                         //XXX: @SuppressWarnings!
-                        ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), hed.hd.getMetadata().displayName, hed.createdFixes.toArray(new Fix[0]));
+                        ErrorDescription ed = ErrorDescriptionFactory.forName(hed.ctx, hed.ctx.getPath(), hed.hd.getMetadata().displayName, hed.createdFixes.toArray(new Fix[0]));
 
                         merge(errors, hed.hd, ed);
                     }
@@ -1078,10 +1084,12 @@ public class HintsInvoker {
     }
 
     private static final class FixEvaluationData {
+        public final HintContext ctx;
         public final List<MarkCondition> marks;
         public final Acceptor acceptor;
         public final String fix;
-        public FixEvaluationData(List<MarkCondition> marks, Acceptor acceptor, String fix) {
+        public FixEvaluationData(HintContext ctx, List<MarkCondition> marks, Acceptor acceptor, String fix) {
+            this.ctx = ctx;
             this.marks = marks;
             this.acceptor = acceptor;
             this.fix = fix;

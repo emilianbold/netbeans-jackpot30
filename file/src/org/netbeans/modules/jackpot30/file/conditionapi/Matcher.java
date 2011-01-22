@@ -42,6 +42,10 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
 import javax.lang.model.element.Element;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
@@ -163,7 +167,20 @@ public final class Matcher {
             return false;
         }
 
-        if (MatcherUtilities.matches(ctx.ctx, path, pattern, ctx.variables.get(0), ctx.multiVariables.get(0), ctx.variableNames.get(0))) {
+        Map<String, TreePath> variables = new HashMap<String, TreePath>();
+        Map<String, Collection<? extends TreePath>> multiVariables = new HashMap<String, Collection<? extends TreePath>>();
+        Map<String, String> variableNames = new HashMap<String, String>();
+        
+        if (MatcherUtilities.matches(ctx.ctx, path, pattern, variables, multiVariables, variableNames)) {
+            for (Entry<String, TreePath> e : variables.entrySet()) {
+                ctx.ctx.putVariable(e.getKey(), e.getValue());
+            }
+            for (Entry<String, Collection<? extends TreePath>> e : multiVariables.entrySet()) {
+                ctx.ctx.putMultiVariable(e.getKey(), e.getValue());
+            }
+            for (Entry<String, String> e : variableNames.entrySet()) {
+                ctx.ctx.putVariableName(e.getKey(), e.getValue());
+            }
             return true;
         }
 
