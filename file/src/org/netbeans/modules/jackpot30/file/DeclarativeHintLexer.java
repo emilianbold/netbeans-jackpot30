@@ -87,10 +87,36 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         }
 
         while (read != LexerInput.EOF) {
-            Matcher identifierMatcher = IDENTIFIER_RE.matcher(input.readText());
+            if (input.readLength() > 1) {
+                String inputString = input.readText().toString();
+                
+                for (Entry<String, DeclarativeHintTokenId> e : BLOCK_TOKEN_START.entrySet()) {
+                    if (!inputString.substring(0, inputString.length() - 1).endsWith(e.getKey()))
+                        continue;
 
-            if (identifierMatcher.find()) {
-                int start = identifierMatcher.start();
+                    input.backup(1);
+                    
+                    Token<DeclarativeHintTokenId> preread = resolvePrereadText(e.getKey().length(), whitespaceLength);
+
+                    if (preread != null) {
+                        return preread;
+                    }
+
+                    return readBlockToken(e.getValue(), BLOCK_TOKEN_END.get(e.getValue()));
+                }
+                
+                Token<DeclarativeHintTokenId> t = testToken(inputString, whitespaceLength, false);
+
+                if (t != null) {
+                    return t;
+                }
+
+            }
+
+            Matcher variableMatcher = IDENTIFIER_RE.matcher(input.readText());
+
+            if (variableMatcher.find()) {
+                int start = variableMatcher.start();
 
                 if (start == 0) {
                     Matcher m;
@@ -104,13 +130,12 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
                         input.backup(1);
                     }
 
-                    m = IDENTIFIER_RE.matcher(input.readText());
-                    m.find();
-                    
-                    if (m.group(0).startsWith("$")) {
+                    String image = input.readText().toString();
+
+                    if (image.startsWith("$")) {
                         return fact.createToken(DeclarativeHintTokenId.VARIABLE);
-                    } else if (TOKENS.containsKey(m.group(0))) {
-                        return fact.createToken(TOKENS.get(m.group(0)));
+                    } else if (TOKENS.containsKey(image)) {
+                        return fact.createToken(TOKENS.get(image));
                     } else {
                         return fact.createToken(DeclarativeHintTokenId.IDENTIFIER);
                     }
@@ -123,25 +148,13 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
                 input.backup(input.readLength() - start);
 
-                Token<DeclarativeHintTokenId> t = readTokenOrBlockToken(whitespaceLength, true);
-
-                if (t != null) {
-                    return t;
-                }
-
                 return fact.createToken(DeclarativeHintTokenId.JAVA_SNIPPET);
             }
-
-            Token<DeclarativeHintTokenId> t = readTokenOrBlockToken(whitespaceLength, false);
-
-            if (t != null) {
-                return t;
-             }
 
             read = input.read();
         }
 
-        Token<DeclarativeHintTokenId> t = testToken(input.readText().toString(), whitespaceLength, true, false);
+        Token<DeclarativeHintTokenId> t = testToken(input.readText().toString(), whitespaceLength, true);
 
         if (t != null) {
             return t;
@@ -156,7 +169,7 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
 
     public void release() {}
 
-    private Token<DeclarativeHintTokenId> testToken(String toTest, int whitespaceLength, boolean eof, boolean noRealEof) {
+    private Token<DeclarativeHintTokenId> testToken(String toTest, int whitespaceLength, boolean eof) {
         if (toTest.length() < 2 && !eof) return null;
 
         DeclarativeHintTokenId id = null;
@@ -235,32 +248,8 @@ class DeclarativeHintLexer implements Lexer<DeclarativeHintTokenId> {
         return fact.createToken(tokenId);
     }
 
-    private Token<DeclarativeHintTokenId> readTokenOrBlockToken(int whitespaceLength, boolean eofLike) {
-        String inputString = input.readText().toString();
-
-        Token t = testToken(inputString, whitespaceLength, eofLike, eofLike);
-
-        if (t != null) {
-            return t;
-        }
-
-        for (Entry<String, DeclarativeHintTokenId> e : BLOCK_TOKEN_START.entrySet()) {
-            if (!inputString.endsWith(e.getKey()))
-                continue;
-
-            Token<DeclarativeHintTokenId> preread = resolvePrereadText(e.getKey().length(), whitespaceLength);
-
-            if (preread != null) {
-                return preread;
-            }
-
-            return readBlockToken(e.getValue(), BLOCK_TOKEN_END.get(e.getValue()));
-        }
-
-        return null;
-    }
-
-    private static final Pattern IDENTIFIER_RE = Pattern.compile("([A-Za-z_$][A-Za-z0-9_$]*)");
+    private static final Pattern DISPLAY_NAME_RE = Pattern.compile("'[^']*':");
+    private static final Pattern IDENTIFIER_RE = Pattern.compile("[A-Za-z_$][A-Za-z0-9_$]*");
 
     private static final Map<String, DeclarativeHintTokenId> TOKENS;
     private static final Map<String, DeclarativeHintTokenId> BLOCK_TOKEN_START;

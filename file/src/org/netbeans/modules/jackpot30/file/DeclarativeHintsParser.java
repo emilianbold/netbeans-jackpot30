@@ -144,6 +144,25 @@ public class DeclarativeHintsParser {
         return false;
     }
 
+    private boolean moveNext() {
+        if (input.moveNext()) return true;
+
+        eof = true;
+
+        return false;
+    }
+
+    private boolean skipWhitespaces() {
+        while (id() == WHITESPACE || id() == BLOCK_COMMENT || id() == LINE_COMMENT) {
+            if (!input.moveNext()) {
+                eof = true;
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private boolean eof;
 
     private Token<DeclarativeHintTokenId> token() {
@@ -197,7 +216,7 @@ public class DeclarativeHintsParser {
         input.moveStart();
         eof = false;
         
-        while (nextToken()) {
+        while (moveNext()) {
             if (id() == JAVA_BLOCK) {
                 continue;
             }
@@ -208,8 +227,12 @@ public class DeclarativeHintsParser {
     }
 
     private void parseRule() {
-        String displayName = parseDisplayName();
         int patternStart = input.offset();
+        skipWhitespaces();
+        
+        String displayName = parseDisplayName();
+
+        if (displayName != null) patternStart = input.offset();
         
         readUntil(LEADS_TO, DOUBLE_COLON, DOUBLE_SEMICOLON, OPTIONS);
 
@@ -234,11 +257,15 @@ public class DeclarativeHintsParser {
         List<FixTextDescription> targets = new LinkedList<FixTextDescription>();
 
         while (id() == LEADS_TO && !eof) {
-            nextToken();
+            moveNext();
+
+            int targetStart = input.offset();
+
+            skipWhitespaces();
 
             String fixDisplayName = parseDisplayName();
 
-            int targetStart = input.offset();
+            if (fixDisplayName != null) targetStart = input.offset();
 
             readUntil(LEADS_TO, DOUBLE_COLON, DOUBLE_SEMICOLON, OPTIONS);
 
@@ -300,10 +327,12 @@ public class DeclarativeHintsParser {
                 //XXX: report an error
                 return ;
             }
-            
-            nextToken();
+
+            input.moveNext();
 
             int typeStart = input.offset();
+
+            skipWhitespaces();
 
             readUntil(LEADS_TO, AND, DOUBLE_SEMICOLON);
 
@@ -362,7 +391,7 @@ public class DeclarativeHintsParser {
                 if (input.token().id() == DeclarativeHintTokenId.COLON) {
                     String displayName = t.text().subSequence(1, t.text().length() - 1).toString();
 
-                    nextToken();
+                    input.moveNext();
                     return displayName;
                 } else {
                     input.movePrevious();

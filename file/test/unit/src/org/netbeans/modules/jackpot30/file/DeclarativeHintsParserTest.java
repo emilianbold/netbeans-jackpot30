@@ -116,7 +116,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         m.put("$1", ParameterKind.VARIABLE);
 
         performTest("'test': $1 + $2 :: test(\"a\", $2, $1) => 1 + 1;;",
-                    StringHintDescription.create("$1 + $2 ")
+                    StringHintDescription.create(" $1 + $2 ")
                                          .addCondition(new MethodInvocation(false, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
@@ -130,7 +130,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         m.put("javax.lang.model.SourceVersion.RELEASE_6", ParameterKind.ENUM_CONSTANT);
 
         performTest("'test': $1 + $2 :: test($1, Modifier.VOLATILE, SourceVersion.RELEASE_6) => 1 + 1;;",
-                    StringHintDescription.create("$1 + $2 ")
+                    StringHintDescription.create(" $1 + $2 ")
                                          .addCondition(new MethodInvocation(false, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
@@ -144,7 +144,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         m.put("javax.lang.model.SourceVersion.RELEASE_6", ParameterKind.ENUM_CONSTANT);
 
         performTest("'test': $1 + $2 :: !test($1, Modifier.VOLATILE, SourceVersion.RELEASE_6) => 1 + 1;;",
-                    StringHintDescription.create("$1 + $2 ")
+                    StringHintDescription.create(" $1 + $2 ")
                                          .addCondition(new MethodInvocation(true, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
@@ -152,11 +152,11 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
     public void testComments1() throws Exception {
         performTest("/**/'test': /**/1 /**/+ 1//\n =>/**/ 1 + 1/**/;; //\n'test2': /**/1 + 1 =>//\n 1/**/ + 1;;",
-                    StringHintDescription.create("1 /**/+ 1//\n ")
-                                         .addTos(" 1 + 1/**/")
+                    StringHintDescription.create(" /**/1 /**/+ 1//\n ")
+                                         .addTos("/**/ 1 + 1/**/")
                                          .setDisplayName("test"),
-                    StringHintDescription.create("1 + 1 ")
-                                         .addTos(" 1/**/ + 1")
+                    StringHintDescription.create(" /**/1 + 1 ")
+                                         .addTos("//\n 1/**/ + 1")
                                          .setDisplayName("test2"));
     }
 
@@ -186,7 +186,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         m.put("$1", ParameterKind.VARIABLE);
 
         performTest("'test': $1 + $2 => 1 + 1 :: test(\"a\", $2, $1);;",
-                    StringHintDescription.create("$1 + $2 ")
+                    StringHintDescription.create(" $1 + $2 ")
                                          .addTos(new StringFixDescription(" 1 + 1 ")
                                                  .addCondition(new MethodInvocation(false, "test", m, null)))
                                          .setDisplayName("test"));
@@ -229,7 +229,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                     Collections.singletonMap("key", "value"),
                     null,
                     Collections.singletonList(
-                        StringHintDescription.create("$1 + $2 ")
+                        StringHintDescription.create(" $1 + $2 ")
                                              .addTos(new StringFixDescription(" 1 + 1 ")
                                                      .addCondition(new MethodInvocation(false, "test", m, null))
                                                      .addOption("key2", "value2"))
@@ -247,13 +247,13 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
     public void testError1() throws Exception {
         performErrorGatheringTest("$a + $b :: unknown($a, $b);;",
-                                  "0:10-0:26:error:Cannot resolve method");
+                                  "0:11-0:26:error:Cannot resolve method");
     }
 
     public void testError2() throws Exception {
         performErrorGatheringTest("$a + $b :: sourceVersionGE(Foo.BAR);;",
                                   "0:27-0:34:error:Cannot resolve enum constant",
-                                  "0:10-0:35:error:Cannot resolve method");
+                                  "0:11-0:35:error:Cannot resolve method");
     }
 
     public void testVarArgs1() throws Exception {
