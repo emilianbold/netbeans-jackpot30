@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2008-2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2008-2011 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,18 +34,19 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2008-2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2008-2011 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.file;
 
-import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import javax.lang.model.type.TypeMirror;
+import org.netbeans.api.lexer.TokenHierarchy;
+import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.HintContext;
@@ -121,17 +122,35 @@ class DeclarativeHintsWorker implements Worker {
 
                 reportErrorWarning(ctx, fix.getOptions());
 
-                //XXX: empty/noop fixes should not be realized:
-                editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(),
-                                                   fix.getDisplayName(),
-                                                   ctx.getPath(),
-                                                   fix.getPattern(),
-                                                   APIAccessor.IMPL.getVariables(context),
-                                                   APIAccessor.IMPL.getMultiVariables(context),
-                                                   APIAccessor.IMPL.getVariableNames(context),
-                                                   ctx.getConstraints(),
-                                                   fix.getOptions(),
-                                                   imports));
+                TokenSequence<DeclarativeHintTokenId> ts = TokenHierarchy.create(fix.getPattern(),
+                                                                                 false,
+                                                                                 DeclarativeHintTokenId.language(),
+                                                                                 EnumSet.of(DeclarativeHintTokenId.BLOCK_COMMENT,
+                                                                                            DeclarativeHintTokenId.LINE_COMMENT,
+                                                                                            DeclarativeHintTokenId.WHITESPACE),
+                                                                                 null).tokenSequence(DeclarativeHintTokenId.language());
+
+                boolean empty = !ts.moveNext();
+
+                if (empty) {
+                    if (   (   !fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_ERROR)
+                            && !fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_WARNING))
+                        || fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_REMOVE_FROM_PARENT)) {
+                        editorFixes.add(JavaFix.removeFromParent(ctx, ctx.getPath()));
+                    }
+                    //not realizing empty fixes
+                } else {
+                    editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(),
+                                                       fix.getDisplayName(),
+                                                       ctx.getPath(),
+                                                       fix.getPattern(),
+                                                       APIAccessor.IMPL.getVariables(context),
+                                                       APIAccessor.IMPL.getMultiVariables(context),
+                                                       APIAccessor.IMPL.getVariableNames(context),
+                                                       ctx.getConstraints(),
+                                                       fix.getOptions(),
+                                                       imports));
+                }
             } finally {
                 context.leaveScope();
             }
