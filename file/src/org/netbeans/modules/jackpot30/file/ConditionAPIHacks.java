@@ -43,35 +43,32 @@
 package org.netbeans.modules.jackpot30.file;
 
 import com.sun.source.util.TreePath;
-import java.util.Collection;
-import java.util.Map;
+import javax.lang.model.element.Element;
+import org.netbeans.api.annotations.common.CheckForNull;
+import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.annotations.common.NullAllowed;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.file.conditionapi.Variable;
-import org.netbeans.modules.jackpot30.spi.HintContext;
 
-/**
+/**Methods that can be used from declarative hints' conditions, but that are not
+ * a good solution for the problem they solve.
  *
  * @author lahvac
  */
-public abstract class APIAccessor {
+public class ConditionAPIHacks {
 
-    public static APIAccessor IMPL;
+    public @CheckForNull Variable getDeclaration(@NonNull Context ctx, @NonNull Variable forVar) {
+        CompilationInfo info = APIAccessor.IMPL.getHintContext(ctx).getInfo();
+        TreePath path = APIAccessor.IMPL.getSingleVariable(ctx, forVar);
+        Element el = info.getTrees().getElement(path);
 
-    static {
-        try {
-            Class.forName(Context.class.getName(), true, Context.class.getClassLoader());
-        } catch (ClassNotFoundException ex) {
-            throw new IllegalStateException(ex);
-        }
+        if (el == null) return null;
+
+        TreePath source = info.getTrees().getPath(el);
+
+        if (source == null) return null;
+
+        return APIAccessor.IMPL.enterAuxiliaryVariable(ctx, source);
     }
-
-    public abstract TreePath getSingleVariable(Context ctx, Variable var);
-    public abstract HintContext getHintContext(Context ctx);
-
-    public abstract Map<String, TreePath> getVariables(Context ctx);
-    public abstract Map<String, Collection<? extends TreePath>> getMultiVariables(Context ctx);
-    public abstract Map<String, String> getVariableNames(Context ctx);
-
-    public abstract Variable enterAuxiliaryVariable(Context ctx, TreePath source);
-
 }

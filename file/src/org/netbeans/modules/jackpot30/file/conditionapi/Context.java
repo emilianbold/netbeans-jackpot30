@@ -144,13 +144,17 @@ public class Context {
             return null;
         }
 
+        return enterAuxiliaryVariable(tp.getParentPath());
+    }
+
+    private Variable enterAuxiliaryVariable(TreePath path) {
         String output = "*" + auxiliaryVariableCounter.getAndIncrement();
 
-        variables.get(0).put(output, tp.getParentPath());
+        variables.get(0).put(output, path);
 
         return new Variable(output);
     }
-
+    
     public @NonNull Variable variableForName(@NonNull String variableName) {
         Variable result = new Variable(variableName);
 
@@ -299,6 +303,11 @@ public class Context {
             }
 
             return result;
+        }
+
+        @Override
+        public Variable enterAuxiliaryVariable(Context ctx, TreePath source) {
+            return ctx.enterAuxiliaryVariable(source);
         }
 
     }
