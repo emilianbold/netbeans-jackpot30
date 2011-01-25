@@ -495,27 +495,38 @@ public class BatchSearch {
                                 if (parameter.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
                                     return ;
 
-                                Context ctx = JavaSourceAccessor.getINSTANCE().getJavacTask(parameter).getContext();
-                                ClassReader reader = ClassReader.instance(ctx);
-                                Field attributeReaders = ClassReader.class.getDeclaredField("attributeReaders");
+                                boolean cont = true;
 
-                                attributeReaders.setAccessible(true);
-                                ((Map) attributeReaders.get(reader)).remove(Names.instance(ctx)._org_netbeans_ParameterNames);
-                                //workaround for #192481 end
+                                try {
+                                    Context ctx = JavaSourceAccessor.getINSTANCE().getJavacTask(parameter).getContext();
+                                    ClassReader reader = ClassReader.instance(ctx);
+                                    Field attributeReaders = ClassReader.class.getDeclaredField("attributeReaders");
 
-                                if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
-                                    return ;
+                                    attributeReaders.setAccessible(true);
+                                    ((Map) attributeReaders.get(reader)).remove(Names.instance(ctx)._org_netbeans_ParameterNames);
+                                    //workaround for #192481 end
 
-                                progress.setMessage("processing: " + FileUtil.getFileDisplayName(parameter.getFileObject()));
-                                Resource r = file2Resource.get(parameter.getFileObject());
-                                Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = new HashMap<PatternDescription, List<HintDescription>>();
-                                Map<Kind, List<HintDescription>> sortedHintsKinds = new HashMap<Kind, List<HintDescription>>();
+                                    if (parameter.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
+                                        return ;
 
-                                RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
+                                    progress.setMessage("processing: " + FileUtil.getFileDisplayName(parameter.getFileObject()));
+                                    Resource r = file2Resource.get(parameter.getFileObject());
+                                    Map<PatternDescription, List<HintDescription>> sortedHintsPatterns = new HashMap<PatternDescription, List<HintDescription>>();
+                                    Map<Kind, List<HintDescription>> sortedHintsKinds = new HashMap<Kind, List<HintDescription>>();
 
-                                List<ErrorDescription> hints = new HintsInvoker(parameter, new AtomicBoolean()).computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
+                                    RulesManager.sortOut(r.hints, sortedHintsKinds, sortedHintsPatterns);
 
-                                if (callback.spansVerified(parameter, r, hints)) {
+                                    List<ErrorDescription> hints = new HintsInvoker(parameter, new AtomicBoolean()).computeHints(parameter, sortedHintsKinds, sortedHintsPatterns, problems);
+
+                                    cont = callback.spansVerified(parameter, r, hints);
+                                } catch (ThreadDeath td) {
+                                    throw td;
+                                } catch (Throwable t) {
+                                    LOG.log(Level.INFO, "Exception while performing batch processing in " + FileUtil.getFileDisplayName(parameter.getFileObject()), t);
+                                    problems.add(new MessageImpl(MessageKind.WARNING, "An exception occurred while processing file: " + FileUtil.getFileDisplayName(parameter.getFileObject()) + " (" + t.getLocalizedMessage() + ")."));
+                                }
+                                
+                                if (cont) {
                                     progress.tick();
                                     currentPointer.incrementAndGet();
                                 } else {
