@@ -11,8 +11,8 @@
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
-                        <release-version>1</release-version>
-                        <specification-version>2.6.0.232</specification-version>
+                        <release-version>1-3</release-version>
+                        <specification-version>2.13</specification-version>
                     </run-dependency>
                 </dependency>
             </module-dependencies>

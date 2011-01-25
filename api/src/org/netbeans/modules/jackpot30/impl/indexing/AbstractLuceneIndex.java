@@ -62,6 +62,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
+import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.document.CompressionTools;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -351,19 +352,23 @@ public abstract class AbstractLuceneIndex extends Index {
     public static final class TokenStreamImpl extends TokenStream {
 
         private final Iterator<? extends String> tokens;
+        private final TermAttribute termAtt;
 
         public TokenStreamImpl(Iterable<? extends String> tokens) {
             this.tokens = tokens != null ? tokens.iterator() : /*???*/Collections.<String>emptyList().iterator();
+            this.termAtt = addAttribute(TermAttribute.class);
         }
 
         @Override
-        public Token next() throws IOException {
+        public boolean incrementToken() throws IOException {
             if (!tokens.hasNext())
-                return null;
+                return false;
 
             String t = tokens.next();
 
-            return new Token(t, 0, t.length());
+            termAtt.setTermBuffer(t);
+            
+            return true;
         }
     }
 
