@@ -105,10 +105,10 @@ public class CustomIndexerImpl extends CustomIndexer {
             if (!toIndex.isEmpty()) {
                 JavaSource.create(cpInfo, toIndex).runUserActionTask(new Task<CompilationController>() {
                     public void run(final CompilationController cc) throws Exception {
-                        if (cc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
+                        if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
                             return ;
 
-                        w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit(), new AttributionWrapper(cc));
+                        w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit(), null);
                     }
                 }, true);
             }

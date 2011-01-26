@@ -82,6 +82,7 @@ import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
@@ -250,7 +251,7 @@ public abstract class AbstractLuceneIndex extends Index {
         }
 
         @Override
-        public void record(URL source, final CompilationUnitTree cut, final AttributionWrapper attributed) throws IOException {
+        public void record(URL source, final CompilationUnitTree cut, final @NullAllowed AttributionWrapper attributed) throws IOException {
             String relative = source.getPath().substring(stripLength);
             ByteArrayOutputStream out = null;
             EncodingContext ec = null;

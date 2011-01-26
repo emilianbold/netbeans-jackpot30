@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.Collections;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.openide.util.Exceptions;
@@ -133,7 +134,7 @@ public abstract class Index {
 
         protected IndexWriter() throws IOException {}
 
-        public abstract void record(URL source, final CompilationUnitTree cut, AttributionWrapper attributed) throws IOException;
+        public abstract void record(URL source, final CompilationUnitTree cut, @NullAllowed AttributionWrapper attributed) throws IOException;
 
         public abstract void remove(String relativePath) throws IOException;
 
