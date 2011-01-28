@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.CardLayout;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -48,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.prefs.BackingStoreException;
+import java.util.prefs.Preferences;
 import javax.swing.DefaultListModel;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
@@ -60,7 +63,11 @@ import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.examples.Example;
 import org.netbeans.modules.jackpot30.impl.examples.Example.Option;
+import org.netbeans.modules.jackpot30.impl.examples.LoadExamples;
+import org.netbeans.modules.jackpot30.impl.refactoring.ExamplesList.DialogDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.openide.util.Exceptions;
+import org.openide.util.NbPreferences;
 import org.openide.util.Union2;
 
 /**
@@ -147,6 +154,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         jScrollPane1 = new javax.swing.JScrollPane();
         pattern = new javax.swing.JTextPane();
         jPanel3 = new javax.swing.JPanel();
+        recentButton = new javax.swing.JButton();
         examplesButton = new javax.swing.JButton();
         patternTypeSelectionPanel = new javax.swing.JPanel();
         knowPatterns = new javax.swing.JRadioButton();
@@ -299,6 +307,18 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
         jPanel3.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 5));
 
+        recentButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/netbeans/modules/jackpot30/impl/resources/recent_icon.png"))); // NOI18N
+        org.openide.awt.Mnemonics.setLocalizedText(recentButton, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.recentButton.text")); // NOI18N
+        recentButton.setToolTipText(org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.recentButton.toolTipText")); // NOI18N
+        recentButton.setBorderPainted(false);
+        recentButton.setContentAreaFilled(false);
+        recentButton.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                recentButtonActionPerformed(evt);
+            }
+        });
+        jPanel3.add(recentButton);
+
         examplesButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/netbeans/modules/jackpot30/impl/resources/examples_icon.png"))); // NOI18N
         org.openide.awt.Mnemonics.setLocalizedText(examplesButton, org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "FindDuplicatesRefactoringPanel.examplesButton.text")); // NOI18N
         examplesButton.setToolTipText(org.openide.util.NbBundle.getMessage(FindDuplicatesRefactoringPanel.class, "BTN_Examples")); // NOI18N
@@ -419,12 +439,39 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     }//GEN-LAST:event_knowPatternsActionPerformed
 
     private void examplesButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_examplesButtonActionPerformed
-        Example ex = ExamplesList.chooseExample(query ? EnumSet.noneOf(Option.class) : EnumSet.of(Option.FIX), query ? EnumSet.of(Option.FIX) : EnumSet.noneOf(Option.class));
+        Example ex = ExamplesList.chooseExample(LoadExamples.loadExamples(), new ExamplesConvertor(), Example.class, query ? EnumSet.noneOf(Option.class) : EnumSet.of(Option.FIX), query ? EnumSet.of(Option.FIX) : EnumSet.noneOf(Option.class));
 
         if (ex != null) {
             pattern.setText(ex.getCode());
         }
     }//GEN-LAST:event_examplesButtonActionPerformed
+
+    private void recentButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_recentButtonActionPerformed
+        String cod = ExamplesList.chooseExample(loadRecent(),
+                                                new DialogDescription<String>() {
+                                                    public String getDisplayName(String t) {
+                                                        return t;
+                                                    }
+                                                    public String getCode(String t) {
+                                                        return t;
+                                                    }
+                                                    public Set<Option> getOptions(String t) {
+                                                        return query ? EnumSet.noneOf(Option.class) : EnumSet.of(Option.FIX);
+                                                    }
+                                                    public String getCaption() {
+                                                        return "Recent patterns";
+                                                    }
+                                                    public String getHeader() {
+                                                        return "Patterns:";
+                                                    }
+                                                },
+                                                String.class,
+                                                query ? EnumSet.noneOf(Option.class) : EnumSet.of(Option.FIX), query ? EnumSet.of(Option.FIX) : EnumSet.noneOf(Option.class));
+
+        if (cod != null) {
+            pattern.setText(cod);
+        }
+    }//GEN-LAST:event_recentButtonActionPerformed
 
     private void stateChanged() {
         if (SwingUtilities.isEventDispatchThread()) {
@@ -508,10 +555,61 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
     void fillInFromSettings() {
         scopesPanel.fillInFromSettings();
+
+        List<String> recent = loadRecent();
+
+        if (!recent.isEmpty()) {
+            pattern.setText(recent.get(0));
+        }
     }
 
     void saveScopesCombo() {
         scopesPanel.saveScopesCombo();
+
+        String currentPattern = pattern.getText().trim();
+        List<String> recent = loadRecent();
+
+        recent.remove(currentPattern);
+        recent.add(0, currentPattern);
+
+        while (recent.size() > MAX_RECENT) {
+            recent.remove(recent.size() - 1);
+        }
+
+        Preferences prefs = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class);
+        Preferences recentPatterns = prefs.node(query ? RECENT_PATTERNS_QUERY : RECENT_PATTERNS_APPLY);
+        int i = 0;
+
+        for (String r : recent) {
+            recentPatterns.put("pattern_" + i++, r);
+        }
+    }
+
+    private static final int MAX_RECENT = 50;
+    private static final String RECENT_PATTERNS_QUERY = "recentPatternsQuery";
+    private static final String RECENT_PATTERNS_APPLY = "recentPatternsApply";
+
+    private List<String> loadRecent() {
+        Preferences prefs = NbPreferences.forModule(FindDuplicatesRefactoringPanel.class);
+
+        if (prefs == null) return Collections.emptyList();
+
+        List<String> recent = new LinkedList<String>();
+        Preferences recentPatterns = prefs.node(query ? RECENT_PATTERNS_QUERY : RECENT_PATTERNS_APPLY);
+
+        if (recentPatterns != null) {
+            try {
+                for (String k : recentPatterns.keys()) {
+                    if (k.startsWith("pattern_")) {
+                        recent.add(recentPatterns.get(k, null));
+                    }
+                }
+            } catch (BackingStoreException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+
+        return recent;
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -534,6 +632,7 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     private javax.swing.JTextPane pattern;
     private javax.swing.JPanel patternSelection;
     private javax.swing.JPanel patternTypeSelectionPanel;
+    private javax.swing.JButton recentButton;
     private javax.swing.JButton removeAllHints;
     private javax.swing.JButton removeHint;
     private org.netbeans.modules.jackpot30.impl.refactoring.ScopesPanel scopesPanel;
@@ -543,4 +642,28 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     // End of variables declaration//GEN-END:variables
 
     private static final String HINTS_LIST_PROTOTYPE  = "012345678901234567890123456789";
+
+    private static final class ExamplesConvertor implements DialogDescription<Example> {
+
+        public String getDisplayName(Example t) {
+            return t.getDisplayName();
+        }
+
+        public String getCode(Example t) {
+            return t.getCode();
+        }
+
+        public Set<Option> getOptions(Example t) {
+            return t.getOptions();
+        }
+
+        public String getCaption() {
+            return "Choose Example";
+        }
+
+        public String getHeader() {
+            return "Examples:";
+        }
+
+    }
 }
