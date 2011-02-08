@@ -265,4 +265,37 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
         performTest("package test; import java.util.*; public class Test { public void test() { |List<? super String>| l1; |List<? super String>| l2;} }");
     }
 
+    public void testSingleVariableStrict() throws Exception {
+        performVariablesTest("package test; public class Test { public void test() { if (true) System.err.println(1); } }",
+                             "if ($c) $then; else $else;",
+                             new Pair[0],
+                             new Pair[0],
+                             new Pair[0],
+                             true,
+                             true);
+    }
+
+    public void testMultiVariableZeroOrOne1() throws Exception {
+        performVariablesTest("package test; public class Test { public void test() { if (true) System.err.println(1); } }",
+                             "if ($c) $then; else $else$;",
+                             new Pair[] {new Pair<String, int[]>("$c", new int[] {59, 63}),
+                                         new Pair<String, int[]>("$then", new int[] {65, 87})},
+                             new Pair[0],
+                             new Pair[0],
+                             false,
+                             true);
+    }
+
+    public void testMultiVariableZeroOrOne2() throws Exception {
+        performVariablesTest("package test; public class Test { public void test() { if (true) System.err.println(1); else System.err.println(2); } }",
+                             "if ($c) $then; else $else$;",
+                             new Pair[] {new Pair<String, int[]>("$c", new int[] {59, 63}),
+                                         new Pair<String, int[]>("$then", new int[] {65, 87}),
+                                         new Pair<String, int[]>("$else$", new int[] {93, 115})},
+                             new Pair[0],
+                             new Pair[0],
+                             false,
+                             true);
+    }
+
 }
