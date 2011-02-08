@@ -50,9 +50,11 @@ import java.net.URL;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -60,7 +62,6 @@ import java.util.zip.DataFormatException;
 import javax.lang.model.type.ArrayType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import org.apache.lucene.analysis.Token;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.TermAttribute;
 import org.apache.lucene.document.CompressionTools;
@@ -119,10 +120,19 @@ public abstract class AbstractLuceneIndex extends Index {
 
     @Override
     public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
+        return findCandidates(pattern, false).keySet();
+    }
+
+    @Override
+    public Map<String, Map<String, Integer>> findCandidatesWithFrequencies(BulkPattern pattern) throws IOException {
+        return findCandidates(pattern, true);
+    }
+
+    private Map<String, Map<String, Integer>> findCandidates(BulkPattern pattern, boolean withFrequencies) throws IOException {
         IndexReader reader = createReader();
 
         if (reader == null) {
-             return Collections.emptyList();
+             return Collections.emptyMap();
          }
 
         Searcher s = new IndexSearcher(reader);
@@ -135,7 +145,7 @@ public abstract class AbstractLuceneIndex extends Index {
             throw new IOException(ex);
         }
 
-        Collection<String> result = new HashSet<String>();
+        Map<String, Map<String, Integer>> result = new HashMap<String, Map<String, Integer>>();
 
         for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum+1)) {
             try {
@@ -148,14 +158,24 @@ public abstract class AbstractLuceneIndex extends Index {
                 ByteArrayInputStream in = new ByteArrayInputStream(CompressionTools.decompress(doc.getField("encoded").getBinaryValue()));
 
                 try {
-                    if (!BulkSearch.getDefault().matches(in, pattern)) {
+                    Map<String, Integer> freqs;
+                    boolean matches;
+
+                    if (withFrequencies) {
+                        freqs = BulkSearch.getDefault().matchesWithFrequencies(in, pattern);
+                        matches = !freqs.isEmpty();
+                    } else {
+                        freqs = null;
+                        matches = BulkSearch.getDefault().matches(in, pattern);
+                    }
+
+                    if (matches) {
+                        result.put(doc.getField("path").stringValue(), freqs);
                         continue;
                     }
                 } finally {
                     in.close();
                 }
-
-                result.add(doc.getField("path").stringValue());
             } catch (DataFormatException ex) {
                 throw new IOException(ex);
             }
@@ -226,7 +246,7 @@ public abstract class AbstractLuceneIndex extends Index {
                 }
             });
             
-            return CompressionTools.decompressString(doc.getField("sourceCode").getBinaryValue());
+            return CompressionTools.decompressString(doc.getField("sourceCode").getBinaryValue()).replaceAll("\r\n", "\n")/*XXX*/;
         } catch (DataFormatException ex) {
             Exceptions.printStackTrace(ex);
             return "";

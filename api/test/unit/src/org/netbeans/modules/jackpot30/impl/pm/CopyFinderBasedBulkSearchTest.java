@@ -65,6 +65,11 @@ public class CopyFinderBasedBulkSearchTest extends BulkSearchTestPerformer {
     }
 
     @Override
+    public void testFrequencies() throws Exception {
+        //XXX: serialization is a prerequisite
+    }
+
+    @Override
     public void testPatternEncodingAndIdentifiers() throws Exception {
         //XXX
     }
