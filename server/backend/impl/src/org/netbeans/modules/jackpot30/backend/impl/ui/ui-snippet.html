@@ -1,0 +1,7 @@
+<#if snippets??>
+    <#list snippets as snippet>
+        <pre>${snippet.prefix}<span class="occurrence">${snippet.occurrence}</span>${snippet.suffix}</pre><br>
+    </#list>
+<#else>
+    No occurrences.
+</#if>
