@@ -298,4 +298,14 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
                              true);
     }
 
+    public void testNonResolvableType() throws Exception {
+        performVariablesTest("package test; public class Test { { java.io.File f = null; boolean b = f.isDirectory(); } }",
+                             "$1{can.not.Resolve}.$m($args$)",
+                             new Pair[0],
+                             new Pair[0],
+                             new Pair[0],
+                             true,
+                             true);
+    }
+
 }

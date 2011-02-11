@@ -40,7 +40,8 @@ package org.netbeans.modules.jackpot30.compiler;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -98,7 +99,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
         EXTRA_HINTS
     )));
 
-    private OutputStream diff;
+    private Writer diff;
 
     @Override
     protected boolean initialize(ProcessingEnvironment processingEnv) {
@@ -199,10 +200,10 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
                 if (diff == null) {
                     FileObject upgradeDiffFO = processingEnv.getFiler().createResource(StandardLocation.SOURCE_OUTPUT, "", "META-INF/upgrade/upgrade.diff");
 
-                    diff = upgradeDiffFO.openOutputStream();
+                    diff = new OutputStreamWriter(upgradeDiffFO.openOutputStream());
                 }
 
-                BatchUtilities.exportDiff(mr, diff);
+                BatchUtilities.exportDiff(mr, null, diff);
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);

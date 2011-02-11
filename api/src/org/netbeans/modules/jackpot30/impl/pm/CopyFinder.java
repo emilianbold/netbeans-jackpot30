@@ -363,6 +363,8 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                         bind = info.getTypes().isAssignable(real, designed);
                     else
                         bind = false;
+                } else {
+                    bind = designed == null;
                 }
 
                 if (bind) {

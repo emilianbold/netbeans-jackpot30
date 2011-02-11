@@ -327,6 +327,10 @@ public class Utilities {
         return parseAndAttribute(null, jti, pattern, null, errors);
     }
 
+    public static Tree parseAndAttribute(JavacTaskImpl jti, String pattern, SourcePositions[] sourcePositions, Collection<Diagnostic<? extends JavaFileObject>> errors) {
+        return parseAndAttribute(null, jti, pattern, null, sourcePositions, errors);
+    }
+
     private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope, Collection<Diagnostic<? extends JavaFileObject>> errors) {
         return parseAndAttribute(info, jti, pattern, scope, new SourcePositions[1], errors);
     }

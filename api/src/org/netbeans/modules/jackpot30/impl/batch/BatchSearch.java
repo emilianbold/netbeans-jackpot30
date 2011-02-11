@@ -133,7 +133,7 @@ public class BatchSearch {
             private Set<FileObject> KNOWN_SOURCE_ROOTS = new HashSet<FileObject>(GlobalPathRegistry.getDefault().getSourceRoots());
             public Index findIndex(FileObject root, ProgressHandleWrapper progress) {
                 progress.startNextPart(1);
-                if (KNOWN_SOURCE_ROOTS.contains(root)) {
+                if (KNOWN_SOURCE_ROOTS.contains(root) || scope.forceIndicesUpToDate) {
                     try {
                         return FileBasedIndex.get(root.getURL());
                     } catch (IOException ex) {
@@ -424,6 +424,10 @@ public class BatchSearch {
     }
     
     public static void getVerifiedSpans(BatchResult candidates, @NonNull ProgressHandleWrapper progress, final VerifiedSpansCallBack callback, final Collection<? super MessageImpl> problems) {
+        getVerifiedSpans(candidates, progress, callback, false, problems);
+    }
+
+    public static void getVerifiedSpans(BatchResult candidates, @NonNull ProgressHandleWrapper progress, final VerifiedSpansCallBack callback, boolean doNotRegisterClassPath, final Collection<? super MessageImpl> problems) {
         int[] parts = new int[candidates.projectId2Resources.size()];
         int   index = 0;
 
@@ -436,11 +440,11 @@ public class BatchSearch {
         for (Collection<? extends Resource> it :candidates.projectId2Resources.values()) {
             inner.startNextPart(it.size());
 
-            getVerifiedSpans(it, inner, callback, problems);
+            getVerifiedSpans(it, inner, callback, doNotRegisterClassPath, problems);
         }
     }
 
-    private static void getVerifiedSpans(Collection<? extends Resource> resources, @NonNull final ProgressHandleWrapper progress, final VerifiedSpansCallBack callback, final Collection<? super MessageImpl> problems) {
+    private static void getVerifiedSpans(Collection<? extends Resource> resources, @NonNull final ProgressHandleWrapper progress, final VerifiedSpansCallBack callback, boolean doNotRegisterClassPath, final Collection<? super MessageImpl> problems) {
         Collection<FileObject> files = new LinkedList<FileObject>();
         final Map<FileObject, Resource> file2Resource = new HashMap<FileObject, Resource>();
 
@@ -457,20 +461,24 @@ public class BatchSearch {
         }
 
         Map<ClasspathInfo, Collection<FileObject>> cp2Files = BatchUtilities.sortFiles(files);
-        Set<ClassPath> toRegisterSet = new HashSet<ClassPath>();
+        ClassPath[] toRegister = null;
 
-        for (ClasspathInfo cpInfo : cp2Files.keySet()) {
-            toRegisterSet.add(cpInfo.getClassPath(PathKind.SOURCE));
-        }
+        if (!doNotRegisterClassPath) {
+            Set<ClassPath> toRegisterSet = new HashSet<ClassPath>();
 
-        ClassPath[] toRegister = !toRegisterSet.isEmpty() ? toRegisterSet.toArray(new ClassPath[0]) : null;
+            for (ClasspathInfo cpInfo : cp2Files.keySet()) {
+                toRegisterSet.add(cpInfo.getClassPath(PathKind.SOURCE));
+            }
 
-        if (toRegister != null) {
-            GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, toRegister);
-            try {
-                Utilities.waitScanFinished();
-            } catch (InterruptedException ex) {
-                Exceptions.printStackTrace(ex);
+            toRegister = !toRegisterSet.isEmpty() ? toRegisterSet.toArray(new ClassPath[0]) : null;
+
+            if (toRegister != null) {
+                GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, toRegister);
+                try {
+                    Utilities.waitScanFinished();
+                } catch (InterruptedException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
             }
         }
 
@@ -563,18 +571,20 @@ public class BatchSearch {
         public  final String subIndex; //public only for AddScopePanel
         public  final boolean update; //public only for AddScopePanel
         private final Collection<? extends FileObject> sourceRoots;
+        private final boolean forceIndicesUpToDate;
 
         private Scope() {
-            this(null, null, null, null, true, null);
+            this(null, null, null, null, true, null, false);
         }
 
-        private Scope(ScopeType scopeType, String folder, String indexURL, String subIndex, boolean update, Collection<? extends FileObject> sourceRoots) {
+        private Scope(ScopeType scopeType, String folder, String indexURL, String subIndex, boolean update, Collection<? extends FileObject> sourceRoots, boolean forceIndicesUpToDate) {
             this.scopeType = scopeType;
             this.folder = folder;
             this.indexURL = indexURL;
             this.subIndex = subIndex;
             this.update = update;
             this.sourceRoots = sourceRoots;
+            this.forceIndicesUpToDate = forceIndicesUpToDate;
         }
 
         public String serialize() {
@@ -591,27 +601,31 @@ public class BatchSearch {
         }
 
         public static Scope createAllOpenedProjectsScope() {
-            return new Scope(ScopeType.ALL_OPENED_PROJECTS, null, null, null, false, null);
+            return new Scope(ScopeType.ALL_OPENED_PROJECTS, null, null, null, false, null, false);
         }
 
         public static Scope createAllDependentOpenedSourceRoots(FileObject from) {
-            return new Scope(ScopeType.ALL_DEPENDENT_OPENED_SOURCE_ROOTS, null, null, null, false, Collections.singletonList(from));
+            return new Scope(ScopeType.ALL_DEPENDENT_OPENED_SOURCE_ROOTS, null, null, null, false, Collections.singletonList(from), false);
         }
 
         public static Scope createGivenFolderNoIndex(String folder) {
-            return new Scope(ScopeType.GIVEN_FOLDER, folder, null, null, false, null);
+            return new Scope(ScopeType.GIVEN_FOLDER, folder, null, null, false, null, false);
         }
 
         public static Scope createGivenFolderLocalIndex(String folder, File indexFolder, boolean update) {
-            return new Scope(ScopeType.GIVEN_FOLDER, folder, indexFolder.getAbsolutePath(), null, update, null);
+            return new Scope(ScopeType.GIVEN_FOLDER, folder, indexFolder.getAbsolutePath(), null, update, null, false);
         }
 
         public static Scope createGivenFolderRemoteIndex(String folder, String urlIndex, String subIndex) {
-            return new Scope(ScopeType.GIVEN_FOLDER, folder, urlIndex, subIndex, false, null);
+            return new Scope(ScopeType.GIVEN_FOLDER, folder, urlIndex, subIndex, false, null, false);
         }
 
         public static Scope createGivenSourceRoots(FileObject... sourceRoots) {
-            return new Scope(ScopeType.GIVEN_SOURCE_ROOTS, null, null, null, false, Arrays.asList(sourceRoots));
+            return createGivenSourceRoots(false, sourceRoots);
+        }
+
+        public static Scope createGivenSourceRoots(boolean forceIndicesUpToDate, FileObject... sourceRoots) {
+            return new Scope(ScopeType.GIVEN_SOURCE_ROOTS, null, null, null, false, Arrays.asList(sourceRoots), forceIndicesUpToDate);
         }
 
         public String getDisplayName() {

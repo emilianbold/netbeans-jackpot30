@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,6 +53,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.api.annotations.common.NonNull;
@@ -66,6 +68,7 @@ import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescri
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
@@ -251,7 +254,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
                 Instanceof i = (Instanceof) c;
 
-                constraints.put(i.variable, i.constraint);
+                constraints.put(i.variable, i.constraint.trim()); //TODO: may i.constraint contain comments? if so, they need to be removed
             }
 
             String imports = parsed.importsBlock != null ? spec.substring(parsed.importsBlock[0], parsed.importsBlock[1]) : "";
@@ -297,6 +300,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
             f = f.setMetadata(currentMeta);
+            f = f.setAdditionalConstraints(new AdditionalQueryConstraints(new HashSet<String>(constraints.values())));
 
             Collection<HintDescription> hints = result.get(currentMeta);
 
