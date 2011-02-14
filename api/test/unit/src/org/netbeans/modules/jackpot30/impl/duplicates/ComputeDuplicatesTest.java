@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.impl.duplicates;
 import org.netbeans.api.progress.ProgressHandle;
 import org.openide.filesystems.FileObject;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.TestUtilities;
@@ -51,6 +52,7 @@ import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.Span;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexTestBase;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.NbCollections;
 import static org.junit.Assert.*;
 
 import static org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.writeFilesAndWaitForScan;
@@ -101,7 +103,7 @@ public class ComputeDuplicatesTest extends IndexTestBase {
 
         handle.start();
         
-        for (DuplicateDescription dd : new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle, new AtomicBoolean())) {
+        for (DuplicateDescription dd : NbCollections.iterable(new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle, new AtomicBoolean()))) {
             for (Span s : dd.dupes) {
                 duplicatesReal.put(relativePath(s.file), TestUtilities.copyFileToString(FileUtil.toFile(s.file)).substring(s.startOff, s.endOff));
             }

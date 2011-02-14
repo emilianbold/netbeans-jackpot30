@@ -44,7 +44,6 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashSet;
@@ -54,6 +53,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.lucene.document.Document;
@@ -86,7 +86,7 @@ import org.openide.util.Exceptions;
  */
 public class ComputeDuplicates {
 
-    public Collection<? extends DuplicateDescription> computeDuplicatesForAllOpenedProjects(ProgressHandle progress, AtomicBoolean cancel) throws IOException {
+    public Iterator<? extends DuplicateDescription> computeDuplicatesForAllOpenedProjects(ProgressHandle progress, AtomicBoolean cancel) throws IOException {
         Set<URL> urls = new HashSet<URL>();
 
         for (ClassPath cp : GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)) {
@@ -103,7 +103,7 @@ public class ComputeDuplicates {
         }
     }
 
-    public Collection<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs, ProgressHandle progress, AtomicBoolean cancel) throws IOException {
+    public Iterator<? extends DuplicateDescription> computeDuplicates(Set<URL> forURLs, ProgressHandle progress, AtomicBoolean cancel) throws IOException {
         Map<IndexReader, FileObject> readers2Roots = new LinkedHashMap<IndexReader, FileObject>();
 
         progress.progress("Updating indices");
@@ -142,19 +142,27 @@ public class ComputeDuplicates {
         //TODO: only show valuable duplicates?:
 //        dd = dd.subList(0, dd.size() / 10 + 1);
 
-        progress.switchToDeterminate(dd.size());
-        
-        List<DuplicateDescription> result = new LinkedList<DuplicateDescription>();
-        int done = 0;
+        return new DuplicatesIterator(readers2Roots, dd);
+    }
 
-        for (String longest : dd) {
+    private static final class DuplicatesIterator implements Iterator<DuplicateDescription> {
+        private final Map<IndexReader, FileObject> readers2Roots;
+        private final Iterator<String> duplicateCandidates;
+        private final List<DuplicateDescription> result = new LinkedList<DuplicateDescription>();
+
+        public DuplicatesIterator(Map<IndexReader, FileObject> readers2Roots, Iterable<String> duplicateCandidates) {
+            this.readers2Roots = readers2Roots;
+            this.duplicateCandidates = duplicateCandidates.iterator();
+        }
+
+        private DuplicateDescription nextDescription() throws IOException {
+        while (duplicateCandidates.hasNext()) {
+            String longest = duplicateCandidates.next();
             List<Span> foundDuplicates = new LinkedList<Span>();
 
             Query query = new TermQuery(new Term("generalized", longest));
 
             for (Entry<IndexReader, FileObject> e : readers2Roots.entrySet()) {
-                if (cancel.get()) return Collections.emptyList();
-
                 Searcher s = new IndexSearcher(e.getKey());
                 BitSet matchingDocuments = new BitSet(e.getKey().maxDoc());
                 Collector c = new BitSetCollector(matchingDocuments);
@@ -201,16 +209,45 @@ public class ComputeDuplicates {
                     }
                 }
 
-                if (add)
+                if (add) {
                     result.add(current);
+                    return current;
+                }
             }
 
-            progress.progress(++done);
+        }
+        return null;
         }
 
-        progress.finish();
+        private DuplicateDescription next;
 
-        return result;
+        public boolean hasNext() {
+            if (next == null) {
+                try {
+                    next = nextDescription();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+
+            return next != null;
+        }
+
+        public DuplicateDescription next() {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+
+            DuplicateDescription r = next;
+
+            next = null;
+            return r;
+        }
+
+        public void remove() {
+            throw new UnsupportedOperationException("Not supported.");
+        }
+
     }
 
     private static List<String> getDuplicatedValues(IndexReader ir, String field, AtomicBoolean cancel) throws IOException {

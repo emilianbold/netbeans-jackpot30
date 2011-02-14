@@ -46,18 +46,22 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.util.Collection;
-import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.api.progress.ProgressHandleFactory;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.DuplicateDescription;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.HelpCtx;
 import org.openide.util.RequestProcessor;
@@ -65,7 +69,7 @@ import org.openide.util.RequestProcessor;
 public final class GlobalFindDuplicates implements ActionListener {
 
     public void actionPerformed(ActionEvent e) {
-        final Collection<DuplicateDescription> dupes = Collections.synchronizedList(new LinkedList<DuplicateDescription>());
+        final Iterator<? extends DuplicateDescription>[] dupes = new Iterator[1];
         final ProgressHandle handle = ProgressHandleFactory.createHandle("Compute Duplicates");
         JPanel panel = createPanel(handle);
         final AtomicBoolean cancel = new AtomicBoolean();
@@ -79,11 +83,22 @@ public final class GlobalFindDuplicates implements ActionListener {
 
         final Dialog d = DialogDisplayer.getDefault().createDialog(w);
         final AtomicBoolean done = new AtomicBoolean();
+        final Collection<String> sourceRoots = new LinkedList<String>();
 
         WORKER.post(new Runnable() {
             public void run() {
                 try {
-                    dupes.addAll(new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle, cancel));
+                    for (ClassPath cp : GlobalPathRegistry.getDefault().getPaths(ClassPath.SOURCE)) {
+                        for (ClassPath.Entry e : cp.entries()) {
+                            FileObject root = e.getRoot();
+
+                            if (root == null) continue;
+
+                            sourceRoots.add(FileUtil.getFileDisplayName(root));
+                        }
+                    }
+
+                    dupes[0] = new ComputeDuplicates().computeDuplicatesForAllOpenedProjects(handle, cancel);
                     done.set(true);
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
@@ -111,7 +126,7 @@ public final class GlobalFindDuplicates implements ActionListener {
         
         if (cancel.get()) return;
 
-        NotifyDescriptor nd = new NotifyDescriptor.Message(new DuplicatesListPanel(dupes));
+        NotifyDescriptor nd = new NotifyDescriptor.Message(new DuplicatesListPanel(sourceRoots, dupes[0]));
 
         DialogDisplayer.getDefault().notifyLater(nd);
     }
