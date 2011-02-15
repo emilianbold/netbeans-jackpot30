@@ -384,16 +384,19 @@ public class API {
     @Path("/capabilities")
     @Produces("text/plain")
     public String capabilities() throws IOException {
-        StringBuilder sb = new StringBuilder();
+        Map<String, Object> result = new HashMap<String, Object>();
+        List<String> methods = new ArrayList<String>(API.class.getDeclaredMethods().length);
 
         for (Method m : API.class.getDeclaredMethods()) {
             if (m.isAnnotationPresent(GET.class) && (m.getModifiers() & Modifier.PUBLIC) != 0) {
-                sb.append(m.getName());
-                sb.append("\n");
+                methods.add(m.getName());
             }
         }
 
-        return sb.toString();
+        result.put("methods", methods);
+        result.put("attributed", true);
+
+        return Pojson.save(result);
     }
 
     private static FileObject deepestCommonParent(Set<FileObject> roots) {
