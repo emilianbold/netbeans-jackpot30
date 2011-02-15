@@ -52,7 +52,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +63,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import javax.lang.model.element.TypeElement;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import javax.ws.rs.DefaultValue;
@@ -71,7 +75,11 @@ import javax.ws.rs.WebApplicationException;
 import javax.ws.rs.core.StreamingOutput;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.source.ClassIndex.NameKind;
+import org.netbeans.api.java.source.ClassIndex.SearchScope;
+import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
+import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.modules.jackpot30.backend.impl.CategoryStorage;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
@@ -89,6 +97,8 @@ import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.java.source.usages.ClassIndexManager;
+import org.netbeans.modules.jumpto.type.GoToTypeAction;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
@@ -399,6 +409,65 @@ public class API {
         return Pojson.save(result);
     }
 
+    @GET
+    @Path("/findType")
+    @Produces("text/plain")
+    public String findType(@QueryParam("path") String segment, @QueryParam("prefix") String prefix, @QueryParam("casesensitive") @DefaultValue("false") boolean casesensitive, @QueryParam("asynchronous") @DefaultValue(value="false") boolean asynchronous) throws IOException {
+        assert !asynchronous;
+
+        //copied (and converted to NameKind) from jumpto's GoToTypeAction:
+        boolean exact = prefix.endsWith(" "); // NOI18N
+
+        prefix = prefix.trim();
+
+        if ( prefix.length() == 0) {
+            return "";
+        }
+
+        NameKind nameKind;
+        int wildcard = GoToTypeAction.containsWildCard(prefix);
+
+        if (exact) {
+            //nameKind = panel.isCaseSensitive() ? SearchType.EXACT_NAME : SearchType.CASE_INSENSITIVE_EXACT_NAME;
+            nameKind = NameKind.SIMPLE_NAME;
+        }
+        else if ((GoToTypeAction.isAllUpper(prefix) && prefix.length() > 1) || GoToTypeAction.isCamelCase(prefix)) {
+            nameKind = NameKind.CAMEL_CASE;
+        }
+        else if (wildcard != -1) {
+            nameKind = casesensitive ? NameKind.REGEXP : NameKind.CASE_INSENSITIVE_REGEXP;
+        }
+        else {
+            nameKind = casesensitive ? NameKind.PREFIX : NameKind.CASE_INSENSITIVE_PREFIX;
+        }
+
+        Map<String, List<String>> result = new LinkedHashMap<String, List<String>>();
+        Set<FileObject> srcRoots = CategoryStorage.getCategoryContent(segment);
+        FileObject deepestCommonParent = deepestCommonParent(srcRoots);
+
+        for (FileObject srcRoot : srcRoots) {
+            String rootId = FileUtil.getRelativePath(deepestCommonParent, srcRoot);
+            List<String> currentResult = new ArrayList<String>();
+
+            result.put(rootId, currentResult);
+
+            ClassIndexManager.getDefault().createUsagesQuery(srcRoot.getURL(), true);
+            ClasspathInfo cpInfo = ClasspathInfo.create(ClassPath.EMPTY, ClassPath.EMPTY, ClassPathSupport.createClassPath(srcRoot));
+            Set<ElementHandle<TypeElement>> names = new HashSet<ElementHandle<TypeElement>>(cpInfo.getClassIndex().getDeclaredTypes(prefix, nameKind, EnumSet.of(SearchScope.SOURCE)));
+
+            if (nameKind == NameKind.CAMEL_CASE) {
+                names.addAll(cpInfo.getClassIndex().getDeclaredTypes(prefix, NameKind.CASE_INSENSITIVE_PREFIX, EnumSet.of(SearchScope.SOURCE)));
+            }
+
+            for (ElementHandle<TypeElement> d : names) {
+                currentResult.add(d.getBinaryName());
+            }
+        }
+
+        return Pojson.save(result);
+    }
+
+    //XXX: not really correct, a base directory(-ies?) should be set in the category!
     private static FileObject deepestCommonParent(Set<FileObject> roots) {
         FileObject result = null;
 

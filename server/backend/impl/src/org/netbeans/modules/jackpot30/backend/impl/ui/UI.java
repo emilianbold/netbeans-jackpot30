@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.backend.impl.ui;
 
+import java.util.Comparator;
 import javax.ws.rs.core.Response;
 import java.util.LinkedHashMap;
 import java.util.Map.Entry;
@@ -154,17 +155,22 @@ public class UI {
 
         URI codeURL = new URI("http://localhost:9998/index/cat?path=" + escapeForQuery(path) + "&relative=" + escapeForQuery(relativePath));
         String code = WebUtilities.requestStringResponse(codeURL);
-        URI spansURL = new URI("http://localhost:9998/index/findSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
-        int currentCodePos = 0;
-        for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) { //XXX: sorted!
-            Map<String, String> occ = new HashMap<String, String>();
-            occ.put("prefix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, span[0])));
-            occ.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1])));
-            occurrences.add(occ);
-            currentCodePos = span[1];
-        }
 
-        configurationData.put("suffix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, code.length())));
+        if (pattern != null) {
+            URI spansURL = new URI("http://localhost:9998/index/findSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
+            int currentCodePos = 0;
+            for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) { //XXX: sorted!
+                Map<String, String> occ = new HashMap<String, String>();
+                occ.put("prefix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, span[0])));
+                occ.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1])));
+                occurrences.add(occ);
+                currentCodePos = span[1];
+            }
+
+            configurationData.put("suffix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, code.length())));
+        } else {
+            configurationData.put("suffix", WebUtilities.escapeForHTMLElement(code));
+        }
 
         return processTemplate("ui-cat.html", configurationData);
     }
@@ -236,6 +242,59 @@ public class UI {
         }
 
         return Response.ok(processTemplate("ui-apply.html", configurationData), "text/html").build();
+    }
+
+    @GET
+    @Path("/searchType")
+    @Produces("text/html")
+    public String searchType(@QueryParam("path") String path, @QueryParam("prefix") String prefix) throws URISyntaxException, IOException, TemplateException {
+        Map<String, Object> configurationData = new HashMap<String, Object>();
+
+        configurationData.put("paths", list());
+        configurationData.put("selectedPath", path);
+        configurationData.put("prefix", prefix);
+
+        if (prefix != null && path != null) {
+            URI u = new URI("http://localhost:9998/index/findType?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
+            long queryTime = System.currentTimeMillis();
+            @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+            Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, u);
+            List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
+
+            queryTime = System.currentTimeMillis() - queryTime;
+
+            for (Entry<String, List<String>> e : types.entrySet()) {
+                for (String fqn : e.getValue()) {
+                    Map<String, Object> found = new HashMap<String, Object>(3);
+
+                    found.put("fqn", fqn);
+
+                    if (fqn.contains("$")) {
+                        fqn = fqn.substring(0, fqn.indexOf("$"));
+                    }
+
+                    found.put("relativePath", e.getKey() + "/" + fqn.replace('.', '/') + ".java");
+
+                    results.add(found);
+                }
+            }
+
+            Collections.sort(results, new Comparator<Map<String, Object>>() {
+                @Override public int compare(Map<String, Object> o1, Map<String, Object> o2) {
+                    return ((String) o1.get("fqn")).compareTo((String) o2.get("fqn"));
+                }
+            });
+            
+            configurationData.put("results", results);
+
+            Map<String, Object> statistics = new HashMap<String, Object>();
+
+            statistics.put("queryTime", queryTime);
+
+            configurationData.put("statistics", statistics);
+        }
+
+        return processTemplate("ui-findType.html", configurationData);
     }
 
     private static final Map<String, String> prefix2SpanName = new LinkedHashMap<String, String>();
