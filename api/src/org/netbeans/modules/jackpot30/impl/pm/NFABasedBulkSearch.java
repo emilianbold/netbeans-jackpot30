@@ -56,6 +56,7 @@ import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -473,14 +474,23 @@ public class NFABasedBulkSearch extends BulkSearch {
     @Override
     public boolean matches(InputStream encoded, BulkPattern patternIn) {
         try {
-            return matchesImpl(encoded, patternIn);
+            return !matchesImpl(encoded, patternIn, false).isEmpty();
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
             return false;
         }
     }
 
-    private boolean matchesImpl(InputStream encoded, BulkPattern patternIn) throws IOException {
+    public Map<String, Integer> matchesWithFrequencies(InputStream encoded, BulkPattern patternIn) {
+        try {
+            return matchesImpl(encoded, patternIn, true);
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+            return Collections.emptyMap();
+        }
+    }
+
+    public Map<String, Integer> matchesImpl(InputStream encoded, BulkPattern patternIn, boolean withFrequencies) throws IOException {
         BulkPatternImpl pattern = (BulkPatternImpl) patternIn;
         final NFA<Input, Res> nfa = pattern.toNFA();
         Stack<NFA.State> skips = new Stack<NFA.State>();
@@ -508,6 +518,7 @@ public class NFABasedBulkSearch extends BulkSearch {
             identifiers.add(new String(baos.toByteArray(), "UTF-8"));
         }
 
+        Map<String, Integer> patternsAndFrequencies = new HashMap<String, Integer>();
         int read = encoded.read();
         
         while (read != (-1)) {
@@ -560,7 +571,16 @@ public class NFABasedBulkSearch extends BulkSearch {
                 
                 for (Res res : nfa.getResults(active)) {
                     if (identifiers.containsAll(pattern.getIdentifiers().get(res.patternIndex))) {
-                        return true;
+                        if (!withFrequencies) {
+                            patternsAndFrequencies.put(res.pattern, 1);
+                            return patternsAndFrequencies;
+                        }
+                        
+                        Integer freqs = patternsAndFrequencies.get(res.pattern);
+
+                        if (freqs == null) freqs = 0;
+
+                        patternsAndFrequencies.put(res.pattern, freqs + 1);
                     }
                 }
 
@@ -568,7 +588,7 @@ public class NFABasedBulkSearch extends BulkSearch {
             }
         }
 
-        return false;
+        return patternsAndFrequencies;
     }
 
     private static final Map<Kind, byte[]> kind2Encoded;

@@ -93,7 +93,7 @@ public class StandaloneFinder {
 
     public static int[] findCandidateOccurrenceSpans(File sourceRoot, String relativePath, String pattern) throws IOException {
         BulkPattern bulkPattern = preparePattern(pattern, null);
-        CharSequence source = FileBasedIndex.get(sourceRoot.toURI().toURL()).getSourceCode(relativePath);
+        CharSequence source = FileBasedIndex.get(sourceRoot.toURI().toURL()).getSourceCode(relativePath).toString().replaceAll("\r\n", "\n");
         JavacTaskImpl jti = prepareJavacTaskImpl();
         CompilationUnitTree cut = jti.parse(new JFOImpl(source)).iterator().next();
         Collection<TreePath> paths = new LinkedList<TreePath>();

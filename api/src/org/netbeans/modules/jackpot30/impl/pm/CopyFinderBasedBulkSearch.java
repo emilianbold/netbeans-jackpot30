@@ -117,6 +117,11 @@ public class CopyFinderBasedBulkSearch extends BulkSearch {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
+    @Override
+    public Map<String, Integer> matchesWithFrequencies(InputStream encoded, BulkPattern pattern) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
     private static final class BulkPatternImpl extends BulkPattern {
 
         private final Map<Tree, String> pattern2Code;

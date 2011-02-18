@@ -423,6 +423,39 @@ public class JavaFixTest extends TestBase {
 		           "}\n");
     }
 
+    public void testCarefulRewriteInImports() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "import javax.swing.text.AbstractDocument;\n" +
+                           "public class Test {\n" +
+                           "}\n",
+                           "javax.swing.text.AbstractDocument => javax.swing.text.Document",
+                           "package test;\n" +
+                           "import javax.swing.text.Document;\n" +
+                           "public class Test {\n" +
+		           "}\n");
+    }
+
+    public void testRemoveFromParent1() throws Exception {
+        performRemoveFromParentTest("package test;\n" +
+                                    "public class Test {\n" +
+                                    "    private int I;" +
+                                    "}\n",
+                                    "$mods$ int $f;",
+                                    "package test;\n" +
+                                    "public class Test {\n" +
+                                    "}\n");
+    }
+
+    public void testRemoveFromParent2() throws Exception {
+        performRemoveFromParentTest("package test;\n" +
+                                    "public class Test extends java.util.ArrayList {\n" +
+                                    "}\n",
+                                    "java.util.ArrayList",
+                                    "package test;\n" +
+                                    "public class Test {\n" +
+                                    "}\n");
+    }
+
     public void performRewriteTest(String code, String rule, String golden) throws Exception {
 	prepareTest("test/Test.java", code);
 
@@ -433,6 +466,32 @@ public class JavaFixTest extends TestBase {
                                                    .setWorker(new HintDescription.Worker() {
             @Override public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
                 return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "", JavaFix.rewriteFix(ctx, "", ctx.getPath(), split[1])));
+            }
+        }).produce();
+
+        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>();
+        HashMap<Kind, List<HintDescription>> kindHints = new HashMap<Kind, List<HintDescription>>();
+
+        RulesManager.sortOut(Collections.singleton(hd), kindHints, patternHints);
+        List<ErrorDescription> computeHints = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, kindHints, patternHints);
+
+        assertEquals(computeHints.toString(), 1, computeHints.size());
+
+        Fix fix = computeHints.get(0).getFixes().getFixes().get(0);
+
+	fix.implement();
+
+        assertEquals(golden, doc.getText(0, doc.getLength()));
+    }
+
+    public void performRemoveFromParentTest(String code, String rule, String golden) throws Exception {
+	prepareTest("test/Test.java", code);
+
+        HintDescription hd = HintDescriptionFactory.create()
+                                                   .setTriggerPattern(PatternDescription.create(rule, Collections.<String, String>emptyMap()))
+                                                   .setWorker(new HintDescription.Worker() {
+            @Override public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
+                return Collections.singletonList(ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "", JavaFix.removeFromParent(ctx, "", ctx.getPath())));
             }
         }).produce();
 

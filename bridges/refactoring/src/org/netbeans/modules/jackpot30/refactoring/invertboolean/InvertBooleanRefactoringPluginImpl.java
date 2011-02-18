@@ -52,6 +52,7 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.ModificationResult;
@@ -200,7 +201,9 @@ public class InvertBooleanRefactoringPluginImpl extends JackpotBasedRefactoring 
                                 constraints.append(" && ");
                             }
                             parameters.append("$").append(count);
-                            constraints.append("$").append(count).append(" instanceof ").append(parameter.getTrees().getTypeMirror(new TreePath(new TreePath(path, vt), vt.getType())));
+                            TypeMirror type = parameter.getTrees().getTypeMirror(new TreePath(new TreePath(path, vt), vt.getType()));
+                            type = parameter.getTypes().erasure(type);
+                            constraints.append("$").append(count).append(" instanceof ").append(type);
                             count++;
                         }
 

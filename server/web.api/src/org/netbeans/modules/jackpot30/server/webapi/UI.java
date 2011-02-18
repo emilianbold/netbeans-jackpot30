@@ -135,9 +135,9 @@ public class UI {
         for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) { //XXX: sorted!
             Map<String, String> occ = new HashMap<String, String>();
             occ.put("prefix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, span[0])));
-            occ.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1] + 1)));
+            occ.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1])));
             occurrences.add(occ);
-            currentCodePos = span[1] + 1;
+            currentCodePos = span[1];
         }
 
         configurationData.put("suffix", WebUtilities.escapeForHTMLElement(code.substring(currentCodePos, code.length())));
@@ -212,8 +212,8 @@ public class UI {
         Map<String, String> result = new HashMap<String, String>();
         
         result.put("prefix", WebUtilities.escapeForHTMLElement(code.substring(grandStart, span[0])));
-        result.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1] + 1)));
-        result.put("suffix", WebUtilities.escapeForHTMLElement(code.substring(span[1] + 1, grandEnd)));
+        result.put("occurrence", WebUtilities.escapeForHTMLElement(code.substring(span[0], span[1])));
+        result.put("suffix", WebUtilities.escapeForHTMLElement(code.substring(span[1], grandEnd)));
 
         return result;
     }

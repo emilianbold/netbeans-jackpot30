@@ -148,7 +148,7 @@ public class API {
             throw new IOException("Source code not found");
         }
         
-        return source.toString();
+        return source.toString().replaceAll("\r\n", "\n");
     }
 
     @GET

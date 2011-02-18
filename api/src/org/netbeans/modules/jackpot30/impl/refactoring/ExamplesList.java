@@ -43,33 +43,41 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.Component;
 import java.awt.Dialog;
+import java.awt.Rectangle;
 import java.util.Collections;
 import java.util.Set;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JList;
-import org.netbeans.modules.jackpot30.impl.examples.Example;
+import javax.swing.text.BadLocationException;
 import org.netbeans.modules.jackpot30.impl.examples.Example.Option;
-import org.netbeans.modules.jackpot30.impl.examples.LoadExamples;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
+import org.openide.util.Exceptions;
 
 /**
  *
  * @author lahvac
  */
-public class ExamplesList extends javax.swing.JPanel {
+public class ExamplesList<T> extends javax.swing.JPanel {
 
-    public ExamplesList(Set<Option> require, Set<Option> forbidden) {
+    private final DialogDescription<T> convertor;
+    private final Class<T> dataClass;
+
+    public ExamplesList(Iterable<? extends T> data, DialogDescription<T> convertor, Class<T> dataClass, Set<Option> require, Set<Option> forbidden) {
+        this.convertor = convertor;
+        this.dataClass = dataClass;
+        
         initComponents();
 
         DefaultListModel listModel = new DefaultListModel();
 
-        for (Example e : LoadExamples.loadExamples()) {
-            if (!e.getOptions().containsAll(require)) continue;
-            if (!Collections.disjoint(e.getOptions(), forbidden)) continue;
+        for (T t : data) {
+            Set<Option> options = convertor.getOptions(t);
+            if (!options.containsAll(require)) continue;
+            if (!Collections.disjoint(options, forbidden)) continue;
             
-            listModel.addElement(e);
+            listModel.addElement(t);
         }
 
         list.setModel(listModel);
@@ -89,8 +97,10 @@ public class ExamplesList extends javax.swing.JPanel {
         jLabel1 = new javax.swing.JLabel();
         jScrollPane1 = new javax.swing.JScrollPane();
         list = new javax.swing.JList();
+        jScrollPane2 = new javax.swing.JScrollPane();
+        pattern = new javax.swing.JEditorPane();
 
-        jLabel1.setText(org.openide.util.NbBundle.getMessage(ExamplesList.class, "ExamplesList.jLabel1.text")); // NOI18N
+        jLabel1.setText(convertor.getHeader());
 
         list.setModel(new javax.swing.AbstractListModel() {
             String[] strings = { "Item 1", "Item 2", "Item 3", "Item 4", "Item 5" };
@@ -102,17 +112,26 @@ public class ExamplesList extends javax.swing.JPanel {
                 listMouseClicked(evt);
             }
         });
+        list.addListSelectionListener(new javax.swing.event.ListSelectionListener() {
+            public void valueChanged(javax.swing.event.ListSelectionEvent evt) {
+                listValueChanged(evt);
+            }
+        });
         jScrollPane1.setViewportView(list);
+
+        pattern.setContentType(org.openide.util.NbBundle.getMessage(ExamplesList.class, "ExamplesList.pattern.contentType")); // NOI18N
+        jScrollPane2.setViewportView(pattern);
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(layout.createSequentialGroup()
+            .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)
-                    .addComponent(jLabel1))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                    .addComponent(jScrollPane2, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)
+                    .addComponent(jScrollPane1, javax.swing.GroupLayout.Alignment.LEADING, javax.swing.GroupLayout.DEFAULT_SIZE, 376, Short.MAX_VALUE)
+                    .addComponent(jLabel1, javax.swing.GroupLayout.Alignment.LEADING))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -121,7 +140,9 @@ public class ExamplesList extends javax.swing.JPanel {
                 .addContainerGap()
                 .addComponent(jLabel1)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 255, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 130, Short.MAX_VALUE)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.PREFERRED_SIZE, 119, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -133,10 +154,28 @@ public class ExamplesList extends javax.swing.JPanel {
         }
     }//GEN-LAST:event_listMouseClicked
 
+    private void listValueChanged(javax.swing.event.ListSelectionEvent evt) {//GEN-FIRST:event_listValueChanged
+        T ex = dataClass.cast(list.getSelectedValue());
+
+        pattern.setText(convertor.getCode(ex));
+        
+        try {
+            Rectangle rect = pattern.modelToView(0);
+
+            if (rect != null) {
+                pattern.scrollRectToVisible(rect);
+            }
+        } catch (BadLocationException ex1) {
+            Exceptions.printStackTrace(ex1);
+        }
+    }//GEN-LAST:event_listValueChanged
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JLabel jLabel1;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JList list;
+    private javax.swing.JEditorPane pattern;
     // End of variables declaration//GEN-END:variables
 
     private DialogDescriptor desc;
@@ -147,23 +186,21 @@ public class ExamplesList extends javax.swing.JPanel {
         this.dialog = dialog;
     }
 
-    public Example getSelectedExample() {
-        return (Example) list.getSelectedValue();
+    public T getSelectedExample() {
+        return dataClass.cast(list.getSelectedValue());
     }
     
-    private static class ExamplesRenderer extends DefaultListCellRenderer {
+    private class ExamplesRenderer extends DefaultListCellRenderer {
         @Override
         public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-            if (value instanceof Example) {
-                value = ((Example) value).getDisplayName();
-            }
+            value = convertor.getDisplayName(dataClass.cast(value));
             return super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
         }
     }
 
-    public static Example chooseExample(Set<Option> require, Set<Option> forbidden) {
-        ExamplesList examples = new ExamplesList(require, forbidden);
-        DialogDescriptor dd = new DialogDescriptor(examples, "Choose Example", true, DialogDescriptor.OK_CANCEL_OPTION, DialogDescriptor.OK_OPTION, null);
+    public static <T> T chooseExample(Iterable<? extends T> examplesList, DialogDescription<T> convertor, Class<T> dataClass, Set<Option> require, Set<Option> forbidden) {
+        ExamplesList<T> examples = new ExamplesList<T>(examplesList, convertor, dataClass, require, forbidden);
+        DialogDescriptor dd = new DialogDescriptor(examples, convertor.getCaption(), true, DialogDescriptor.OK_CANCEL_OPTION, DialogDescriptor.OK_OPTION, null);
         Dialog dialog = DialogDisplayer.getDefault().createDialog(dd);
 
         examples.setDialog(dd, dialog);
@@ -174,5 +211,13 @@ public class ExamplesList extends javax.swing.JPanel {
         }
 
         return null;
+    }
+
+    public interface DialogDescription<T> {
+        public String getCaption();
+        public String getHeader();
+        public String getDisplayName(T t);
+        public String getCode(T t);
+        public Set<Option> getOptions(T t);
     }
 }

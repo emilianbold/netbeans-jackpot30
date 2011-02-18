@@ -128,6 +128,11 @@ public class NFABasedBulkSearchTest extends BulkSearchTestPerformer {
         public BulkPattern create(Collection<? extends String> code, Collection<? extends Tree> patterns, Collection<? extends AdditionalQueryConstraints> additionalConstraints) {
             return new NFABasedBulkSearch().create(code, patterns, additionalConstraints);
         }
+
+        @Override
+        public Map<String, Integer> matchesWithFrequencies(InputStream encoded, BulkPattern pattern) {
+            return new NFABasedBulkSearch().matchesWithFrequencies(encoded, pattern);
+        }
     }
 
     private static final class IndexImpl extends AbstractLuceneIndex {

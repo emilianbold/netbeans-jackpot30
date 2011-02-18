@@ -102,13 +102,20 @@ public class CustomIndexerImpl extends CustomIndexer {
                 w[0].remove(path);
             }
 
+            final boolean attributed = Boolean.getBoolean(CustomIndexerImpl.class.getName() + "-attributed");
+
             if (!toIndex.isEmpty()) {
                 JavaSource.create(cpInfo, toIndex).runUserActionTask(new Task<CompilationController>() {
                     public void run(final CompilationController cc) throws Exception {
-                        if (cc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
+                        if (attributed) {
+                            if (cc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
+                                return ;
+                        } else {
+                        if (cc.toPhase(Phase.PARSED).compareTo(Phase.PARSED) < 0)
                             return ;
+                        }
 
-                        w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit(), new AttributionWrapper(cc));
+                        w[0].record(cc.getFileObject().getURL(), cc.getCompilationUnit(), attributed ? new AttributionWrapper(cc) : null);
                     }
                 }, true);
             }

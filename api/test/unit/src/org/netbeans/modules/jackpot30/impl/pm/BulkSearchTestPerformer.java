@@ -505,6 +505,25 @@ public abstract class BulkSearchTestPerformer extends NbTestCase {
         assertTrue(matches);
     }
 
+    public void testFrequencies() throws Exception {
+        String text = "package test; public class Test { public void test1(boolean b) { java.io.File f = null; f.isDirectory(); f.isDirectory(); new javax.swing.ImageIcon(null); } }";
+
+        prepareTest("test/Test.java", text);
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        EncodingContext ec = new EncodingContext(out, false);
+
+        createSearch().encode(info.getCompilationUnit(), ec);
+        
+        Map<String, Integer> actual = createSearch().matchesWithFrequencies(new ByteArrayInputStream(out.toByteArray()), createSearch().create(info, "$1.isDirectory()", "new ImageIcon($1)"));
+        Map<String, Integer> golden = new HashMap<String, Integer>();
+
+        golden.put("$1.isDirectory()", 2);
+        golden.put("new ImageIcon($1)", 1);
+
+        assertEquals(golden, actual);
+    }
+
     public void testPatternEncodingAndIdentifiers() throws Exception {
         String text = "package test; public class Test { }";
 

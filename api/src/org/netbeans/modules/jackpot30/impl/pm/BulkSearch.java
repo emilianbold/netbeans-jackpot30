@@ -83,6 +83,7 @@ public abstract class BulkSearch {
     public abstract Map<String, Collection<TreePath>> match(CompilationInfo info, TreePath toSearch, BulkPattern pattern, Map<String, Long> timeLog);
 
     public abstract boolean matches(InputStream encoded, BulkPattern pattern);
+    public abstract Map<String, Integer> matchesWithFrequencies(InputStream encoded, BulkPattern pattern);
     
     public abstract boolean matches(CompilationInfo info, TreePath toSearch, BulkPattern pattern);
 

@@ -327,6 +327,10 @@ public class Utilities {
         return parseAndAttribute(null, jti, pattern, null, errors);
     }
 
+    public static Tree parseAndAttribute(JavacTaskImpl jti, String pattern, SourcePositions[] sourcePositions, Collection<Diagnostic<? extends JavaFileObject>> errors) {
+        return parseAndAttribute(null, jti, pattern, null, sourcePositions, errors);
+    }
+
     private static Tree parseAndAttribute(CompilationInfo info, JavacTaskImpl jti, String pattern, Scope scope, Collection<Diagnostic<? extends JavaFileObject>> errors) {
         return parseAndAttribute(info, jti, pattern, scope, new SourcePositions[1], errors);
     }
@@ -1261,6 +1265,25 @@ public class Utilities {
             }
 
             return super.switchBlockStatementGroup();
+        }
+
+
+        @Override
+        protected JCTree resource() {
+            if (S.token() == Token.IDENTIFIER && S.stringVal().startsWith("$")) {
+                //XXX: should inspect the next token, not next character:
+                char[] maybeSemicolon = S.getRawCharacters(S.endPos(), S.endPos() + 1);
+
+                if (maybeSemicolon[0] == ';' || maybeSemicolon[0] == ')') {
+                    int pos = S.pos();
+                    com.sun.tools.javac.util.Name name = S.name();
+
+                    S.nextToken();
+
+                    return F.at(pos).Ident(name);
+                }
+            }
+            return super.resource();
         }
 
     }

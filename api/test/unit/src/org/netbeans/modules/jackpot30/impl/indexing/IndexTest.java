@@ -39,10 +39,12 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import java.util.Map;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import java.util.Collections;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -149,6 +151,33 @@ public class IndexTest extends IndexTestBase {
         verifyIndex("$1.length()", new AdditionalQueryConstraints(Collections.singleton("java.lang.CharSequence")), "test/Test1.java");
     }
 
+    public void testFrequencies() throws Exception {
+        writeFilesAndWaitForScan(src,
+                                 new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); f.isDirectory(); } }"),
+                                 new File("test/Test2.java", "package test; public class Test2 { private void test() { new javax.swing.ImageIcon(null); java.io.File f = null; f.isDirectory(); } }"),
+                                 new File("test/Test3.java", "package test; public class Test3 { private void test() { new javax.swing.ImageIcon(null); new javax.swing.ImageIcon(null); } }")
+                                );
+
+        String[] patterns = new String[] {
+            "$1.isDirectory()",
+            "new ImageIcon($1)"
+        };
+
+        Map<String, Map<String, Integer>> golden = new HashMap<String, Map<String, Integer>>();
+        
+        golden.put("test/Test3.java", Collections.singletonMap("new ImageIcon($1)", 2));
+        golden.put("test/Test1.java", Collections.singletonMap("$1.isDirectory()", 2));
+        
+        Map<String, Integer> freqsTest2 = new HashMap<String, Integer>();
+        
+        freqsTest2.put("$1.isDirectory()", 1);
+        freqsTest2.put("new ImageIcon($1)", 1);
+        
+        golden.put("test/Test2.java", freqsTest2);
+        
+        verifyIndexWithFrequencies(patterns, golden);
+    }
+
     private void verifyIndex(final String[] patterns, String... containedIn) throws Exception {
         ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
         ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),
@@ -187,6 +216,23 @@ public class IndexTest extends IndexTestBase {
         }, true);
 
         Set<String> golden = new HashSet<String>(Arrays.asList(containedIn));
+
+        assertEquals(golden, real);
+    }
+
+    private void verifyIndexWithFrequencies(final String[] patterns, Map<String, Map<String, Integer>> golden) throws Exception {
+        ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
+        ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),
+                                                    EMPTY,
+                                                    EMPTY);
+
+        final Map<String, Map<String, Integer>> real = new HashMap<String, Map<String, Integer>>();
+
+        JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
+            public void run(CompilationController parameter) throws Exception {
+                real.putAll(FileBasedIndex.get(src.getURL()).findCandidatesWithFrequencies(BulkSearch.getDefault().create(parameter, patterns)));
+            }
+        }, true);
 
         assertEquals(golden, real);
     }

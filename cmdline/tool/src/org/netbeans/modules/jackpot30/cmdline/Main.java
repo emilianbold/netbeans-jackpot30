@@ -40,11 +40,14 @@
 package org.netbeans.modules.jackpot30.cmdline;
 
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.PrintStream;
+import java.io.Writer;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -343,13 +346,13 @@ public class Main {
         Collection<ModificationResult> diffs = BatchUtilities.applyFixes(occurrences, w, new AtomicBoolean(), problems);
 
         if (out != null) {
-            OutputStream outS = null;
+            Writer outS = null;
 
             try {
-                outS = new BufferedOutputStream(new FileOutputStream(out));
+                outS = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(out)));
 
                 for (ModificationResult mr : diffs) {
-                    BatchUtilities.exportDiff(mr, outS);
+                    BatchUtilities.exportDiff(mr, null, outS);
                 }
             } finally {
                 try {

@@ -45,6 +45,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -70,6 +71,7 @@ import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
@@ -256,7 +258,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
                 Instanceof i = (Instanceof) c;
 
-                constraints.put(i.variable, i.constraint);
+                constraints.put(i.variable, i.constraint.trim()); //TODO: may i.constraint contain comments? if so, they need to be removed
             }
 
             String imports = parsed.importsBlock != null ? spec.substring(parsed.importsBlock[0], parsed.importsBlock[1]) : "";
@@ -306,6 +308,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 //            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
             f = f.setWorker(new HintDescription.MarksWorker(filterConditions(hint.conditions), new HintsFixAcceptor(hint.conditions, hint.options), fixes));
             f = f.setMetadata(currentMeta);
+            f = f.setAdditionalConstraints(new AdditionalQueryConstraints(new HashSet<String>(constraints.values())));
 
             Collection<HintDescription> hints = result.get(currentMeta);
 

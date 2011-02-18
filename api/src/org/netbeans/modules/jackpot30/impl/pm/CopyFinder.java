@@ -332,8 +332,13 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
             return false;
         }
 
-        if (node == null)
-            return p == null;
+        if (node == null) {
+            if (p == null) return true;
+            if (Utilities.isMultistatementWildcardTree(p.getLeaf())) {
+                return true;
+            }
+            return false;
+        }
 
         if (p != null && p.getLeaf().getKind() == Kind.IDENTIFIER) {
             String ident = ((IdentifierTree) p.getLeaf()).getName().toString();
@@ -358,6 +363,8 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
                         bind = info.getTypes().isAssignable(real, designed);
                     else
                         bind = false;
+                } else {
+                    bind = designed == null;
                 }
 
                 if (bind) {
@@ -555,9 +562,12 @@ public class CopyFinder extends TreeScanner<Boolean, TreePath> {
     }
 
     private Boolean scan(Tree node, Tree p, TreePath pOrigin) {
-        if (node == null || p == null)
-            return node == p;
+        if (node == null && p == null)
+            return true;
 
+        if (node != null && p == null)
+            return false;
+        
         return scan(node, new TreePath(pOrigin, p));
     }
 

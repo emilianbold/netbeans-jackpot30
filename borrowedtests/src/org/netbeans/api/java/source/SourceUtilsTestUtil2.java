@@ -74,7 +74,7 @@ public final class SourceUtilsTestUtil2 {
     }
     
     public static void disableLocks() {
-        FSDirectory.setDisableLocks(true);
+//        FSDirectory.setDisableLocks(true);
     }
     
 }

@@ -23,7 +23,7 @@ download_and_unpack_cluster() {
     unzip -q ../download/*$TRUNK_ID-$1.zip || exit
 }
 
-for cluster in ide platform java harness nb apisupport; do
+for cluster in ide platform java harness nb apisupport extra enterprise; do
     download_and_unpack_cluster $cluster;
 done
 
@@ -59,3 +59,4 @@ call_ant -Ddist.base=$DIST_BASE findbugs || exit
 mkdir -p build/server
 (cp server/do-indexing server/indexer/dist; cd server/indexer/dist/; zip -r ../../../build/server/indexer.zip *)
 (cd server/web.api/dist/; zip -r ../../../build/server/web.api.zip *)
+(cd server/backend; call_ant clean && call_ant build && call_ant test && call_ant build-zip) || exit

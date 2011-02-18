@@ -39,7 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
-import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
+import java.util.Map;
 import com.sun.source.util.Trees;
 import javax.lang.model.util.Types;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
@@ -53,6 +53,7 @@ import java.util.Collection;
 import java.util.Collections;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.openide.util.Exceptions;
@@ -92,6 +93,10 @@ public abstract class Index {
                 }
             }
             @Override
+            public Map<String, Map<String, Integer>> findCandidatesWithFrequencies(BulkPattern pattern) throws IOException {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override
             public @NonNull IndexInfo getIndexInfo() {
                 IndexInfo result = IndexInfo.empty();
 
@@ -109,7 +114,7 @@ public abstract class Index {
             @Override
             public CharSequence getSourceCode(String relativePath) {
                 try {
-                    URI u = new URI(indexURL + "?path=" + escapeForQuery(subIndex) + "&relative=" + escapeForQuery(relativePath));
+                    URI u = new URI(indexURL + "/cat?path=" + escapeForQuery(subIndex) + "&relative=" + escapeForQuery(relativePath));
 
                     return WebUtilities.requestStringResponse(u);
                 } catch (URISyntaxException ex) {
@@ -124,6 +129,7 @@ public abstract class Index {
     public abstract IndexWriter openForWriting() throws IOException;
 
     public abstract Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException;
+    public abstract Map<String, Map<String, Integer>> findCandidatesWithFrequencies(BulkPattern pattern) throws IOException;
 
     public abstract CharSequence getSourceCode(String relativePath);
 
@@ -133,7 +139,7 @@ public abstract class Index {
 
         protected IndexWriter() throws IOException {}
 
-        public abstract void record(URL source, final CompilationUnitTree cut, AttributionWrapper attributed) throws IOException;
+        public abstract void record(URL source, final CompilationUnitTree cut, @NullAllowed AttributionWrapper attributed) throws IOException;
 
         public abstract void remove(String relativePath) throws IOException;
 

@@ -72,7 +72,7 @@ import org.openide.util.lookup.ServiceProvider;
 
 public class IndexingTestUtils {
     
-    public static void writeFilesAndWaitForScan(FileObject sourceRoot, File... files) throws Exception {
+    public static void writeFiles(FileObject sourceRoot, File... files) throws Exception {
         for (FileObject c : sourceRoot.getChildren()) {
             c.delete();
         }
@@ -81,7 +81,10 @@ public class IndexingTestUtils {
             FileObject fo = FileUtil.createData(sourceRoot, f.filename);
             TestUtilities.copyStringToFile(fo, f.content);
         }
+    }
 
+    public static void writeFilesAndWaitForScan(FileObject sourceRoot, File... files) throws Exception {
+        writeFiles(sourceRoot, files);
         SourceUtils.waitScanFinished();
     }
 

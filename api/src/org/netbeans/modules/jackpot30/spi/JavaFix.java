@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.spi;
 
 import com.sun.javadoc.Doc;
 import com.sun.javadoc.Tag;
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
@@ -48,6 +49,7 @@ import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CatchTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
+import com.sun.source.tree.DisjunctiveTypeTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
@@ -62,10 +64,13 @@ import java.util.Collection;
 import java.util.regex.Matcher;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Scope;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -92,6 +97,7 @@ import org.netbeans.api.java.queries.SourceForBinaryQuery;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.SourceUtils;
+import org.netbeans.api.java.source.TreeMaker;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.TypeMirrorHandle;
 import org.netbeans.api.java.source.WorkingCopy;
@@ -106,6 +112,7 @@ import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.modules.SpecificationVersion;
 import org.openide.util.Lookup;
+import org.openide.util.NbBundle.Messages;
 
 /**
  *
@@ -525,7 +532,17 @@ public abstract class JavaFix {
                 wc.rewrite(tp.getLeaf(), parsed);
             }
 
-            new ReplaceParameters(wc, canShowUI, parameters, parametersMulti, parameterNames).scan(new TreePath(tp.getParentPath(), parsed), null);
+            //prevent generating QualIdents inside import clauses - might be better to solve that inside ImportAnalysis2,
+            //but that seems not to be straightforward:
+            boolean inImport = parsed.getKind() == Kind.IMPORT;
+            TreePath w = tp.getParentPath();
+
+            while (!inImport && w != null) {
+                inImport |= w.getLeaf().getKind() == Kind.IMPORT;
+                w = w.getParentPath();
+            }
+
+            new ReplaceParameters(wc, canShowUI, inImport, parameters, parametersMulti, parameterNames).scan(new TreePath(tp.getParentPath(), parsed), null);
         }
     }
 
@@ -535,14 +552,16 @@ public abstract class JavaFix {
 
         private final WorkingCopy wc;
         private final boolean canShowUI;
+        private final boolean inImport;
         private final Map<String, TreePath> parameters;
         private final Map<String, Collection<TreePath>> parametersMulti;
         private final Map<String, String> parameterNames;
 
-        public ReplaceParameters(WorkingCopy wc, boolean canShowUI, Map<String, TreePath> parameters, Map<String, Collection<TreePath>> parametersMulti, Map<String, String> parameterNames) {
+        public ReplaceParameters(WorkingCopy wc, boolean canShowUI, boolean inImport, Map<String, TreePath> parameters, Map<String, Collection<TreePath>> parametersMulti, Map<String, String> parameterNames) {
             this.parameters = parameters;
             this.wc = wc;
             this.canShowUI = canShowUI;
+            this.inImport = inImport;
             this.parametersMulti = parametersMulti;
             this.parameterNames = parameterNames;
         }
@@ -589,7 +608,7 @@ public abstract class JavaFix {
 
             Element e = wc.getTrees().getElement(getCurrentPath());
 
-            if (e != null && isStaticElement(e)) {
+            if (e != null && isStaticElement(e) && !inImport) {
                 wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
             }
 
@@ -626,7 +645,7 @@ public abstract class JavaFix {
             //check correct dependency:
             checkDependency(wc, e, canShowUI);
 
-            if (isStaticElement(e)) {
+            if (isStaticElement(e) && !inImport) {
                 wc.rewrite(node, wc.getTreeMaker().QualIdent(e));
 
                 return null;
@@ -1091,5 +1110,167 @@ public abstract class JavaFix {
             }
         };
     }
-    
+
+    @Messages("FIX_RemoveFromParent=Remove {0} from parent")
+    public static Fix removeFromParent(HintContext ctx, TreePath what) {
+        return removeFromParent(ctx, Bundle.FIX_RemoveFromParent(/*TODO: better short name:*/what.getLeaf().toString()), what);
+    }
+
+    public static Fix removeFromParent(HintContext ctx, String displayName, TreePath what) {
+        return toEditorFix(new RemoveFromParent(displayName, ctx.getInfo(), what));
+    }
+
+    private static final class RemoveFromParent extends JavaFix {
+
+        private final String displayName;
+
+        public RemoveFromParent(String displayName, CompilationInfo info, TreePath toRemove) {
+            super(info, toRemove);
+            this.displayName = displayName;
+        }
+
+        @Override
+        protected String getText() {
+            return displayName;
+        }
+
+        @Override
+        protected void performRewrite(WorkingCopy wc, TreePath tp, boolean canShowUI) {
+            TreeMaker make = wc.getTreeMaker();
+            Tree leaf = tp.getLeaf();
+            Tree parentLeaf = tp.getParentPath().getLeaf();
+
+            switch (parentLeaf.getKind()) {
+                case ANNOTATION:
+                    AnnotationTree at = (AnnotationTree) parentLeaf;
+                    AnnotationTree newAnnot;
+
+                    newAnnot = make.removeAnnotationAttrValue(at, (ExpressionTree) leaf);
+
+                    wc.rewrite(at, newAnnot);
+                    break;
+                case BLOCK:
+                    BlockTree bt = (BlockTree) parentLeaf;
+
+                    wc.rewrite(bt, make.removeBlockStatement(bt, (StatementTree) leaf));
+                    break;
+                case CASE:
+                    CaseTree caseTree = (CaseTree) parentLeaf;
+                    
+                    wc.rewrite(caseTree, make.removeCaseStatement(caseTree, (StatementTree) leaf));
+                    break;
+                case CLASS:
+                    ClassTree classTree = (ClassTree) parentLeaf;
+                    ClassTree nueClassTree;
+
+                    if (classTree.getTypeParameters().contains(leaf)) {
+                        nueClassTree = make.removeClassTypeParameter(classTree, (TypeParameterTree) leaf);
+                    } else if (classTree.getExtendsClause() == leaf) {
+                        nueClassTree = make.Class(classTree.getModifiers(), classTree.getSimpleName(), classTree.getTypeParameters(), null, classTree.getImplementsClause(), classTree.getMembers());
+                    } else if (classTree.getImplementsClause().contains(leaf)) {
+                        nueClassTree = make.removeClassImplementsClause(classTree, leaf);
+                    } else if (classTree.getMembers().contains(leaf)) {
+                        nueClassTree = make.removeClassMember(classTree, leaf);
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    wc.rewrite(classTree, nueClassTree);
+                    break;
+                case DISJUNCTIVE_TYPE:
+                    DisjunctiveTypeTree disjunct = (DisjunctiveTypeTree) parentLeaf;
+                    List<? extends Tree> alternatives = new LinkedList<Tree>(disjunct.getTypeAlternatives());
+
+                    alternatives.remove(leaf);
+
+                    wc.rewrite(disjunct, make.DisjunctiveType(alternatives));
+                    break;
+                case METHOD:
+                    MethodTree mTree = (MethodTree) parentLeaf;
+                    MethodTree newMethod;
+
+                    if (mTree.getTypeParameters().contains(leaf)) {
+                        newMethod = make.removeMethodTypeParameter(mTree, (TypeParameterTree) leaf);
+                    } else if (mTree.getParameters().contains(leaf)) {
+                        newMethod = make.removeMethodParameter(mTree, (VariableTree) leaf);
+                    } else if (mTree.getThrows().contains(leaf)) {
+                        newMethod = make.removeMethodThrows(mTree, (ExpressionTree) leaf);
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    wc.rewrite(mTree, newMethod);
+                    break;
+                case METHOD_INVOCATION:
+                    MethodInvocationTree iTree = (MethodInvocationTree) parentLeaf;
+                    MethodInvocationTree newInvocation;
+
+                    if (iTree.getTypeArguments().contains(leaf)) {
+                        newInvocation = make.removeMethodInvocationTypeArgument(iTree, (ExpressionTree) leaf);
+                    } else if (iTree.getArguments().contains(leaf)) {
+                        newInvocation = make.removeMethodInvocationArgument(iTree, (ExpressionTree) leaf);
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    wc.rewrite(iTree, newInvocation);
+                    break;
+                case MODIFIERS:
+                    ModifiersTree modsTree = (ModifiersTree) parentLeaf;
+
+                    wc.rewrite(modsTree, make.removeModifiersAnnotation(modsTree, (AnnotationTree) leaf));
+                    break;
+                case NEW_CLASS:
+                    NewClassTree newCTree = (NewClassTree) parentLeaf;
+                    NewClassTree newNCT;
+
+                    if (newCTree.getTypeArguments().contains(leaf)) {
+                        newNCT = make.removeNewClassTypeArgument(newCTree, (ExpressionTree) leaf);
+                    } else if (newCTree.getArguments().contains(leaf)) {
+                        newNCT = make.removeNewClassArgument(newCTree, (ExpressionTree) leaf);
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    wc.rewrite(newCTree, newNCT);
+                    break;
+                case PARAMETERIZED_TYPE:
+                    ParameterizedTypeTree parTree = (ParameterizedTypeTree) parentLeaf;
+
+                    wc.rewrite(parTree, make.removeParameterizedTypeTypeArgument(parTree, (ExpressionTree) leaf));
+                    break;
+                case SWITCH:
+                    SwitchTree switchTree = (SwitchTree) parentLeaf;
+                    SwitchTree newSwitch;
+
+                    if (switchTree.getCases().contains(leaf)) {
+                        newSwitch = make.removeSwitchCase(switchTree, (CaseTree) leaf);
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    wc.rewrite(switchTree, newSwitch);
+                    break;
+                case TRY:
+                    TryTree tryTree = (TryTree) parentLeaf;
+                    TryTree newTry;
+
+                    if (tryTree.getResources().contains(leaf)) {
+                        LinkedList<Tree> resources = new LinkedList<Tree>(tryTree.getResources());
+
+                        resources.remove(leaf);
+
+                        newTry = make.Try(resources, tryTree.getBlock(), tryTree.getCatches(), tryTree.getFinallyBlock());
+                    } else if (tryTree.getCatches().contains(leaf)) {
+                        newTry = make.removeTryCatch(tryTree, (CatchTree) leaf);
+                    } else {
+                        throw new UnsupportedOperationException();
+                    }
+
+                    wc.rewrite(tryTree, newTry);
+                    break;
+            }
+        }
+
+    }
 }

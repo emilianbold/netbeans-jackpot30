@@ -45,9 +45,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -138,13 +136,17 @@ public class Context {
             return null;
         }
 
+        return enterAuxiliaryVariable(tp.getParentPath());
+    }
+
+    private Variable enterAuxiliaryVariable(TreePath path) {
         String output = "*" + auxiliaryVariableCounter.getAndIncrement();
 
-        ctx.putVariable(output, tp.getParentPath());
+        ctx.putVariable(output, path);
 
         return new Variable(output);
     }
-
+    
     public @NonNull Variable variableForName(@NonNull String variableName) {
         Variable result = new Variable(variableName);
 
@@ -261,6 +263,11 @@ public class Context {
         @Override //XXX can be removed:
         public Map<String, String> getVariableNames(Context ctx) {
             return ctx.ctx.getVariableNames();
+        }
+
+        @Override
+        public Variable enterAuxiliaryVariable(Context ctx, TreePath source) {
+            return ctx.enterAuxiliaryVariable(source);
         }
 
     }

@@ -67,20 +67,22 @@ public class Cache {
     private static File standaloneCacheRoot;
     private static Map<String, Cache> name2Cache = new HashMap<String, Cache>();
 
-    public static Cache findCache(String indexName) {
+    public static Cache findCache(String indexName, int version) {
         Cache cache = name2Cache.get(indexName);
 
         if (cache == null) {
-            name2Cache.put(indexName, cache = new Cache(indexName));
+            name2Cache.put(indexName, cache = new Cache(indexName, version));
         }
 
         return cache;
     }
 
     private final String name;
+    private final int version;
 
-    private Cache(String name) {
+    private Cache(String name, int version) {
         this.name = name;
+        this.version = version;
     }
     
     public File findCacheRoot(URL sourceRoot) throws IOException {
@@ -90,7 +92,7 @@ public class Cache {
             Logger.getLogger(Cache.class.getName()).log(Level.SEVERE, null, ex);
         }
         if (standaloneCacheRoot != null) {
-            return getDataFolder(sourceRoot, name);
+            return getDataFolder(sourceRoot, name, version);
         } else {
             throw new IllegalStateException();
         }
@@ -179,7 +181,7 @@ public class Cache {
         }
     }
 
-    private static synchronized File getDataFolder (final URL root, String name) throws IOException {
+    private static synchronized File getDataFolder (final URL root, String name, int version) throws IOException {
         loadSegments ();
         final String rootName = root.toExternalForm();
         String slice = invertedSegments.get (rootName);
@@ -193,7 +195,7 @@ public class Cache {
             storeSegments ();
         }
         final File folder = standaloneCacheRoot;
-        return new File(new File(folder, slice), name);
+        return new File(new File(new File(folder, slice), name), Integer.toString(version));
     }
 
     private static synchronized File getCacheFolder () {

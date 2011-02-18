@@ -44,13 +44,10 @@ import com.sun.source.tree.ImportTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.util.Log;
-import java.io.ByteArrayInputStream;
-import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.Reader;
 import java.io.StringReader;
+import java.io.Writer;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.nio.charset.Charset;
@@ -71,6 +68,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.text.Document;
 import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
@@ -327,7 +325,7 @@ public class BatchUtilities {
 //        }
     }
 
-    public static void exportDiff(ModificationResult result, OutputStream out) throws IOException {
+    public static void exportDiff(ModificationResult result, @NullAllowed FileObject relativeTo, Writer out) throws IOException {
         for (FileObject f : result.getModifiedFileObjects()) {
             Charset c = FileEncodingQuery.getEncoding(f);
             String orig = new String(f.asBytes(), c);
@@ -336,15 +334,15 @@ public class BatchUtilities {
             if (orig.equals(nue)) {
                 continue;
             }
+
+            String name = relativeTo != null ? FileUtil.getRelativePath(relativeTo, f) : FileUtil.toFile(f).getAbsolutePath();
             
-            File jiFile = FileUtil.toFile(f);
-            
-            doExportDiff(jiFile.getAbsolutePath(), orig, nue, out);
+            doExportDiff(name, orig, nue, out);
         }
     }
 
     //copied from the diff module:
-    private static void doExportDiff(String name, String original, String modified, OutputStream out) throws IOException {
+    private static void doExportDiff(String name, String original, String modified, Writer out) throws IOException {
         DiffProvider diff = new BuiltInDiffProvider();//(DiffProvider) Lookup.getDefault().lookup(DiffProvider.class);
 
         Reader r1 = null;
@@ -361,7 +359,6 @@ public class BatchUtilities {
         }
 
         try {
-            InputStream is;
             r1 = new StringReader(original);
             r2 = new StringReader(modified);
             TextDiffVisualizer.TextDiffInfo info = new TextDiffVisualizer.TextDiffInfo(
@@ -380,12 +377,7 @@ public class BatchUtilities {
 //            } else {
 //                diffText = TextDiffVisualizer.differenceToNormalDiffText(info);
 //            }
-            is = new ByteArrayInputStream(diffText.getBytes("utf8"));  // NOI18N
-            while(true) {
-                int i = is.read();
-                if (i == -1) break;
-                out.write(i);
-            }
+            out.write(diffText);
         } finally {
             if (r1 != null) try { r1.close(); } catch (Exception e) {}
             if (r2 != null) try { r2.close(); } catch (Exception e) {}
