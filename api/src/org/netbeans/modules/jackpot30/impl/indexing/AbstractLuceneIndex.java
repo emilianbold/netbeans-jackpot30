@@ -133,8 +133,9 @@ public abstract class AbstractLuceneIndex extends Index {
 
         if (reader == null) {
              return Collections.emptyMap();
-         }
+        }
 
+        try {
         Searcher s = new IndexSearcher(reader);
         BitSet matchingDocuments = new BitSet(reader.maxDoc());
         Collector c = new BitSetCollector(matchingDocuments);
@@ -182,6 +183,10 @@ public abstract class AbstractLuceneIndex extends Index {
         }
 
         return result;
+        } finally {
+            //TODO: might be better to cache the index/reader(s)
+            reader.close();
+        }
     }
 
     private Query query(BulkPattern pattern) throws ParseException {
