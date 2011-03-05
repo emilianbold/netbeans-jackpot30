@@ -132,7 +132,6 @@ public class API {
                     result.append(FileUtil.getRelativePath(deepestCommonParent, r.getResolvedFile()));
                     result.append("\n");
                 }
-                System.err.println("processed file=" + r.getRelativePath());
                 return true;
             }
             @Override public void groupFinished() {}
@@ -140,6 +139,44 @@ public class API {
         }, true, new LinkedList<MessageImpl>()); //TODO: show the messages to the user?
 
         return result.toString();
+    }
+
+    @GET
+    @Path("/findWithSpans")
+    @Produces("text/plain")
+    //TODO: parameter for "verified"?
+    public String findWithSpans(@QueryParam("path") String segment, @QueryParam("pattern") String pattern, @QueryParam("asynchronous") @DefaultValue(value="false") boolean asynchronous) throws IOException {
+        assert !asynchronous;
+
+        Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
+        Set<FileObject> srcRoots = CategoryStorage.getCategoryContent(segment);
+        final FileObject deepestCommonParent = deepestCommonParent(srcRoots);
+        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scope.createGivenSourceRoots(true, srcRoots.toArray(new FileObject[0])));
+        final Map<String, int[][]> result = new HashMap<String, int[][]>();
+
+        BatchSearch.getVerifiedSpans(batchResult, new ProgressHandleWrapper(1), new BatchSearch.VerifiedSpansCallBack() {
+            @Override public void groupStarted() {}
+            @Override public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
+                if (!hints.isEmpty()) {
+                    int[][] spans = new int[hints.size()][];
+                    int i = 0;
+
+                    for (ErrorDescription ed : hints) {
+                        spans[i++] = new int[] {
+                            ed.getRange().getBegin().getOffset(),
+                            ed.getRange().getEnd().getOffset()
+                        };
+                    }
+
+                    result.put(FileUtil.getRelativePath(deepestCommonParent, r.getResolvedFile()), spans);
+                }
+                return true;
+            }
+            @Override public void groupFinished() {}
+            @Override public void cannotVerifySpan(Resource r) { /*TODO: warn user?*/ }
+        }, true, new LinkedList<MessageImpl>()); //TODO: show the messages to the user?
+
+        return Pojson.save(result);
     }
 
 //    @GET

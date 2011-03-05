@@ -178,6 +178,15 @@ public class IndexTest extends IndexTestBase {
         verifyIndexWithFrequencies(patterns, golden);
     }
 
+    public void testInnerClass() throws Exception {
+        Index index = FileBasedIndex.get(src.getURL());
+        indexFiles(src.getURL().toURI(),
+                   index,
+                   new File("test/Test1.java", "package test; public class Test1 { private static final class O implements Iterable<String> { private String next; private String computeNext() { return null; } public String hasNext() { next = computeNext(); return next != null; } } }", true));
+
+        verifyIndex("$this.computeNext()", new AdditionalQueryConstraints(Collections.singleton("test.Test1.O")), "test/Test1.java");
+    }
+
     private void verifyIndex(final String[] patterns, String... containedIn) throws Exception {
         ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
         ClasspathInfo cpInfo = ClasspathInfo.create(ClassPathSupport.createClassPath(SourceUtilsTestUtil.getBootClassPath().toArray(new URL[0])),

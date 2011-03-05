@@ -258,8 +258,9 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             }
 
             String imports = parsed.importsBlock != null ? spec.substring(parsed.importsBlock[0], parsed.importsBlock[1]) : "";
+            String[] importsArray = parsed.importsBlock != null ? new String[] {spec.substring(parsed.importsBlock[0], parsed.importsBlock[1])} : new String[0];
 
-            f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints, imports));
+            f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints, importsArray));
 
             List<DeclarativeFix> fixes = new LinkedList<DeclarativeFix>();
 
@@ -301,6 +302,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
             f = f.setMetadata(currentMeta);
             f = f.setAdditionalConstraints(new AdditionalQueryConstraints(new HashSet<String>(constraints.values())));
+            f = f.setHintText(spec.substring(hint.textStart, hint.hintEnd));
 
             Collection<HintDescription> hints = result.get(currentMeta);
 

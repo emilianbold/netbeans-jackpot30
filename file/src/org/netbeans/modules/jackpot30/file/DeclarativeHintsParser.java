@@ -254,7 +254,7 @@ public class DeclarativeHintsParser {
             targets.add(new FixTextDescription(fixDisplayName, span, fixConditions, fixConditionSpans, fixOptions));
         }
 
-        hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, conditionsSpans, targets, ruleOptions));
+        hints.add(new HintTextDescription(displayName, patternStart, patternEnd, input.offset() + input.token().length(), conditions, conditionsSpans, targets, ruleOptions));
     }
     
     private void parseConditions(List<Condition> conditions, List<int[]> spans) {
@@ -492,15 +492,17 @@ public class DeclarativeHintsParser {
         public final String displayName;
         public final int textStart;
         public final int textEnd;
+        public final int hintEnd;
         public final List<Condition> conditions;
         public final List<int[]> conditionSpans;
         public final List<FixTextDescription> fixes;
         public final Map<String, String> options;
 
-        public HintTextDescription(String displayName, int textStart, int textEnd, List<Condition> conditions, List<int[]> conditionSpans, List<FixTextDescription> fixes, Map<String, String> options) {
+        public HintTextDescription(String displayName, int textStart, int textEnd, int hintEnd, List<Condition> conditions, List<int[]> conditionSpans, List<FixTextDescription> fixes, Map<String, String> options) {
             this.displayName = displayName;
             this.textStart = textStart;
             this.textEnd = textEnd;
+            this.hintEnd = hintEnd;
             this.conditions = conditions;
             this.conditionSpans = conditionSpans;
             this.fixes = fixes;

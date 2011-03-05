@@ -1,7 +1,10 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2011 Oracle and/or its affiliates. All rights reserved.
+ *
+ * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
+ * Other names may be trademarks of their respective owners.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -13,9 +16,9 @@
  * specific language governing permissions and limitations under the
  * License.  When distributing the software, include this License Header
  * Notice in each file and include the License file at
- * nbbuild/licenses/CDDL-GPL-2-CP.  Sun designates this
+ * nbbuild/licenses/CDDL-GPL-2-CP.  Oracle designates this
  * particular file as subject to the "Classpath" exception as provided
- * by Sun in the GPL Version 2 section of the License file that
+ * by Oracle in the GPL Version 2 section of the License file that
  * accompanied this code. If applicable, add the following below the
  * License Header, with the fields enclosed by brackets [] replaced by
  * your own identifying information:
@@ -34,10 +37,10 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009 Sun Microsystems, Inc.
+ * Portions Copyrighted 2011 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.impl.refactoring;
+package org.netbeans.modules.jackpot30.impl.refactoring.findusages;
 
 import java.util.Collection;
 import java.util.LinkedList;
@@ -45,16 +48,23 @@ import java.util.List;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
-import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
+import org.netbeans.modules.jackpot30.impl.refactoring.AbstractApplyHintsRefactoringPlugin;
+import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 
-public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactoringPlugin {
+/**
+ *
+ * @author lahvac
+ */
+public class GlobalFindUsagesRefactoringPlugin extends AbstractApplyHintsRefactoringPlugin {
 
-    private final FindDuplicatesRefactoring refactoring;
+    private final GlobalFindUsagesRefactoring refactoring;
 
-    public FindDuplicatesRefactoringPlugin(FindDuplicatesRefactoring refactoring) {
+    public GlobalFindUsagesRefactoringPlugin(GlobalFindUsagesRefactoring refactoring) {
         super(refactoring);
         this.refactoring = refactoring;
     }
@@ -74,34 +84,22 @@ public class FindDuplicatesRefactoringPlugin extends AbstractApplyHintsRefactori
      public Problem prepare(RefactoringElementsBag refactoringElements) {
         cancel.set(false);
 
-        Collection<MessageImpl> problems = refactoring.isQuery() ? performSearchForPattern(refactoringElements) : performApplyPattern(refactoringElements);
-        Problem current = null;
+        Collection<MessageImpl> problems = performSearchForPattern(refactoringElements);
 
-        for (MessageImpl problem : problems) {
-            Problem p = new Problem(problem.kind == MessageKind.ERROR, problem.text);
-
-            if (current != null)
-                p.setNext(current);
-            current = p;
-        }
-
-        return current;
+        return messagesToProblem(problems);
     }
 
     private List<MessageImpl> performSearchForPattern(final RefactoringElementsBag refactoringElements) {
         ProgressHandleWrapper w = new ProgressHandleWrapper(this, 50, 50);
-        BatchResult candidates = BatchSearch.findOccurrences(refactoring.getPattern(), refactoring.getScope(), w);
+        Iterable<? extends HintDescription> hints = PatternConvertor.create(refactoring.script);
+        BatchResult candidates = BatchSearch.findOccurrences(hints, Scope.createAllRemote(), w);
         List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
 
-        prepareElements(candidates, w, refactoringElements, refactoring.isVerify(), problems);
+        prepareElements(candidates, w, refactoringElements, true, problems);
 
         w.finish();
 
         return problems;
      }
-
-    private Collection<MessageImpl> performApplyPattern(RefactoringElementsBag refactoringElements) {
-        return performApplyPattern(refactoring.getPattern(), refactoring.getScope(), refactoringElements);
-    }
-
+    
 }

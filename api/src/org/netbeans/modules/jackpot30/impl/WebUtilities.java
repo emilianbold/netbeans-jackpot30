@@ -52,6 +52,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.netbeans.api.annotations.common.CheckForNull;
 
 /**
  *
@@ -61,7 +62,7 @@ public class WebUtilities {
     private WebUtilities() {
     }
 
-    public static String requestStringResponse (URI uri) {
+    public static @CheckForNull String requestStringResponse (URI uri) {
         final StringBuffer sb = new StringBuffer ();
         final URL url;
         try {
@@ -85,6 +86,7 @@ public class WebUtilities {
             }
         } catch (IOException e) {
             e.printStackTrace ();  // TODO
+            return null;
         }
         return sb.toString ();
     }

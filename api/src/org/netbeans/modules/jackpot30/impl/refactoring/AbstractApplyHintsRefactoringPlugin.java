@@ -44,12 +44,15 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.util.Collection;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.ModificationResult.Difference;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
 import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
@@ -62,7 +65,9 @@ import org.netbeans.modules.refactoring.java.spi.DiffElement;
 import org.netbeans.modules.refactoring.spi.ProgressProviderAdapter;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileObject;
+import org.openide.text.PositionBounds;
 
 /**
  *
@@ -114,6 +119,51 @@ public abstract class AbstractApplyHintsRefactoringPlugin extends ProgressProvid
         w.finish();
 
         return problems;
+    }
+
+    protected final void prepareElements(BatchResult candidates, ProgressHandleWrapper w, final RefactoringElementsBag refactoringElements, final boolean verify, List<MessageImpl> problems) {
+        if (verify) {
+            BatchSearch.getVerifiedSpans(candidates, w, new BatchSearch.VerifiedSpansCallBack() {
+                public void groupStarted() {}
+                public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
+                    List<PositionBounds> spans = new LinkedList<PositionBounds>();
+
+                    for (ErrorDescription ed : hints) {
+                        spans.add(ed.getRange());
+                    }
+
+                    refactoringElements.addAll(refactoring, Utilities.createRefactoringElementImplementation(r.getResolvedFile(), spans, verify));
+
+                    return true;
+                }
+                public void groupFinished() {}
+                public void cannotVerifySpan(Resource r) {
+                    refactoringElements.addAll(refactoring, Utilities.createRefactoringElementImplementation(r.getResolvedFile(), prepareSpansFor(r), verify));
+                }
+            }, problems);
+        } else {
+            int[] parts = new int[candidates.getResources().size()];
+            int   index = 0;
+
+            for (Collection<? extends Resource> resources : candidates.getResources()) {
+                parts[index++] = resources.size();
+            }
+
+            ProgressHandleWrapper inner = w.startNextPartWithEmbedding(parts);
+
+            for (Collection<? extends Resource> it :candidates.getResources()) {
+                inner.startNextPart(it.size());
+
+                for (Resource r : it) {
+                    refactoringElements.addAll(refactoring, Utilities.createRefactoringElementImplementation(r.getResolvedFile(), prepareSpansFor(r), verify));
+                    inner.tick();
+                }
+            }
+        }
+    }
+
+    private static List<PositionBounds> prepareSpansFor(Resource r) {
+        return Utilities.prepareSpansFor(r.getResolvedFile(), r.getCandidateSpans());
     }
 
     public void start(int totalWork) {

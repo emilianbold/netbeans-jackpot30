@@ -46,6 +46,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.util.Parameters;
 
@@ -60,13 +61,15 @@ public final class HintDescription {
     private final PatternDescription triggerPattern;
     private final Worker worker;
     private final AdditionalQueryConstraints additionalConstraints;
+    private final String hintText;
 
-    private HintDescription(HintMetadata metadata, Kind triggerKind, PatternDescription triggerPattern, Worker worker, AdditionalQueryConstraints additionalConstraints) {
+    private HintDescription(HintMetadata metadata, Kind triggerKind, PatternDescription triggerPattern, Worker worker, AdditionalQueryConstraints additionalConstraints, String hintText) {
         this.metadata = metadata;
         this.triggerKind = triggerKind;
         this.triggerPattern = triggerPattern;
         this.worker = worker;
         this.additionalConstraints = additionalConstraints;
+        this.hintText = hintText;
     }
 
     //XXX: should not be public
@@ -96,12 +99,17 @@ public final class HintDescription {
         return additionalConstraints;
     }
 
-    static HintDescription create(HintMetadata metadata, PatternDescription triggerPattern, Worker worker, AdditionalQueryConstraints additionalConstraints) {
-        return new HintDescription(metadata, null, triggerPattern, worker, additionalConstraints);
+    //XXX: should not be accessible to public
+    public @CheckForNull String getHintText() {
+        return hintText;
     }
 
-    static HintDescription create(HintMetadata metadata, Kind triggerKind, Worker worker, AdditionalQueryConstraints additionalConstraints) {
-        return new HintDescription(metadata, triggerKind, null, worker, additionalConstraints);
+    static HintDescription create(HintMetadata metadata, PatternDescription triggerPattern, Worker worker, AdditionalQueryConstraints additionalConstraints, String hintText) {
+        return new HintDescription(metadata, null, triggerPattern, worker, additionalConstraints, hintText);
+    }
+
+    static HintDescription create(HintMetadata metadata, Kind triggerKind, Worker worker, AdditionalQueryConstraints additionalConstraints, String hintText) {
+        return new HintDescription(metadata, triggerKind, null, worker, additionalConstraints, hintText);
     }
 
     @Override
