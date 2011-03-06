@@ -99,6 +99,7 @@ import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Value;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
+import org.netbeans.modules.jackpot30.spi.support.FixFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.Fix;
@@ -559,8 +560,22 @@ public class HintsInvoker {
                 if (hed.fixDescriptions.isEmpty()) {
                     //XXX: @SuppressWarnings!
                     ErrorDescription ed = hed.acceptor.accept(hed.ctx);
+                    List<String> swKeys = new ArrayList<String>();
 
-                    ed = ErrorDescriptionFactory.createErrorDescription(ed.getSeverity(), ed.getDescription(), hed.createdFixes, ed.getFile(), ed.getRange().getBegin().getOffset(), ed.getRange().getEnd().getOffset());
+                    for (String key : hed.hd.getSuppressWarnings()) {
+                        if (key == null) break;
+                        swKeys.add(key);
+                    }
+
+                    List<Fix> fixes = new ArrayList<Fix>();
+
+                    fixes.addAll(hed.createdFixes);
+
+                    if (!swKeys.isEmpty()) {
+                        fixes.addAll(FixFactory.createSuppressWarnings(info, hed.ctx.getPath(), swKeys.toArray(new String[0])));
+                    }
+
+                    ed = ErrorDescriptionFactory.createErrorDescription(ed.getSeverity(), ed.getDescription(), fixes, ed.getFile(), ed.getRange().getBegin().getOffset(), ed.getRange().getEnd().getOffset());
 
                     if (ed != null) {
                         merge(errors, hed.hd, ed);
