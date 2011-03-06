@@ -59,6 +59,7 @@ import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.queries.SourceLevelQuery;
 import org.netbeans.modules.jackpot30.file.APIAccessor;
+import org.netbeans.modules.jackpot30.file.Utilities;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 
@@ -69,8 +70,7 @@ import org.netbeans.modules.jackpot30.spi.HintContext;
 public class Context {
 
             final HintContext ctx;
-    private final AtomicInteger auxiliaryVariableCounter = new AtomicInteger();
-
+            
     //XXX: should not be public:
     public Context(HintContext ctx) {
         this.ctx = ctx;
@@ -140,7 +140,7 @@ public class Context {
     }
 
     private Variable enterAuxiliaryVariable(TreePath path) {
-        String output = "*" + auxiliaryVariableCounter.getAndIncrement();
+        String output = Utilities.getNextUnusedName();
 
         ctx.putVariable(output, path);
 
@@ -248,21 +248,6 @@ public class Context {
         @Override
         public HintContext getHintContext(Context ctx) {
             return ctx.ctx;
-        }
-
-        @Override //XXX can be removed:
-        public Map<String, TreePath> getVariables(Context ctx) {
-            return ctx.ctx.getVariables();
-        }
-
-        @Override //XXX can be removed:
-        public Map<String, Collection<? extends TreePath>> getMultiVariables(Context ctx) {
-            return ctx.ctx.getMultiVariables();
-        }
-
-        @Override //XXX can be removed:
-        public Map<String, String> getVariableNames(Context ctx) {
-            return ctx.ctx.getVariableNames();
         }
 
         @Override

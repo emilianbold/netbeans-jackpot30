@@ -50,10 +50,10 @@ public final class DeclarativeFix {
 
     private final String pattern;
     private final String displayName;
-    private final List<Condition> conditions;
+    private final List<DeclarativeCondition> conditions;
     private final Map<String, String> options;
 
-    private DeclarativeFix(String pattern, String displayName, List<Condition> conditions, Map<String, String> options) {
+    private DeclarativeFix(String pattern, String displayName, List<DeclarativeCondition> conditions, Map<String, String> options) {
         this.pattern = pattern;
         this.displayName = displayName;
         this.conditions = conditions;
@@ -68,7 +68,7 @@ public final class DeclarativeFix {
         return displayName;
     }
 
-    public List<Condition> getConditions() {
+    public List<DeclarativeCondition> getConditions() {
         return conditions;
     }
 
@@ -76,7 +76,7 @@ public final class DeclarativeFix {
         return options;
     }
 
-    public static DeclarativeFix create(String name, String fix, List<Condition> conditions, Map<String, String> options) {
+    public static DeclarativeFix create(String name, String fix, List<DeclarativeCondition> conditions, Map<String, String> options) {
         return new DeclarativeFix(fix, name, conditions, options);
     }
 }

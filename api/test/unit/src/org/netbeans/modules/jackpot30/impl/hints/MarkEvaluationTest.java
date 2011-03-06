@@ -56,6 +56,7 @@ import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarksWorker;
@@ -91,9 +92,9 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
     }
 
     private void prepareSimpleEvaluationHint() throws Exception {
-        List<MarkCondition> globalConditions = Arrays.asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
-        List<MarkCondition> fix1Conditions = Arrays.asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.EQUALS, new Selector("$var")));
-        List<MarkCondition> fix2Conditions = Arrays.asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
+        List<Condition> globalConditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
+        List<Condition> fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.EQUALS, new Selector("$var")));
+        List<Condition> fix2Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
         DeclarativeFixDescription f1 = new DeclarativeFixDescription(fix1Conditions, TRUE, "if ($var != $c) $then;");
         DeclarativeFixDescription f2 = new DeclarativeFixDescription(fix2Conditions, TRUE, "if ($c == $var) $then;");
         currentHint = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))
@@ -191,10 +192,10 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
 //    }
 
     public void testClearUnrealizedAssignments1() throws Exception {
-        List<MarkCondition> globalConditions = Arrays.<MarkCondition>asList();
-        List<MarkCondition> fix1Conditions = Arrays.asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")),
-                                                           new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
-        List<MarkCondition> fix2Conditions = Arrays.asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
+        List<Condition> globalConditions = Arrays.<Condition>asList();
+        List<Condition> fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")),
+                                                                  new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
+        List<Condition> fix2Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
         DeclarativeFixDescription f1 = new DeclarativeFixDescription(fix1Conditions, TRUE, "if ($var != $c) $then;");
         DeclarativeFixDescription f2 = new DeclarativeFixDescription(fix2Conditions, TRUE, "if ($c == $var) $then;");
         currentHint = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))
@@ -228,10 +229,10 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
     }
 
     public void testClearUnrealizedAssignments2() throws Exception {
-        List<MarkCondition> hint1GlobalConditions = Arrays.<MarkCondition>asList();
-        List<MarkCondition> hint2GlobalConditions = Arrays.asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")),
-                                                                  new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
-        List<MarkCondition> hint1Fix1Conditions = Arrays.asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
+        List<Condition> hint1GlobalConditions = Arrays.<Condition>asList();
+        List<Condition> hint2GlobalConditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")),
+                                                                         new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
+        List<Condition> hint1Fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
         DeclarativeFixDescription h1f1 = new DeclarativeFixDescription(hint1Fix1Conditions, TRUE, "if ($c == $var) $then;");
         HintDescription hint1 = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))
                                                                .setTriggerPattern(PatternDescription.create("if ($var == $c) $then;"))
@@ -270,10 +271,10 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
     }
 
     public void testClearUnrealizedAssignments3() throws Exception {
-        List<MarkCondition> hint1GlobalConditions = Arrays.<MarkCondition>asList();
-        List<MarkCondition> hint2GlobalConditions = Arrays.<MarkCondition>asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")));
-        List<MarkCondition> hint1Fix1Conditions = Arrays.asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
-        List<MarkCondition> hint2Fix1Conditions = Arrays.asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
+        List<Condition> hint1GlobalConditions = Arrays.<Condition>asList();
+        List<Condition> hint2GlobalConditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")));
+        List<Condition> hint1Fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
+        List<Condition> hint2Fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
         DeclarativeFixDescription h1f1 = new DeclarativeFixDescription(hint1Fix1Conditions, TRUE, "if ($c == $var) $then;");
         DeclarativeFixDescription h2f1 = new DeclarativeFixDescription(hint2Fix1Conditions, TRUE, "if ($var != $c) $then;");
         HintDescription hint1 = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))

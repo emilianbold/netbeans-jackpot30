@@ -46,7 +46,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import org.junit.Test;
 import static org.junit.Assert.*;
-import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.MethodInvocation.ParameterKind;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;
 import org.netbeans.modules.jackpot30.file.conditionapi.Variable;

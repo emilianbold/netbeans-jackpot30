@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.file;
 
+import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
 import java.io.File;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -77,15 +78,15 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.lexer.Token;
 import org.netbeans.api.lexer.TokenSequence;
-import org.netbeans.modules.jackpot30.file.Condition.False;
-import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
-import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation;
-import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
-import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.False;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.Instanceof;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.MethodInvocation;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.MethodInvocation.ParameterKind;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Literal;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Operator;
+import org.netbeans.modules.jackpot30.spi.HintDescription.OtherwiseCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Value;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -251,7 +252,7 @@ public class DeclarativeHintsParser {
         List<int[]> conditionsSpans = new LinkedList<int[]>();
 
         if (id() == DOUBLE_COLON) {
-            parseConditions(conditions, conditionsSpans);
+            parseConditions(conditions, conditionsSpans, true);
         }
 
         List<FixTextDescription> targets = new LinkedList<FixTextDescription>();
@@ -280,7 +281,7 @@ public class DeclarativeHintsParser {
             List<int[]> fixConditionSpans = new LinkedList<int[]>();
 
             if (id() == DOUBLE_COLON) {
-                parseConditions(fixConditions, fixConditionSpans);
+                parseConditions(fixConditions, fixConditionSpans, false);
             }
 
             targets.add(new FixTextDescription(fixDisplayName, span, fixConditions, fixConditionSpans, fixOptions));
@@ -289,19 +290,19 @@ public class DeclarativeHintsParser {
         hints.add(new HintTextDescription(displayName, patternStart, patternEnd, conditions, conditionsSpans, targets, ruleOptions));
     }
     
-    private void parseConditions(List<Condition> conditions, List<int[]> spans) {
+    private void parseConditions(List<Condition> conditions, List<int[]> spans, boolean global) {
         do {
             nextToken();
-            parseCondition(conditions, spans);
+            parseCondition(conditions, spans, global);
         } while (id() == AND && !eof);
     }
 
-    private void parseCondition(List<Condition> conditions, List<int[]> spans) {
+    private void parseCondition(List<Condition> conditions, List<int[]> spans, boolean global) {
         int conditionStart = input.offset();
 
         if (id() == OTHERWISE) {
             nextToken();
-            conditions.add(new Otherwise());
+            conditions.add(new OtherwiseCondition());
             spans.add(new int[] {conditionStart, input.offset()});
             return ;
         }
@@ -319,7 +320,7 @@ public class DeclarativeHintsParser {
             nextToken();
 
             if (id() == DOT) {
-                parseMarkConditionRest(name, conditionStart, not, conditions, spans);
+                parseMarkConditionRest(name, conditionStart, not, global, conditions, spans);
                 return ;
             }
 
@@ -338,7 +339,7 @@ public class DeclarativeHintsParser {
 
             int typeEnd = input.offset();
 
-            conditions.add(new Instanceof(not, name, text.subSequence(typeStart, typeEnd).toString(), new int[] {typeStart, typeEnd}));
+            conditions.add(new Instanceof(not, global, name, text.subSequence(typeStart, typeEnd).toString(), new int[] {typeStart, typeEnd}));
             spans.add(new int[] {conditionStart, typeEnd});
             return ;
         }
@@ -350,7 +351,7 @@ public class DeclarativeHintsParser {
         int end = input.offset();
 
         try {
-            Condition mi = resolve(mic, text.subSequence(start, end).toString(), not, conditionStart, file, errors);
+            DeclarativeCondition mi = resolve(mic, text.subSequence(start, end).toString(), not, global, conditionStart, file, errors);
             int[] span = new int[]{conditionStart, end};
 
             if ((mi instanceof MethodInvocation) && !((MethodInvocation) mi).link()) {
@@ -358,7 +359,7 @@ public class DeclarativeHintsParser {
                     errors.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR, "Cannot resolve method", file, span[0], span[1]));
                 }
 
-                mi = new False();
+                mi = new False(global);
             }
 
             conditions.add(mi);
@@ -402,7 +403,7 @@ public class DeclarativeHintsParser {
         return null;
     }
 
-    private void parseMarkConditionRest(String name, int conditionStart, boolean not, List<Condition> conditions, List<int[]> spans) {
+    private void parseMarkConditionRest(String name, int conditionStart, boolean not, boolean global, List<Condition> conditions, List<int[]> spans) {
         Value left = parseSelectorRest(name);
         Operator op;
 
@@ -433,7 +434,7 @@ public class DeclarativeHintsParser {
 
         MarkCondition cond = new MarkCondition(left, op, right);
 
-        conditions.add(new Condition.MarkCondition(cond));
+        conditions.add(cond);
         spans.add(new int[] {conditionStart, input.offset()});
     }
     
@@ -518,7 +519,7 @@ public class DeclarativeHintsParser {
     }
 
     private static final ClassPath EMPTY = ClassPathSupport.createClassPath(new FileObject[0]);
-    private static @NonNull Condition resolve(MethodInvocationContext mic, final String invocation, final boolean not, final int offset, final FileObject file, final List<ErrorDescription> errors) throws IOException {
+    private static @NonNull DeclarativeCondition resolve(MethodInvocationContext mic, final String invocation, final boolean not, final boolean global, final int offset, final FileObject file, final List<ErrorDescription> errors) throws IOException {
         final String[] methodName = new String[1];
         final Map<String, ParameterKind> params = new LinkedHashMap<String, ParameterKind>();
         CodeSource codeSource = Modifier.class.getProtectionDomain().getCodeSource();
@@ -579,10 +580,10 @@ public class DeclarativeHintsParser {
         }, true);
 
         if (methodName[0] == null) {
-            return new False();
+            return new False(global);
         }
         
-        return new MethodInvocation(not, methodName[0], params, mic);
+        return new MethodInvocation(not, global, methodName[0], params, mic);
     }
 
     public static final class Result {

@@ -184,7 +184,15 @@ public final class HintDescription {
 
     }
 
-    public static final class MarkCondition {
+    public static abstract class Condition {}
+
+    public static abstract class CustomCondition extends Condition {
+        /*TODO: should be protected:*/public abstract boolean holds(HintContext ctx);
+    }
+
+    public static final class OtherwiseCondition extends Condition {}
+
+    public static final class MarkCondition extends Condition {
         public final Value left;
         public final Operator op;
         public final Value right;
@@ -250,14 +258,13 @@ public final class HintDescription {
     }
 
     //XXX: should be a method on the factory:
-    //XXX: currently does not support ordering of custom conditions:
     public static final class MarksWorker implements Worker {
 
-        public final List<MarkCondition> marks;
+        public final List<Condition> marks;
         public final Acceptor acceptor;
         public final List<DeclarativeFixDescription> fixes;
 
-        public MarksWorker(List<MarkCondition> marks, Acceptor acceptor, List<DeclarativeFixDescription> fixes) {
+        public MarksWorker(List<Condition> marks, Acceptor acceptor, List<DeclarativeFixDescription> fixes) {
             this.marks = marks;
             this.acceptor = acceptor;
             this.fixes = fixes;
@@ -271,11 +278,11 @@ public final class HintDescription {
 
     //XXX: should be a method on the factory:
     public static final class DeclarativeFixDescription {
-        public final List<MarkCondition> marks;
+        public final List<Condition> marks;
         public final Acceptor acceptor;
         public final String fix;
 
-        public DeclarativeFixDescription(List<MarkCondition> marks, Acceptor acceptor, String fix) {
+        public DeclarativeFixDescription(List<Condition> marks, Acceptor acceptor, String fix) {
             this.marks = marks;
             this.acceptor = acceptor;
             this.fix = fix;

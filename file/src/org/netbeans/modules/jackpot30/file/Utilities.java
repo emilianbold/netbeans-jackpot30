@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.file;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.util.concurrent.atomic.AtomicLong;
 import org.openide.filesystems.FileObject;
 import org.openide.util.Exceptions;
 
@@ -78,6 +79,12 @@ public class Utilities {
                 }
             }
         }
+    }
+
+    private static final AtomicLong nextUnused = new AtomicLong();
+
+    public static String getNextUnusedName() {
+        return "*" + nextUnused.getAndIncrement();
     }
 
 }

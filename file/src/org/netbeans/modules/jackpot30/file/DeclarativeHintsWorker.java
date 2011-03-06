@@ -47,7 +47,7 @@ import java.util.List;
 import java.util.Map;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
-import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
+//import org.netbeans.modules.jackpot30.file.DeclarativeCondition.Otherwise;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
@@ -65,13 +65,13 @@ import org.netbeans.spi.editor.hints.Fix;
 class DeclarativeHintsWorker implements Worker {
 
     private final String displayName;
-    private final List<Condition> conditions;
+    private final List<DeclarativeCondition> conditions;
     private final String imports;
     private final List<DeclarativeFix> fixes;
     private final Map<String, String> options;
     private final String primarySuppressWarningsKey;
 
-    public DeclarativeHintsWorker(String displayName, List<Condition> conditions, String imports, List<DeclarativeFix> fixes, Map<String, String> options, String primarySuppressWarningsKey) {
+    public DeclarativeHintsWorker(String displayName, List<DeclarativeCondition> conditions, String imports, List<DeclarativeFix> fixes, Map<String, String> options, String primarySuppressWarningsKey) {
         this.displayName = displayName;
         this.conditions = conditions;
         this.imports = imports;
@@ -91,84 +91,86 @@ class DeclarativeHintsWorker implements Worker {
     }
 
     public Collection<? extends ErrorDescription> createErrors(HintContext ctx) {
-        Context context = new Context(ctx);
-
-        context.enterScope();
-
-        for (Condition c : conditions) {
-            if (!c.holds(context, true)) {
-                return null;
-            }
-        }
-        
-        List<Fix> editorFixes = new LinkedList<Fix>();
-
-        OUTER: for (DeclarativeFix fix : fixes) {
-            context.enterScope();
-
-            try {
-                for (Condition c : fix.getConditions()) {
-                    if (c instanceof Otherwise) {
-                        if (editorFixes.isEmpty()) {
-                            continue;
-                        } else {
-                            continue OUTER;
-                        }
-                    }
-                    if (!c.holds(context, false)) {
-                        continue OUTER;
-                    }
-                }
-
-                reportErrorWarning(ctx, fix.getOptions());
-
-                TokenSequence<DeclarativeHintTokenId> ts = TokenHierarchy.create(fix.getPattern(),
-                                                                                 false,
-                                                                                 DeclarativeHintTokenId.language(),
-                                                                                 EnumSet.of(DeclarativeHintTokenId.BLOCK_COMMENT,
-                                                                                            DeclarativeHintTokenId.LINE_COMMENT,
-                                                                                            DeclarativeHintTokenId.WHITESPACE),
-                                                                                 null).tokenSequence(DeclarativeHintTokenId.language());
-
-                boolean empty = !ts.moveNext();
-
-                if (empty) {
-                    if (   (   !fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_ERROR)
-                            && !fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_WARNING))
-                        || fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_REMOVE_FROM_PARENT)) {
-                        editorFixes.add(JavaFix.removeFromParent(ctx, ctx.getPath()));
-                    }
-                    //not realizing empty fixes
-                } else {
-                    editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(),
-                                                       fix.getDisplayName(),
-                                                       ctx.getPath(),
-                                                       fix.getPattern(),
-                                                       APIAccessor.IMPL.getVariables(context),
-                                                       APIAccessor.IMPL.getMultiVariables(context),
-                                                       APIAccessor.IMPL.getVariableNames(context),
-                                                       ctx.getConstraints(),
-                                                       fix.getOptions(),
-                                                       imports));
-                }
-            } finally {
-                context.leaveScope();
-            }
-        }
-
-        context.leaveScope();
-
-//        if (primarySuppressWarningsKey != null && primarySuppressWarningsKey.length() > 0) {
-//            editorFixes.addAll(FixFactory.createSuppressWarnings(ctx.getInfo(), ctx.getPath(), primarySuppressWarningsKey));
+//        Context context = new Context(ctx);
+//
+//        context.enterScope();
+//
+//        for (DeclarativeCondition c : conditions) {
+//            if (!c.holds(context)) {
+//                return null;
+//            }
 //        }
+//
+//        List<Fix> editorFixes = new LinkedList<Fix>();
+//
+//        OUTER: for (DeclarativeFix fix : fixes) {
+//            context.enterScope();
+//
+//            try {
+//                for (DeclarativeCondition c : fix.getConditions()) {
+//                    if (c instanceof Otherwise) {
+//                        if (editorFixes.isEmpty()) {
+//                            continue;
+//                        } else {
+//                            continue OUTER;
+//                        }
+//                    }
+//                    if (!c.holds(context)) {
+//                        continue OUTER;
+//                    }
+//                }
+//
+//                reportErrorWarning(ctx, fix.getOptions());
+//
+//                TokenSequence<DeclarativeHintTokenId> ts = TokenHierarchy.create(fix.getPattern(),
+//                                                                                 false,
+//                                                                                 DeclarativeHintTokenId.language(),
+//                                                                                 EnumSet.of(DeclarativeHintTokenId.BLOCK_COMMENT,
+//                                                                                            DeclarativeHintTokenId.LINE_COMMENT,
+//                                                                                            DeclarativeHintTokenId.WHITESPACE),
+//                                                                                 null).tokenSequence(DeclarativeHintTokenId.language());
+//
+//                boolean empty = !ts.moveNext();
+//
+//                if (empty) {
+//                    if (   (   !fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_ERROR)
+//                            && !fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_WARNING))
+//                        || fix.getOptions().containsKey(DeclarativeHintsOptions.OPTION_REMOVE_FROM_PARENT)) {
+//                        editorFixes.add(JavaFix.removeFromParent(ctx, ctx.getPath()));
+//                    }
+//                    //not realizing empty fixes
+//                } else {
+//                    editorFixes.add(JavaFix.rewriteFix(ctx.getInfo(),
+//                                                       fix.getDisplayName(),
+//                                                       ctx.getPath(),
+//                                                       fix.getPattern(),
+//                                                       ctx.getVariables(),
+//                                                       ctx.getMultiVariables(),
+//                                                       ctx.getVariableNames(),
+//                                                       ctx.getConstraints(),
+//                                                       fix.getOptions(),
+//                                                       imports));
+//                }
+//            } finally {
+//                context.leaveScope();
+//            }
+//        }
+//
+//        context.leaveScope();
+//
+////        if (primarySuppressWarningsKey != null && primarySuppressWarningsKey.length() > 0) {
+////            editorFixes.addAll(FixFactory.createSuppressWarnings(ctx.getInfo(), ctx.getPath(), primarySuppressWarningsKey));
+////        }
+//
+//        ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, editorFixes.toArray(new Fix[0]));
+//
+//        if (ed == null) {
+//            return null;
+//        }
+//
+//        return Collections.singletonList(ed);
 
-        ErrorDescription ed = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName, editorFixes.toArray(new Fix[0]));
-
-        if (ed == null) {
-            return null;
-        }
-
-        return Collections.singletonList(ed);
+        throw new IllegalStateException();
     }
 
     private static void reportErrorWarning(HintContext ctx, Map<String, String> options) {

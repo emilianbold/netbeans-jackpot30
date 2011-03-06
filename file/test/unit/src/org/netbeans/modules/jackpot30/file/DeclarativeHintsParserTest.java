@@ -55,14 +55,15 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
-import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation;
-import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.Instanceof;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.MethodInvocation;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.MethodInvocation.ParameterKind;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import static org.junit.Assert.*;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
 import org.netbeans.modules.jackpot30.file.conditionapi.Variable;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Literal;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Operator;
@@ -84,16 +85,16 @@ public class DeclarativeHintsParserTest extends NbTestCase {
     public void testSimpleParse() throws Exception {
         performTest(" 1 + 1 :: $1 instanceof something && $test instanceof somethingelse => 1 + 1;; ",
                     StringHintDescription.create(" 1 + 1 ")
-                                         .addCondition(new Instanceof(false, "$1", " something ", new int[2]))
-                                         .addCondition(new Instanceof(false, "$test", " somethingelse ", new int[2]))
+                                         .addCondition(new Instanceof(false, true, "$1", " something ", new int[2]))
+                                         .addCondition(new Instanceof(false, true, "$test", " somethingelse ", new int[2]))
                                          .addTos(" 1 + 1"));
     }
 
     public void testParseDisplayName() throws Exception {
         performTest("'test': 1 + 1 :: $1 instanceof something && $test instanceof somethingelse => 1 + 1;; ",
                     StringHintDescription.create(" 1 + 1 ")
-                                         .addCondition(new Instanceof(false, "$1", " something ", new int[2]))
-                                         .addCondition(new Instanceof(false, "$test", " somethingelse ", new int[2]))
+                                         .addCondition(new Instanceof(false, true, "$1", " something ", new int[2]))
+                                         .addCondition(new Instanceof(false, true, "$test", " somethingelse ", new int[2]))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
@@ -117,7 +118,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
         performTest("'test': $1 + $2 :: test(\"a\", $2, $1) => 1 + 1;;",
                     StringHintDescription.create(" $1 + $2 ")
-                                         .addCondition(new MethodInvocation(false, "test", m, null))
+                                         .addCondition(new MethodInvocation(false, true, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
@@ -131,7 +132,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
         performTest("'test': $1 + $2 :: test($1, Modifier.VOLATILE, SourceVersion.RELEASE_6) => 1 + 1;;",
                     StringHintDescription.create(" $1 + $2 ")
-                                         .addCondition(new MethodInvocation(false, "test", m, null))
+                                         .addCondition(new MethodInvocation(false, true, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
@@ -145,7 +146,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
 
         performTest("'test': $1 + $2 :: !test($1, Modifier.VOLATILE, SourceVersion.RELEASE_6) => 1 + 1;;",
                     StringHintDescription.create(" $1 + $2 ")
-                                         .addCondition(new MethodInvocation(true, "test", m, null))
+                                         .addCondition(new MethodInvocation(true, true, "test", m, null))
                                          .addTos(" 1 + 1")
                                          .setDisplayName("test"));
     }
@@ -174,7 +175,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                     Arrays.asList(StringHintDescription.create(" List $l; ")
                                                        .addTos(" List $l; ")
                                                        .setDisplayName("test")
-                                                       .addCondition(new MethodInvocation(false, "test", Collections.singletonMap("$_", ParameterKind.VARIABLE), null))),
+                                                       .addCondition(new MethodInvocation(false, true, "test", Collections.singletonMap("$_", ParameterKind.VARIABLE), null))),
                     Arrays.asList("private boolean test(Variable v) {return false;}"));
     }
 
@@ -188,7 +189,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
         performTest("'test': $1 + $2 => 1 + 1 :: test(\"a\", $2, $1);;",
                     StringHintDescription.create(" $1 + $2 ")
                                          .addTos(new StringFixDescription(" 1 + 1 ")
-                                                 .addCondition(new MethodInvocation(false, "test", m, null)))
+                                                 .addCondition(new MethodInvocation(false, false, "test", m, null)))
                                          .setDisplayName("test"));
     }
 
@@ -231,7 +232,7 @@ public class DeclarativeHintsParserTest extends NbTestCase {
                     Collections.singletonList(
                         StringHintDescription.create(" $1 + $2 ")
                                              .addTos(new StringFixDescription(" 1 + 1 ")
-                                                     .addCondition(new MethodInvocation(false, "test", m, null))
+                                                     .addCondition(new MethodInvocation(false, false, "test", m, null))
                                                      .addOption("key2", "value2"))
                                              .addOption("key1", "value1")
                                              .setDisplayName("test")
@@ -263,11 +264,11 @@ public class DeclarativeHintsParserTest extends NbTestCase {
     public void testMarkCondition() throws Exception {
         performTest("$1 + $2 :: $_.a = $1.b && $2.b == $_.a && $1.a != $2.b && $1.a && $2.v = false;;",
                     StringHintDescription.create("$1 + $2 ")
-                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$_", "a"), Operator.ASSIGN, new Selector("$1", "b"))))
-                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$2", "b"), Operator.EQUALS, new Selector("$_", "a"))))
-                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$1", "a"), Operator.NOT_EQUALS, new Selector("$2", "b"))))
-                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$1", "a"), Operator.EQUALS, new Literal(true))))
-                                         .addCondition(new Condition.MarkCondition(new MarkCondition(new Selector("$2", "v"), Operator.ASSIGN, new Literal(false))))
+                                         .addCondition(new MarkCondition(new Selector("$_", "a"), Operator.ASSIGN, new Selector("$1", "b")))
+                                         .addCondition(new MarkCondition(new Selector("$2", "b"), Operator.EQUALS, new Selector("$_", "a")))
+                                         .addCondition(new MarkCondition(new Selector("$1", "a"), Operator.NOT_EQUALS, new Selector("$2", "b")))
+                                         .addCondition(new MarkCondition(new Selector("$1", "a"), Operator.EQUALS, new Literal(true)))
+                                         .addCondition(new MarkCondition(new Selector("$2", "v"), Operator.ASSIGN, new Literal(false)))
                    );
     }
 

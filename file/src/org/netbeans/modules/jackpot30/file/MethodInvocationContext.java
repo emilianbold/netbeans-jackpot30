@@ -55,12 +55,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.platform.JavaPlatform;
-import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.MethodInvocation.ParameterKind;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.file.conditionapi.DefaultRuleUtilities;
 import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;
 import org.netbeans.modules.jackpot30.file.conditionapi.Variable;
 import org.netbeans.modules.jackpot30.spi.Hacks;
+import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
@@ -144,7 +145,7 @@ public class MethodInvocationContext {
         return varArgMethod;
     }
 
-    public boolean invokeMethod(Context ctx, @NonNull Method method, Map<? extends String, ? extends ParameterKind> params) {
+    public boolean invokeMethod(HintContext ctx, @NonNull Method method, Map<? extends String, ? extends ParameterKind> params) {
         Collection<Object> paramValues = new LinkedList<Object>();
         int i = 0;
         Collection<Object> vararg = null;
@@ -180,7 +181,8 @@ public class MethodInvocationContext {
             paramValues.add(arr);
         }
 
-        Matcher matcher = new Matcher(ctx);
+        Context context = new Context(ctx);
+        Matcher matcher = new Matcher(context);
 
         Class<?> clazz = method.getDeclaringClass();
         try {
@@ -189,7 +191,7 @@ public class MethodInvocationContext {
             method.setAccessible(true);
             c.setAccessible(true);
 
-            Object instance = c.newInstance(ctx, matcher);
+            Object instance = c.newInstance(context, matcher);
 
             return (Boolean) method.invoke(instance, paramValues.toArray(new Object[0]));
         } catch (InstantiationException ex) {

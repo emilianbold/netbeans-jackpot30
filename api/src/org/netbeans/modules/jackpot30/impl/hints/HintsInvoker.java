@@ -85,11 +85,14 @@ import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
+import org.netbeans.modules.jackpot30.spi.HintDescription.CustomCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Literal;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarksWorker;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Operator;
+import org.netbeans.modules.jackpot30.spi.HintDescription.OtherwiseCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Value;
@@ -467,10 +470,10 @@ public class HintsInvoker {
                                 HintContext fixContext = new HintContext(workerContext);
 
                                 fixContext.enterScope();
-                                fixData.add(new FixEvaluationData(fixContext, new LinkedList<MarkCondition>(fd.marks), fd.acceptor, fd.fix));
+                                fixData.add(new FixEvaluationData(fixContext, new LinkedList<Condition>(fd.marks), fd.acceptor, fd.fix));
                             }
 
-                            HintEvaluationData data = new HintEvaluationData(workerContext, hd, new LinkedList<MarkCondition>(mw.marks), mw.acceptor, fixData);
+                            HintEvaluationData data = new HintEvaluationData(workerContext, hd, new LinkedList<Condition>(mw.marks), mw.acceptor, fixData);
 
                             evaluationData.add(data);
                             continue;
@@ -506,7 +509,7 @@ public class HintsInvoker {
                 HintEvaluationData hed = it.next();
                 int origMarksSize = hed.marks.size();
 
-                Boolean hres = processConditions(hed.ctx, marks, hed.marks);
+                Boolean hres = processConditions(hed.ctx, marks, hed.marks, -1, -1);
 
                 currentWasChange |= origMarksSize != hed.marks.size();
 
@@ -528,7 +531,7 @@ public class HintsInvoker {
                 for (Iterator<FixEvaluationData> fixes = hed.fixDescriptions.iterator(); fixes.hasNext(); ) {
                     FixEvaluationData fed = fixes.next();
                     int o = fed.marks.size();
-                    Boolean res = processConditions(fed.ctx, marks, fed.marks);
+                    Boolean res = processConditions(fed.ctx, marks, fed.marks, hed.fixDescriptions.size(), hed.createdFixes.size());
 
                     currentWasChange |= o != fed.marks.size();
 
@@ -861,8 +864,12 @@ public class HintsInvoker {
     }
 
 
-    private void enterSpeculativeAssignments(HintContext ctx, List<MarkCondition> conditions, Map<Tree, Map<String, Object>> marks) {
-        for (MarkCondition mc : conditions) {
+    private void enterSpeculativeAssignments(HintContext ctx, List<Condition> conditions, Map<Tree, Map<String, Object>> marks) {
+        for (Condition c : conditions) {
+            if (!(c instanceof MarkCondition)) continue;
+
+            MarkCondition mc = (MarkCondition) c;
+
             if (mc.op != Operator.ASSIGN) {
                 continue;
             }
@@ -894,8 +901,12 @@ public class HintsInvoker {
         }
     }
 
-    private void clearSpeculativeAssignments(HintContext ctx, List<MarkCondition> conditions, Map<Tree, Map<String, Object>> marks) {
-        for (MarkCondition mc : conditions) {
+    private void clearSpeculativeAssignments(HintContext ctx, List<Condition> conditions, Map<Tree, Map<String, Object>> marks) {
+        for (Condition c : conditions) {
+            if (!(c instanceof MarkCondition)) continue;
+
+            MarkCondition mc = (MarkCondition) c;
+
             if (mc.op != Operator.ASSIGN) {
                 continue;
             }
@@ -938,24 +949,40 @@ public class HintsInvoker {
      *
      * @return
      */
-    private static Boolean processConditions(HintContext ctx, Map<Tree, Map<String, Object>> marks, List<MarkCondition> cond) {
+    private static Boolean processConditions(HintContext ctx, Map<Tree, Map<String, Object>> marks, List<Condition> cond, int candidatesCount, int confirmedCount) {
         if (cond.isEmpty()) {
             return true; //implicitly accept
         }
 
-        for (Iterator<MarkCondition> it = cond.iterator(); it.hasNext(); ) {
-            MarkCondition c = it.next();
+        for (Iterator<Condition> it = cond.iterator(); it.hasNext(); ) {
+            Condition c = it.next();
 
-            System.err.println("processing: " + c);
-            switch (c.op) {
+            if (c instanceof CustomCondition) {
+                if (!((CustomCondition) c).holds(ctx)) {
+                    return false;
+                }
+                it.remove();
+                continue;
+            }
+
+            if (c instanceof OtherwiseCondition) {
+                if (candidatesCount > 1) return null;
+                if (confirmedCount > 0) return false;
+                it.remove();
+                continue;
+            }
+
+            MarkCondition mc = (MarkCondition) c;
+
+            switch (mc.op) {
                 case ASSIGN:
-                    assert c.left instanceof Selector;
+                    assert mc.left instanceof Selector;
 
-                    Object value = readValue(ctx, marks, c.right);
+                    Object value = readValue(ctx, marks, mc.right);
 
                     assert value != null;
 
-                    Selector s = (Selector) c.left;
+                    Selector s = (Selector) mc.left;
                     String treeName = s.selected.get(0);
                     String markName = s.selected.get(1);
                     TreePath tree = ctx.getVariables().get(treeName);
@@ -971,8 +998,8 @@ public class HintsInvoker {
                     variables.put(markName, value);
                     break;
                 case EQUALS: {
-                    Object left = readValue(ctx, marks, c.left);
-                    Object right = readValue(ctx, marks, c.right);
+                    Object left = readValue(ctx, marks, mc.left);
+                    Object right = readValue(ctx, marks, mc.right);
 
                     System.err.println("left=" + left);
                     System.err.println("right=" + right);
@@ -997,8 +1024,8 @@ public class HintsInvoker {
                     break;
                 }
                 case NOT_EQUALS: {
-                    Object left = readValue(ctx, marks, c.left);
-                    Object right = readValue(ctx, marks, c.right);
+                    Object left = readValue(ctx, marks, mc.left);
+                    Object right = readValue(ctx, marks, mc.right);
 
                     if (left instanceof PossibleValue || right instanceof PossibleValue) {
                         //nothing to set yet.
@@ -1070,11 +1097,11 @@ public class HintsInvoker {
     private static final class HintEvaluationData {
         public final HintContext ctx;
         public final HintDescription hd;
-        public final List<MarkCondition> marks;
+        public final List<Condition> marks;
         public final Acceptor acceptor;
         public final List<FixEvaluationData> fixDescriptions;
         public final List<Fix> createdFixes = new LinkedList<Fix>();
-        public HintEvaluationData(HintContext ctx, HintDescription hd, List<MarkCondition> marks, Acceptor acceptor, List<FixEvaluationData> fixDescriptions) {
+        public HintEvaluationData(HintContext ctx, HintDescription hd, List<Condition> marks, Acceptor acceptor, List<FixEvaluationData> fixDescriptions) {
             this.ctx = ctx;
             this.hd = hd;
             this.marks = marks;
@@ -1085,10 +1112,10 @@ public class HintsInvoker {
 
     private static final class FixEvaluationData {
         public final HintContext ctx;
-        public final List<MarkCondition> marks;
+        public final List<Condition> marks;
         public final Acceptor acceptor;
         public final String fix;
-        public FixEvaluationData(HintContext ctx, List<MarkCondition> marks, Acceptor acceptor, String fix) {
+        public FixEvaluationData(HintContext ctx, List<Condition> marks, Acceptor acceptor, String fix) {
             this.ctx = ctx;
             this.marks = marks;
             this.acceptor = acceptor;

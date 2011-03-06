@@ -49,47 +49,49 @@ import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.CustomCondition;
 
 /**
  *
  * @author lahvac
  */
-public abstract class Condition {
+public abstract class DeclarativeCondition extends CustomCondition {
 
     public final boolean not;
+           final boolean global;
 
-    private Condition(boolean not) {
+    private DeclarativeCondition(boolean not, boolean global) {
         this.not = not;
+        this.global = global;
     }
-
-    public abstract boolean holds(Context ctx, boolean global);
 
     @Override
     public abstract String toString();
     
-    public static final class Instanceof extends Condition {
+    public static final class Instanceof extends DeclarativeCondition {
 
         public final String variable;
         public final String constraint;
         public final int[]  constraintSpan;
 
-        public Instanceof(boolean not, String variable, String constraint, int[]  constraintSpan) {
-            super(not);
+        public Instanceof(boolean not, boolean global, String variable, String constraint, int[]  constraintSpan) {
+            super(not, global);
             this.variable = variable;
             this.constraint = constraint;
             this.constraintSpan = constraintSpan;
         }
 
         @Override
-        public boolean holds(Context ctx, boolean global) {
+        public boolean holds(HintContext ctx) {
             if (global && !not) {
                 //if this is a global condition, not == false, then the computation should always lead to true
-                //note that ctx.getVariables().get(variable) might even by null (implicit this)
+                //note that ctx.getVariables().get(variable) might even be null (implicit this)
                 return true;
             }
 
-            TreePath boundTo = APIAccessor.IMPL.getSingleVariable(ctx, ctx.variableForName(variable));
-            CompilationInfo info = APIAccessor.IMPL.getHintContext(ctx).getInfo();
+            Context context = new Context(ctx);
+            TreePath boundTo = APIAccessor.IMPL.getSingleVariable(context, context.variableForName(variable));
+            CompilationInfo info = ctx.getInfo();
             TypeMirror realType = info.getTrees().getTypeMirror(boundTo);
             TypeMirror designedType = Hacks.parseFQNType(info, constraint);
 
@@ -103,22 +105,22 @@ public abstract class Condition {
 
     }
 
-    public static final class MethodInvocation extends Condition {
+    public static final class MethodInvocation extends DeclarativeCondition {
 
         private final String methodName;
         private final Map<? extends String, ? extends ParameterKind> params;
         private final MethodInvocationContext mic;
         private final AtomicReference<Method> toCall = new AtomicReference<Method>();
 
-        public MethodInvocation(boolean not, String methodName, Map<? extends String, ? extends ParameterKind> params, MethodInvocationContext mic) {
-            super(not);
+        public MethodInvocation(boolean not, boolean global, String methodName, Map<? extends String, ? extends ParameterKind> params, MethodInvocationContext mic) {
+            super(not, global);
             this.methodName = methodName;
             this.params = params;
             this.mic = mic;
         }
 
         @Override
-        public boolean holds(Context ctx, boolean global) {
+        public boolean holds(HintContext ctx) {
             if (toCall.get() == null) {
                 //not linked yet?
                 if (!link()) {
@@ -149,39 +151,14 @@ public abstract class Condition {
         }
     }
 
-    public static final class MarkCondition extends Condition {
+    public static final class False extends DeclarativeCondition {
 
-        private final HintDescription.MarkCondition condition;
-
-        public MarkCondition(HintDescription.MarkCondition condition) {
-            super(false);
-            this.condition = condition;
+        public False(boolean global) {
+            super(false, global);
         }
 
         @Override
-        public boolean holds(Context ctx, boolean global) {
-            return true;
-        }
-
-        @Override
-        public String toString() {
-            return condition.toString();
-        }
-
-        public HintDescription.MarkCondition getCondition() {
-            return condition;
-        }
-
-    }
-
-    public static final class False extends Condition {
-
-        public False() {
-            super(false);
-        }
-
-        @Override
-        public boolean holds(Context ctx, boolean global) {
+        public boolean holds(HintContext ctx) {
             return false;
         }
 
@@ -191,21 +168,4 @@ public abstract class Condition {
         }
     }
 
-    public static final class Otherwise extends Condition {
-
-        public Otherwise() {
-            super(false);
-        }
-
-        @Override
-        public boolean holds(Context ctx, boolean global) {
-            return false;
-        }
-
-        @Override
-        public String toString() {
-            return "(OTHERWISE)";
-        }
-    }
-    
 }

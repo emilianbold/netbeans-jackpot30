@@ -61,7 +61,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
-import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
@@ -72,6 +72,7 @@ import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
 import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
+import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
@@ -253,7 +254,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             Map<String, String> constraints = new HashMap<String, String>();
 
             for (Condition c : hint.conditions) {
-                if (!(c instanceof Instanceof) || c.not)
+                if (!(c instanceof Instanceof) || ((Instanceof) c).not)
                     continue;
 
                 Instanceof i = (Instanceof) c;
@@ -276,7 +277,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
                 //XXX:
 //                fixes.add(DeclarativeFix.create(fixDisplayName, spec.substring(fixRange[0], fixRange[1]), fix.conditions, options));
-                fixes.add(new DeclarativeFixDescription(filterConditions(fix.conditions), new HintsFixAcceptor(fix.conditions, fix.options), spec.substring(fixRange[0], fixRange[1])));
+                fixes.add(new DeclarativeFixDescription(fix.conditions, new HintsFixAcceptor(fix.conditions, fix.options), spec.substring(fixRange[0], fixRange[1])));
             }
 
             HintMetadata currentMeta = meta;
@@ -306,7 +307,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             //XXX:
 //            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
-            f = f.setWorker(new HintDescription.MarksWorker(filterConditions(hint.conditions), new HintsFixAcceptor(hint.conditions, hint.options), fixes));
+            f = f.setWorker(new HintDescription.MarksWorker(hint.conditions, new HintsFixAcceptor(hint.conditions, hint.options), fixes));
             f = f.setMetadata(currentMeta);
             f = f.setAdditionalConstraints(new AdditionalQueryConstraints(new HashSet<String>(constraints.values())));
 
@@ -399,30 +400,16 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         }
 
         public boolean accept(HintContext ctx) {
-            for (Condition c : conditions) {
-                //XXX: creating declarative context!!!
-                Context context = new Context(ctx);
-                if (!c.holds(context, false)) {
-                    return false;
-                }
-            }
+//            for (Condition c : conditions) {
+//                if (!c.holds(ctx)) {
+//                    return false;
+//                }
+//            }
 
             reportErrorWarning(ctx, options);
 
             return true;
         }
-    }
-
-    private static List<HintDescription.MarkCondition> filterConditions(List<Condition> conds) {
-        List<HintDescription.MarkCondition> result = new LinkedList<HintDescription.MarkCondition>();
-
-        for (Condition c : conds) {
-            if (c instanceof Condition.MarkCondition) {
-                result.add(((Condition.MarkCondition) c).getCondition());
-            }
-        }
-
-        return result;
     }
 
 }

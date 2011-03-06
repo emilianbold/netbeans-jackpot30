@@ -68,10 +68,6 @@ public abstract class APIAccessor {
     public abstract TreePath getSingleVariable(Context ctx, Variable var);
     public abstract HintContext getHintContext(Context ctx);
 
-    public abstract Map<String, TreePath> getVariables(Context ctx);
-    public abstract Map<String, Collection<? extends TreePath>> getMultiVariables(Context ctx);
-    public abstract Map<String, String> getVariableNames(Context ctx);
-
     public abstract Variable enterAuxiliaryVariable(Context ctx, TreePath source);
 
 }

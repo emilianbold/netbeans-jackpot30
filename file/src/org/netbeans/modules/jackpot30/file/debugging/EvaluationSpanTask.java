@@ -68,7 +68,7 @@ import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.APIAccessor;
-import org.netbeans.modules.jackpot30.file.Condition;
+import org.netbeans.modules.jackpot30.file.DeclarativeCondition;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;
@@ -221,26 +221,27 @@ public class EvaluationSpanTask extends JavaParserResultTask<Result> {
 
             target.add(trim(d.spec, new int[] {d.desc.textStart, d.desc.textEnd}));
 
-            if (matches) {
-                evaluateConditions(d.desc.conditions, d.desc.conditionSpans, context, passed, failed, d);
-
-                context.enterScope();
-
-                for (FixTextDescription f : d.desc.fixes) {
-                    evaluateConditions(f.conditions, f.conditionSpans, context, passed, failed, d);
-                }
-
-                context.leaveScope();
-            }
+            //XXX:
+//            if (matches) {
+//                evaluateConditions(d.desc.conditions, d.desc.conditionSpans, ctx, passed, failed, d);
+//
+//                context.enterScope();
+//
+//                for (FixTextDescription f : d.desc.fixes) {
+//                    evaluateConditions(f.conditions, f.conditionSpans, ctx, passed, failed, d);
+//                }
+//
+//                context.leaveScope();
+//            }
         }
     }
 
-    private static void evaluateConditions(Iterable<Condition> conditions, Iterable<int[]> conditionSpans, Context ctx, List<int[]> passed, List<int[]> failed, HintWrapper d) {
-        Iterator<Condition> cond = conditions.iterator();
+    private static void evaluateConditions(Iterable<DeclarativeCondition> conditions, Iterable<int[]> conditionSpans, HintContext ctx, List<int[]> passed, List<int[]> failed, HintWrapper d) {
+        Iterator<DeclarativeCondition> cond = conditions.iterator();
         Iterator<int[]> span = conditionSpans.iterator();
 
         while (cond.hasNext() && span.hasNext()) {
-            boolean holds = cond.next().holds(ctx, true);
+            boolean holds = cond.next().holds(ctx); //XXX: here was global == true
             List<int[]> condTarget = holds ? passed : failed;
             
             condTarget.add(trim(d.spec, span.next()));
