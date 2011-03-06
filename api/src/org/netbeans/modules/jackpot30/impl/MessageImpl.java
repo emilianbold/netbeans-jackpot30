@@ -55,4 +55,9 @@ public class MessageImpl {
         this.text = text;
     }
 
+    @Override
+    public String toString() {
+        return "[" + kind + ":" + text + "]";
+    }
+
 }

@@ -44,6 +44,7 @@ import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -65,20 +66,24 @@ import org.netbeans.modules.jackpot30.file.DeclarativeCondition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
-import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
 import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.ErrorDescriptionAcceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.FixAcceptor;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
 import org.netbeans.modules.jackpot30.spi.HintProvider;
+import org.netbeans.modules.jackpot30.spi.JavaFix;
+import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
+import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
@@ -277,7 +282,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
                 //XXX:
 //                fixes.add(DeclarativeFix.create(fixDisplayName, spec.substring(fixRange[0], fixRange[1]), fix.conditions, options));
-                fixes.add(new DeclarativeFixDescription(fix.conditions, new HintsFixAcceptor(fix.conditions, fix.options), spec.substring(fixRange[0], fixRange[1])));
+                fixes.add(new DeclarativeFixDescription(fix.conditions, new HintsFixAcceptor(fix.displayName, spec.substring(fixRange[0], fixRange[1]), fix.options, imports)));
             }
 
             HintMetadata currentMeta = meta;
@@ -307,7 +312,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             //XXX:
 //            f = f.setWorker(new DeclarativeHintsWorker(displayName, hint.conditions, imports, fixes, options, primarySuppressWarningsKey));
-            f = f.setWorker(new HintDescription.MarksWorker(hint.conditions, new HintsFixAcceptor(hint.conditions, hint.options), fixes));
+            f = f.setWorker(new HintDescription.MarksWorker(hint.conditions, new HintsAcceptor(displayName), fixes));
             f = f.setMetadata(currentMeta);
             f = f.setAdditionalConstraints(new AdditionalQueryConstraints(new HashSet<String>(constraints.values())));
 
@@ -389,27 +394,67 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
         }
     }
     
-    private static final class HintsFixAcceptor implements Acceptor {
+    private static final class HintsFixAcceptor implements FixAcceptor {
 
-        private final List<Condition> conditions;
+        private final String displayName;
+        private final String pattern;
         private final Map<String, String> options;
+        private final String imports;
 
-        public HintsFixAcceptor(List<Condition> conditions, Map<String, String> options) {
-            this.conditions = conditions;
+        public HintsFixAcceptor(String displayName, String pattern, Map<String, String> options, String imports) {
+            this.displayName = displayName;
+            this.pattern = pattern;
             this.options = options;
+            this.imports = imports;
         }
 
-        public boolean accept(HintContext ctx) {
-//            for (Condition c : conditions) {
-//                if (!c.holds(ctx)) {
-//                    return false;
-//                }
-//            }
-
+        public Fix accept(HintContext ctx) {
             reportErrorWarning(ctx, options);
 
-            return true;
+            TokenSequence<DeclarativeHintTokenId> ts = TokenHierarchy.create(pattern,
+                                                                             false,
+                                                                             DeclarativeHintTokenId.language(),
+                                                                             EnumSet.of(DeclarativeHintTokenId.BLOCK_COMMENT,
+                                                                                        DeclarativeHintTokenId.LINE_COMMENT,
+                                                                                        DeclarativeHintTokenId.WHITESPACE),
+                                                                             null).tokenSequence(DeclarativeHintTokenId.language());
+
+            boolean empty = !ts.moveNext();
+
+            if (empty) {
+                if (   (   !options.containsKey(DeclarativeHintsOptions.OPTION_ERROR)
+                        && !options.containsKey(DeclarativeHintsOptions.OPTION_WARNING))
+                    || options.containsKey(DeclarativeHintsOptions.OPTION_REMOVE_FROM_PARENT)) {
+                    return JavaFix.removeFromParent(ctx, ctx.getPath());
+                }
+
+                //not realizing empty fixes
+                return null;
+            } else {
+                return JavaFix.rewriteFix(ctx.getInfo(),
+                                          displayName,
+                                          ctx.getPath(),
+                                          pattern,
+                                          ctx.getVariables(),
+                                          ctx.getMultiVariables(),
+                                          ctx.getVariableNames(),
+                                          ctx.getConstraints(),
+                                          options,
+                                          imports);
+            }
         }
     }
 
+    private static final class HintsAcceptor implements ErrorDescriptionAcceptor {
+
+        private final String displayName;
+
+        public HintsAcceptor(String displayName) {
+            this.displayName = displayName;
+        }
+
+        public ErrorDescription accept(HintContext ctx) {
+            return ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName);
+        }
+    }
 }

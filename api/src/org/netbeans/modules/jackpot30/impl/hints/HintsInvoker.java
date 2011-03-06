@@ -84,10 +84,11 @@ import org.netbeans.modules.jackpot30.impl.pm.Pattern;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.CustomCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.ErrorDescriptionAcceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.FixAcceptor;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Literal;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarksWorker;
@@ -98,10 +99,10 @@ import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Value;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
-import org.netbeans.modules.jackpot30.spi.JavaFix;
-import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.Fix;
+import org.netbeans.spi.editor.hints.Severity;
 import org.openide.util.Exceptions;
 
 /**
@@ -470,7 +471,7 @@ public class HintsInvoker {
                                 HintContext fixContext = new HintContext(workerContext);
 
                                 fixContext.enterScope();
-                                fixData.add(new FixEvaluationData(fixContext, new LinkedList<Condition>(fd.marks), fd.acceptor, fd.fix));
+                                fixData.add(new FixEvaluationData(fixContext, new LinkedList<Condition>(fd.marks), fd.acceptor));
                             }
 
                             HintEvaluationData data = new HintEvaluationData(workerContext, hd, new LinkedList<Condition>(mw.marks), mw.acceptor, fixData);
@@ -538,9 +539,9 @@ public class HintsInvoker {
                     if (res == null) continue;
 
                     if (res) {
-                        if (fed.acceptor.accept(fed.ctx)) {
-                            Fix fix = JavaFix.rewriteFix(fed.ctx.getInfo(), "XXX: todo", fed.ctx.getPath(), fed.fix, fed.ctx.getVariables(), fed.ctx.getMultiVariables(), fed.ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()/*XXX*/ /*XXX: , imports*/);
+                        Fix fix = fed.acceptor.accept(fed.ctx);
 
+                        if (fix != null) {
                             hed.createdFixes.add(fix);
                         }
                     } else {
@@ -556,10 +557,12 @@ public class HintsInvoker {
                 }
 
                 if (hed.fixDescriptions.isEmpty()) {
-                    if (hed.acceptor.accept(hed.ctx)) {
-                        //XXX: @SuppressWarnings!
-                        ErrorDescription ed = ErrorDescriptionFactory.forName(hed.ctx, hed.ctx.getPath(), hed.hd.getMetadata().displayName, hed.createdFixes.toArray(new Fix[0]));
+                    //XXX: @SuppressWarnings!
+                    ErrorDescription ed = hed.acceptor.accept(hed.ctx);
 
+                    ed = ErrorDescriptionFactory.createErrorDescription(ed.getSeverity(), ed.getDescription(), hed.createdFixes, ed.getFile(), ed.getRange().getBegin().getOffset(), ed.getRange().getEnd().getOffset());
+
+                    if (ed != null) {
                         merge(errors, hed.hd, ed);
                     }
                     it.remove();
@@ -1098,10 +1101,10 @@ public class HintsInvoker {
         public final HintContext ctx;
         public final HintDescription hd;
         public final List<Condition> marks;
-        public final Acceptor acceptor;
+        public final ErrorDescriptionAcceptor acceptor;
         public final List<FixEvaluationData> fixDescriptions;
         public final List<Fix> createdFixes = new LinkedList<Fix>();
-        public HintEvaluationData(HintContext ctx, HintDescription hd, List<Condition> marks, Acceptor acceptor, List<FixEvaluationData> fixDescriptions) {
+        public HintEvaluationData(HintContext ctx, HintDescription hd, List<Condition> marks, ErrorDescriptionAcceptor acceptor, List<FixEvaluationData> fixDescriptions) {
             this.ctx = ctx;
             this.hd = hd;
             this.marks = marks;
@@ -1113,13 +1116,11 @@ public class HintsInvoker {
     private static final class FixEvaluationData {
         public final HintContext ctx;
         public final List<Condition> marks;
-        public final Acceptor acceptor;
-        public final String fix;
-        public FixEvaluationData(HintContext ctx, List<Condition> marks, Acceptor acceptor, String fix) {
+        public final FixAcceptor acceptor;
+        public FixEvaluationData(HintContext ctx, List<Condition> marks, FixAcceptor acceptor) {
             this.ctx = ctx;
             this.marks = marks;
             this.acceptor = acceptor;
-            this.fix = fix;
         }
     }
 

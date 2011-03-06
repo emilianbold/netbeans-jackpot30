@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.Fix;
 import org.openide.util.Parameters;
 
 /**
@@ -253,18 +254,22 @@ public final class HintDescription {
 
     }
 
-    public static interface Acceptor {
-        public boolean accept(HintContext ctx);
+    public static interface ErrorDescriptionAcceptor {
+        public ErrorDescription accept(HintContext ctx);
+    }
+
+    public static interface FixAcceptor {
+        public Fix accept(HintContext ctx);
     }
 
     //XXX: should be a method on the factory:
     public static final class MarksWorker implements Worker {
 
         public final List<Condition> marks;
-        public final Acceptor acceptor;
+        public final ErrorDescriptionAcceptor acceptor;
         public final List<DeclarativeFixDescription> fixes;
 
-        public MarksWorker(List<Condition> marks, Acceptor acceptor, List<DeclarativeFixDescription> fixes) {
+        public MarksWorker(List<Condition> marks, ErrorDescriptionAcceptor acceptor, List<DeclarativeFixDescription> fixes) {
             this.marks = marks;
             this.acceptor = acceptor;
             this.fixes = fixes;
@@ -279,13 +284,11 @@ public final class HintDescription {
     //XXX: should be a method on the factory:
     public static final class DeclarativeFixDescription {
         public final List<Condition> marks;
-        public final Acceptor acceptor;
-        public final String fix;
+        public final FixAcceptor acceptor;
 
-        public DeclarativeFixDescription(List<Condition> marks, Acceptor acceptor, String fix) {
+        public DeclarativeFixDescription(List<Condition> marks, FixAcceptor acceptor) {
             this.marks = marks;
             this.acceptor = acceptor;
-            this.fix = fix;
         }
 
     }

@@ -55,9 +55,10 @@ import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.RulesManager;
 import org.netbeans.modules.jackpot30.spi.HintContext;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.Acceptor;
 import org.netbeans.modules.jackpot30.spi.HintDescription.Condition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.DeclarativeFixDescription;
+import org.netbeans.modules.jackpot30.spi.HintDescription.ErrorDescriptionAcceptor;
+import org.netbeans.modules.jackpot30.spi.HintDescription.FixAcceptor;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarkCondition;
 import org.netbeans.modules.jackpot30.spi.HintDescription.MarksWorker;
 import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
@@ -65,6 +66,8 @@ import org.netbeans.modules.jackpot30.spi.HintDescription.Selector;
 import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
 import org.netbeans.modules.jackpot30.spi.HintMetadata;
 import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
+import org.netbeans.modules.jackpot30.spi.JavaFix;
+import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.modules.java.hints.infrastructure.TreeRuleTestBase;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
@@ -95,11 +98,11 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
         List<Condition> globalConditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
         List<Condition> fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.EQUALS, new Selector("$var")));
         List<Condition> fix2Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
-        DeclarativeFixDescription f1 = new DeclarativeFixDescription(fix1Conditions, TRUE, "if ($var != $c) $then;");
-        DeclarativeFixDescription f2 = new DeclarativeFixDescription(fix2Conditions, TRUE, "if ($c == $var) $then;");
+        DeclarativeFixDescription f1 = new DeclarativeFixDescription(fix1Conditions, new FixAcceptorImpl("if ($var != $c) $then;"));
+        DeclarativeFixDescription f2 = new DeclarativeFixDescription(fix2Conditions, new FixAcceptorImpl("if ($c == $var) $then;"));
         currentHint = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))
                                                      .setTriggerPattern(PatternDescription.create("if ($var == $c) $then;"))
-                                                     .setWorker(new MarksWorker(globalConditions, new AcceptorImpl(), Arrays.asList(f1, f2)))
+                                                     .setWorker(new MarksWorker(globalConditions, new ErrorDescriptionAcceptorImpl("A"), Arrays.asList(f1, f2)))
                                                      .produce();
 
     }
@@ -196,11 +199,11 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
         List<Condition> fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")),
                                                                   new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
         List<Condition> fix2Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
-        DeclarativeFixDescription f1 = new DeclarativeFixDescription(fix1Conditions, TRUE, "if ($var != $c) $then;");
-        DeclarativeFixDescription f2 = new DeclarativeFixDescription(fix2Conditions, TRUE, "if ($c == $var) $then;");
+        DeclarativeFixDescription f1 = new DeclarativeFixDescription(fix1Conditions, new FixAcceptorImpl("if ($var != $c) $then;"));
+        DeclarativeFixDescription f2 = new DeclarativeFixDescription(fix2Conditions, new FixAcceptorImpl("if ($c == $var) $then;"));
         currentHint = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))
                                                      .setTriggerPattern(PatternDescription.create("if ($var == $c) $then;"))
-                                                     .setWorker(new MarksWorker(globalConditions, new AcceptorImpl(), Arrays.asList(f1, f2)))
+                                                     .setWorker(new MarksWorker(globalConditions, new ErrorDescriptionAcceptorImpl("A"), Arrays.asList(f1, f2)))
                                                      .produce();
         
         performFixTest("test/Test.java",
@@ -233,14 +236,14 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
         List<Condition> hint2GlobalConditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")),
                                                                          new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
         List<Condition> hint1Fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
-        DeclarativeFixDescription h1f1 = new DeclarativeFixDescription(hint1Fix1Conditions, TRUE, "if ($c == $var) $then;");
+        DeclarativeFixDescription h1f1 = new DeclarativeFixDescription(hint1Fix1Conditions, new FixAcceptorImpl("if ($c == $var) $then;"));
         HintDescription hint1 = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))
                                                                .setTriggerPattern(PatternDescription.create("if ($var == $c) $then;"))
-                                                               .setWorker(new MarksWorker(hint1GlobalConditions, new AcceptorImpl(), Arrays.asList(h1f1)))
+                                                               .setWorker(new MarksWorker(hint1GlobalConditions, new ErrorDescriptionAcceptorImpl("A"), Arrays.asList(h1f1)))
                                                                .produce();
         HintDescription hint2 = HintDescriptionFactory.create().setMetadata(prepareMetadata("B"))
                                                                .setTriggerPattern(PatternDescription.create("if ($var == $c) $then;"))
-                                                               .setWorker(new MarksWorker(hint2GlobalConditions, new AcceptorImpl(), Collections.<DeclarativeFixDescription>emptyList()))
+                                                               .setWorker(new MarksWorker(hint2GlobalConditions, new ErrorDescriptionAcceptorImpl("B"), Collections.<DeclarativeFixDescription>emptyList()))
                                                                .produce();
 
         currentHints = Arrays.asList(hint1, hint2);
@@ -275,15 +278,15 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
         List<Condition> hint2GlobalConditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "impossible"), HintDescription.Operator.EQUALS, new Selector("$var")));
         List<Condition> hint1Fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$_", "mark_var"), HintDescription.Operator.NOT_EQUALS, new Selector("$var")));
         List<Condition> hint2Fix1Conditions = Arrays.<Condition>asList(new MarkCondition(new Selector("$then", "mark_var"), HintDescription.Operator.ASSIGN, new Selector("$var")));
-        DeclarativeFixDescription h1f1 = new DeclarativeFixDescription(hint1Fix1Conditions, TRUE, "if ($c == $var) $then;");
-        DeclarativeFixDescription h2f1 = new DeclarativeFixDescription(hint2Fix1Conditions, TRUE, "if ($var != $c) $then;");
+        DeclarativeFixDescription h1f1 = new DeclarativeFixDescription(hint1Fix1Conditions, new FixAcceptorImpl("if ($c == $var) $then;"));
+        DeclarativeFixDescription h2f1 = new DeclarativeFixDescription(hint2Fix1Conditions, new FixAcceptorImpl("if ($var != $c) $then;"));
         HintDescription hint1 = HintDescriptionFactory.create().setMetadata(prepareMetadata("A"))
                                                                .setTriggerPattern(PatternDescription.create("if ($var == $c) $then;"))
-                                                               .setWorker(new MarksWorker(hint1GlobalConditions, new AcceptorImpl(), Arrays.asList(h1f1)))
+                                                               .setWorker(new MarksWorker(hint1GlobalConditions, new ErrorDescriptionAcceptorImpl("A"), Arrays.asList(h1f1)))
                                                                .produce();
         HintDescription hint2 = HintDescriptionFactory.create().setMetadata(prepareMetadata("B"))
                                                                .setTriggerPattern(PatternDescription.create("if ($var == $c) $then;"))
-                                                               .setWorker(new MarksWorker(hint2GlobalConditions, new AcceptorImpl(), Arrays.asList(h2f1)))
+                                                               .setWorker(new MarksWorker(hint2GlobalConditions, new ErrorDescriptionAcceptorImpl("B"), Arrays.asList(h2f1)))
                                                                .produce();
 
         currentHints = Arrays.asList(hint1, hint2);
@@ -353,9 +356,23 @@ public class MarkEvaluationTest extends TreeRuleTestBase {
     @Override
     public void testNoHintsForSimpleInitialize() throws Exception {}
 
-    private static final Acceptor TRUE = new AcceptorImpl();
+    private static final class ErrorDescriptionAcceptorImpl implements ErrorDescriptionAcceptor {
+        private final String displayName;
+        public ErrorDescriptionAcceptorImpl(String displayName) {
+            this.displayName = displayName;
+        }
+        public ErrorDescription accept(HintContext ctx) {
+            return ErrorDescriptionFactory.forName(ctx, ctx.getPath(), displayName);
+        }
+    };
     
-    private static final class AcceptorImpl implements Acceptor {
-        public boolean accept(HintContext ctx) { return true; }
+    private static final class FixAcceptorImpl implements FixAcceptor {
+        private final String to;
+        public FixAcceptorImpl(String to) {
+            this.to = to;
+        }
+        public Fix accept(HintContext ctx) {
+            return JavaFix.rewriteFix(ctx, "FixImpl", ctx.getPath(), to);
+        }
     }
 }
