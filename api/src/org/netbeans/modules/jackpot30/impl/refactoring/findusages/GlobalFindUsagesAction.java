@@ -54,6 +54,9 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.editor.NbEditorUtilities;
 import org.netbeans.modules.refactoring.spi.ui.UI;
+import org.openide.DialogDescriptor;
+import org.openide.DialogDisplayer;
+import org.openide.NotifyDescriptor.Message;
 import org.openide.awt.ActionRegistration;
 import org.openide.awt.ActionReference;
 import org.openide.awt.ActionReferences;
@@ -93,7 +96,7 @@ public final class GlobalFindUsagesAction implements ActionListener {
                     TreePath sel = parameter.getTreeUtilities().pathFor(pos);
                     Element el = parameter.getTrees().getElement(sel);
 
-                    if (el != null && el.getKind() == ElementKind.METHOD) {
+                    if (el != null) {
                         script[0] = PatternGenerator.generateFindUsagesScript(parameter, el);
                     }
                 }
@@ -102,6 +105,12 @@ public final class GlobalFindUsagesAction implements ActionListener {
             Exceptions.printStackTrace(ex);
         }
 
-        UI.openRefactoringUI(new GlobalFindUsagesRefactoringUI(new GlobalFindUsagesRefactoring(script[0])));
+        if (script[0] != null) {
+            UI.openRefactoringUI(new GlobalFindUsagesRefactoringUI(new GlobalFindUsagesRefactoring(script[0])));
+        } else {
+            Message dd = new Message("Cannot perform Global Find Usages here", DialogDescriptor.INFORMATION_MESSAGE);
+
+            DialogDisplayer.getDefault().notifyLater(dd);
+        }
     }
 }

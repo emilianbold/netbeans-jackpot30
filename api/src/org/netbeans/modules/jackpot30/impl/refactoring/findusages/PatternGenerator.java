@@ -47,6 +47,8 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import org.netbeans.api.annotations.common.CheckForNull;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.source.CompilationInfo;
 
 /**
@@ -55,7 +57,7 @@ import org.netbeans.api.java.source.CompilationInfo;
  */
 public class PatternGenerator {
 
-    public static String generateFindUsagesScript(CompilationInfo info, Element usagesOf) {
+    public static @CheckForNull String generateFindUsagesScript(CompilationInfo info, Element usagesOf) {
         switch (usagesOf.getKind()) {
             case METHOD: return generateMethodFindUsagesScript(info, (ExecutableElement) usagesOf);
             case ENUM_CONSTANT:
@@ -64,11 +66,11 @@ public class PatternGenerator {
             case CLASS:
             case ENUM:
             case INTERFACE: return generateClassFindUsagesScript(info, (TypeElement) usagesOf);
-            default: throw new IllegalStateException();
+            default: return null;
         }
     }
 
-    private static String generateMethodFindUsagesScript(CompilationInfo info, ExecutableElement usagesOf) {
+    private static @NonNull String generateMethodFindUsagesScript(CompilationInfo info, ExecutableElement usagesOf) {
         StringBuilder script = new StringBuilder();
         StringBuilder parameters = new StringBuilder();
         StringBuilder constraints = new StringBuilder();
@@ -108,7 +110,7 @@ public class PatternGenerator {
         return script.toString();
     }
 
-    private static String generateFieldFindUsagesScript(CompilationInfo info, VariableElement usagesOf) {
+    private static @NonNull String generateFieldFindUsagesScript(CompilationInfo info, VariableElement usagesOf) {
         StringBuilder script = new StringBuilder();
         StringBuilder constraints = new StringBuilder();
         String enclosingType = info.getTypes().erasure(usagesOf.getEnclosingElement().asType()).toString();
@@ -132,7 +134,7 @@ public class PatternGenerator {
         return script.toString();
     }
 
-    private static String generateClassFindUsagesScript(CompilationInfo info, TypeElement usagesOf) {
+    private static @NonNull String generateClassFindUsagesScript(CompilationInfo info, TypeElement usagesOf) {
         StringBuilder script = new StringBuilder();
 
         script.append(usagesOf.getQualifiedName());
