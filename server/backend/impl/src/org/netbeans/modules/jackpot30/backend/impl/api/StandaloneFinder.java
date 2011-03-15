@@ -47,6 +47,7 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
@@ -71,13 +72,16 @@ import org.apache.lucene.store.FSDirectory;
 import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex.BitSetCollector;
-import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.parsing.impl.indexing.SPIAccessor;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 
 /**
  *
@@ -122,8 +126,15 @@ public class StandaloneFinder {
         return errors;
     }
 
+    private static File getIndex(URL url) throws IOException {
+        FileObject indexBaseFolder = CacheFolder.getDataFolder(url);
+        String path = SPIAccessor.getInstance().getIndexerPath(DuplicatesIndex.NAME, DuplicatesIndex.VERSION);
+        FileObject indexFolder = FileUtil.createFolder(indexBaseFolder, path);
+        return FileUtil.toFile(indexFolder);
+    }
+
     public static Map<String, Collection<? extends String>> containsHash(File sourceRoot, Iterable<? extends String> hashes) throws IOException {
-        File cacheRoot = Cache.findCache(DuplicatesIndex.NAME, DuplicatesIndex.VERSION).findCacheRoot(sourceRoot.toURI().toURL());
+        File cacheRoot = getIndex(sourceRoot.toURI().toURL());
         File dir = new File(cacheRoot, "fulltext");
 
         if (dir.listFiles() != null && dir.listFiles().length > 0) {

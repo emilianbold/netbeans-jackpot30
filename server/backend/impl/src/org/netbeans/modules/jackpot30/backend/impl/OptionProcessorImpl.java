@@ -51,6 +51,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.SourceUtils;
@@ -61,6 +62,7 @@ import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.sendopts.CommandException;
 import org.netbeans.modules.jackpot30.backend.impl.api.API;
 import org.netbeans.modules.jackpot30.backend.impl.ui.UI;
+import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomIndexerImpl;
 import org.netbeans.modules.jackpot30.impl.indexing.CustomIndexerImpl;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.support.ant.PropertyUtils;
@@ -147,6 +149,8 @@ public class OptionProcessorImpl extends OptionProcessor {
                 indexProjects(CategoryStorage.getCategoryContent(categoryId), env);
             } catch (InterruptedException ex) {
                 throw (CommandException) new CommandException(0).initCause(ex);
+            } catch (IOException ex) {
+                throw (CommandException) new CommandException(0).initCause(ex);
             }
         }
     }
@@ -197,7 +201,7 @@ public class OptionProcessorImpl extends OptionProcessor {
         return sourceRoots;
     }
 
-    private void indexProjects(Set<FileObject> sourceRoots, Env env) throws IllegalArgumentException, InterruptedException {
+    private void indexProjects(Set<FileObject> sourceRoots, Env env) throws IOException, InterruptedException {
         if (sourceRoots.isEmpty()) {
             env.getErrorStream().println("Error: There is nothing to index!");
         } else {
@@ -207,6 +211,10 @@ public class OptionProcessorImpl extends OptionProcessor {
 
             GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {source});
             SourceUtils.waitScanFinished();
+
+            for (FileObject root : sourceRoots) {
+                new DuplicatesCustomIndexerImpl.FactoryImpl().updateIndex(root.getURL(), new AtomicBoolean());
+            }
             GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {source});
         }
     }

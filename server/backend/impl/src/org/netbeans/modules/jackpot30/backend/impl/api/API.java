@@ -361,29 +361,40 @@ public class API {
     @Path("/findDuplicates")
     @Produces("text/plain")
     public String findDuplicates(@QueryParam("path") String segment, @QueryParam("hashes") String hashes) throws IOException {
-        Map<String, Map<String, Collection<? extends String>>> hash2Segment2Contains = new HashMap<String, Map<String, Collection<? extends String>>>();
+        Map<String, Map<String, Collection<String>>> hash2Segment2Contains = new HashMap<String, Map<String, Collection<String>>>();
         Collection<String> segments = new LinkedList<String>();
 
         if (segment != null) segments.add(segment);
         else {
-            for (String key : Cache.knownSourceRoots()) {
-                segments.add(key);
-            }
+            segments.addAll(CategoryStorage.listCategoriesWithNames().keySet());
         }
 
         Iterable<? extends String> hashesList = Arrays.asList(Pojson.load(String[].class, hashes));
 
-        for (String key : segments) {
-            Map<String, Collection<? extends String>> found = StandaloneFinder.containsHash(Cache.sourceRootForKey(key), hashesList);
+        for (String seg : segments) {
+            Set<FileObject> srcRoots = CategoryStorage.getCategoryContent(seg);
+            final FileObject deepestCommonParent = deepestCommonParent(srcRoots);
 
-            for (Entry<String, Collection<? extends String>> e : found.entrySet()) {
-                Map<String, Collection<? extends String>> perRoot = hash2Segment2Contains.get(e.getKey());
+            for (FileObject root : srcRoots) {
+                Map<String, Collection<? extends String>> found = StandaloneFinder.containsHash(FileUtil.toFile(root), hashesList);
 
-                if (perRoot == null) {
-                    hash2Segment2Contains.put(e.getKey(), perRoot = new HashMap<String, Collection<? extends String>>());
+                for (Entry<String, Collection<? extends String>> e : found.entrySet()) {
+                    Map<String, Collection<String>> perRoot = hash2Segment2Contains.get(e.getKey());
+
+                    if (perRoot == null) {
+                        hash2Segment2Contains.put(e.getKey(), perRoot = new HashMap<String, Collection<String>>());
+                    }
+
+                    Collection<String> rel = perRoot.get(seg);
+
+                    if (rel == null) {
+                        perRoot.put(seg, rel = new ArrayList<String>(e.getValue().size()));
+                    }
+
+                    for (String r : e.getValue()) {
+                        rel.add(FileUtil.getRelativePath(deepestCommonParent, root.getFileObject(r)));
+                    }
                 }
-
-                perRoot.put(key, e.getValue());
             }
         }
 
