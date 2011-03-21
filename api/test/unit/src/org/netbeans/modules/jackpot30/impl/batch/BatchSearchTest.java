@@ -73,6 +73,7 @@ import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.junit.NbTestSuite;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
+import org.netbeans.modules.jackpot30.impl.TestUtils;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
@@ -124,6 +125,7 @@ public class BatchSearchTest extends NbTestCase {
         Util.allMimeTypes = Collections.singleton("text/x-java");
         GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {ClassPathSupport.createClassPath(src1, src2)});
         RepositoryUpdater.getDefault().start(true);
+        TestUtils.clearRemoteContent();
         super.setUp();
     }
 
@@ -363,7 +365,7 @@ public class BatchSearchTest extends NbTestCase {
 
         golden.put(data.getURL().toExternalForm(), new HashSet<String>(Arrays.asList("src1/test/Test1.java", "src2/test/Test1.java")));
 
-        content.put(new URL("test://test/index?path=foo&pattern=$1.isDirectory();;"), "src1/test/Test1.java\nsrc2/test/Test1.java");
+        TestUtils.addRemoteContent(new URL("test://test/index?path=foo&pattern=$1.isDirectory();;"), "src1/test/Test1.java\nsrc2/test/Test1.java");
         BatchResult result = BatchSearch.findOccurrences(hints, Scope.createGivenFolderRemoteIndex(FileUtil.toFile(data).getAbsolutePath(), "test://test/index", "foo"));
         Map<String, Iterable<String>> output = toDebugOutput(result);
 
@@ -377,9 +379,8 @@ public class BatchSearchTest extends NbTestCase {
 
         golden.put(data.getURL().toExternalForm(), new HashSet<String>(Arrays.asList("test/Test1.java", "test/Test2.java")));
 
-        content.clear();
-        content.put(new URL("test://test/index/capabilities"), "{ \"methods\": [ \"find\", \"findWithSpans\", \"findSpans\" ], \"attributed\": true }");
-        content.put(new URL("test://test/index/find?path=foo&pattern=$1.isDirectory()%20::%20$1%20instanceof%20java.io.File;;%0A"), "test/Test1.java\ntest/Test2.java");
+        TestUtils.addRemoteContent(new URL("test://test/index/capabilities"), "{ \"methods\": [ \"find\", \"findWithSpans\", \"findSpans\" ], \"attributed\": true }");
+        TestUtils.addRemoteContent(new URL("test://test/index/find?path=foo&pattern=$1.isDirectory()%20::%20$1%20instanceof%20java.io.File;;%0A"), "test/Test1.java\ntest/Test2.java");
         RemoteIndex.saveIndices(Arrays.asList(RemoteIndex.create(FileUtil.toFile(data).getAbsolutePath(), new URL("test://test/index"), "foo")));
         BatchResult result = BatchSearch.findOccurrences(hints, Scope.createAllRemote());
         Map<String, Iterable<String>> output = toDebugOutput(result);
@@ -387,8 +388,8 @@ public class BatchSearchTest extends NbTestCase {
         assertEquals(golden, output);
 
         //verify that the spans are from the remote side:
-        content.put(new URL("test://test/index/findSpans?path=foo&relativePath=test/Test1.java&pattern=$1.isDirectory()%20::%20$1%20instanceof%20java.io.File;;%0A"), "2:5");
-        content.put(new URL("test://test/index/findSpans?path=foo&relativePath=test/Test2.java&pattern=$1.isDirectory()%20::%20$1%20instanceof%20java.io.File;;%0A"), "1:3:5:7");
+        TestUtils.addRemoteContent(new URL("test://test/index/findSpans?path=foo&relativePath=test/Test1.java&pattern=$1.isDirectory()%20::%20$1%20instanceof%20java.io.File;;%0A"), "2:5");
+        TestUtils.addRemoteContent(new URL("test://test/index/findSpans?path=foo&relativePath=test/Test2.java&pattern=$1.isDirectory()%20::%20$1%20instanceof%20java.io.File;;%0A"), "1:3:5:7");
         
         writeFiles(data,
                    new File("test/Test1.java", "0123456789"),
@@ -646,51 +647,4 @@ public class BatchSearchTest extends NbTestCase {
         return bootClassPath;
     }
 
-    private static final Map<URL, String> content = new HashMap<URL, String>();
-
-    @ServiceProvider(service=URLStreamHandlerFactory.class)
-    public static final class URLStreamHandlerFactoryImpl implements URLStreamHandlerFactory {
-
-        public URLStreamHandler createURLStreamHandler(String protocol) {
-            if ("test".equals(protocol)) {
-                return new URLStreamHandlerImpl();
-            }
-
-            return null;
-        }
-
-    }
-
-    private static final class URLStreamHandlerImpl extends URLStreamHandler {
-
-        @Override
-        protected URLConnection openConnection(URL u) throws IOException {
-            String str = content.get(u);
-
-            Assert.assertNotNull(u.toExternalForm(), str);
-
-            return new TestURLConnection(u, str);
-        }
-
-    }
-
-    private static final class TestURLConnection extends URLConnection {
-
-        private final String content;
-
-        public TestURLConnection(URL url, String content) {
-            super(url);
-            this.content = content;
-        }
-
-        @Override
-        public void connect() throws IOException {
-        }
-
-        @Override
-        public Object getContent() throws IOException {
-            return new ByteArrayInputStream(content.getBytes("ASCII")); //XXX
-        }
-
-    }
 }

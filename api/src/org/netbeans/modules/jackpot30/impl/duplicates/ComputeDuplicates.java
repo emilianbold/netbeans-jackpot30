@@ -38,14 +38,26 @@
  */
 package org.netbeans.modules.jackpot30.impl.duplicates;
 
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.Trees;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.security.DigestOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -55,7 +67,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.tools.JavaCompiler.CompilationTask;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiReader;
@@ -70,11 +84,16 @@ import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.progress.ProgressHandle;
+import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomIndexerImpl;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex.BitSetCollector;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
+import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
+import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
@@ -133,26 +152,30 @@ public class ComputeDuplicates {
 
         List<String> dd = new ArrayList<String>(getDuplicatedValues(r, "generalized", cancel));
 
-        Collections.sort(dd, new Comparator<String>() {
-            public int compare(String arg0, String arg1) {
-                return (int) Math.signum(getValue(arg1) - getValue(arg0));
-            }
-        });
+        sortHashes(dd);
 
         //TODO: only show valuable duplicates?:
 //        dd = dd.subList(0, dd.size() / 10 + 1);
 
-        return new DuplicatesIterator(readers2Roots, dd);
+        return new DuplicatesIterator(readers2Roots, dd, 2);
+    }
+
+    public static Iterator<? extends DuplicateDescription> XXXduplicatesOf(Map<IndexReader, FileObject> readers2Roots, Collection<String> hashes) {
+        List<String> hashesList = new ArrayList<String>(hashes);
+        sortHashes(hashesList);
+        return new DuplicatesIterator(readers2Roots, hashesList, 1);
     }
 
     private static final class DuplicatesIterator implements Iterator<DuplicateDescription> {
         private final Map<IndexReader, FileObject> readers2Roots;
         private final Iterator<String> duplicateCandidates;
+        private final int minDuplicates;
         private final List<DuplicateDescription> result = new LinkedList<DuplicateDescription>();
 
-        public DuplicatesIterator(Map<IndexReader, FileObject> readers2Roots, Iterable<String> duplicateCandidates) {
+        public DuplicatesIterator(Map<IndexReader, FileObject> readers2Roots, Iterable<String> duplicateCandidates, int minDuplicates) {
             this.readers2Roots = readers2Roots;
             this.duplicateCandidates = duplicateCandidates.iterator();
+            this.minDuplicates = minDuplicates;
         }
 
         private DuplicateDescription nextDescription() throws IOException {
@@ -191,8 +214,8 @@ public class ComputeDuplicates {
                 }
             }
 
-            if (foundDuplicates.size() >= 2) {
-                DuplicateDescription current = DuplicateDescription.of(foundDuplicates, getValue(longest));
+            if (foundDuplicates.size() >= minDuplicates) {
+                DuplicateDescription current = DuplicateDescription.of(foundDuplicates, getValue(longest), longest);
                 boolean add = true;
 
                 for (Iterator<DuplicateDescription> it = result.iterator(); it.hasNext();) {
@@ -274,6 +297,14 @@ public class ComputeDuplicates {
     private static long getValue(String encoded) {
         return Long.parseLong(encoded.substring(encoded.lastIndexOf(":") + 1));
     }
+
+    private static void sortHashes(List<String> hashes) {
+        Collections.sort(hashes, new Comparator<String>() {
+            public int compare(String arg0, String arg1) {
+                return (int) Math.signum(getValue(arg1) - getValue(arg0));
+            }
+        });
+    }
     
     private static boolean subsumes(DuplicateDescription bigger, DuplicateDescription smaller) {
         Set<FileObject> bFiles = new HashSet<FileObject>();
@@ -304,18 +335,93 @@ public class ComputeDuplicates {
         return false;
     }
 
+    public static Map<String, long[]> encodeGeneralized(CompilationInfo info) {
+        return encodeGeneralized(JavaSourceAccessor.getINSTANCE().getJavacTask(info), info.getCompilationUnit());
+    }
+
+    public static Map<String, long[]> encodeGeneralized(final CompilationTask task, final CompilationUnitTree cut) {
+        final SourcePositions sp = Trees.instance(task).getSourcePositions();
+        final Map<String, Collection<Long>> positions = new HashMap<String, Collection<Long>>();
+
+        new TreePathScanner<Void, Void>() {
+            @Override
+            public Void scan(Tree tree, Void p) {
+                if (tree == null) return null;
+                if (getCurrentPath() != null) {
+                    Tree generalizedPattern = Utilities.generalizePattern(task, new TreePath(getCurrentPath(), tree));
+                    long value = Utilities.patternValue(generalizedPattern);
+                    if (value >= MINIMAL_VALUE) {
+                        {
+                            DigestOutputStream baos = null;
+                            try {
+                                baos = new DigestOutputStream(new ByteArrayOutputStream(), MessageDigest.getInstance("MD5"));
+                                final EncodingContext ec = new BulkSearch.EncodingContext(baos, true);
+                                BulkSearch.getDefault().encode( generalizedPattern, ec);
+                                StringBuilder text = new StringBuilder();
+                                byte[] bytes = baos.getMessageDigest().digest();
+                                for (int cntr = 0; cntr < 4; cntr++) {
+                                    text.append(String.format("%02X", bytes[cntr]));
+                                }
+                                text.append(':').append(value);
+                                String enc = text.toString();
+                                Collection<Long> spanSpecs = positions.get(enc);
+                                if (spanSpecs == null) {
+                                    positions.put(enc, spanSpecs = new LinkedList<Long>());
+//                                } else {
+//                                    spanSpecs.append(";");
+                                }
+                                long start = sp.getStartPosition(cut, tree);
+//                                spanSpecs.append(start).append(":").append(sp.getEndPosition(cut, tree) - start);
+                                spanSpecs.add(start);
+                                spanSpecs.add(sp.getEndPosition(cut, tree));
+                            } catch (NoSuchAlgorithmException ex) {
+                                Exceptions.printStackTrace(ex);
+                           } finally {
+                                try {
+                                    baos.close();
+                                } catch (IOException ex) {
+                                    Exceptions.printStackTrace(ex);
+                                }
+                            }
+                        }
+                    }
+                }
+                return super.scan(tree, p);
+            }
+        }.scan(cut, null);
+
+        Map<String, long[]> result = new TreeMap<String, long[]>();
+
+        for (Entry<String, Collection<Long>> e : positions.entrySet()) {
+            long[] spans = new long[e.getValue().size()];
+            int idx = 0;
+
+            for (Long l : e.getValue()) {
+                spans[idx++] = l;
+            }
+
+            result.put(e.getKey(), spans);
+        }
+
+        return result;
+    }
+
+    private static final int MINIMAL_VALUE = 10;
+
     public static final class DuplicateDescription {
 
         public final List<Span> dupes;
         public final long value;
+        public final String hash;
 
-        private DuplicateDescription(List<Span> dupes, long value) {
+        private DuplicateDescription(List<Span> dupes, long value, String hash) {
             this.dupes = dupes;
             this.value = value;
+            this.hash = hash;
         }
 
-        public static DuplicateDescription of(List<Span> dupes, long value) {
-            return new DuplicateDescription(dupes, value);
+        public static DuplicateDescription of(List<Span> dupes, long value, String hash) {
+            return new DuplicateDescription(dupes, value, hash);
         }
     }
 

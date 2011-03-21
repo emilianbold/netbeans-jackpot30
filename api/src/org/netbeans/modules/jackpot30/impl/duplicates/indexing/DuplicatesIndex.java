@@ -40,21 +40,11 @@
 package org.netbeans.modules.jackpot30.impl.duplicates.indexing;
 
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.Tree;
-import com.sun.source.util.SourcePositions;
-import com.sun.source.util.TreePath;
-import com.sun.source.util.TreePathScanner;
-import com.sun.source.util.Trees;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.security.DigestOutputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.tools.JavaCompiler.CompilationTask;
@@ -67,13 +57,10 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.jackpot30.impl.Utilities;
+import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex.NoAnalyzer;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
-import org.openide.util.Exceptions;
 
 /**
  *
@@ -119,57 +106,19 @@ public class DuplicatesIndex {
 
                 doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
 
-                final SourcePositions sp = Trees.instance(task).getSourcePositions();
-                final Map<String, StringBuilder> positions = new TreeMap<String, StringBuilder>();
+                final Map<String, long[]> positions = ComputeDuplicates.encodeGeneralized(task, cut);
 
-                new TreePathScanner<Void, Void>() {
-                    @Override
-                    public Void scan(Tree tree, Void p) {
-                        if (tree == null) return null;
-                        if (getCurrentPath() != null) {
-                            Tree generalizedPattern = Utilities.generalizePattern(task, new TreePath(getCurrentPath(), tree));
-                            long value = Utilities.patternValue(generalizedPattern);
-                            if (value >= MINIMAL_VALUE) {
-                                {
-                                    DigestOutputStream baos = null;
-                                    try {
-                                        baos = new DigestOutputStream(new ByteArrayOutputStream(), MessageDigest.getInstance("MD5"));
-                                        final EncodingContext ec = new BulkSearch.EncodingContext(baos, true);
-                                        BulkSearch.getDefault().encode( generalizedPattern, ec);
-                                        StringBuilder text = new StringBuilder();
-                                        byte[] bytes = baos.getMessageDigest().digest();
-                                        for (int cntr = 0; cntr < 4; cntr++) {
-                                            text.append(String.format("%02X", bytes[cntr]));
-                                        }
-                                        text.append(':').append(value);
-                                        String enc = text.toString();
-                                        StringBuilder spanSpecs = positions.get(enc);
-                                        if (spanSpecs == null) {
-                                            positions.put(enc, spanSpecs = new StringBuilder());
-                                        } else {
-                                            spanSpecs.append(";");
-                                        }
-                                        long start = sp.getStartPosition(cut, tree);
-                                        spanSpecs.append(start).append(":").append(sp.getEndPosition(cut, tree) - start);
-                                    } catch (NoSuchAlgorithmException ex) {
-                                        Exceptions.printStackTrace(ex);
-                                   } finally {
-                                        try {
-                                            baos.close();
-                                        } catch (IOException ex) {
-                                            Exceptions.printStackTrace(ex);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        return super.scan(tree, p);
-                    }
-                }.scan(cut, null);
-
-                for (Entry<String, StringBuilder> e : positions.entrySet()) {
+                for (Entry<String, long[]> e : positions.entrySet()) {
                     doc.add(new Field("generalized", e.getKey(), Store.YES, Index.NOT_ANALYZED));
-                    doc.add(new Field("positions", e.getValue().toString(), Store.YES, Index.NO));
+
+                    StringBuilder positionsSpec = new StringBuilder();
+
+                    for (int i = 0; i < e.getValue().length; i += 2) {
+                        if (positionsSpec.length() > 0) positionsSpec.append(';');
+                        positionsSpec.append(e.getValue()[i]).append(':').append(e.getValue()[i + 1] - e.getValue()[i]);
+                    }
+
+                    doc.add(new Field("positions", positionsSpec.toString(), Store.YES, Index.NO));
                 }
 
                 luceneWriter.addDocument(doc);
@@ -189,8 +138,6 @@ public class DuplicatesIndex {
             luceneWriter.close();
         }
     }
-
-    private static final int MINIMAL_VALUE = 10;
 
     public static final String NAME = "duplicates"; //NOI18N
     public static final int    VERSION = 1; //NOI18N

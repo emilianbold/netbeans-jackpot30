@@ -50,9 +50,9 @@ import org.netbeans.modules.java.source.save.DiffContext;
  *
  * @author lahvac
  */
-public class FindDuplicatesTest extends TestBase {
+public class ExplicitFindDuplicatesTest extends TestBase {
 
-    public FindDuplicatesTest(String name) {
+    public ExplicitFindDuplicatesTest(String name) {
         super(name);
     }
 
@@ -124,7 +124,7 @@ public class FindDuplicatesTest extends TestBase {
 
         prepareTest("test/Test.java", code);
 
-        Tree generalizedTree = FindDuplicates.resolveAndGeneralizePattern(info, start, end);
+        Tree generalizedTree = ExplicitFindDuplicates.resolveAndGeneralizePattern(info, start, end);
         VeryPretty vp = new VeryPretty(new DiffContext(info));
 
         vp.print((JCTree) generalizedTree);
