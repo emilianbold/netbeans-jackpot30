@@ -417,7 +417,7 @@ public class BatchSearch {
         for (Entry<? extends IndexEnquirer, ? extends Collection<? extends Resource>> e : candidates.projectId2Resources.entrySet()) {
             inner.startNextPart(e.getValue().size());
 
-            e.getKey().validateResource(e.getValue(), progress, callback, problems);
+            e.getKey().validateResource(e.getValue(), progress, callback, doNotRegisterClassPath, problems);
         }
     }
 
@@ -844,7 +844,7 @@ public class BatchSearch {
             this.src = src;
         }
         public abstract Collection<? extends Resource> findResources(Iterable<? extends HintDescription> hints, ProgressHandleWrapper progress, DelayedBulkPattern bulkPattern, Collection<? super MessageImpl> problems);
-        public abstract void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper progress, VerifiedSpansCallBack callback, Collection<? super MessageImpl> problems);
+        public abstract void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper progress, VerifiedSpansCallBack callback, boolean doNotRegisterClassPath, Collection<? super MessageImpl> problems);
 //        public int[] getEstimatedSpan(Resource r);
     }
 
@@ -852,7 +852,7 @@ public class BatchSearch {
         public LocalIndexEnquirer(FileObject src) {
             super(src);
         }
-        public void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper progress, VerifiedSpansCallBack callback, Collection<? super MessageImpl> problems) {
+        public void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper progress, VerifiedSpansCallBack callback, boolean doNotRegisterClassPath, Collection<? super MessageImpl> problems) {
             getLocalVerifiedSpans(resources, progress, callback, false/*XXX*/, problems);
         }
     }
@@ -967,7 +967,7 @@ public class BatchSearch {
         }
 
         @Override
-        public void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper progress, VerifiedSpansCallBack callback, Collection<? super MessageImpl> problems) {
+        public void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper progress, VerifiedSpansCallBack callback, boolean doNotRegisterClassPath, Collection<? super MessageImpl> problems) {
             for (Resource r : resources) {
                 try {
                     URI spanURI = new URI(remoteIndex.remote.toExternalForm() + "/findSpans?path=" + escapeForQuery(remoteIndex.remoteSegment) + "&relativePath=" + escapeForQuery(r.relativePath) + "&pattern=" + escapeForQuery(textualHintRepresentation));
