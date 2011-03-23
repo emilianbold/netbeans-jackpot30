@@ -50,6 +50,7 @@ import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.jackpot30.impl.indexing.RemoteIndex;
 import org.netbeans.modules.jackpot30.impl.refactoring.AbstractApplyHintsRefactoringPlugin;
 import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
@@ -70,6 +71,9 @@ public class GlobalFindUsagesRefactoringPlugin extends AbstractApplyHintsRefacto
     }
 
     public Problem preCheck() {
+        if (!RemoteIndex.loadIndices().iterator().hasNext()) {
+            return new Problem(true, "No remote indices set-up, nothing to work on.");
+        }
         return null;
     }
 

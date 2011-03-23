@@ -172,6 +172,9 @@ public final class ProgressHandleWrapper {
         }
 
         handle.finish();
+
+        if (currentPart < 0) return ;
+        
         spentTime[currentPart] = System.currentTimeMillis() - currentPartStartTime;
 
         double total = 0.0;

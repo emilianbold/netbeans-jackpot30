@@ -93,6 +93,8 @@ public final class GlobalFindUsagesAction implements ActionListener {
         try {
             js.runUserActionTask(new Task<CompilationController>() {
                 public void run(CompilationController parameter) throws Exception {
+                    parameter.toPhase(JavaSource.Phase.RESOLVED);
+                    
                     TreePath sel = parameter.getTreeUtilities().pathFor(pos);
                     Element el = parameter.getTrees().getElement(sel);
 
