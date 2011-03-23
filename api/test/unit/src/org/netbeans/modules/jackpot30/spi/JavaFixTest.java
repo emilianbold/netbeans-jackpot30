@@ -456,6 +456,16 @@ public class JavaFixTest extends TestBase {
                                     "}\n");
     }
 
+    public void testUnresolvableTarget() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "public class Test extends java.util.ArrayList {\n" +
+                           "}\n",
+                           "java.util.ArrayList => Test",
+                           "package test;\n" +
+                           "public class Test extends Test {\n" +
+                           "}\n");
+    }
+
     public void performRewriteTest(String code, String rule, String golden) throws Exception {
 	prepareTest("test/Test.java", code);
 

@@ -387,6 +387,10 @@ public abstract class JavaFix {
     private static boolean isStaticElement(Element el) {
         if (el == null) return false;
 
+        if (el.asType() == null || el.asType().getKind() == TypeKind.ERROR) {
+            return false;
+        }
+        
         if (el.getModifiers().contains(Modifier.STATIC)) {
             //XXX:
             if (!el.getKind().isClass() && !el.getKind().isInterface()) {
