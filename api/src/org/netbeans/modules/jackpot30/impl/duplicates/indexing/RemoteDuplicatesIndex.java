@@ -169,7 +169,9 @@ public class RemoteDuplicatesIndex {
                         }
                     }
 
-                    assert current != null : insideHash.getKey();
+                    if (current == null) {
+                        continue;
+                    }
 
                     Collection<String> dupes = hashResult.get(current);
 
@@ -193,6 +195,11 @@ public class RemoteDuplicatesIndex {
             URI u = new URI(indexURL + "/findDuplicates?hashes=" + WebUtilities.escapeForQuery(Pojson.save(hashes)));
             String hashesMap = WebUtilities.requestStringResponse(u);
 
+            if (hashesMap == null) {
+                //some kind of error while getting the duplicates (cannot access remote server)?
+                //ignore:
+                return Collections.emptyMap();
+            }
             return Pojson.load(LinkedHashMap.class, hashesMap);
         } catch (URISyntaxException ex) {
             //XXX: better handling?
