@@ -49,7 +49,6 @@ import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CatchTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
-import com.sun.source.tree.DisjunctiveTypeTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
@@ -71,6 +70,7 @@ import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.tree.TypeParameterTree;
+import com.sun.source.tree.UnionTypeTree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -1181,13 +1181,13 @@ public abstract class JavaFix {
 
                     wc.rewrite(classTree, nueClassTree);
                     break;
-                case DISJUNCTIVE_TYPE:
-                    DisjunctiveTypeTree disjunct = (DisjunctiveTypeTree) parentLeaf;
+                case UNION_TYPE:
+                    UnionTypeTree disjunct = (UnionTypeTree) parentLeaf;
                     List<? extends Tree> alternatives = new LinkedList<Tree>(disjunct.getTypeAlternatives());
 
                     alternatives.remove(leaf);
 
-                    wc.rewrite(disjunct, make.DisjunctiveType(alternatives));
+                    wc.rewrite(disjunct, make.UnionType(alternatives));
                     break;
                 case METHOD:
                     MethodTree mTree = (MethodTree) parentLeaf;
