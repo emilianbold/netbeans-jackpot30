@@ -58,6 +58,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.ModificationResult.Difference;
 import org.netbeans.api.java.source.TreePathHandle;
+import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.modules.jackpot30.impl.MessageImpl;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
 import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
@@ -167,7 +168,7 @@ public abstract class JackpotBasedRefactoring implements RefactoringPlugin {
             }
         } else {
             File root = FileUtil.toFile(sourceRoot);
-            JavaFileObject jfo = FileObjects.fileFileObject(new File(root, relPath), root, null);
+            JavaFileObject jfo = FileObjects.fileFileObject(new File(root, relPath), root, null, FileEncodingQuery.getEncoding(sourceRoot));
             
             diffs.add(JavaSourceAccessor.getINSTANCE().createNewFileDifference(jfo, sd.code));
         }
