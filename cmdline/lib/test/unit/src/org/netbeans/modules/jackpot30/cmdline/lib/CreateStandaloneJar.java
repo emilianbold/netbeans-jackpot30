@@ -39,6 +39,7 @@
 package org.netbeans.modules.jackpot30.cmdline.lib;
 
 import com.sun.source.tree.Tree;
+import com.sun.tools.javac.api.JavacTool;
 import java.io.BufferedWriter;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -412,6 +413,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
 
             , "org.netbeans.modules.java.hints.infrastructure.RulesManager$HintProviderImpl"
             , Tree.class.getName()
+            ,JavacTool.class.getName()
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
