@@ -308,4 +308,18 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
                              true);
     }
 
+    public void testTryWithResources() throws Exception {
+        performVariablesTest("package test; public class Test { { try (java.io.InputStream in = null) { System.err.println(1); } } }",
+                             "try ($resources$) {$body$;}",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                                new Pair<String, int[]>("$resources$", new int[] {41, 70}),
+                                new Pair<String, int[]>("$body$", new int[] {74, 96}),
+                             },
+                             new Pair[] {
+                             },
+                             false,
+                             true);
+    }
 }

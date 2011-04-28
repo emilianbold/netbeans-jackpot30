@@ -466,6 +466,33 @@ public class JavaFixTest extends TestBase {
                            "}\n");
     }
 
+    public void testTryWithResourceTarget() throws Exception {
+        performRewriteTest("package test;\n" +
+                           "import java.io.InputStream;\n" +
+                           "public class Test {\n" +
+                           "    private void t() throws Exception {\n" +
+                           "        InputStream in = null;\n" +
+                           "        try {\n" +
+                           "        } finally {\n" +
+                           "            in.close()\n" +
+                           "        }\n" +
+                           "    }\n" +
+                           "}\n",
+                           "$type $var = $init; try {} finally {$var.close();} => try ($type $var = $init) {} finally {$var.close();}",
+                           "package test;\n" +
+                           "import java.io.InputStream;\n" +
+                           "public class Test {\n" +
+                           "    private void t() throws Exception {\n" +
+//                           "        try (InputStream in = null) {\n" +
+                           //XXX:
+                           "        try (final InputStream in = null) {\n" +
+                           "        } finally {\n" +
+                           "            in.close()\n" +
+                           "        }\n" +
+                           "    }\n" +
+		           "}\n");
+    }
+
     public void performRewriteTest(String code, String rule, String golden) throws Exception {
 	prepareTest("test/Test.java", code);
 
