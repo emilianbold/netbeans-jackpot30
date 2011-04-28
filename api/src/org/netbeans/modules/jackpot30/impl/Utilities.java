@@ -1447,6 +1447,46 @@ public class Utilities {
         return false;
     }
 
+    public static boolean isFakeBlock(Tree t) {
+        if (!(t instanceof BlockTree)) {
+            return false;
+        }
+
+        BlockTree bt = (BlockTree) t;
+
+        if (bt.getStatements().isEmpty()) {
+            return false;
+        }
+
+        CharSequence wildcardTreeName = Utilities.getWildcardTreeName(bt.getStatements().get(0));
+
+        if (wildcardTreeName == null) {
+            return false;
+        }
+
+        return wildcardTreeName.toString().startsWith("$$");
+    }
+
+    public static boolean isFakeClass(Tree t) {
+        if (!(t instanceof ClassTree)) {
+            return false;
+        }
+
+        ClassTree ct = (ClassTree) t;
+
+        if (ct.getMembers().isEmpty()) {
+            return false;
+        }
+
+        CharSequence wildcardTreeName = Utilities.getWildcardTreeName(ct.getMembers().get(0));
+
+        if (wildcardTreeName == null) {
+            return false;
+        }
+
+        return wildcardTreeName.toString().startsWith("$$");
+    }
+
     private static final class DiagnosticListenerImpl implements DiagnosticListener<JavaFileObject> {
         private final Collection<Diagnostic<? extends JavaFileObject>> errors;
 

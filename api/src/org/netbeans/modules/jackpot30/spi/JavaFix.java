@@ -208,46 +208,6 @@ public abstract class JavaFix {
         return toEditorFix(new JavaFixRealImpl(info, what, options, displayName, to, params, paramsMulti, parameterNames, constraintsHandles, Arrays.asList(imports)));
     }
 
-    private static boolean isFakeBlock(Tree t) {
-        if (!(t instanceof BlockTree)) {
-            return false;
-        }
-
-        BlockTree bt = (BlockTree) t;
-
-        if (bt.getStatements().isEmpty()) {
-            return false;
-        }
-
-        CharSequence wildcardTreeName = Utilities.getWildcardTreeName(bt.getStatements().get(0));
-
-        if (wildcardTreeName == null) {
-            return false;
-        }
-
-        return wildcardTreeName.toString().startsWith("$$");
-    }
-
-    private static boolean isFakeClass(Tree t) {
-        if (!(t instanceof ClassTree)) {
-            return false;
-        }
-
-        ClassTree ct = (ClassTree) t;
-
-        if (ct.getMembers().isEmpty()) {
-            return false;
-        }
-
-        CharSequence wildcardTreeName = Utilities.getWildcardTreeName(ct.getMembers().get(0));
-
-        if (wildcardTreeName == null) {
-            return false;
-        }
-
-        return wildcardTreeName.toString().startsWith("$$");
-    }
-
     private static String defaultFixDisplayName(CompilationInfo info, Map<String, TreePath> variables, String replaceTarget) {
         Map<String, String> stringsForVariables = new HashMap<String, String>();
 
@@ -473,7 +433,7 @@ public abstract class JavaFix {
 
             Tree parsed = Pattern.parseAndAttribute(wc, to, constraints, new Scope[1], imports);
 
-            if (isFakeBlock(parsed)) {
+            if (Utilities.isFakeBlock(parsed)) {
                 TreePath parent = tp.getParentPath();
                 List<? extends StatementTree> statements = ((BlockTree) parsed).getStatements();
 
@@ -494,7 +454,7 @@ public abstract class JavaFix {
                 } else {
                     wc.rewrite(tp.getLeaf(), wc.getTreeMaker().Block(statements, false));
                 }
-            } else if (isFakeClass(parsed)) {
+            } else if (Utilities.isFakeClass(parsed)) {
                 TreePath parent = tp.getParentPath();
                 List<? extends Tree> members = ((ClassTree) parsed).getMembers();
 

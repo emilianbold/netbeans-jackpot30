@@ -39,10 +39,13 @@
 
 package org.netbeans.modules.jackpot30.spi;
 
+import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.regex.Pattern;
 import org.netbeans.modules.jackpot30.impl.TestBase;
 
@@ -96,6 +99,26 @@ public class MatcherUtilitiesTest extends TestBase {
         HintContext ctx = HintContext.create(info, null, tp, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
 
         assertTrue(MatcherUtilities.matches(ctx, ctx.getPath(), "java.io.File"));
+    }
+
+    public void testMatchMultivar() throws Exception {
+        String code = "package test; import java.io.File; public class Test { { | int $i = 0; $i += 2; } }";
+        int pos = code.indexOf("|");
+
+        code = code.replaceAll(Pattern.quote("|"), "");
+
+        prepareTest("test/Test.java", code);
+
+        TreePath tp = info.getTreeUtilities().pathFor(pos);
+        HintContext ctx = HintContext.create(info, null, tp, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap());
+        Collection<TreePath> originals = new LinkedList<TreePath>();
+
+        for (StatementTree st : ((BlockTree) tp.getLeaf()).getStatements()) {
+            originals.add(new TreePath(tp, st));
+        }
+
+        assertTrue(MatcherUtilities.matches(ctx, originals, "int $i = 0; $i += 2;", null, null, null));
+        assertFalse(MatcherUtilities.matches(ctx, originals, "int $i = 0; $i += 3;", null, null, null));
     }
 
 }

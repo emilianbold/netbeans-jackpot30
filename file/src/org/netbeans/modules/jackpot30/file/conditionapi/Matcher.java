@@ -42,6 +42,8 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import java.util.Collection;
+import java.util.LinkedList;
 import javax.lang.model.element.Element;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
@@ -159,15 +161,18 @@ public final class Matcher {
     public boolean matchesWithBind(Variable var, String pattern) {
         TreePath path = ctx.getSingleVariable(var);
 
-        if (path == null) {
-            return false;
+        if (path != null) {
+            return MatcherUtilities.matches(ctx.ctx, path, pattern, ctx.variables.get(0), ctx.multiVariables.get(0), ctx.variableNames.get(0));
         }
 
-        if (MatcherUtilities.matches(ctx.ctx, path, pattern, ctx.variables.get(0), ctx.multiVariables.get(0), ctx.variableNames.get(0))) {
-            return true;
+        Iterable<? extends Variable> multiVar = ctx.getIndexedVariables(var);
+        Collection<TreePath> multi = new LinkedList<TreePath>();
+
+        for (Variable v : multiVar) {
+            multi.add(ctx.getSingleVariable(v));
         }
 
-        return false;
+        return MatcherUtilities.matches(ctx.ctx, multi, pattern, ctx.variables.get(0), ctx.multiVariables.get(0), ctx.variableNames.get(0));
     }
 
 }
