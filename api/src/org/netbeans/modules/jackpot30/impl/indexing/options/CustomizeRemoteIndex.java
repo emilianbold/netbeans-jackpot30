@@ -364,6 +364,10 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                 checkingIndexURLError.set(ex.getLocalizedMessage());
             } catch (MalformedURLException ex) {
                 checkingIndexURLError.set(ex.getLocalizedMessage());
+            } catch (ThreadDeath td) {
+                throw td;
+            } catch (Throwable t) {//#6541019
+                checkingIndexURLError.set("Invalid URL");
             }
             
             checkingIndexURL.set(false);
@@ -374,7 +378,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                 public void run() {
                     updateErrors();
 
-                    if (subindicesFinal == null) return;
+                    if (subindicesFinal == null || subindicesFinal.isEmpty()) return;
 
                     DefaultComboBoxModel model = (DefaultComboBoxModel) subIndex.getModel();
                     String selected = (String) model.getSelectedItem();
@@ -427,7 +431,8 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                 String indexInfoText = WebUtilities.requestStringResponse(url.toURI().resolve("info?path=" + WebUtilities.escapeForQuery(subIndex)));
                 info = IndexInfo.empty();
 
-                Pojson.update(info, indexInfoText);
+                if (indexInfoText != null)
+                    Pojson.update(info, indexInfoText);
             } catch (URISyntaxException ex) {
                 Logger.getLogger(CustomizeRemoteIndex.class.getName()).log(Level.FINE, null, ex);
             } catch (MalformedURLException ex) {
