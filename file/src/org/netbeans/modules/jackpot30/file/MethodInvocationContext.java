@@ -52,6 +52,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.platform.JavaPlatform;
@@ -274,7 +276,7 @@ public class MethodInvocationContext {
 
             ruleUtilities.add(c);
         } catch (ClassNotFoundException ex) {
-            Exceptions.printStackTrace(ex);
+            Logger.getLogger(MethodInvocationContext.class.getName()).log(Level.FINE, null, ex);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         }
