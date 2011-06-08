@@ -39,6 +39,16 @@
 
 package org.netbeans.modules.jackpot30.transformers;
 
+import org.netbeans.modules.java.hints.jackpot.spi.Trigger.PatternDescription;
+import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
+import org.netbeans.modules.java.hints.jackpot.spi.support.ErrorDescriptionFactory;
+import org.netbeans.modules.java.hints.jackpot.spi.ElementBasedHintProvider;
+import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription.Worker;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescriptionFactory;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.spi.JavaFix;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
@@ -78,15 +88,6 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TypeMirrorHandle;
 import org.netbeans.api.java.source.support.CancellableTreePathScanner;
-import org.netbeans.modules.jackpot30.spi.ElementBasedHintProvider;
-import org.netbeans.modules.jackpot30.spi.HintContext;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
-import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
-import org.netbeans.modules.jackpot30.spi.JavaFix;
-import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -345,11 +346,11 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
             return null;//XXX
         }
 
-        HintMetadata hm = HintMetadata.create(id, displayName, displayName, CATEGORY, true, HintMetadata.Kind.HINT, HintMetadata.HintSeverity.WARNING, Collections.<String>emptyList());
+        HintMetadata hm = HintMetadata.create(id, displayName, displayName, CATEGORY, true, HintMetadata.Kind.HINT, HintSeverity.WARNING, Collections.<String>emptyList());
 
         return HintDescriptionFactory.create()
                                      .setMetadata(hm)
-                                     .setTriggerPattern(PatternDescription.create(patternString, variableTypes))
+                                     .setTrigger(PatternDescription.create(patternString, variableTypes))
                                      .setWorker(new WorkerImpl(displayName, fixes))
                                      .produce();
     }

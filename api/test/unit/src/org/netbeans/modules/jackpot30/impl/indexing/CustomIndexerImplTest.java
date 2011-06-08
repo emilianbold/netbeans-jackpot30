@@ -39,7 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
-import java.util.Collections;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -51,7 +51,6 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 

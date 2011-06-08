@@ -59,12 +59,15 @@ import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
-import org.netbeans.modules.jackpot30.impl.MessageImpl;
-import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
+import org.netbeans.modules.java.hints.jackpot.spi.HintContext.MessageKind;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.sendopts.Env;
 import org.netbeans.spi.sendopts.Option;
@@ -208,7 +211,7 @@ public class OptionProcessorImpl extends OptionProcessor {
                 hintDescriptions.addAll(descs);
             }
 
-            BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scope.createGivenSourceRoots(BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0])));
+            BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scopes.specifiedFoldersScope(BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0])));
             List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
             Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, new ProgressHandleWrapper(100), null, problems);
             Set<FileObject> modified = new HashSet<FileObject>();

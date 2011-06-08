@@ -40,6 +40,7 @@ package org.netbeans.modules.jackpot30.compiler;
 
 import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar;
 import javax.annotation.processing.Processor;
+import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.UtilitiesSPIImpl;
 import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
 
 /**

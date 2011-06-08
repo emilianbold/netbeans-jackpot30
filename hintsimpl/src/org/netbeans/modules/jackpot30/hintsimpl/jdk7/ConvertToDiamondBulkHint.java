@@ -42,8 +42,6 @@ package org.netbeans.modules.jackpot30.hintsimpl.jdk7;
 import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -52,13 +50,13 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.prefs.Preferences;
 import javax.tools.Diagnostic;
-import org.netbeans.modules.jackpot30.spi.MatcherUtilities;
 import org.netbeans.modules.java.hints.errors.ConvertToDiamond;
 import org.netbeans.modules.java.hints.jackpot.code.spi.Hint;
 import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPattern;
 import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPatterns;
 import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
 import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Kind;
+import org.netbeans.modules.java.hints.jackpot.spi.MatcherUtilities;
 import org.netbeans.modules.java.hints.spi.ErrorRule;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
@@ -91,7 +89,6 @@ public class ConvertToDiamondBulkHint {
         Set<String> codes = convert.getCodes();
         TreePath clazz = ctx.getVariables().get("$clazz");
         long start = ctx.getInfo().getTrees().getSourcePositions().getStartPosition(clazz.getCompilationUnit(), clazz.getLeaf());
-        org.netbeans.modules.jackpot30.spi.HintContext newCTX = new org.netbeans.modules.jackpot30.spi.HintContext(ctx.getInfo(), null, ctx.getPath(), ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames());
 
         OUTER: for (Diagnostic<?> d : ctx.getInfo().getDiagnostics()) {
             if (start != d.getStartPosition()) continue;
@@ -99,7 +96,7 @@ public class ConvertToDiamondBulkHint {
 
             FOUND: for (Entry<String, Collection<String>> e : key2Pattern.entrySet()) {
                 for (String p : e.getValue()) {
-                    if (p == null || MatcherUtilities.matches(newCTX, ctx.getPath().getParentPath(), p)) {
+                    if (p == null || MatcherUtilities.matches(ctx, ctx.getPath().getParentPath(), p)) {
                         boolean enabled = isEnabled(ctx, e.getKey());
 
                         if (!enabled) {

@@ -66,7 +66,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.impl.WebUtilities;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.jackpot30.impl.batch.EnhancedScopes.GivenFolderScope;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexInfo;
@@ -466,7 +466,7 @@ public class AddScopePanel extends javax.swing.JPanel {
         }
     }
 
-    public void setScope(Scope scope) {
+    public void setScope(GivenFolderScope scope) {
         folder.setText(scope.folder);
         if (scope.indexURL != null) {
             if (scope.subIndex != null) {
@@ -485,15 +485,15 @@ public class AddScopePanel extends javax.swing.JPanel {
         selectCorrectCard();
     }
 
-    public Scope getScope() {
+    public GivenFolderScope getScope() {
         if (noIndexButton.isSelected()) {
-            return Scope.createGivenFolderNoIndex(folder.getText());
+            return new GivenFolderScope(folder.getText(), null, null, false);
         }
         if (localIndexButton.isSelected()) {
-            return Scope.createGivenFolderLocalIndex(folder.getText(), new File(indexFolder.getText()), updateIndexCheckbox.isSelected());
+            return new GivenFolderScope(folder.getText(), new File(indexFolder.getText()).getAbsolutePath(), null, updateIndexCheckbox.isSelected());
         }
         if (removeIndexButton.isSelected()) {
-            return Scope.createGivenFolderRemoteIndex(folder.getText(), indexURL.getText(), (String) subIndex.getSelectedItem());
+            return new GivenFolderScope(folder.getText(), indexURL.getText(), (String) subIndex.getSelectedItem(), false);
         }
 
         throw new IllegalStateException();

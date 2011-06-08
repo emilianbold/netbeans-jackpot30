@@ -49,12 +49,12 @@ import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
-import org.netbeans.modules.jackpot30.spi.HintContext;
-import org.netbeans.modules.jackpot30.spi.HintContext.MessageKind;
-import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
-import org.netbeans.modules.jackpot30.spi.JavaFix;
-import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
 //import org.netbeans.modules.java.hints.spi.support.FixFactory;
+import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
+import org.netbeans.modules.java.hints.jackpot.spi.HintContext.MessageKind;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription.Worker;
+import org.netbeans.modules.java.hints.jackpot.spi.JavaFix;
+import org.netbeans.modules.java.hints.jackpot.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 

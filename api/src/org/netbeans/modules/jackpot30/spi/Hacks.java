@@ -84,12 +84,12 @@ import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.WorkingCopy;
 import org.netbeans.api.project.Project;
-import org.netbeans.modules.jackpot30.impl.MessageImpl;
-import org.netbeans.modules.jackpot30.impl.RulesManager;
-import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
-import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
+import org.netbeans.modules.java.hints.jackpot.impl.hints.HintsInvoker;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
@@ -215,29 +215,8 @@ public class Hacks {
     }
 
     public static void findHintsAndApplyFixes(WorkingCopy copy, Iterable<? extends HintDescription> hints, TreePath on, AtomicBoolean cancel) {
-        Map<Tree.Kind, List<HintDescription>> kindHints = new HashMap<Tree.Kind, List<HintDescription>>();
-        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>();
-
-        RulesManager.sortOut(hints, kindHints, patternHints);
-
-        if (!kindHints.isEmpty()) {
-            throw new IllegalStateException();
-        }
-
         HintsInvoker inv = new HintsInvoker(copy, cancel);
-        Map<String, List<PatternDescription>> patterns = HintsInvoker.computePatternTests(patternHints);
-        Map<String, Collection<TreePath>> occurringPattern = new HashMap<String, Collection<TreePath>>();
-
-        for (String key : patterns.keySet()) {
-            occurringPattern.put(key, Collections.singleton(on));
-        }
-
-        List<ErrorDescription> errs = new ArrayList<ErrorDescription>();
-
-        for (List<ErrorDescription> v : inv.doComputeHints(copy, occurringPattern, patterns, patternHints).values()) {
-            errs.addAll(v);
-        }
-
+        List<ErrorDescription> errs = new ArrayList<ErrorDescription>(inv.computeHints(copy, hints));
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
 
         try {

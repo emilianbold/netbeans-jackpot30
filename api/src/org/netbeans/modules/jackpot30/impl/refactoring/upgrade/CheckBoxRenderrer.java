@@ -55,7 +55,7 @@ import javax.swing.ListCellRenderer;
 import javax.swing.UIManager;
 import javax.swing.border.Border;
 import javax.swing.border.EmptyBorder;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
 
 
 /*

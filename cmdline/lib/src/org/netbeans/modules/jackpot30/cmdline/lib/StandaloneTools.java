@@ -58,7 +58,7 @@ import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.queries.SourceForBinaryQuery;
 import org.netbeans.api.java.source.ClasspathInfo;
-import org.netbeans.modules.jackpot30.impl.Utilities.SPI;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities.SPI;
 import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;

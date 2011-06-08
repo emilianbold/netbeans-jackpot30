@@ -65,13 +65,15 @@ import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationInfoHack;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintRegistry;
-import org.netbeans.modules.jackpot30.impl.RulesManager;
-import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
-import org.netbeans.modules.jackpot30.impl.batch.JavaFixImpl;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
-import org.netbeans.modules.jackpot30.spi.HintsRunner;
+import org.netbeans.modules.java.hints.jackpot.impl.JavaFixImpl;
+import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.spi.HintsRunner;
+import org.netbeans.modules.java.hints.options.HintsSettings;
+import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
@@ -131,7 +133,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
     protected void doProcess(CompilationInfoHack info, ProcessingEnvironment processingEnv, Reporter reporter) {
         Set<HintDescription> hardCodedHints = new LinkedHashSet<HintDescription>();
 
-        for (Collection<? extends HintDescription> v : RulesManager.computeAllHints().values()) {
+        for (Collection<? extends HintDescription> v : RulesManager.getInstance().allHints.values()) {
             hardCodedHints.addAll(v);
         }
 
@@ -300,8 +302,8 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
         private static final Set<String> enabled = new HashSet<String>();
         public SettingsBasedChecker() {
             for (HintMetadata hm : RulesManager.getInstance().allHints.keySet()) {
-                if (   RulesManager.getInstance().isHintEnabled(hm)
-                    && RulesManager.getInstance().getHintSeverity(hm) != HintMetadata.HintSeverity.CURRENT_LINE_WARNING) {
+                if (   HintsSettings.isEnabled(hm)
+                    && HintsSettings.getSeverity(hm, RulesManager.getPreferences(hm.id, HintsSettings.getCurrentProfileId())) != HintSeverity.CURRENT_LINE_WARNING) {
                     enabled.add(hm.id);
                 }
             }

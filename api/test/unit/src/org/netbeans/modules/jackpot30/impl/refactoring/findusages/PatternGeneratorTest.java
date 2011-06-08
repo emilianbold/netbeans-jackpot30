@@ -42,19 +42,13 @@
 
 package org.netbeans.modules.jackpot30.impl.refactoring.findusages;
 
-import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.jackpot30.impl.RulesManager;
-import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.infrastructure.TreeRuleTestBase;
+import org.netbeans.modules.java.hints.jackpot.impl.hints.HintsInvoker;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 
 /**
@@ -121,11 +115,8 @@ public class PatternGeneratorTest extends TreeRuleTestBase {
     @Override
     protected List<ErrorDescription> computeErrors(CompilationInfo info, TreePath path) {
         String script = PatternGenerator.generateFindUsagesScript(info, info.getTrees().getElement(path));
-        Map<Kind, List<HintDescription>> kind2Hints = new HashMap<Kind, List<HintDescription>>();
-        Map<PatternDescription, List<HintDescription>> pattern2Hint = new HashMap<PatternDescription, List<HintDescription>>();
-        RulesManager.sortOut(PatternConvertor.create(script), kind2Hints, pattern2Hint);
 
-        return new HintsInvoker(info, new AtomicBoolean()).computeHints(info, kind2Hints, pattern2Hint);
+        return new HintsInvoker(info, new AtomicBoolean()).computeHints(info, PatternConvertor.create(script));
     }
 
     @Override

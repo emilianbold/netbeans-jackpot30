@@ -39,12 +39,10 @@
 
 package org.netbeans.modules.jackpot30.cmdline;
 
-import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.Writer;
@@ -71,18 +69,19 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
-import org.netbeans.modules.jackpot30.impl.MessageImpl;
-import org.netbeans.modules.jackpot30.impl.RulesManager;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.VerifiedSpansCallBack;
-import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
-import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
-import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
+import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Resource;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.VerifiedSpansCallBack;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
+import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.modules.java.source.parsing.JavaPathRecognizer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
@@ -219,7 +218,7 @@ public class Main {
                     return 1;
                 }
 
-                Preferences prefs = RulesManager.getInstance().getHintPreferences(hd.getMetadata());
+                Preferences prefs = RulesManager.getPreferences(hd.getMetadata().id, HintsSettings.getCurrentProfileId());
 
                 if (prefs == null) {
                     System.err.println("hint '" + parsed.valueOf(hint) + "' cannot be configured");
@@ -282,7 +281,7 @@ public class Main {
     private static Iterable<? extends HintDescription> findHints(String name) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.computeAllHints().entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
             if (e.getKey().displayName.equals(name)) {
                 descs.addAll(e.getValue());
             }
@@ -299,7 +298,7 @@ public class Main {
     
     private static void findOccurrences(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
-        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scope.createGivenSourceRoots(sourceRoot), w);
+        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w);
 
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
         BatchSearch.getVerifiedSpans(occurrences, progress, new VerifiedSpansCallBack() {
@@ -340,7 +339,7 @@ public class Main {
 
     private static void apply(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
-        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scope.createGivenSourceRoots(sourceRoot), w);
+        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w);
 
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
         Collection<ModificationResult> diffs = BatchUtilities.applyFixes(occurrences, w, new AtomicBoolean(), problems);
@@ -352,7 +351,7 @@ public class Main {
                 outS = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(out)));
 
                 for (ModificationResult mr : diffs) {
-                    BatchUtilities.exportDiff(mr, null, outS);
+                    org.netbeans.modules.jackpot30.impl.batch.BatchUtilities.exportDiff(mr, null, outS);
                 }
             } finally {
                 try {
@@ -371,7 +370,7 @@ public class Main {
     private static void listHints() throws IOException {
         Set<String> hints = new TreeSet<String>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.computeAllHints().entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
             hints.add(e.getKey().displayName);
         }
 

@@ -42,8 +42,8 @@ package org.netbeans.modules.jackpot30.file;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 import org.openide.util.lookup.ServiceProvider;
 
 /**

@@ -42,7 +42,6 @@ package org.netbeans.modules.jackpot30.impl.refactoring;
 import java.awt.Component;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
-import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
@@ -50,11 +49,11 @@ import javax.swing.JButton;
 import javax.swing.JList;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.ScopeType;
+import org.netbeans.modules.jackpot30.impl.batch.EnhancedScopes.GivenFolderScope;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
-import org.openide.util.Exceptions;
 import org.openide.util.NbPreferences;
 
 /**
@@ -183,8 +182,8 @@ public class ScopesPanel extends javax.swing.JPanel {
     }
 
     private void enableDisableEditRemove() {
-        boolean enableEditRemove = ((Scope) scope.getSelectedItem()).scopeType != ScopeType.ALL_OPENED_PROJECTS;
-        
+        boolean enableEditRemove = scope.getSelectedItem() instanceof GivenFolderScope;
+
         edit.setEnabled(enableEditRemove);
         removeButton.setEnabled(enableEditRemove);
     }
@@ -205,61 +204,61 @@ public class ScopesPanel extends javax.swing.JPanel {
         Preferences prefs = NbPreferences.forModule(ScopesPanel.class).node(SCOPES_KEY);
         DefaultComboBoxModel dcbm = new DefaultComboBoxModel();
 
-        dcbm.addElement(Scope.createAllOpenedProjectsScope());
+        dcbm.addElement(Scopes.allOpenedProjectsScope());
 
-        String lastSelectedFolder = prefs.get(LAST_SELECTED_SCOPE_KEY, null);
-        Scope lastSelectedScope = null;
-        
-        if (prefs != null) {
-            try {
-                for (String key : prefs.keys()) {
-                    if (key.startsWith("scope")) {
-                        Scope scope = Scope.deserialize(prefs.get(key, null));
-
-                        if (scope.folder.equals(lastSelectedFolder)) {
-                            lastSelectedScope = scope;
-                        }
-                        
-                        dcbm.addElement(scope);
-                    }
-                }
-            } catch (BackingStoreException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-        }
-
-        scope.setModel(dcbm);
-        if (lastSelectedScope != null) {
-            scope.setSelectedItem(lastSelectedScope);
-        } else {
+//        String lastSelectedFolder = prefs.get(LAST_SELECTED_SCOPE_KEY, null);
+//        Scope lastSelectedScope = null;
+//
+//        if (prefs != null) {
+//            try {
+//                for (String key : prefs.keys()) {
+//                    if (key.startsWith("scope")) {
+//                        Scope scope = Scope.deserialize(prefs.get(key, null));
+//
+//                        if (scope.folder.equals(lastSelectedFolder)) {
+//                            lastSelectedScope = scope;
+//                        }
+//
+//                        dcbm.addElement(scope);
+//                    }
+//                }
+//            } catch (BackingStoreException ex) {
+//                Exceptions.printStackTrace(ex);
+//            }
+//        }
+//
+//        scope.setModel(dcbm);
+//        if (lastSelectedScope != null) {
+//            scope.setSelectedItem(lastSelectedScope);
+//        } else {
             scope.setSelectedIndex(0);
-        }
+//        }
 
         enableDisableEditRemove();
     }
 
     public void saveScopesCombo() {
-        Preferences prefs = NbPreferences.forModule(ScopesPanel.class).node(SCOPES_KEY);
-        
-        try {
-            prefs.clear();
-        } catch (BackingStoreException ex) {
-            Exceptions.printStackTrace(ex);
-        }
-
-        for (int i = 0; i < scope.getModel().getSize(); i++) {
-            Scope currentScope = (Scope) scope.getModel().getElementAt(i);
-
-            if (currentScope.scopeType == ScopeType.ALL_OPENED_PROJECTS) continue;
-            
-            prefs.put("scope" + i, currentScope.serialize());
-        }
-
-        Scope selected = (Scope) scope.getModel().getSelectedItem();
-
-        if (selected.scopeType == ScopeType.GIVEN_FOLDER) {
-            prefs.put(LAST_SELECTED_SCOPE_KEY, selected.folder);
-        }
+//        Preferences prefs = NbPreferences.forModule(ScopesPanel.class).node(SCOPES_KEY);
+//
+//        try {
+//            prefs.clear();
+//        } catch (BackingStoreException ex) {
+//            Exceptions.printStackTrace(ex);
+//        }
+//
+//        for (int i = 0; i < scope.getModel().getSize(); i++) {
+//            Scope currentScope = (Scope) scope.getModel().getElementAt(i);
+//
+//            if (currentScope.scopeType == ScopeType.ALL_OPENED_PROJECTS) continue;
+//
+//            prefs.put("scope" + i, currentScope.serialize());
+//        }
+//
+//        Scope selected = (Scope) scope.getModel().getSelectedItem();
+//
+//        if (selected.scopeType == ScopeType.GIVEN_FOLDER) {
+//            prefs.put(LAST_SELECTED_SCOPE_KEY, selected.folder);
+//        }
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
@@ -298,7 +297,7 @@ public class ScopesPanel extends javax.swing.JPanel {
         panel.setNotificationSupport(dd.createNotificationLineSupport());
 
         if (edit) {
-            panel.setScope((Scope) scope.getModel().getSelectedItem());
+            panel.setScope((GivenFolderScope) scope.getModel().getSelectedItem());
         }
 
         if (DialogDisplayer.getDefault().notify(dd) == okButton) {

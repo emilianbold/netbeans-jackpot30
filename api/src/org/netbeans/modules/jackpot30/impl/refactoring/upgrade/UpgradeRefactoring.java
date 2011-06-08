@@ -42,7 +42,7 @@
 
 package org.netbeans.modules.jackpot30.impl.refactoring.upgrade;
 
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.refactoring.api.AbstractRefactoring;
 import org.openide.util.Lookup;
 

@@ -52,9 +52,12 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.EncodingContext;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.CopyFinderBasedBulkSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.NFABasedBulkSearch;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 

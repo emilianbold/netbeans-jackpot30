@@ -45,7 +45,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import org.netbeans.api.project.Project;
 //import org.netbeans.modules.apisupport.project.api.DependencyUpdater;
-import org.netbeans.modules.jackpot30.spi.ProjectDependencyUpgrader;
+import org.netbeans.modules.java.hints.jackpot.spi.ProjectDependencyUpgrader;
 import org.openide.filesystems.FileObject;
 import org.openide.modules.InstalledFileLocator;
 import org.openide.modules.SpecificationVersion;

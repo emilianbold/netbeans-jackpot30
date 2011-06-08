@@ -73,11 +73,10 @@ import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.classfile.ClassFile;
 import org.netbeans.modules.classfile.ClassName;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
-import org.netbeans.modules.jackpot30.impl.Utilities.SPI;
-import org.netbeans.modules.jackpot30.java.hints.JavaHintsHintProvider;
 import org.netbeans.modules.jackpot30.spi.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.java.hints.jackpot.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.jackpot.code.FSWrapper;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities.SPI;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.openide.util.NbPreferences.Provider;
 import org.openide.xml.EntityCatalog;
@@ -391,8 +390,6 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             StandaloneTools.PreferencesProvider.class.getName(),
             StandaloneTools.StandaloneMimeDataProviderImpl.class.getName(),
             CodeHintProviderImpl.class.getName(),
-            JavaHintsHintProvider.class.getName(),
-            JavaHintsHintProvider.HPPImpl.class.getName(),
             JavaSource.class.getName(),
             DumpHints.class.getName(),
             RepositoryImpl.class.getName(),

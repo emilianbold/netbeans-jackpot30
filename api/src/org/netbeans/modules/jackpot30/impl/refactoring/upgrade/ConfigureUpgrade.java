@@ -54,7 +54,7 @@ import java.util.Map;
 import javax.swing.DefaultListModel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
 
 /**
  *

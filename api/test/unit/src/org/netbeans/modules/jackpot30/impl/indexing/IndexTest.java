@@ -39,8 +39,11 @@
 
 package org.netbeans.modules.jackpot30.impl.indexing;
 
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription.AdditionalQueryConstraints;
 import java.util.Map;
-import org.netbeans.modules.jackpot30.impl.Utilities;
 import java.util.Collections;
 import java.net.URL;
 import java.util.Arrays;
@@ -55,9 +58,6 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.modules.jackpot30.impl.indexing.IndexingTestUtils.File;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.parsing.api.indexing.IndexingManager;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;

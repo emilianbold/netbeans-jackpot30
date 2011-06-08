@@ -45,15 +45,15 @@ package org.netbeans.modules.jackpot30.impl.refactoring.findusages;
 import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
-import org.netbeans.modules.jackpot30.impl.MessageImpl;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.jackpot30.impl.batch.EnhancedScopes;
 import org.netbeans.modules.jackpot30.impl.indexing.RemoteIndex;
 import org.netbeans.modules.jackpot30.impl.refactoring.AbstractApplyHintsRefactoringPlugin;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 
@@ -96,7 +96,7 @@ public class GlobalFindUsagesRefactoringPlugin extends AbstractApplyHintsRefacto
     private List<MessageImpl> performSearchForPattern(final RefactoringElementsBag refactoringElements) {
         ProgressHandleWrapper w = new ProgressHandleWrapper(this, 50, 50);
         Iterable<? extends HintDescription> hints = PatternConvertor.create(refactoring.script);
-        BatchResult candidates = BatchSearch.findOccurrences(hints, Scope.createAllRemote(), w);
+        BatchResult candidates = BatchSearch.findOccurrences(hints, EnhancedScopes.allRemote(), w);
         List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
 
         prepareElements(candidates, w, refactoringElements, true, problems);

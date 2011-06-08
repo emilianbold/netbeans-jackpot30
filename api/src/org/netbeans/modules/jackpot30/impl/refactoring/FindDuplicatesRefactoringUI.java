@@ -45,10 +45,9 @@ import java.util.Collections;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.ScopeType;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 import org.netbeans.modules.refactoring.api.AbstractRefactoring;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.spi.ui.CustomRefactoringPanel;
@@ -146,9 +145,9 @@ public class FindDuplicatesRefactoringUI implements RefactoringUI {
             }
         }
 
-        if (scope.scopeType == ScopeType.GIVEN_FOLDER && findFolderFileObject(scope.folder) == null) {
-            return new Problem(true, "Specified folder not found");
-        }
+//        if (scope.scopeType == ScopeType.GIVEN_FOLDER && findFolderFileObject(scope.folder) == null) {
+//            return new Problem(true, "Specified folder not found");
+//        }
         return null;
     }
 

@@ -59,14 +59,15 @@ import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.java.source.ModificationResult.Difference;
 import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.queries.FileEncodingQuery;
-import org.netbeans.modules.jackpot30.impl.MessageImpl;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
-import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
 import org.netbeans.modules.jackpot30.impl.refactoring.RetoucheCommit;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.parsing.FileObjects;
 import org.netbeans.modules.refactoring.api.AbstractRefactoring;
@@ -124,7 +125,7 @@ public abstract class JackpotBasedRefactoring implements RefactoringPlugin {
         if (!scriptDifferences.isEmpty()) {
             modifications.add(JavaSourceAccessor.getINSTANCE().createModificationResult(scriptDifferences, Collections.<Object, int[]>emptyMap()));
         }
-        BatchResult batchResult = BatchSearch.findOccurrences(hints, BatchSearch.Scope.createAllOpenedProjectsScope());
+        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scopes.allOpenedProjectsScope());
         modifications.addAll(BatchUtilities.applyFixes(batchResult, new ProgressHandleWrapper(1, 1), cancel, problems));
 
         createAndAddElements(refactoringElements, modifications);

@@ -47,7 +47,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import static org.junit.Assert.*;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 
 /**
  *

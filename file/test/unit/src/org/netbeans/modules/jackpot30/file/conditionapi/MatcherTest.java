@@ -43,11 +43,10 @@ import com.sun.source.util.TreePath;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.regex.Pattern;
 import org.netbeans.modules.jackpot30.impl.TestBase;
-import org.netbeans.modules.jackpot30.spi.HintContext;
+import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
 
 /**
  *

@@ -60,9 +60,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.codeviation.pojson.Pojson;
 import org.codeviation.pojson.Pojson.SuppressStoring;
-import org.netbeans.modules.jackpot30.impl.RulesManager;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.NbBundle;
@@ -110,7 +110,7 @@ public class UpgradeDescription {
         List<HintDescription> result = new LinkedList<HintDescription>();
         Set<String> hints = new HashSet<String>(this.hints);
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.computeAllHints().entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
             if (hints.contains(e.getKey().id)) {
                 result.addAll(e.getValue());
             }
@@ -124,7 +124,7 @@ public class UpgradeDescription {
         Set<String> hints = new HashSet<String>(this.hints);
         Set<String> disabledHints = new HashSet<String>(this.disabledHints);
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.computeAllHints().entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
             if (hints.contains(e.getKey().id)) {
                 result.put(e.getKey(), true);
             }

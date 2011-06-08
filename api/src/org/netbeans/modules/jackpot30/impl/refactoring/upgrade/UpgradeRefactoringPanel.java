@@ -47,7 +47,7 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.JList;
 import javax.swing.event.ChangeListener;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Scope;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
 

@@ -69,15 +69,16 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.store.FSDirectory;
-import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.AbstractLuceneIndex.BitSetCollector;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription.AdditionalQueryConstraints;
+import org.netbeans.modules.java.hints.jackpot.spi.Trigger.PatternDescription;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.SPIAccessor;
 import org.openide.filesystems.FileObject;
@@ -177,7 +178,7 @@ public class StandaloneFinder {
         Collection<AdditionalQueryConstraints> additionalConstraints = new LinkedList<AdditionalQueryConstraints>();
 
         for (HintDescription pattern : patterns) {
-            String textPattern = pattern.getTriggerPattern().getPattern();
+            String textPattern = ((PatternDescription) pattern.getTrigger()).getPattern();
 
             code.add(textPattern);
             trees.add(Utilities.parseAndAttribute(javac, textPattern, errors));

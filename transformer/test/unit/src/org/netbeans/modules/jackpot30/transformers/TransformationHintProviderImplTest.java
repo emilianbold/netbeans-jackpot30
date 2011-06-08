@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.transformers;
 import com.sun.source.tree.Tree.Kind;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,11 +59,11 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.api.lexer.Language;
 import org.netbeans.junit.NbTestCase;
-import org.netbeans.modules.jackpot30.impl.RulesManager;
-import org.netbeans.modules.jackpot30.impl.hints.HintsInvoker;
-import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
+import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
+import org.netbeans.modules.java.hints.jackpot.impl.hints.HintsInvoker;
+import org.netbeans.modules.java.hints.jackpot.spi.ClassPathBasedHintProvider;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.Trigger.PatternDescription;
 import org.netbeans.modules.java.source.TreeLoader;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
@@ -343,12 +344,11 @@ public class TransformationHintProviderImplTest extends NbTestCase {
     }
 
     private List<ErrorDescription> computeWarnings() {
-        Map<Kind, List<HintDescription>> hints = new HashMap<Kind, List<HintDescription>>();
-        Map<PatternDescription, List<HintDescription>> patternHints = new HashMap<PatternDescription, List<HintDescription>>();
+        List<HintDescription> hints = new ArrayList<HintDescription>();
 
-        RulesManager.computeElementBasedHintsXXX(info, new AtomicBoolean(), Collections.singletonList(new TransformationHintProviderImpl()), Collections.<ClassPathBasedHintProvider>emptyList(), hints, patternHints);
+        RulesManager.computeElementBasedHintsXXX(info, new AtomicBoolean(), Collections.singletonList(new TransformationHintProviderImpl()), Collections.<ClassPathBasedHintProvider>emptyList(), hints);
 
-        List<ErrorDescription> warnings = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, hints, patternHints);
+        List<ErrorDescription> warnings = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, hints);
 
         return warnings;
     }

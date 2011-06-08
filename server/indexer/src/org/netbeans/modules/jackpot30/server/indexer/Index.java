@@ -44,8 +44,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.netbeans.modules.jackpot30.impl.Utilities;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
 
 /**
  *

@@ -39,15 +39,12 @@
 
 package org.netbeans.modules.jackpot30.backend.impl.api;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
-import java.io.StringWriter;
 import java.io.Writer;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -82,21 +79,20 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.modules.jackpot30.backend.impl.CategoryStorage;
-import org.netbeans.modules.jackpot30.impl.MessageImpl;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Resource;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
-import org.netbeans.modules.jackpot30.impl.batch.ProgressHandleWrapper;
 import org.netbeans.modules.jackpot30.impl.examples.Example;
 import org.netbeans.modules.jackpot30.impl.examples.Example.Option;
 import org.netbeans.modules.jackpot30.impl.examples.LoadExamples;
-import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
+import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Resource;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 import org.netbeans.modules.java.source.usages.ClassIndexManager;
 import org.netbeans.modules.jumpto.type.GoToTypeAction;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -122,7 +118,7 @@ public class API {
         Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
         Set<FileObject> srcRoots = CategoryStorage.getCategoryContent(segment);
         final FileObject deepestCommonParent = deepestCommonParent(srcRoots);
-        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scope.createGivenSourceRoots(true, srcRoots.toArray(new FileObject[0])));
+        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scopes.specifiedFoldersScope(srcRoots.toArray(new FileObject[0])));
         final StringBuilder result = new StringBuilder();
 
         BatchSearch.getVerifiedSpans(batchResult, new ProgressHandleWrapper(1), new BatchSearch.VerifiedSpansCallBack() {
@@ -151,7 +147,7 @@ public class API {
         Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
         Set<FileObject> srcRoots = CategoryStorage.getCategoryContent(segment);
         final FileObject deepestCommonParent = deepestCommonParent(srcRoots);
-        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scope.createGivenSourceRoots(true, srcRoots.toArray(new FileObject[0])));
+        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scopes.specifiedFoldersScope(srcRoots.toArray(new FileObject[0])));
         final Map<String, int[][]> result = new HashMap<String, int[][]>();
 
         BatchSearch.getVerifiedSpans(batchResult, new ProgressHandleWrapper(1), new BatchSearch.VerifiedSpansCallBack() {
@@ -213,7 +209,7 @@ public class API {
         Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
         Set<FileObject> srcRoots = CategoryStorage.getCategoryContent(segment);
         FileObject deepestCommonParent = deepestCommonParent(srcRoots);
-        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scope.createGivenSourceRoots(deepestCommonParent.getFileObject(relativePath)));
+        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scopes.specifiedFoldersScope(deepestCommonParent.getFileObject(relativePath)));
         final StringBuilder result = new StringBuilder();
 
         BatchSearch.getVerifiedSpans(batchResult, new ProgressHandleWrapper(1), new BatchSearch.VerifiedSpansCallBack() {
@@ -288,7 +284,7 @@ public class API {
         Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
         Set<FileObject> srcRoots = CategoryStorage.getCategoryContent(segment);
         final FileObject deepestCommonParent = deepestCommonParent(srcRoots);
-        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scope.createGivenSourceRoots(srcRoots.toArray(new FileObject[0])));
+        BatchResult batchResult = BatchSearch.findOccurrences(hints, Scopes.specifiedFoldersScope(srcRoots.toArray(new FileObject[0])));
         final Collection<ModificationResult> modifications = BatchUtilities.applyFixes(batchResult, new ProgressHandleWrapper(1), new AtomicBoolean(), new LinkedList<MessageImpl>());
 
         return new StreamingOutput() {
@@ -297,7 +293,7 @@ public class API {
 
                 try {
                     for (ModificationResult modResult : modifications) {
-                        BatchUtilities.exportDiff(modResult, deepestCommonParent, w);
+                        org.netbeans.modules.jackpot30.impl.batch.BatchUtilities.exportDiff(modResult, deepestCommonParent, w);
                     }
                 } finally {
                     try {

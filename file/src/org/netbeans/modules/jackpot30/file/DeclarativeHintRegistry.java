@@ -53,7 +53,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.api.annotations.common.NonNull;
@@ -66,14 +65,15 @@ import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.Result;
-import org.netbeans.modules.jackpot30.spi.ClassPathBasedHintProvider;
-import org.netbeans.modules.jackpot30.spi.HintDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescriptionFactory;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
-import org.netbeans.modules.jackpot30.spi.HintMetadata.HintSeverity;
-import org.netbeans.modules.jackpot30.spi.HintProvider;
+import org.netbeans.modules.java.hints.jackpot.spi.ClassPathBasedHintProvider;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription.AdditionalQueryConstraints;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescriptionFactory;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Kind;
+import org.netbeans.modules.java.hints.jackpot.spi.HintProvider;
+import org.netbeans.modules.java.hints.jackpot.spi.Trigger.PatternDescription;
+import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
@@ -233,7 +233,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             String[] w = suppressWarnings(parsed.options);
 
-            meta = HintMetadata.create(id, bundle, cat, true, HintSeverity.WARNING, null, w);
+            meta = HintMetadata.create(id, bundle, cat, true, HintSeverity.WARNING, Kind.HINT, null, w);
             primarySuppressWarningsKey = w.length > 0 ? w[0] : null;
         } else {
             meta = null;
@@ -260,7 +260,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             String imports = parsed.importsBlock != null ? spec.substring(parsed.importsBlock[0], parsed.importsBlock[1]) : "";
             String[] importsArray = parsed.importsBlock != null ? new String[] {spec.substring(parsed.importsBlock[0], parsed.importsBlock[1])} : new String[0];
 
-            f = f.setTriggerPattern(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints, importsArray));
+            f = f.setTrigger(PatternDescription.create(spec.substring(hint.textStart, hint.textEnd), constraints, importsArray));
 
             List<DeclarativeFix> fixes = new LinkedList<DeclarativeFix>();
 
@@ -286,7 +286,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 }
 
                 if (currentId != null) {
-                    currentMeta = HintMetadata.create(currentId, bundle, cat, true, HintSeverity.WARNING, null, w);
+                    currentMeta = HintMetadata.create(currentId, bundle, cat, true, HintSeverity.WARNING, Kind.HINT, null, w);
                 } else {
                     currentId = file != null ? file.getNameExt() + "-" + count : String.valueOf(count);
                     currentMeta = HintMetadata.create(currentId, displayName, "No Description", cat, true, HintMetadata.Kind.HINT, HintSeverity.WARNING, null, Arrays.asList(w));

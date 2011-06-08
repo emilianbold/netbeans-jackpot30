@@ -207,10 +207,6 @@
                         <compile-dependency/>
                     </test-dependency>
                     <test-dependency>
-                        <code-name-base>org.netbeans.modules.jackpot30.java.hints</code-name-base>
-                        <compile-dependency/>
-                    </test-dependency>
-                    <test-dependency>
                         <code-name-base>org.netbeans.modules.jackpot30.test.borrowed</code-name-base>
                         <recursive/>
                         <compile-dependency/>

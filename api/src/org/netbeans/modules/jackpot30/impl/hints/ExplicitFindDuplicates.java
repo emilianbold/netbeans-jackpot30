@@ -68,9 +68,9 @@ import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.api.java.source.support.CaretAwareJavaSourceTaskFactory;
 import org.netbeans.api.java.source.support.SelectionAwareJavaSourceTaskFactory;
 import org.netbeans.api.lexer.TokenSequence;
-import org.netbeans.modules.jackpot30.impl.Utilities;
-import org.netbeans.modules.jackpot30.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.jackpot30.impl.refactoring.FindDuplicatesRefactoringUI;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
 import org.netbeans.modules.refactoring.spi.ui.UI;
 import org.netbeans.spi.editor.hints.ChangeInfo;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -177,7 +177,7 @@ public class ExplicitFindDuplicates implements CancellableTask<CompilationInfo> 
 
                     SwingUtilities.invokeLater(new Runnable() {
                         public void run() {
-                            UI.openRefactoringUI(new FindDuplicatesRefactoringUI(pattern, Scope.createAllOpenedProjectsScope()));
+                            UI.openRefactoringUI(new FindDuplicatesRefactoringUI(pattern, Scopes.allOpenedProjectsScope()));
                         }
                     });
                 }

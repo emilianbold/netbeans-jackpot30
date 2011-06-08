@@ -44,9 +44,12 @@ import java.util.Collection;
 import java.util.Collections;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.modules.jackpot30.spi.HintDescription.PatternDescription;
-import org.netbeans.modules.jackpot30.spi.HintDescription.Worker;
-import org.netbeans.modules.jackpot30.spi.support.ErrorDescriptionFactory;
+import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription.Worker;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescriptionFactory;
+import org.netbeans.modules.java.hints.jackpot.spi.Trigger.PatternDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.openide.util.Lookup;
 
@@ -88,7 +91,7 @@ public abstract class PatternConvertor {
 
             HintDescription desc = HintDescriptionFactory.create()
     //                                                     .setDisplayName("Pattern Matches")
-                                                         .setTriggerPattern(pd)
+                                                         .setTrigger(pd)
                                                          .setWorker(new WorkerImpl())
                                                          .produce();
             

@@ -43,8 +43,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.modules.jackpot30.impl.RulesManager;
-import org.netbeans.modules.jackpot30.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
 
 /**
  *
@@ -55,7 +55,7 @@ public class DumpHints {
     public static String dumpHints() {
         List<Map<String, String>> data = new LinkedList<Map<String, String>>();
 
-        for (HintMetadata hm : RulesManager.computeAllHints().keySet()) {
+        for (HintMetadata hm : RulesManager.getInstance().allHints.keySet()) {
             Map<String, String> hintData = new HashMap<String, String>();
 
             hintData.put("id", hm.id);

@@ -48,8 +48,8 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
 import org.netbeans.modules.jackpot30.spi.Hacks;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
 
 /**
  *

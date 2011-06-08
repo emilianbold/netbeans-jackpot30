@@ -84,10 +84,10 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.jackpot30.impl.pm.BulkSearch.EncodingContext;
-import org.netbeans.modules.jackpot30.spi.HintDescription.AdditionalQueryConstraints;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.EncodingContext;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription.AdditionalQueryConstraints;
 import org.openide.util.Exceptions;
 
 /**

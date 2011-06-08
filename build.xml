@@ -10,6 +10,7 @@
     
     <target name="-init" depends="suite.-init">
         <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-source.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-hints.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/platform/core/org-openide-filesystems.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util-lookup.jar" todir="server/lib" />
