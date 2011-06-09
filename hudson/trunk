@@ -49,10 +49,11 @@ cp nbbuild/download/*.nbm build/updates
 call_ant -Ddist.base=$DIST_BASE nbms || exit
 gzip <build/updates/updates.xml >build/updates/updates.xml.gz
 
-(cd cmdline/compiler; call_ant copy-to-hudson) || exit
-(cd server/indexer; call_ant copy-to-hudson) || exit
+#(cd cmdline/compiler; call_ant copy-to-hudson) || exit
+#(cd server/indexer; call_ant copy-to-hudson) || exit
 (cd server/hudson; mvn -Dmaven.test.skip=true clean package) || exit
 (cd cmdline/tool; call_ant create-standalone-tool) || exit
+(cd cmdline/compiler; call_ant create-standalone-compiler) || exit
 
 call_ant -Ddist.base=$DIST_BASE findbugs || exit
 
