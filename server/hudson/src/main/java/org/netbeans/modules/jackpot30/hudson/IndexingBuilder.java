@@ -84,7 +84,7 @@ public class IndexingBuilder extends Builder {
     
     public IndexingBuilder(StaplerRequest req, JSONObject json) throws FormException {
         projectName = json.getString("projectName");
-        toolName = json.getString("toolName");
+        toolName = json.optString("toolName", "main");
     }
 
     @DataBoundConstructor
