@@ -1,0 +1,22 @@
+#!/bin/bash
+(cd indexer; ant clean && ant jar)
+(cd web.api; ant clean && ant jar)
+mkdir -p ../build/temp-indexing-backend/indexer
+mkdir -p ../build/temp-indexing-backend/web.api
+cp -r indexer/dist/* ../build/temp-indexing-backend/indexer
+cp -r web.api/dist/* ../build/temp-indexing-backend/web.api
+
+cat >../build/temp-indexing-backend/index <<EOF
+DIR=\`dirname \$0\`
+java -Xbootclasspath/p:\$DIR/indexer/lib/javac-api-nb-7.0-b07.jar:\$DIR/indexer/lib/javac-impl-nb-7.0-b07.jar -jar \$DIR/indexer/indexer.jar -store-sources "\$@"
+EOF
+
+cat >../build/temp-indexing-backend/web <<EOF
+DIR=\`dirname \$0\`
+java -Xbootclasspath/p:\$DIR/web.api/lib/javac-api-nb-7.0-b07.jar:\$DIR/web.api/lib/javac-impl-nb-7.0-b07.jar -jar \$DIR/web.api/web.api.jar "\$@"
+EOF
+
+chmod u+x ../build/temp-indexing-backend/index
+chmod u+x ../build/temp-indexing-backend/web
+
+(cd ../build; zip -r temp-indexing-backend.zip temp-indexing-backend)

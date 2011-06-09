@@ -4,13 +4,14 @@
         <f:textbox />
     </f:entry>
 
-    <j:forEach var="indexerDescription" items="${descriptor.getIndexers()}" varStatus="loop">
-        <f:optionalBlock name="${indexerDescription.getJsonSafeClassName()}"
-                         title="${indexerDescription.getDisplayName()}"
-                         checked="${instance != null ? instance.isIndexerEnabled(indexerDescription.getJsonSafeClassName()) : false}"
-                         help="${indexerDescription.getHelpFile()}">
-            <st:include from="${indexerDescription}" page="${indexerDescription.configPage}" />
-        </f:optionalBlock>
-    </j:forEach>
+    <j:if test="${descriptor.hasNonStandardIndexingTool}">
+        <f:entry title="Indexing Tool">
+            <select class="setting-input" name="toolName">
+                <j:forEach var="inst" items="${descriptor.indexingTools}">
+                    <f:option selected="${inst.name==instance.toolName}" value="${inst.name}">${inst.name}</f:option>
+                </j:forEach>
+            </select>
+        </f:entry>
+    </j:if>
 
 </j:jelly>

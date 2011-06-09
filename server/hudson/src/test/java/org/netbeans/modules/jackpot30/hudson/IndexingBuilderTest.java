@@ -41,8 +41,9 @@ package org.netbeans.modules.jackpot30.hudson;
 
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.model.AbstractBuild;
+import hudson.model.BuildListener;
 import hudson.model.FreeStyleProject;
-import hudson.model.Hudson;
 import hudson.scm.SubversionSCM;
 import hudson.scm.SubversionSCM.ModuleLocation;
 import hudson.util.ArgumentListBuilder;
@@ -56,7 +57,6 @@ import java.util.Set;
 import org.jvnet.hudson.test.HudsonHomeLoader;
 import org.jvnet.hudson.test.HudsonTestCase;
 import static org.junit.Assert.*;
-import org.netbeans.api.jackpot.hudson.IndexBuilder;
 import org.xml.sax.SAXException;
 
 /**
@@ -70,6 +70,8 @@ public class IndexingBuilderTest extends HudsonTestCase {
 
     @Override
     protected void setUp() throws Exception {
+        StartWebFrontEnd.disable = true;
+        
         super.setUp();
 
         checkoutDir = HudsonHomeLoader.NEW.allocate();
@@ -102,9 +104,9 @@ public class IndexingBuilderTest extends HudsonTestCase {
         FreeStyleProject p = createFreeStyleProject();
         ModuleLocation mod1 = new ModuleLocation(repositoryURL, null);
         SubversionSCM scm = new SubversionSCM(Collections.singletonList(mod1), true, null, "", "", "");
-        IndexBuilderImpl indexer = new IndexBuilderImpl();
+        IndexBuilderImpl indexer = new IndexBuilderImpl("test", "test");
         p.setScm(scm);
-        p.getBuildersList().add(new IndexingBuilder(contextPath, Collections.<IndexBuilder>singleton(indexer)));
+        p.getBuildersList().add(indexer);
 
         doRunProject(p);
 
@@ -136,9 +138,9 @@ public class IndexingBuilderTest extends HudsonTestCase {
         FreeStyleProject p = createFreeStyleProject();
         ModuleLocation mod1 = new ModuleLocation(repositoryURL, "repo1");
         SubversionSCM scm = new SubversionSCM(Collections.singletonList(mod1), true, null, "", "", "");
-        IndexBuilderImpl indexer = new IndexBuilderImpl();
+        IndexBuilderImpl indexer = new IndexBuilderImpl("test", "test");
         p.setScm(scm);
-        p.getBuildersList().add(new IndexingBuilder(contextPath, Collections.<IndexBuilder>singleton(indexer)));
+        p.getBuildersList().add(indexer);
 
         doRunProject(p);
 
@@ -192,16 +194,20 @@ public class IndexingBuilderTest extends HudsonTestCase {
         new FileOutputStream(toCreate).close();
     }
 
-    private static final class IndexBuilderImpl extends IndexBuilder {
+    private static final class IndexBuilderImpl extends IndexingBuilder {
 
         private boolean called;
         private Set<String> addedOrModified;
         private Set<String> removed;
 
+        public IndexBuilderImpl(String projectName, String toolName) {
+            super(projectName, toolName);
+        }
+
         @Override
-        public boolean index(IndexingContext context) throws InterruptedException, IOException {
-            addedOrModified = context.addedOrModified;
-            removed = context.removed;
+        protected boolean doIndex(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener, Set<String> addedOrModified, Set<String> removed) throws IOException, InterruptedException {
+            this.addedOrModified = addedOrModified;
+            this.removed = removed;
             called = true;
             return true;
         }

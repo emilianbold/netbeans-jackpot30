@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2011 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,63 +34,63 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2010 Sun Microsystems, Inc.
+ * Portions Copyrighted 2011 Sun Microsystems, Inc.
  */
+package org.netbeans.modules.jackpot30.hudson;
 
-package org.netbeans.api.jackpot.hudson;
-
-import hudson.DescriptorExtensionList;
-import hudson.ExtensionPoint;
 import hudson.Launcher;
-import hudson.model.AbstractBuild;
-import hudson.model.BuildListener;
-import hudson.model.Describable;
-import hudson.model.Descriptor;
+import hudson.Proc;
 import hudson.model.Hudson;
+import hudson.util.ArgumentListBuilder;
+import hudson.util.LogTaskListener;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
  * @author lahvac
  */
-public abstract class IndexBuilder implements Describable<IndexBuilder>, ExtensionPoint {
+public class StartWebFrontEnd {
 
-    public IndexBuilderDescriptor getDescriptor() {
-        return (IndexBuilderDescriptor)Hudson.getInstance().getDescriptor(getClass());
-    }
+    public static boolean disable = false;
 
-    public abstract boolean index(IndexingContext context) throws InterruptedException, IOException;
+    private static Proc frontend;
 
-    public static DescriptorExtensionList<IndexBuilder, IndexBuilderDescriptor> all() {
-        return Hudson.getInstance().getDescriptorList(IndexBuilder.class);
-    }
+    public static void ensureStarted() {
+        if (disable) return ;
+        
+        try {
+            if (frontend != null && frontend.isAlive()) return;
 
-    public static abstract class IndexBuilderDescriptor extends Descriptor<IndexBuilder> {
-        protected IndexBuilderDescriptor(Class<? extends IndexBuilder> clazz) {
-            super(clazz);
+            IndexingTool[] tools = Hudson.getInstance().getDescriptorByType(IndexingTool.DescriptorImpl.class).getInstallations();
+
+            if (tools.length == 0) return;
+
+            File cacheDir = Hudson.getInstance().getDescriptorByType(IndexingBuilder.DescriptorImpl.class).getCacheDir();
+
+            if (!cacheDir.exists()) {
+                cacheDir.mkdirs();
+                new FileOutputStream(new File(cacheDir, "segments")).close();
+            }
+            
+            LogTaskListener listener = new LogTaskListener(Logger.global, Level.INFO);
+            IndexingTool tool = tools[0].forNode(Hudson.getInstance(), listener);
+
+            ArgumentListBuilder args = new ArgumentListBuilder();
+            Launcher launcher = new Launcher.LocalLauncher(listener);
+            args.add(new File(tool.getHome(), "web")); //XXX
+            args.add(cacheDir);
+
+            frontend = launcher.launch().cmds(args)
+                                        .stdout(listener)
+                                        .start();
+        } catch (IOException ex) {
+            Logger.getLogger(StartWebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(StartWebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
         }
-        protected IndexBuilderDescriptor() {
-        }
-    }
-
-    public static final class IndexingContext {
-        public final File cacheDir;
-        public final AbstractBuild<?, ?> build;
-        public final Launcher launcher;
-        public final BuildListener listener;
-        public final Set<String> addedOrModified;
-        public final Set<String> removed;
-
-        public IndexingContext(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener, Set<String> addedOrModified, Set<String> removed) {
-            this.cacheDir = cacheDir;
-            this.build = build;
-            this.launcher = launcher;
-            this.listener = listener;
-            this.addedOrModified = addedOrModified;
-            this.removed = removed;
-        }
-
     }
 }

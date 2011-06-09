@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.hudson;
 
 import hudson.Extension;
 import hudson.Launcher;
+import hudson.Proc;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
@@ -50,6 +51,7 @@ import hudson.scm.ChangeLogSet.AffectedFile;
 import hudson.scm.ChangeLogSet.Entry;
 import hudson.scm.EditType;
 import hudson.tasks.Builder;
+import hudson.util.ArgumentListBuilder;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -60,6 +62,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -69,56 +72,38 @@ import net.sf.json.JSONObject;
 import net.sf.json.JSONSerializer;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
-import org.netbeans.api.jackpot.hudson.IndexBuilder;
-import org.netbeans.api.jackpot.hudson.IndexBuilder.IndexBuilderDescriptor;
-import org.netbeans.api.jackpot.hudson.IndexBuilder.IndexingContext;
 
 /**
  *
  * @author lahvac
  */
-public final class IndexingBuilder extends Builder {
+public class IndexingBuilder extends Builder {
 
     private final String projectName;
-    private final Set<IndexBuilder> indexers;
+    private final String toolName;
     
     public IndexingBuilder(StaplerRequest req, JSONObject json) throws FormException {
         projectName = json.getString("projectName");
-        indexers = new HashSet<IndexBuilder>();
-
-        for (IndexBuilderDescriptor desc : IndexBuilder.all()) {
-            if (json.containsKey(desc.getJsonSafeClassName())) {
-                indexers.add(desc.newInstance(req, json.getJSONObject(desc.getJsonSafeClassName())));
-            }
-        }
+        toolName = json.getString("toolName");
     }
 
     @DataBoundConstructor
-    public IndexingBuilder(String projectName, Set<IndexBuilder> indexers) {
+    public IndexingBuilder(String projectName, String toolName) {
         this.projectName = projectName;
-        this.indexers = indexers;
+        this.toolName = toolName;
     }
 
     public String getProjectName() {
         return projectName;
     }
 
-    public Set<IndexBuilder> getIndexers() {
-        return indexers;
+    public String getToolName() {
+        return toolName;
     }
 
     @Override
     public DescriptorImpl getDescriptor() {
         return (DescriptorImpl) super.getDescriptor();
-    }
-
-    public boolean isIndexerEnabled(String indexer) {
-        for (IndexBuilder b : indexers) {
-            if (indexer.equals(b.getDescriptor().getJsonSafeClassName()))
-                return true;
-        }
-        
-        return false;
     }
 
     @Override
@@ -136,11 +121,8 @@ public final class IndexingBuilder extends Builder {
             }
         }
 
-        boolean success = true;
+        boolean success = doIndex(getDescriptor().getCacheDir(), build, launcher, listener, addedFiles, removedFiles);
 
-        for (IndexBuilder indexer : getIndexers()) {
-            success &= indexer.index(new IndexingContext(getDescriptor().getCacheDir(), build, launcher, listener, addedFiles, removedFiles));
-        }
         //XXX:
         File info = new File(Cache.findCache("jackpot30", 1002).findCacheRoot(build.getWorkspace().toURI().toURL()), "info");
         String jsonContent = readFully(info);
@@ -177,7 +159,7 @@ public final class IndexingBuilder extends Builder {
                 try {
                     in.close();
                 } catch (IOException ex) {
-                    Logger.getLogger(IndexBuilder.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(IndexingBuilder.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -187,7 +169,6 @@ public final class IndexingBuilder extends Builder {
 
     private static void write(File file, String content) throws IOException {
         Writer out = null;
-        StringBuilder result = new StringBuilder();
 
         try {
             out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), "UTF-8"));
@@ -197,7 +178,7 @@ public final class IndexingBuilder extends Builder {
                 try {
                     out.close();
                 } catch (IOException ex) {
-                    Logger.getLogger(IndexBuilder.class.getName()).log(Level.SEVERE, null, ex);
+                    Logger.getLogger(IndexingBuilder.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
@@ -210,7 +191,68 @@ public final class IndexingBuilder extends Builder {
 
         return path;
     }
-    
+
+    protected/*tests*/ boolean doIndex(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener, Set<String> addedOrModified, Set<String> removed) throws IOException, InterruptedException {
+        IndexingTool t = findSelectedTool();
+
+        if (t == null) {
+            listener.getLogger().println("Cannot find indexing tool: " + toolName);
+            return false;
+        }
+
+        t = t.forNode(build.getBuiltOn(), listener);
+
+        listener.getLogger().println("Running: " + toolName);
+
+        File a = File.createTempFile("jck30", "");
+        File r = File.createTempFile("jck30", "");
+
+        dumpToFile(a, addedOrModified);
+        dumpToFile(r, removed);
+
+        ArgumentListBuilder args = new ArgumentListBuilder();
+
+        //XXX: there should be a way to specify Java runtime!
+        args.add(new File(t.getHome(), "index")); //XXX
+        args.add(".");
+        args.add(cacheDir);
+        args.add(a.getAbsolutePath());
+        args.add(r.getAbsolutePath());
+
+        Proc indexer = launcher.launch().pwd(build.getWorkspace())
+                                                .cmds(args)
+                                                .stdout(listener)
+                                                .start();
+
+        indexer.join();
+
+        a.delete();
+        r.delete();
+
+        return true;
+    }
+
+    private void dumpToFile(File target, Set<String> files) throws IOException {
+        Writer out = new OutputStreamWriter(new FileOutputStream(target));
+
+        try {
+            for (String f : files) {
+                out.write(f);
+                out.write("\n");
+            }
+        } finally {
+            out.close();
+        }
+    }
+
+    public IndexingTool findSelectedTool() {
+        for (IndexingTool t : getDescriptor().getIndexingTools()) {
+            if (toolName.equals(t.getName())) return t;
+        }
+
+        return null;
+    }
+
     @Extension // this marker indicates Hudson that this is an implementation of an extension point.
     public static final class DescriptorImpl extends Descriptor<Builder> {
 
@@ -234,8 +276,12 @@ public final class IndexingBuilder extends Builder {
             return "Run Indexers";
         }
 
-        public List<? extends IndexBuilderDescriptor> getIndexers() {
-            return IndexBuilder.all();
+        public List<? extends IndexingTool> getIndexingTools() {
+            return Arrays.asList(Hudson.getInstance().getDescriptorByType(IndexingTool.DescriptorImpl.class).getInstallations());
+        }
+
+        public boolean hasNonStandardIndexingTool() {
+            return getIndexingTools().size() > 1;
         }
     }
 
