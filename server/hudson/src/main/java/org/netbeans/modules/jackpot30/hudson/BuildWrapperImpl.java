@@ -442,7 +442,7 @@ public final class BuildWrapperImpl extends BuildWrapper {
         }
 
         if (locFile == null) {
-            throw new IllegalStateException(base.getAbsolutePath());
+//            throw new IllegalStateException(base.getAbsolutePath());
         }
         
         return locFile;
@@ -450,7 +450,8 @@ public final class BuildWrapperImpl extends BuildWrapper {
 
     static {
         antLibLocation = computeAntLibLocation();
-
+        
+        if (antLibLocation != null) {
         File hintsData = new File(antLibLocation, "hints");
         Reader r = null;
 
@@ -489,6 +490,7 @@ public final class BuildWrapperImpl extends BuildWrapper {
                     Logger.getLogger(BuildWrapperImpl.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
+        }
         }
     }
 }
