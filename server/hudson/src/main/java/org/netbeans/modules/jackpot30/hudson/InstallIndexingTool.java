@@ -96,7 +96,7 @@ public class InstallIndexingTool extends DownloadFromUrlInstaller {
 
         if (tools.length == 0) {
             ToolProperty<ToolInstallation> install = new InstallSourceProperty(Arrays.asList(new InstallIndexingTool("main")));
-            Hudson.getInstance().getDescriptorByType(IndexingTool.DescriptorImpl.class).setInstallations(new IndexingTool("Main NetBeans Indexing", "", Arrays.asList(install)));
+            Hudson.getInstance().getDescriptorByType(IndexingTool.DescriptorImpl.class).setInstallations(new IndexingTool(IndexingTool.DEFAULT_INDEXING_NAME, "", Arrays.asList(install)));
         }
     }
 

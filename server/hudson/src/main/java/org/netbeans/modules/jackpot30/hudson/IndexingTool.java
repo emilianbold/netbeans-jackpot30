@@ -55,6 +55,8 @@ import org.kohsuke.stapler.DataBoundConstructor;
  */
 public class IndexingTool extends ToolInstallation implements NodeSpecific<IndexingTool> {
 
+    public static final String DEFAULT_INDEXING_NAME = "Main NetBeans Indexing";
+    
     @DataBoundConstructor
     public IndexingTool(String name, String home, List<? extends ToolProperty<?>> properties) {
         super(name, home, properties);
