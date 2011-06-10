@@ -42,32 +42,30 @@
 
 package org.netbeans.modules.hudson.indexerinstaller;
 
-import hudson.cli.CLI;
-import java.awt.event.ActionListener;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.net.URL;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 import org.netbeans.api.progress.ProgressUtils;
 import org.netbeans.modules.hudson.api.HudsonInstance;
-
-import org.openide.awt.ActionRegistration;
-import org.openide.awt.ActionReferences;
 import org.openide.awt.ActionID;
+import org.openide.awt.ActionReference;
+import org.openide.awt.ActionRegistration;
 import org.openide.util.Exceptions;
 import org.openide.util.NbBundle.Messages;
 import org.openide.windows.WindowManager;
+import hudson.cli.CLI;
 
 @ActionID(
-    category="Tools",
+    category="Team",
     id="org.netbeans.modules.hudson.indexerinstaller.InstallHudsonExtension"
 )
 @ActionRegistration(
     displayName="#CTL_InstallHudsonExtension"
 )
-@ActionReferences({
-})
+@ActionReference(path=HudsonInstance.ACTION_PATH, position=950)
 @Messages({"CTL_InstallHudsonExtension=Install Hudson Extension",
         "CTL_InstallingPlugin=Installing Plugin", 
         "CTL_RestartTitle=Plugin Installed", 
