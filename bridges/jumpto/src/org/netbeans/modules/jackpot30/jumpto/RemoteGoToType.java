@@ -92,7 +92,7 @@ public class RemoteGoToType implements TypeProvider {
     public void computeTypeNames(Context context, Result result) {
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
             try {
-                URI resolved = new URI(ri.remote.toExternalForm() + "/findType?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(context.getText()));
+                URI resolved = new URI(ri.remote.toExternalForm() + "/type/search?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(context.getText()));
                 @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
                 Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, WebUtilities.requestStringResponse(resolved));
 

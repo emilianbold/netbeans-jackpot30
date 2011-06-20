@@ -15,8 +15,15 @@
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util-lookup.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-spi-editor-hints.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-api-java-classpath.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/java/modules/ext/javac-api-nb-7.0-b07.jar" todir="server/lib/javac" />
         <copy file="${nbplatform.active.dir}/java/modules/ext/javac-impl-nb-7.0-b07.jar" todir="server/lib/javac" />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-jumpto.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/platform/modules/org-netbeans-modules-masterfs.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-lucene.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-api.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-projectapi.jar" todir="server/lib" />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-project.jar" todir="server/lib" />
     </target>
     
     <target name="findbugs" depends="-init">

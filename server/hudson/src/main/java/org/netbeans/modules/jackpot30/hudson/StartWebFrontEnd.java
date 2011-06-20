@@ -73,7 +73,6 @@ public class StartWebFrontEnd {
 
             if (!cacheDir.exists()) {
                 cacheDir.mkdirs();
-                new FileOutputStream(new File(cacheDir, "segments")).close();
             }
             
             LogTaskListener listener = new LogTaskListener(Logger.global, Level.INFO);
@@ -81,7 +80,7 @@ public class StartWebFrontEnd {
 
             ArgumentListBuilder args = new ArgumentListBuilder();
             Launcher launcher = new Launcher.LocalLauncher(listener);
-            args.add(new File(tool.getHome(), "web")); //XXX
+            args.add(new File(tool.getHome(), "web.sh")); //XXX
             args.add(cacheDir);
 
             frontend = launcher.launch().cmds(args)

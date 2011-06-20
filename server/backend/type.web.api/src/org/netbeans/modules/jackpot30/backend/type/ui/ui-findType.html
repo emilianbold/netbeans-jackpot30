@@ -1,0 +1,28 @@
+<html>
+<head>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
+</head>
+<body>
+<form method="get">
+<label for="path">Project:</label>
+<select size="1" name="path">");
+    <#list paths as path>
+        <option <#if selectedPath?? && path.segment == selectedPath>selected</#if> value="${path.segment}">
+            ${path.displayName}
+        </option>
+    </#list>
+</select>
+<br>
+<label for="prefix">Type Name:</label><input type="text" name="prefix"<#if prefix??>value="${prefix}"</#if>/><br>
+<input type="submit" name="Find Candidates"/>
+</form>
+
+<#if results??>
+    Found types:<br>
+    <#list results as result>
+        <a href="/index/ui/show?path=${selectedPath}&relative=${result.relativePath}">${result.fqn}</a><br>
+    </#list>
+</#if>
+
+</body>
+</html>

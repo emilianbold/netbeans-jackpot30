@@ -39,21 +39,34 @@
  *
  * Portions Copyrighted 2011 Sun Microsystems, Inc.
  */
+package org.netbeans.modules.jackpot30.backend.base;
 
-package org.netbeans.modules.jackpot30.backend.impl;
-
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
+import java.io.IOException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLStreamHandler;
+import java.net.URLStreamHandlerFactory;
+import org.openide.util.lookup.ServiceProvider;
 
 /**
  *
  * @author lahvac
  */
-@Path("/")
-public class MainPage {
+@ServiceProvider(service=URLStreamHandlerFactory.class)
+public class RelStreamHandlerFactory implements URLStreamHandlerFactory {
 
-    @GET
-    public String main() {
-        return "<html><body><ul><li><a href='index/ui/search'>Search Pattern</a></li><li><a href='index/ui/apply'>Apply Pattern</a></li></ul></body></html>";
+    @Override
+    public URLStreamHandler createURLStreamHandler(String protocol) {
+        if ("rel".equals(protocol)) return new RelStreamHandler();
+        return null;
     }
+
+    private static final class RelStreamHandler extends URLStreamHandler {
+
+        @Override protected URLConnection openConnection(URL u) throws IOException {
+            throw new IOException("Cannot open");
+        }
+
+    }
+
 }
