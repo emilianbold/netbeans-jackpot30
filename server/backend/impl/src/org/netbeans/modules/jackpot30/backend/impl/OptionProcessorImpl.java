@@ -42,16 +42,18 @@
 
 package org.netbeans.modules.jackpot30.backend.impl;
 
-import com.sun.jersey.api.container.httpserver.HttpServerFactory;
-import com.sun.jersey.api.core.ClassNamesResourceConfig;
-import com.sun.net.httpserver.HttpServer;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.jar.JarOutputStream;
+import java.util.zip.ZipEntry;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.SourceUtils;
@@ -59,11 +61,11 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
+import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
-import org.netbeans.modules.jackpot30.backend.impl.api.API;
-import org.netbeans.modules.jackpot30.backend.impl.ui.UI;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomIndexerImpl;
 import org.netbeans.modules.jackpot30.impl.indexing.CustomIndexerImpl;
+import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.support.ant.PropertyUtils;
 import org.netbeans.spi.sendopts.Env;
@@ -82,14 +84,12 @@ import org.openide.util.lookup.ServiceProvider;
 @ServiceProvider(service=OptionProcessor.class)
 public class OptionProcessorImpl extends OptionProcessor {
 
-    private final Option SHUTDOWN = Option.withoutArgument(Option.NO_SHORT_NAME, "shutdown");
-    private final Option RESTART = Option.withoutArgument(Option.NO_SHORT_NAME, "restart"); //XXX: does not currently work
-    private final Option START_SERVER = Option.withoutArgument(Option.NO_SHORT_NAME, "start-server");
-    private final Option INDEX = Option.withoutArgument(Option.NO_SHORT_NAME, "index");
     private final Option CATEGORY_ID = Option.requiredArgument(Option.NO_SHORT_NAME, "category-id");
     private final Option CATEGORY_NAME = Option.requiredArgument(Option.NO_SHORT_NAME, "category-name");
     private final Option CATEGORY_PROJECTS = Option.additionalArguments(Option.NO_SHORT_NAME, "category-projects");
-    private final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(SHUTDOWN, RESTART, START_SERVER, INDEX, CATEGORY_ID, CATEGORY_NAME, CATEGORY_PROJECTS));
+    private final Option CATEGORY_ROOT_DIR = Option.requiredArgument(Option.NO_SHORT_NAME, "category-root-dir");
+    private final Option CACHE_TARGET = Option.requiredArgument(Option.NO_SHORT_NAME, "cache-target");
+    private final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(CATEGORY_ID, CATEGORY_NAME, CATEGORY_PROJECTS, CATEGORY_ROOT_DIR, CACHE_TARGET));
     
     @Override
     protected Set<Option> getOptions() {
@@ -98,18 +98,6 @@ public class OptionProcessorImpl extends OptionProcessor {
 
     @Override
     protected void process(Env env, Map<Option, String[]> optionValues) throws CommandException {
-        if (optionValues.containsKey(RESTART)) {
-            LifecycleManager.getDefault().markForRestart();
-        }
-
-        if (optionValues.containsKey(SHUTDOWN) || optionValues.containsKey(RESTART)) {
-            LifecycleManager.getDefault().exit();
-        }
-
-        if (optionValues.containsKey(START_SERVER)) {
-            startServer(env);
-        }
-
         String categoryId = null;
         String categoryName = null;
 
@@ -139,20 +127,76 @@ public class OptionProcessorImpl extends OptionProcessor {
             }
         }
 
-        if (optionValues.containsKey(INDEX)) {
-            if (categoryId == null) {
-                env.getErrorStream().println("Error: no category-id specified!");
-                return;
+        String cacheTarget = optionValues.get(CACHE_TARGET)[0];
+        File cache = FileUtil.normalizeFile(new File(cacheTarget));
+
+        cache.getParentFile().mkdirs();
+
+        if (categoryId == null) {
+            env.getErrorStream().println("Error: no category-id specified!");
+            return;
+        }
+
+        try {
+            indexProjects(CategoryStorage.getCategoryContent(categoryId), env);
+        } catch (InterruptedException ex) {
+            throw (CommandException) new CommandException(0).initCause(ex);
+        } catch (IOException ex) {
+            throw (CommandException) new CommandException(0).initCause(ex);
+        }
+
+        JarOutputStream out = null;
+        InputStream segments = null;
+
+        try {
+            FileObject cacheFolder = CacheFolder.getCacheFolder();
+
+            out = new JarOutputStream(new FileOutputStream(cache));
+            pack(out, cacheFolder, categoryId, new StringBuilder());
+
+            segments = cacheFolder.getFileObject("segments").getInputStream();
+            Properties in = new Properties();
+
+            in.load(segments);
+
+            segments.close();//XXX: should be in finally!
+
+            File baseDirFile = new File(optionValues.get(CATEGORY_ROOT_DIR)[0]);
+            String baseDir = baseDirFile.toURI().toString();
+
+            Properties outSegments = new Properties();
+
+            for (String segment : in.stringPropertyNames()) {
+                String url = in.getProperty(segment);
+                String rel = url.startsWith(baseDir) ? "rel:/" + url.substring(baseDir.length()) : url;
+
+                outSegments.setProperty(segment, rel);
             }
-            
-            try {
-                indexProjects(CategoryStorage.getCategoryContent(categoryId), env);
-            } catch (InterruptedException ex) {
-                throw (CommandException) new CommandException(0).initCause(ex);
-            } catch (IOException ex) {
-                throw (CommandException) new CommandException(0).initCause(ex);
+
+            out.putNextEntry(new ZipEntry(categoryId + "/segments"));
+
+            outSegments.store(out, "");
+        } catch (IOException ex) {
+            throw (CommandException) new CommandException(0).initCause(ex);
+        } finally {
+            if (out != null) {
+                try {
+                    out.close();
+                } catch (IOException ex) {
+                    throw (CommandException) new CommandException(0).initCause(ex);
+                }
+            }
+
+            if (segments != null) {
+                try {
+                    segments.close();
+                } catch (IOException ex) {
+                    throw (CommandException) new CommandException(0).initCause(ex);
+                }
             }
         }
+        
+        LifecycleManager.getDefault().exit();
     }
 
     private Set<FileObject> getRoots(String[] projects, Env env) throws IllegalArgumentException, InterruptedException {
@@ -205,6 +249,8 @@ public class OptionProcessorImpl extends OptionProcessor {
         if (sourceRoots.isEmpty()) {
             env.getErrorStream().println("Error: There is nothing to index!");
         } else {
+            //XXX: to start up the project systems and RepositoryUpdater:
+            ((Runnable) OpenProjects.getDefault().openProjects()).run();
             System.setProperty(CustomIndexerImpl.class.getName() + "-attributed", "true");//force partially attributed Jackpot index
             org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
             ClassPath source = ClassPathSupport.createClassPath(sourceRoots.toArray(new FileObject[0]));
@@ -219,16 +265,30 @@ public class OptionProcessorImpl extends OptionProcessor {
         }
     }
 
-    private void startServer(Env env) {
-        try {
-            HttpServer server = HttpServerFactory.create("http://localhost:9998/", new ClassNamesResourceConfig(API.class, UI.class, MainPage.class));
+    private void pack(JarOutputStream target, FileObject index, String name, StringBuilder relPath) throws IOException {
+        int len = relPath.length();
+        boolean first = relPath.length() == 0;
 
-            server.start();
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (IllegalArgumentException ex) {
-            Exceptions.printStackTrace(ex);
+        if (!first) relPath.append("/");
+        relPath.append(name);
+
+        for (FileObject c : index.getChildren()) {
+            if (first && c.getNameExt().equals("segments")) continue;
+            pack(target, c, c.getNameExt(), relPath);
         }
-    }
 
+        if (index.isData()) {
+            target.putNextEntry(new ZipEntry(relPath.toString()));
+
+            InputStream in = index.getInputStream();
+
+            try {
+                FileUtil.copy(in, target);
+            } finally {
+                in.close();
+            }
+        }
+
+        relPath.delete(len, relPath.length());
+    }
 }

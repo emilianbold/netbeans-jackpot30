@@ -43,7 +43,7 @@
         <download url="http://repo1.maven.org/maven2/junit/junit/3.8.2/junit-3.8.2-javadoc.jar" target="junit/junit-3.8.2-javadoc.jar" />
         <download url="http://repo1.maven.org/maven2/junit/junit/3.8.2/junit-3.8.2-sources.jar" target="junit/junit-3.8.2-sources.jar" />
 
-        <download url="http://bits.netbeans.org/netbeans/6.5/extra_ant_tasks/org-netbeans-modules-java-j2seproject-copylibstask.jar" target="CopyLibs/org-netbeans-modules-java-j2seproject-copylibstask.jar" />
+        <download url="http://cdn.bitbucket.org/jlahoda/jackpot30/downloads/org-netbeans-modules-java-j2seproject-copylibstask.jar" target="CopyLibs/org-netbeans-modules-java-j2seproject-copylibstask.jar" />
         
         <download url="http://mirrors.ibiblio.org/pub/mirrors/maven2/org/freemarker/freemarker/2.3.16/freemarker-2.3.16.jar" target="freemarker/freemarker-2.3.16.jar" />
 

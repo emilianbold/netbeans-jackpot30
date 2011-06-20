@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.hudson;
 
 import hudson.Extension;
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.model.AbstractBuild;
@@ -47,6 +48,7 @@ import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.model.Descriptor.FormException;
 import hudson.model.Hudson;
+import hudson.remoting.VirtualChannel;
 import hudson.scm.ChangeLogSet.AffectedFile;
 import hudson.scm.ChangeLogSet.Entry;
 import hudson.scm.EditType;
@@ -62,7 +64,10 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
+import java.net.URI;
+import java.net.URL;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -123,21 +128,21 @@ public class IndexingBuilder extends Builder {
 
         boolean success = doIndex(getDescriptor().getCacheDir(), build, launcher, listener, addedFiles, removedFiles);
 
-        //XXX:
-        File info = new File(Cache.findCache("jackpot30", 1002).findCacheRoot(build.getWorkspace().toURI().toURL()), "info");
-        String jsonContent = readFully(info);
-        JSONObject json = JSONObject.fromObject(jsonContent);
-
-        String prjName = projectName;
-
-        if (prjName == null || prjName.isEmpty()) {
-            prjName = build.getParent().getDisplayName();
-        }
-
-        if (!prjName.equals(json.get("displayName"))) {
-            json.put("displayName", prjName);
-            write(info, JSONSerializer.toJSON(json).toString());
-        }
+//        //XXX:
+//        File info = new File(Cache.findCache("jackpot30", 1002).findCacheRoot(build.getWorkspace().toURI().toURL()), "info");
+//        String jsonContent = readFully(info);
+//        JSONObject json = JSONObject.fromObject(jsonContent);
+//
+//        String prjName = projectName;
+//
+//        if (prjName == null || prjName.isEmpty()) {
+//            prjName = build.getParent().getDisplayName();
+//        }
+//
+//        if (!prjName.equals(json.get("displayName"))) {
+//            json.put("displayName", prjName);
+//            write(info, JSONSerializer.toJSON(json).toString());
+//        }
 
         return success;
     }
@@ -202,22 +207,29 @@ public class IndexingBuilder extends Builder {
 
         t = t.forNode(build.getBuiltOn(), listener);
 
-        listener.getLogger().println("Running: " + toolName);
+        RemoteResult res = build.getWorkspace().act(new FilePath.FileCallable<RemoteResult>() {
+            public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
+                Set<String> projects = new HashSet<String>();
 
-        File a = File.createTempFile("jck30", "");
-        File r = File.createTempFile("jck30", "");
+                findProjects(file, projects, new StringBuilder());
 
-        dumpToFile(a, addedOrModified);
-        dumpToFile(r, removed);
+                return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
+            }
+        });
 
+        listener.getLogger().println("Running: " + toolName + " on projects: " + res);
+
+        String codeName = build.getParent().getName();
         ArgumentListBuilder args = new ArgumentListBuilder();
+        FilePath targetZip = build.getWorkspace().createTempFile(codeName, "zip");
 
         //XXX: there should be a way to specify Java runtime!
-        args.add(new File(t.getHome(), "index")); //XXX
-        args.add(".");
-        args.add(cacheDir);
-        args.add(a.getAbsolutePath());
-        args.add(r.getAbsolutePath());
+        args.add(new File(t.getHome(), "index.sh")); //XXX
+        args.add(codeName);
+        args.add(projectName); //XXX
+        args.add(targetZip);
+        args.add(res.root);
+        args.add(res.foundProjects.toArray(new String[0]));
 
         Proc indexer = launcher.launch().pwd(build.getWorkspace())
                                                 .cmds(args)
@@ -226,8 +238,20 @@ public class IndexingBuilder extends Builder {
 
         indexer.join();
 
-        a.delete();
-        r.delete();
+        File oldCacheDir = new File(cacheDir, codeName + ".old");
+        File segCacheDir = new File(cacheDir, codeName);
+        File newCacheDir = new File(cacheDir, codeName + ".new");
+
+        targetZip.unzip(new FilePath(newCacheDir));
+
+        segCacheDir.renameTo(oldCacheDir);
+
+        new File(newCacheDir, codeName).renameTo(segCacheDir);
+
+        new URL("http://localhost:9998/index/internal/indexUpdated").openStream().close();
+
+        new FilePath(newCacheDir).deleteRecursive();
+        new FilePath(oldCacheDir).deleteRecursive();
 
         return true;
     }
@@ -253,6 +277,34 @@ public class IndexingBuilder extends Builder {
         return null;
     }
 
+    private static void findProjects(File root, Collection<String> result, StringBuilder relPath) {
+        int len = relPath.length();
+        boolean first = relPath.length() == 0;
+
+        if (new File(root, "nbproject").isDirectory()) result.add(relPath.toString());
+
+        File[] children = root.listFiles();
+
+        if (children != null) {
+            for (File c : children) {
+                if (!first)
+                    relPath.append("/");
+                relPath.append(c.getName());
+                findProjects(c, result, relPath);
+                relPath.delete(len, relPath.length());
+            }
+        }
+    }
+
+    private static final class RemoteResult {
+        private final Collection<String> foundProjects;
+        private final String root;
+        public RemoteResult(Collection<String> foundProjects, String root) {
+            this.foundProjects = foundProjects;
+            this.root = root;
+        }
+    }
+    
     @Extension // this marker indicates Hudson that this is an implementation of an extension point.
     public static final class DescriptorImpl extends Descriptor<Builder> {
 

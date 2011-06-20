@@ -60,5 +60,4 @@ call_ant -Ddist.base=$DIST_BASE findbugs || exit
 mkdir -p build/server
 (cp server/do-indexing server/indexer/dist; cd server/indexer/dist/; zip -r ../../../build/server/indexer.zip *)
 (cd server/web.api/dist/; zip -r ../../../build/server/web.api.zip *)
-(cd server/backend; call_ant clean && call_ant build && call_ant test && call_ant build-zip) || exit
-(cd server; ./temp-build-indexing-backend) || exit
+(cd server/backend; ./build-indexing-backend) || exit

@@ -6,7 +6,7 @@
 \verbdef\statementvariable=$[0-9A-Za-z_]+;=
 \verbdef\multipletreevariable=$[0-9A-Za-z_]+$=
 \verbdef\multiplestatementvariable=$[0-9A-Za-z_]+$;=
-\verbdef\wholepattern=$$_=
+\verbdef\wholepattern=$_=
 \verbdef\reserved=$$[0-9A-Za-z_]+=
 
 \begin{document}
@@ -64,7 +64,7 @@ Note: variable declaration is a Java statement.
 
 \subsection{Variables}
 
-Variables start with the dollar sign \verb=$=). In the pattern, first occurrences
+Variables start with the dollar sign (\verb=$=). In the pattern, first occurrences
 of a variable is bound to the actual sub-tree that appears in the code. Second and
 following occurrences of the variable the actual sub-tree is verified against the subtree
 bound to the variable. The pattern occurs in the text only if the actual sub-tree
