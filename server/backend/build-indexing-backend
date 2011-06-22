@@ -1,5 +1,5 @@
 #!/bin/bash -x
-ant clean || exit 1
+ant "$@" clean || exit 1
 mkdir -p build/indexing-backend
 ant "$@" build-zip && unzip -d build/indexing-backend dist/backend.zip && mv build/indexing-backend/backend build/indexing-backend/indexer || exit 1
 mkdir -p build/indexing-backend/web
