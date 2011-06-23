@@ -1,4 +1,6 @@
 #!/bin/bash
+(cd ide; ant "$@" clean && ant "$@" nbms && cp -r build/updates ../build) || exit 1
+
 rm -rf build
 mkdir -p build/indexing-backend
 (cd server/indexer; ant "$@" clean && ant "$@" build-zip && unzip -d ../../build/indexing-backend dist/indexer.zip) || exit 1
@@ -11,7 +13,5 @@ chmod u+x build/temp-indexing-backend/index
 chmod u+x build/temp-indexing-backend/web
 
 (cd build; zip -r indexing-backend.zip indexing-backend) || exit 1
-
-(cd ide; ant "$@" clean && ant "$@" nbms && cp -r build/updates ../build) || exit 1
 
 (cd server/hudson; mvn -Dmaven.test.skip=true clean package && cp target/*.hpi ../../build) || exit
