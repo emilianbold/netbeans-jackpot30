@@ -46,7 +46,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import org.netbeans.modules.jackpot30.impl.batch.EnhancedScopes;
-import org.netbeans.modules.jackpot30.impl.indexing.RemoteIndex;
+import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.impl.refactoring.AbstractApplyHintsRefactoringPlugin;
 import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;

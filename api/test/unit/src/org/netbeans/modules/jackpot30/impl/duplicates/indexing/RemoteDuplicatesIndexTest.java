@@ -57,7 +57,7 @@ import org.netbeans.modules.jackpot30.impl.TestUtils;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.DuplicateDescription;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.Span;
 import org.netbeans.modules.jackpot30.impl.indexing.Cache;
-import org.netbeans.modules.jackpot30.impl.indexing.RemoteIndex;
+import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 

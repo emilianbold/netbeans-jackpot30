@@ -36,6 +36,7 @@ call_ant() {
 }
 
 (cd borrowedtests; call_ant clean && call_ant) || exit
+(cd remoting; ./build-indexing-backend -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
 call_ant clean || exit
 call_ant build || exit
 #call_ant coverage-report || exit
@@ -51,7 +52,6 @@ gzip <build/updates/updates.xml >build/updates/updates.xml.gz
 
 #(cd cmdline/compiler; call_ant copy-to-hudson) || exit
 #(cd server/indexer; call_ant copy-to-hudson) || exit
-(cd server/hudson; mvn -Dmaven.test.skip=true clean package) || exit
 (cd cmdline/tool; call_ant create-standalone-tool) || exit
 (cd cmdline/compiler; call_ant create-standalone-compiler) || exit
 
@@ -60,4 +60,3 @@ call_ant -Ddist.base=$DIST_BASE findbugs || exit
 mkdir -p build/server
 (cp server/do-indexing server/indexer/dist; cd server/indexer/dist/; zip -r ../../../build/server/indexer.zip *)
 (cd server/web.api/dist/; zip -r ../../../build/server/web.api.zip *)
-(cd server/backend; ./build-indexing-backend -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit

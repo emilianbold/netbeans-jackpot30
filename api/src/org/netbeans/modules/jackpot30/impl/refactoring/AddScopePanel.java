@@ -65,7 +65,7 @@ import javax.swing.UIManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.modules.jackpot30.impl.WebUtilities;
+import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.modules.jackpot30.impl.batch.EnhancedScopes.GivenFolderScope;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;

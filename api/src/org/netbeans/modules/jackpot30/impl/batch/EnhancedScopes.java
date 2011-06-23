@@ -77,11 +77,11 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.modules.jackpot30.impl.WebUtilities;
+import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.modules.jackpot30.impl.indexing.CustomIndexerImpl;
 import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
 import org.netbeans.modules.jackpot30.impl.indexing.Index;
-import org.netbeans.modules.jackpot30.impl.indexing.RemoteIndex;
+import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
@@ -89,7 +89,7 @@ import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
-import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
+import static org.netbeans.modules.jackpot30.remoting.api.WebUtilities.escapeForQuery;
 
 /**
  *

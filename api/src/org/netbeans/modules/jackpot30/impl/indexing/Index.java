@@ -43,7 +43,7 @@ import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.BulkPattern;
 import java.util.Map;
 import com.sun.source.util.Trees;
 import javax.lang.model.util.Types;
-import org.netbeans.modules.jackpot30.impl.WebUtilities;
+import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import java.util.ArrayList;
 import com.sun.source.tree.CompilationUnitTree;
 import java.io.IOException;
@@ -57,7 +57,7 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.openide.util.Exceptions;
-import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
+import static org.netbeans.modules.jackpot30.remoting.api.WebUtilities.escapeForQuery;
 
 /**
  *

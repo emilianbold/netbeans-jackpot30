@@ -31,6 +31,14 @@
                 <clean-target>clean</clean-target>
                 <id>module</id>
             </reference>
+            <reference>
+                <foreign-project>org_netbeans_modules_jackpot30_remoting_api</foreign-project>
+                <artifact-type>jar</artifact-type>
+                <script>build.xml</script>
+                <target>netbeans</target>
+                <clean-target>clean</clean-target>
+                <id>module</id>
+            </reference>
         </references>
     </configuration>
 </project>

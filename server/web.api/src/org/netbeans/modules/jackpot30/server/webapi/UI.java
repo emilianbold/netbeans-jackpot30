@@ -56,18 +56,13 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.modules.jackpot30.impl.WebUtilities;
-import static org.netbeans.modules.jackpot30.impl.WebUtilities.escapeForQuery;
+import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
+import static org.netbeans.modules.jackpot30.remoting.api.WebUtilities.escapeForQuery;
 
 /**
  *
