@@ -64,7 +64,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
 import java.io.Writer;
-import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
@@ -74,7 +73,6 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import net.sf.json.JSONObject;
-import net.sf.json.JSONSerializer;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
 
@@ -277,11 +275,18 @@ public class IndexingBuilder extends Builder {
         return null;
     }
 
+    private static final String[] PROJECT_MARKERS = new String[] {
+        "nbproject/project.xml",
+        "pom.xml"
+    };
+
     private static void findProjects(File root, Collection<String> result, StringBuilder relPath) {
         int len = relPath.length();
         boolean first = relPath.length() == 0;
 
-        if (new File(root, "nbproject").isDirectory()) result.add(relPath.toString());
+        for (String marker : PROJECT_MARKERS) {
+            if (new File(root, marker).canRead()) result.add(relPath.toString());
+        }
 
         File[] children = root.listFiles();
 
