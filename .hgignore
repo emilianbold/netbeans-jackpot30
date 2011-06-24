@@ -16,7 +16,7 @@
 \.pdf$
 \.ps$
 \.out$
-^server/hudson/work$
+^remoting/server/hudson/work$
 ^remoting/server/hudson/target$
 ^server/hudson/data/compiler/.*.jar$
 ^server/hudson/data/compiler/indexer/*$
