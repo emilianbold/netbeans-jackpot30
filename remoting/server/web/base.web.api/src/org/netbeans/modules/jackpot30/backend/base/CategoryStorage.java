@@ -42,17 +42,20 @@
 package org.netbeans.modules.jackpot30.backend.base;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -73,7 +76,22 @@ public class CategoryStorage {
         List<CategoryStorage> result = new ArrayList<CategoryStorage>();
 
         for (File cat : cacheRoot.listFiles()) {
-            result.add(new CategoryStorage(cat.getName()));
+            File info = new File(cat, "info");
+            String displayName = cat.getName();
+            if (info.canRead()) {
+                try {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> data = Pojson.load(HashMap.class, info);
+                    if (data.containsKey("displayName")) {
+                        displayName = (String) data.get("displayName"); //XXX: should check type!
+                    }
+                } catch (FileNotFoundException ex) {
+                    Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
+                } catch (IOException ex) {
+                    Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+            result.add(new CategoryStorage(cat.getName(), displayName));
         }
 
         return result;
@@ -88,9 +106,11 @@ public class CategoryStorage {
     }
     
     private final String id;
+    private final String displayName;
 
-    private CategoryStorage(String id) {
+    private CategoryStorage(String id, String displayName) {
         this.id = id;
+        this.displayName = displayName;
     }
 
     public Iterable<? extends URL> getCategoryIndexFolders() {
@@ -106,6 +126,7 @@ public class CategoryStorage {
 
             invertedSegmentsField.setAccessible(true);
             
+            @SuppressWarnings("unchecked")
             Map<String, String> invertedSegments = (Map<String, String>) invertedSegmentsField.get(null);
 
             for (String c : invertedSegments.keySet()) {
@@ -132,7 +153,7 @@ public class CategoryStorage {
     }
 
     public String getDisplayName() {
-        return id;//XXX
+        return displayName;
     }
 
     public FileObject getCacheRoot() {

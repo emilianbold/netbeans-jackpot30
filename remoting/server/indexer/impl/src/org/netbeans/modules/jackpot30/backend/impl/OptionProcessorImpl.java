@@ -47,6 +47,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
@@ -116,12 +117,6 @@ public class OptionProcessorImpl extends OptionProcessor {
                 env.getErrorStream().println("Warning: no category-name specified.");
                 return;
             }
-
-            try {
-                CategoryStorage.setCategoryContent(categoryId, categoryName, getRoots(optionValues.get(CATEGORY_PROJECTS), env));
-            } catch (InterruptedException ex) {
-                throw (CommandException) new CommandException(0).initCause(ex);
-            }
         }
 
         String cacheTarget = optionValues.get(CACHE_TARGET)[0];
@@ -135,7 +130,9 @@ public class OptionProcessorImpl extends OptionProcessor {
         }
 
         try {
-            indexProjects(CategoryStorage.getCategoryContent(categoryId), env);
+            Set<FileObject> roots = getRoots(optionValues.get(CATEGORY_PROJECTS), env);
+
+            indexProjects(roots, env);
         } catch (InterruptedException ex) {
             throw (CommandException) new CommandException(0).initCause(ex);
         } catch (IOException ex) {
@@ -173,6 +170,10 @@ public class OptionProcessorImpl extends OptionProcessor {
             out.putNextEntry(new ZipEntry(categoryId + "/segments"));
 
             outSegments.store(out, "");
+
+            out.putNextEntry(new ZipEntry(categoryId + "/info"));
+
+            out.write(("{ \"displayName\": \"" + categoryName + "\" }").getBytes("UTF-8"));
         } catch (IOException ex) {
             throw (CommandException) new CommandException(0).initCause(ex);
         } finally {
