@@ -8,7 +8,9 @@
     
     <property name="server.modules" value="server/indexer:server/web.api" />
     
-    <target name="-init" depends="suite.-init">
+    <target name="-init" depends="suite.-init,copy-from-platform" />
+    
+    <target name="copy-from-platform" depends="suite.-init">
         <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-source.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-hints.jar" todir="server/lib" />
         <copy file="${nbplatform.active.dir}/platform/core/org-openide-filesystems.jar" todir="server/lib" />
