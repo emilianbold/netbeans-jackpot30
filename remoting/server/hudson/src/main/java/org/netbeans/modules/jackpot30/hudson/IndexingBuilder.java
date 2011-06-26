@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.hudson;
 
 import hudson.Extension;
 import hudson.FilePath;
+import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.model.AbstractBuild;
@@ -205,15 +206,7 @@ public class IndexingBuilder extends Builder {
 
         t = t.forNode(build.getBuiltOn(), listener);
 
-        RemoteResult res = build.getWorkspace().act(new FilePath.FileCallable<RemoteResult>() {
-            public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
-                Set<String> projects = new HashSet<String>();
-
-                findProjects(file, projects, new StringBuilder());
-
-                return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
-            }
-        });
+        RemoteResult res = build.getWorkspace().act(new FindProjects());
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
 
@@ -339,6 +332,16 @@ public class IndexingBuilder extends Builder {
 
         public boolean hasNonStandardIndexingTool() {
             return getIndexingTools().size() > 1;
+        }
+    }
+
+    private static class FindProjects implements FileCallable<RemoteResult> {
+        public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
+            Set<String> projects = new HashSet<String>();
+
+            findProjects(file, projects, new StringBuilder());
+
+            return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
         }
     }
 
