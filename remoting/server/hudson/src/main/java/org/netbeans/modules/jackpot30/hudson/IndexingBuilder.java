@@ -64,6 +64,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.io.Serializable;
 import java.io.Writer;
 import java.net.URL;
 import java.util.Arrays;
@@ -294,7 +295,7 @@ public class IndexingBuilder extends Builder {
         }
     }
 
-    private static final class RemoteResult {
+    private static final class RemoteResult implements Serializable {
         private final Collection<String> foundProjects;
         private final String root;
         public RemoteResult(Collection<String> foundProjects, String root) {
