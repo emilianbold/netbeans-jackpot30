@@ -3,9 +3,8 @@
   <name>Jackpot 3.0 Hudson Plugin</name>
   <parent>
     <groupId>org.jvnet.hudson.plugins</groupId>
-    <artifactId>plugin</artifactId>
-    <version>1.343</version><!-- which version of Hudson is this plugin built against? -->
-    <relativePath>../pom.xml</relativePath>
+    <artifactId>hudson-plugin-parent</artifactId>
+    <version>2.0.0</version><!-- which version of Hudson is this plugin built against? -->
   </parent>
 
   <groupId>org.netbeans.modules.jackpot30.hudson</groupId>

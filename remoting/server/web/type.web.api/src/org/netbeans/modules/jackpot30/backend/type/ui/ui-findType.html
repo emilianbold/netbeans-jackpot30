@@ -20,7 +20,7 @@
 <#if results??>
     Found types:<br>
     <#list results as result>
-        <a href="/index/ui/show?path=${selectedPath}&relative=${result.relativePath}">${result.fqn}</a><br>
+        <a href="/index/source/cat?path=${selectedPath}&relative=${result.relativePath}">${result.fqn}</a><br>
     </#list>
 </#if>
 
