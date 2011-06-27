@@ -67,11 +67,11 @@ import static org.netbeans.modules.jackpot30.backend.base.WebUtilities.escapeFor
  *
  * @author lahvac
  */
-@Path("/index/type")
+@Path("/index/ui/type")
 public class UI {
 
     @GET
-    @Path("/search/ui")
+    @Path("/search")
     @Produces("text/html")
     public String searchType(@QueryParam("path") String path, @QueryParam("prefix") String prefix) throws URISyntaxException, IOException, TemplateException {
         Map<String, Object> configurationData = new HashMap<String, Object>();
