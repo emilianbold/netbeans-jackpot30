@@ -51,6 +51,8 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.Set;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
@@ -139,6 +141,16 @@ public class IndexerImpl extends CustomIndexer {
 
                                     if (SEEN_SIGNATURES.add(serialized)) {
                                         doc.addPair(KEY_SIGNATURES, serialized, true, true);
+                                    }
+
+                                    if (el.getKind() == ElementKind.METHOD) {
+                                        while ((el = cc.getElementUtilities().getOverriddenMethod((ExecutableElement) el)) != null) {
+                                            serialized = Common.serialize(ElementHandle.create(el));
+
+                                            if (SEEN_SIGNATURES.add(serialized)) {
+                                                doc.addPair(KEY_SIGNATURES, serialized, true, true);
+                                            }
+                                        }
                                     }
                                 }
                             }
