@@ -55,20 +55,27 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeKind;
 import javax.swing.Action;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
+import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.UiUtils;
+import org.netbeans.api.java.source.support.CancellableTreePathScanner;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
@@ -292,8 +299,9 @@ public class Nodes {
             this.eh = eh;
         }
 
-        @Override
-        protected boolean createKeys(final List<Node> toPopulate) {
+        private boolean computeOccurrences(final List<Node> toPopulate) {
+            final boolean[] success = new boolean[] {true};
+
             try {
                 JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
                     @Override public void run(final CompilationController parameter) throws Exception {
@@ -305,18 +313,27 @@ public class Nodes {
                             return;
                         }
 
-                        new TreePathScanner<Void, Void>() {
+                        final AtomicBoolean stop = new AtomicBoolean();
+
+                        new CancellableTreePathScanner<Void, Void>(stop) {
                             @Override public Void visitIdentifier(IdentifierTree node, Void p) {
-                                handleNode();
+                                handleNode(node.getName());
                                 return super.visitIdentifier(node, p);
                             }
                             @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
-                                handleNode();
+                                handleNode(node.getIdentifier());
                                 return super.visitMemberSelect(node, p);
                             }
-                            private void handleNode() {
+                            private void handleNode(Name simpleName) {
                                 Element el = parameter.getTrees().getElement(getCurrentPath());
 
+                                if (el == null || el.asType().getKind() == TypeKind.ERROR) {
+                                    if (toFind.getSimpleName().equals(simpleName)) {
+                                        success[0] = false;
+                                        stop.set(true);
+                                        return; //TODO: should stop the computation altogether
+                                    }
+                                }
                                 if (Nodes.equals(parameter, toFind, el)) {
                                     toPopulate.add(new OccurrenceNode(parameter, getCurrentPath().getLeaf()));
                                 }
@@ -328,6 +345,32 @@ public class Nodes {
                 Exceptions.printStackTrace(ex);
             }
 
+            return success[0];
+        }
+
+        @Override
+        protected boolean createKeys(final List<Node> toPopulate) {
+            List<Node> result = new ArrayList<Node>();
+
+            if (!computeOccurrences(result)) {
+                result.clear();
+
+                ClassPath source = ClassPath.getClassPath(file, ClassPath.SOURCE);
+
+                GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {source});
+
+                try {
+                    SourceUtils.waitScanFinished();
+                    computeOccurrences(result);
+                } catch (InterruptedException ex) {
+                    Exceptions.printStackTrace(ex);
+                } finally {
+                    GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {source});
+                }
+            }
+
+            toPopulate.addAll(result);
+            
             if (toPopulate.isEmpty()) toPopulate.add(noOccurrencesNode());
 
             return true;
