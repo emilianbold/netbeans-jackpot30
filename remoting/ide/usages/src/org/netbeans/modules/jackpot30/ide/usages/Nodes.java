@@ -42,7 +42,13 @@
 
 package org.netbeans.modules.jackpot30.ide.usages;
 
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.SourcePositions;
+import com.sun.source.util.TreePathScanner;
 import java.awt.Image;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -51,23 +57,42 @@ import java.util.List;
 import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import javax.swing.Action;
+import org.netbeans.api.java.source.CompilationController;
+import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.ElementHandle;
+import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.JavaSource.Phase;
+import org.netbeans.api.java.source.Task;
+import org.netbeans.api.java.source.UiUtils;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.spi.project.ui.LogicalViewProvider;
+import org.openide.actions.OpenAction;
+import org.openide.cookies.EditorCookie;
+import org.openide.cookies.LineCookie;
+import org.openide.cookies.OpenCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.loaders.DataObject;
 import org.openide.loaders.DataObjectNotFoundException;
 import org.openide.nodes.AbstractNode;
+import org.openide.nodes.ChildFactory;
 import org.openide.nodes.Children;
 import org.openide.nodes.FilterNode;
 import org.openide.nodes.Node;
 import org.openide.nodes.NodeOp;
+import org.openide.text.Line;
 import org.openide.util.Exceptions;
 import org.openide.util.ImageUtilities;
 import org.openide.util.NbBundle;
+import org.openide.util.lookup.AbstractLookup;
+import org.openide.util.lookup.InstanceContent;
 
 /**
  *
@@ -75,7 +100,7 @@ import org.openide.util.NbBundle;
  */
 public class Nodes {
 
-    public static Node constructSemiLogicalView(Iterable<? extends FileObject> filesWithOccurrences) {
+    public static Node constructSemiLogicalView(Iterable<? extends FileObject> filesWithOccurrences, ElementHandle<?> eh) {
         Map<Project, Collection<FileObject>> projects = new HashMap<Project, Collection<FileObject>>();
 
         for (FileObject file : filesWithOccurrences) {
@@ -99,13 +124,13 @@ public class Nodes {
         List<Node> nodes = new LinkedList<Node>();
 
         for (Project p : projects.keySet()) {
-            nodes.add(constructSemiLogicalView(p, projects.get(p)));
+            nodes.add(constructSemiLogicalView(p, projects.get(p), eh));
         }
 
         return new AbstractNode(new DirectChildren(nodes));
     }
 
-    private static Node constructSemiLogicalView(final Project p, Iterable<? extends FileObject> files) {
+    private static Node constructSemiLogicalView(final Project p, Iterable<? extends FileObject> files, ElementHandle<?> eh) {
         LogicalViewProvider lvp = p.getLookup().lookup(LogicalViewProvider.class);
         final Node view;
 
@@ -151,7 +176,7 @@ public class Nodes {
             fileNodes.add(foundChild);
         }
 
-        return new Wrapper(view, fileNodes);
+        return new Wrapper(view, fileNodes, eh);
     }
 
     private static Node locateChild(Node parent, LogicalViewProvider lvp, FileObject file) {
@@ -164,8 +189,8 @@ public class Nodes {
 
     private static class Wrapper extends FilterNode {
 
-        public Wrapper(Node orig, Collection<? extends Node> fileNodes) {
-            super(orig, new WrapperChildren(orig, fileNodes));
+        public Wrapper(Node orig, Collection<? extends Node> fileNodes, ElementHandle<?> eh) {
+            super(orig, new WrapperChildren(orig, fileNodes, eh));
         }
 
         @Override
@@ -193,10 +218,12 @@ public class Nodes {
 
         private final Node orig;
         private final Collection<? extends Node> fileNodes;
+        private final ElementHandle<?> eh;
 
-        public WrapperChildren(Node orig, Collection<? extends Node> fileNodes) {
+        public WrapperChildren(Node orig, Collection<? extends Node> fileNodes, ElementHandle<?> eh) {
             this.orig = orig;
             this.fileNodes = fileNodes;
+            this.eh = eh;
 
         }
 
@@ -225,9 +252,12 @@ public class Nodes {
         @Override
         protected Node[] createNodes(Node key) {
             if (fileNodes.contains(key)) {
-                return new Node[] {new FilterNode(key)}; //XXX
+                FileObject file = key.getLookup().lookup(FileObject.class);
+                Children c = file != null ? Children.create(new UsagesChildren(file, eh), true) : Children.LEAF;
+                
+                return new Node[] {new FilterNode(key, c)}; //XXX
             }
-            return new Node[] {new Wrapper(key, fileNodes)};
+            return new Node[] {new Wrapper(key, fileNodes, eh)};
         }
 
     }
@@ -244,4 +274,162 @@ public class Nodes {
         }
     }
 
+    private static Node noOccurrencesNode() {
+        AbstractNode noOccurrences = new AbstractNode(Children.LEAF);
+
+        noOccurrences.setDisplayName("No Occurrences Found");
+
+        return noOccurrences;
+    }
+    
+    private static final class UsagesChildren extends ChildFactory<Node> {
+
+        private final FileObject file;
+        private final ElementHandle<?> eh;
+
+        public UsagesChildren(FileObject file, ElementHandle<?> eh) {
+            this.file = file;
+            this.eh = eh;
+        }
+
+        @Override
+        protected boolean createKeys(final List<Node> toPopulate) {
+            try {
+                JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
+                    @Override public void run(final CompilationController parameter) throws Exception {
+                        parameter.toPhase(Phase.RESOLVED);
+
+                        final Element toFind = eh.resolve(parameter);
+
+                        if (toFind == null) {
+                            return;
+                        }
+
+                        new TreePathScanner<Void, Void>() {
+                            @Override public Void visitIdentifier(IdentifierTree node, Void p) {
+                                handleNode();
+                                return super.visitIdentifier(node, p);
+                            }
+                            @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
+                                handleNode();
+                                return super.visitMemberSelect(node, p);
+                            }
+                            private void handleNode() {
+                                Element el = parameter.getTrees().getElement(getCurrentPath());
+
+                                if (Nodes.equals(parameter, toFind, el)) {
+                                    toPopulate.add(new OccurrenceNode(parameter, getCurrentPath().getLeaf()));
+                                }
+                            }
+                        }.scan(parameter.getCompilationUnit(), null);
+                    }
+                }, true);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+
+            if (toPopulate.isEmpty()) toPopulate.add(noOccurrencesNode());
+
+            return true;
+        }
+
+        @Override
+        protected Node createNodeForKey(Node key) {
+            return key;
+        }
+
+    }
+
+    private static boolean equals(CompilationInfo info, Element toFind, Element what) {
+        if (toFind == what) return true;
+        if (what == null) return false;
+        if (toFind.getKind() != what.getKind()) return false;
+        if (toFind.getKind() != ElementKind.METHOD) return false;
+
+        return info.getElements().overrides((ExecutableElement) what, (ExecutableElement) toFind, (TypeElement) what.getEnclosingElement());
+    }
+
+    private static final class OccurrenceNode extends AbstractNode {
+        private final FileObject file;
+        private final int pos;
+        private final String htmlDisplayName;
+
+        public OccurrenceNode(CompilationInfo info, Tree occurrence) {
+            this(info, occurrence, new InstanceContent());
+        }
+
+        private OccurrenceNode(CompilationInfo info, Tree occurrence, InstanceContent content) {
+            super(Children.LEAF, new AbstractLookup(content));
+
+            int[] span;
+
+            switch (occurrence.getKind()) {
+                case MEMBER_SELECT: span = info.getTreeUtilities().findNameSpan((MemberSelectTree) occurrence); break;
+                default:
+                    SourcePositions sp = info.getTrees().getSourcePositions();
+
+                    span = new int[] {(int) sp.getStartPosition(info.getCompilationUnit(), occurrence),
+                                      (int) sp.getEndPosition(info.getCompilationUnit(), occurrence)};
+                    break;
+            }
+
+            long startLine = info.getCompilationUnit().getLineMap().getLineNumber(span[0]);
+            long startLineStart = info.getCompilationUnit().getLineMap().getStartPosition(startLine);
+
+            String dn;
+
+            try {
+                DataObject od = DataObject.find(info.getFileObject());
+                LineCookie lc = od.getLookup().lookup(LineCookie.class);
+                Line l = lc.getLineSet().getCurrent((int) startLine - 1);
+                od.getLookup().lookup(EditorCookie.class).openDocument();
+                String line = l.getText();
+                int endOnLine = (int) Math.min(line.length(), span[1] - startLineStart);
+
+                dn = translate(line.substring(0, (int) (span[0] - startLineStart))) + "<b>" + translate(line.substring((int) (span[0] - startLineStart), endOnLine)) + "</b>" + translate(line.substring(endOnLine));
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+                dn = "Occurrence";
+            }
+
+            this.htmlDisplayName = dn;
+            this.file = info.getFileObject();
+            this.pos = span[0];
+            
+            content.add(new OpenCookie() {
+                @Override public void open() {
+                    UiUtils.open(file, pos);
+                }
+            });
+        }
+
+        @Override
+        public String getHtmlDisplayName() {
+            return htmlDisplayName;
+        }
+
+        @Override
+        public Action[] getActions(boolean context) {
+            return new Action[] {
+                OpenAction.get(OpenAction.class)
+            };
+        }
+
+        @Override
+        public Action getPreferredAction() {
+            return OpenAction.get(OpenAction.class);
+        }
+
+    }
+
+    private static String[] c = new String[] {"&", "<", ">", "\n", "\""}; // NOI18N
+    private static String[] tags = new String[] {"&amp;", "&lt;", "&gt;", "<br>", "&quot;"}; // NOI18N
+
+    private static String translate(String input) {
+        for (int cntr = 0; cntr < c.length; cntr++) {
+            input = input.replaceAll(c[cntr], tags[cntr]);
+        }
+
+        return input;
+    }
 }

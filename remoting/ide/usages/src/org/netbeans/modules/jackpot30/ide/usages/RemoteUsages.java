@@ -88,6 +88,7 @@ public final class RemoteUsages implements ActionListener {
         final int pos = comp.getCaretPosition();
 
         try {
+            final ElementHandle<?>[] handle = new ElementHandle<?>[1];
             final String[] serialized = new String[1];
             
             JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
@@ -98,7 +99,7 @@ public final class RemoteUsages implements ActionListener {
                     Element el = parameter.getTrees().getElement(tp);
 
                     if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
-                        serialized[0] = serialize(ElementHandle.create(el));
+                        serialized[0] = serialize(handle[0] = ElementHandle.create(el));
                     }
                 }
             }, true);
@@ -117,7 +118,7 @@ public final class RemoteUsages implements ActionListener {
                 }
             }
 
-            RemoteUsagesWindowTopComponent.openFor(Nodes.constructSemiLogicalView(result));
+            RemoteUsagesWindowTopComponent.openFor(Nodes.constructSemiLogicalView(result, handle[0]));
         } catch (URISyntaxException ex) {
             Exceptions.printStackTrace(ex);
         } catch (IOException ex) {
