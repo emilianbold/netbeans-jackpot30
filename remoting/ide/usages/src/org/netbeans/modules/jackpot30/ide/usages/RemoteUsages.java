@@ -42,6 +42,7 @@
 package org.netbeans.modules.jackpot30.ide.usages;
 
 import com.sun.source.util.TreePath;
+import java.awt.Dialog;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -52,6 +53,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.lang.model.element.Element;
+import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
 import org.netbeans.api.editor.EditorRegistry;
 import org.netbeans.api.java.source.CompilationController;
@@ -61,14 +63,20 @@ import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.editor.NbEditorUtilities;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
+import org.openide.DialogDescriptor;
+import org.openide.DialogDisplayer;
+import org.openide.NotifyDescriptor;
+import org.openide.NotifyDescriptor.Message;
 import org.openide.awt.ActionRegistration;
 import org.openide.awt.ActionReference;
 import org.openide.awt.ActionReferences;
 import org.openide.awt.ActionID;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.nodes.Node;
 import org.openide.util.Exceptions;
 import org.openide.util.NbBundle.Messages;
+import org.openide.util.RequestProcessor;
 
 @ActionID(category = "Refactoring",
 id = "org.netbeans.modules.jackpot30.ide.usages.RemoteUsages")
@@ -79,51 +87,74 @@ id = "org.netbeans.modules.jackpot30.ide.usages.RemoteUsages")
 @Messages("CTL_RemoteUsages=Find Remote Usages...")
 public final class RemoteUsages implements ActionListener {
 
+    private final RequestProcessor WORKER = new RequestProcessor(RemoteUsages.class.getName(), 1, false, false);
+    
     public void actionPerformed(ActionEvent e) {
         JTextComponent comp = EditorRegistry.lastFocusedComponent(); //XXX
 
         if (comp == null) return;
 
-        FileObject file = NbEditorUtilities.getFileObject(comp.getDocument());
+        final FileObject file = NbEditorUtilities.getFileObject(comp.getDocument());
         final int pos = comp.getCaretPosition();
 
-        try {
-            final ElementHandle<?>[] handle = new ElementHandle<?>[1];
-            final String[] serialized = new String[1];
-            
-            JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
-                @Override public void run(CompilationController parameter) throws Exception {
-                    parameter.toPhase(JavaSource.Phase.RESOLVED);
+        DialogDescriptor dd = new DialogDescriptor("Querying remote server(s), please wait", "Please Wait", true, new Object[0], null, DialogDescriptor.DEFAULT_ALIGN, null, null);
+        final Dialog d = DialogDisplayer.getDefault().createDialog(dd);
 
-                    TreePath tp = parameter.getTreeUtilities().pathFor(pos);
-                    Element el = parameter.getTrees().getElement(tp);
+        WORKER.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    final ElementHandle<?>[] handle = new ElementHandle<?>[1];
+                    final String[] serialized = new String[1];
 
-                    if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
-                        serialized[0] = serialize(handle[0] = ElementHandle.create(el));
+                    JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
+                        @Override public void run(CompilationController parameter) throws Exception {
+                            parameter.toPhase(JavaSource.Phase.RESOLVED);
+
+                            TreePath tp = parameter.getTreeUtilities().pathFor(pos);
+                            Element el = parameter.getTrees().getElement(tp);
+
+                            if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
+                                serialized[0] = serialize(handle[0] = ElementHandle.create(el));
+                            }
+                        }
+                    }, true);
+
+                    if (serialized[0] == null) return ; //XXX: warn user!
+
+                    List<FileObject> result = new ArrayList<FileObject>();
+
+                    for (RemoteIndex idx : RemoteIndex.loadIndices()) {
+                        URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized[0]));
+
+                        for (String path : WebUtilities.requestStringArrayResponse(resolved)) {
+                            File f = new File(idx.folder, path);
+
+                            result.add(FileUtil.toFileObject(f));
+                        }
                     }
-                }
-            }, true);
 
-            if (serialized[0] == null) return ; //XXX: warn user!
+                    final Node view = Nodes.constructSemiLogicalView(result, handle[0]);
 
-            List<FileObject> result = new ArrayList<FileObject>();
-
-            for (RemoteIndex idx : RemoteIndex.loadIndices()) {
-                URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized[0]));
-
-                for (String path : WebUtilities.requestStringArrayResponse(resolved)) {
-                    File f = new File(idx.folder, path);
-
-                    result.add(FileUtil.toFileObject(f));
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override public void run() {
+                            RemoteUsagesWindowTopComponent.openFor(view);
+                        }
+                    });
+                } catch (URISyntaxException ex) {
+                    Exceptions.printStackTrace(ex);
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                } finally {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override public void run() {
+                            d.setVisible(false);
+                        }
+                    });
                 }
             }
+        });
 
-            RemoteUsagesWindowTopComponent.openFor(Nodes.constructSemiLogicalView(result, handle[0]));
-        } catch (URISyntaxException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (IOException ex) {
-            Exceptions.printStackTrace(ex);
-        }
+        d.setVisible(true);
     }
 
     //XXX:
