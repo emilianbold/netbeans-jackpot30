@@ -38,6 +38,7 @@ call_ant() {
 (cd borrowedtests; call_ant clean && call_ant) || exit
 call_ant copy-from-platform
 (cd remoting; ./build-indexing-backend -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
+(cd remoting/server/tests; ./run-declarative-tests  -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
 call_ant clean || exit
 call_ant build || exit
 #call_ant coverage-report || exit

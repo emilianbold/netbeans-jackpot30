@@ -21,3 +21,5 @@
 ^server/hudson/data/compiler/.*.jar$
 ^server/hudson/data/compiler/indexer/*$
 ^server/hudson/data/compiler/hints$
+^remoting/server/tests/cache$
+^remoting/server/tests/results$

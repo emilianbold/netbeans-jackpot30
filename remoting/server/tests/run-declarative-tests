@@ -1,0 +1,62 @@
+#!/bin/bash -x
+do_index() {
+    rm -rf cache
+    mkdir -p cache
+    for g in `pwd`/data/*; do
+        NAME=`basename $g`;
+        PROJECTS=`find $PWD/data/group1/ -maxdepth 1 -mindepth 1 -type d`
+        USERDIR="`pwd`/cache/userdir"
+        rm -rf "$USERDIR"
+        (cd ../indexer; ant "-Drun.args=--nosplash --nogui -J-Xmx128m --category-id '$NAME' --category-name '$NAME-display-name' --cache-target ../tests/cache/temp.zip --category-root-dir '$g' --category-projects '$PROJECTS'" "-Dtest.user.dir=$USERDIR" "$@" run)
+        (cd cache; unzip temp.zip; rm temp.zip)
+        rm -rf "$USERDIR"
+    done
+}
+
+#XXX: copied from cmdline/test/scripted/harness
+write_passed_results_file() {
+      cat >$RESULT_FILE <<EOF
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuite errors="0" failures="0" hostname="foo" name="$TEST_NAME" tests="1" time="0" timestamp="`date`">
+  <properties/>
+  <testcase classname="$TEST_NAME" name="main" time="0" />
+</testsuite>
+EOF
+}
+
+write_failure_results_file() {
+      cat >$RESULT_FILE <<EOF
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuite errors="0" failures="1" hostname="foo" name="$TEST_NAME" tests="1" time="0" timestamp="`date`">
+  <properties/>
+  <testcase classname="$TEST_NAME" name="main" time="0">
+    <failure message="Test failed" type="junit.framework.AssertionFailedError">$1</failure>
+  </testcase>
+</testsuite>
+EOF
+}
+
+do_index
+
+(cd ../web/web.main; ant jar)
+java -jar ../web/web.main/dist/web.main.jar cache >/dev/null 2>/dev/null &
+
+#trap "kill %1" EXIT
+
+sleep 1s; #XXX
+
+rm -rf results
+mkdir results
+
+for tc in `find testcases -name "*.tc" -type d`; do
+    REQUEST=`cat $tc/request`;
+    TEST_NAME=`basename $tc`;
+    RESULT_FILE="`pwd`/results/TEST-$TEST_NAME.xml"
+    if wget -O - "http://localhost:9998$REQUEST" | diff -w - $tc/response; then
+        write_passed_results_file
+    else
+        write_failure_results_file
+    fi;
+done
+
+exit 0
