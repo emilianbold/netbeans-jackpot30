@@ -41,7 +41,7 @@ do_index
 (cd ../web/web.main; ant jar)
 java -jar ../web/web.main/dist/web.main.jar cache >/dev/null 2>/dev/null &
 
-#trap "kill %1" EXIT
+trap "kill %1" EXIT
 
 sleep 1s; #XXX
 

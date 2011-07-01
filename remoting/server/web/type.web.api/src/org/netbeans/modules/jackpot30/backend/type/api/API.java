@@ -40,30 +40,27 @@
 package org.netbeans.modules.jackpot30.backend.type.api;
 
 import java.io.IOException;
-import java.net.URL;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
-import java.util.EnumSet;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import javax.lang.model.element.TypeElement;
+import java.util.Map.Entry;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.search.Query;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.api.java.classpath.ClassPath;
-import org.netbeans.api.java.source.ClassIndex.NameKind;
-import org.netbeans.api.java.source.ClassIndex.SearchScope;
-import org.netbeans.api.java.source.ClasspathInfo;
-import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
-import org.netbeans.modules.java.source.usages.ClassIndexManager;
 import org.netbeans.modules.jumpto.type.GoToTypeAction;
-import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.netbeans.modules.parsing.lucene.support.Convertor;
+import org.netbeans.modules.parsing.lucene.support.Index;
+import org.netbeans.modules.parsing.lucene.support.Queries;
+import org.netbeans.modules.parsing.lucene.support.Queries.QueryKind;
 
 /**
  *
@@ -75,7 +72,7 @@ public class API {
     @GET
     @Path("/search")
     @Produces("text/plain")
-    public String findType(@QueryParam("path") String segment, @QueryParam("prefix") String prefix, @QueryParam("casesensitive") @DefaultValue("false") boolean casesensitive, @QueryParam("asynchronous") @DefaultValue(value="false") boolean asynchronous) throws IOException {
+    public String findType(@QueryParam("path") String segment, @QueryParam("prefix") String prefix, @QueryParam("casesensitive") @DefaultValue("false") boolean casesensitive, @QueryParam("asynchronous") @DefaultValue(value="false") boolean asynchronous) throws IOException, InterruptedException {
         assert !asynchronous;
 
         //copied (and converted to NameKind) from jumpto's GoToTypeAction:
@@ -87,47 +84,61 @@ public class API {
             return "";
         }
 
-        NameKind nameKind;
+        QueryKind queryKind;
         int wildcard = GoToTypeAction.containsWildCard(prefix);
 
         if (exact) {
             //nameKind = panel.isCaseSensitive() ? SearchType.EXACT_NAME : SearchType.CASE_INSENSITIVE_EXACT_NAME;
-            nameKind = NameKind.SIMPLE_NAME;
+            queryKind = QueryKind.EXACT;
         }
         else if ((GoToTypeAction.isAllUpper(prefix) && prefix.length() > 1) || GoToTypeAction.isCamelCase(prefix)) {
-            nameKind = NameKind.CAMEL_CASE;
+            queryKind = QueryKind.CAMEL_CASE;
         }
         else if (wildcard != -1) {
-            nameKind = casesensitive ? NameKind.REGEXP : NameKind.CASE_INSENSITIVE_REGEXP;
+            queryKind = casesensitive ? QueryKind.REGEXP : QueryKind.CASE_INSENSITIVE_REGEXP;
         }
         else {
-            nameKind = casesensitive ? NameKind.PREFIX : NameKind.CASE_INSENSITIVE_PREFIX;
+            queryKind = casesensitive ? QueryKind.PREFIX : QueryKind.CASE_INSENSITIVE_PREFIX;
         }
 
         Map<String, List<String>> result = new LinkedHashMap<String, List<String>>();
-        CategoryStorage srcRoots = CategoryStorage.forId(segment);
+        CategoryStorage category = CategoryStorage.forId(segment);
+        Index index = category.getIndex();
 
-        for (URL srcRoot : srcRoots.getCategoryIndexFolders()) {
-            if (!"rel".equals(srcRoot.getProtocol())) continue;
-            String rootId = srcRoot.getPath().substring(1);
-            List<String> currentResult = new ArrayList<String>();
+        List<Query> queries = new ArrayList<Query>(2);
 
-            result.put(rootId, currentResult);
+        queries.add(Queries.createQuery("classSimpleName", "classSimpleNameLower", prefix, queryKind));
 
-            ClassIndexManager.getDefault().createUsagesQuery(srcRoot, true).isValid();
-            ClasspathInfo cpInfo = ClasspathInfo.create(ClassPath.EMPTY, ClassPath.EMPTY, ClassPathSupport.createClassPath(srcRoot));
-            Set<ElementHandle<TypeElement>> names = new HashSet<ElementHandle<TypeElement>>(cpInfo.getClassIndex().getDeclaredTypes(prefix, nameKind, EnumSet.of(SearchScope.SOURCE)));
+        if (queryKind == QueryKind.CAMEL_CASE) {
+            queries.add(Queries.createQuery("classSimpleName", "classSimpleNameLower", prefix, QueryKind.CASE_INSENSITIVE_PREFIX));
+        }
 
-            if (nameKind == NameKind.CAMEL_CASE) {
-                names.addAll(cpInfo.getClassIndex().getDeclaredTypes(prefix, NameKind.CASE_INSENSITIVE_PREFIX, EnumSet.of(SearchScope.SOURCE)));
-            }
+        List<Entry<String, String>> found = new ArrayList<Entry<String, String>>();
 
-            for (ElementHandle<TypeElement> d : names) {
-                currentResult.add(d.getBinaryName());
+        //TODO: field selector:
+        index.query(found, new ConvertorImpl(), null, new AtomicBoolean(), queries.toArray(new Query[queries.size()]));
+
+        for (Entry<String, String> e : found) {
+            for (String rel : category.getSourceRoots()) {
+                if (e.getKey().startsWith(rel)) {
+                    List<String> current = result.get(rel);
+
+                    if (current == null) {
+                        result.put(rel, current = new ArrayList<String>());
+                    }
+
+                    current.add(e.getValue());
+                }
             }
         }
 
         return Pojson.save(result);
+    }
+
+    private static class ConvertorImpl implements Convertor<Document, Entry<String, String>> {
+        @Override public Entry<String, String> convert(Document p) {
+            return new SimpleEntry<String, String>(p.get("file"), p.get("classFQN"));
+        }
     }
 
 }

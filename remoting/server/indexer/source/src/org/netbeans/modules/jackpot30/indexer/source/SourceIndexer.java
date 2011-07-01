@@ -48,15 +48,21 @@ import java.io.Reader;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.Field.Index;
+import org.apache.lucene.document.Field.Store;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
+import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
 import org.netbeans.modules.parsing.lucene.support.DocumentIndex;
-import org.netbeans.modules.parsing.lucene.support.IndexDocument;
 import org.netbeans.modules.parsing.lucene.support.IndexManager;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
+import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 
 /**
  *
@@ -69,18 +75,22 @@ public class SourceIndexer extends CustomIndexer {
     @Override
     protected void index(Iterable<? extends Indexable> files, Context context) {
         try {
-            DocumentIndex idx = IndexManager.createDocumentIndex(FileUtil.toFile(context.getIndexFolder()));
-            
             for (Indexable i : files) {
-                IndexDocument doc = IndexManager.createDocument(i.getRelativePath());
+                FileObject f = URLMapper.findFileObject(i.getURL());
 
-                doc.addPair(KEY_CONTENT, readFully(i.getURL()), false, true);
+                if (f == null) continue;
 
-                idx.addDocument(doc);
+                String relPath = IndexAccessor.getCurrent().getPath(f);
+
+                if (relPath == null) continue;
+                
+                Document doc = new Document();
+
+                doc.add(new Field("relativePath", relPath, Store.YES, Index.NOT_ANALYZED));
+                doc.add(new Field(KEY_CONTENT, readFully(i.getURL()), Store.YES, Index.NO));
+
+                IndexAccessor.getCurrent().getIndexWriter().addDocument(doc);
             }
-
-            idx.store(true);
-            idx.close();
         } catch (IOException ex) {
             Logger.getLogger(SourceIndexer.class.getName()).log(Level.SEVERE, null, ex);
         }

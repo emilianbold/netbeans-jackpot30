@@ -216,7 +216,9 @@
                     </test-dependency>
                 </test-type>
             </test-dependencies>
-            <public-packages/>
+            <public-packages>
+                <package>org.netbeans.modules.jackpot30.backend.impl.spi</package>
+            </public-packages>
         </data>
     </configuration>
 </project>

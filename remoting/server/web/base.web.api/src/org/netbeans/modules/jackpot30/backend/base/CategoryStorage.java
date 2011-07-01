@@ -44,6 +44,8 @@ package org.netbeans.modules.jackpot30.backend.base;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
@@ -55,8 +57,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.parsing.lucene.support.Index;
+import org.netbeans.modules.parsing.lucene.support.IndexManager;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 
@@ -66,13 +71,23 @@ import org.openide.filesystems.FileUtil;
  */
 public class CategoryStorage {
 
-    public static void setCacheRoot(File cacheRoot) {
+    public static synchronized void setCacheRoot(File cacheRoot) {
         CategoryStorage.cacheRoot = cacheRoot;
+        categoryCache = null;
+    }
+
+    public static void internalReset() {
+        setCacheRoot(cacheRoot);
     }
 
     private static File cacheRoot;
+    private static Reference<Iterable<? extends CategoryStorage>> categoryCache;
 
-    public static Iterable<? extends CategoryStorage> listCategories() {
+    public static synchronized Iterable<? extends CategoryStorage> listCategories() {
+        Iterable<? extends CategoryStorage> cached = categoryCache != null ? categoryCache.get() : null;
+
+        if (cached != null) return cached;
+
         List<CategoryStorage> result = new ArrayList<CategoryStorage>();
 
         for (File cat : cacheRoot.listFiles()) {
@@ -94,6 +109,8 @@ public class CategoryStorage {
             result.add(new CategoryStorage(cat.getName(), displayName));
         }
 
+        categoryCache = new SoftReference<Iterable<? extends CategoryStorage>>(result);
+        
         return result;
     }
 
@@ -113,7 +130,7 @@ public class CategoryStorage {
         this.displayName = displayName;
     }
 
-    public Iterable<? extends URL> getCategoryIndexFolders() {
+    private Iterable<? extends URL> getCategoryIndexFolders() {
         try {
             FileObject root = getCacheRoot();
             CacheFolder.setCacheFolder(root);
@@ -148,6 +165,17 @@ public class CategoryStorage {
         return Collections.emptyList();
     }
 
+    public Iterable<? extends String> getSourceRoots() {
+        List<String> result = new ArrayList<String>();
+
+        for (URL srcRoot : getCategoryIndexFolders()) {
+            if (!"rel".equals(srcRoot.getProtocol())) continue;
+            result.add(srcRoot.getPath().substring(1));
+        }
+
+        return result;
+    }
+
     public String getId() {
         return id;
     }
@@ -156,7 +184,31 @@ public class CategoryStorage {
         return displayName;
     }
 
-    public FileObject getCacheRoot() {
+    private FileObject getCacheRoot() {
         return FileUtil.toFileObject(FileUtil.normalizeFile(new File(cacheRoot, id)));
+    }
+
+    private File getIndexFile() {
+        return new File(new File(cacheRoot, id), "index");
+    }
+
+    private Reference<Index> cachedIndex;
+
+    public synchronized Index getIndex() {
+        Index cached = cachedIndex != null ? cachedIndex.get() : null;
+
+        if (cached != null) return cached;
+
+        try {
+            Index index = IndexManager.createIndex(getIndexFile(), new KeywordAnalyzer());
+
+            index.getStatus(true);
+
+            cachedIndex = new SoftReference<Index>(index);
+
+            return index;
+        } catch (IOException ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 }

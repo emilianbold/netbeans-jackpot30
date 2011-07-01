@@ -42,21 +42,20 @@
 package org.netbeans.modules.jackpot30.source.api;
 
 import java.io.IOException;
-import java.net.URL;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.search.Query;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
-import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
-import org.netbeans.modules.parsing.lucene.support.DocumentIndex;
-import org.netbeans.modules.parsing.lucene.support.IndexDocument;
-import org.netbeans.modules.parsing.lucene.support.IndexManager;
+import org.netbeans.modules.parsing.lucene.support.Convertor;
+import org.netbeans.modules.parsing.lucene.support.Index;
+import org.netbeans.modules.parsing.lucene.support.Queries;
 import org.netbeans.modules.parsing.lucene.support.Queries.QueryKind;
-import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 
 /**
  *
@@ -70,36 +69,21 @@ public class API {
     @GET
     @Path("/cat")
     @Produces("text/plain")
-    public String cat(@QueryParam("path") String segment, @QueryParam("relative") String relative) throws IOException {
-        CategoryStorage srcRoots = CategoryStorage.forId(segment);
+    public String cat(@QueryParam("path") String segment, @QueryParam("relative") String relative) throws IOException, InterruptedException {
+        CategoryStorage category = CategoryStorage.forId(segment);
+        Index idx = category.getIndex();
+        Query query = Queries.createQuery("relativePath", "does-not-exist", relative, QueryKind.EXACT);
+        List<String> found = new ArrayList<String>();
 
-        for (URL srcRoot : srcRoots.getCategoryIndexFolders()) {
-            DocumentIndex idx = null;
+        //TODO: field selector:
+        idx.query(found, new ConvertorImpl(), null, new AtomicBoolean(), query);
 
-            try {
-                if (!"rel".equals(srcRoot.getProtocol())) continue;
+        return !found.isEmpty() ? found.get(0) : null;
+    }
 
-                if (!relative.startsWith(srcRoot.toString().substring("rel:/".length()))) continue;
-
-                String stripped = relative.substring(srcRoot.toString().substring("rel:/".length()).length());
-                FileObject dataFolder = CacheFolder.getDataFolder(srcRoot);
-
-                idx = IndexManager.createDocumentIndex(FileUtil.toFile(dataFolder.getFileObject("fullsource/1")));//XXX: don't hardcode the constants!
-
-                idx.getStatus(); //XXX: to initialize the index
-                
-                for (IndexDocument d : idx.findByPrimaryKey(stripped, QueryKind.EXACT, KEY_CONTENT)) {
-                    return d.getValue(KEY_CONTENT);
-                }
-            } catch (InterruptedException ex) {
-                Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                if (idx != null) {
-                    idx.close();
-                }
-            }
+    private static class ConvertorImpl implements Convertor<Document, String> {
+        @Override public String convert(Document p) {
+            return p.get(KEY_CONTENT);
         }
-
-        return null;
     }
 }

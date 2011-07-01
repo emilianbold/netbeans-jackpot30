@@ -47,13 +47,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
+import org.apache.lucene.analysis.KeywordAnalyzer;
+import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.SourceUtils;
@@ -63,6 +66,7 @@ import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
+import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.support.ant.PropertyUtils;
@@ -129,7 +133,20 @@ public class OptionProcessorImpl extends OptionProcessor {
             return;
         }
 
+        File baseDirFile = new File(optionValues.get(CATEGORY_ROOT_DIR)[0]);
+        FileObject baseDir = FileUtil.toFileObject(baseDirFile);
+        IndexWriter w = null;
+
+        FileObject cacheFolder = CacheFolder.getCacheFolder();
+        FileObject cacheTemp = cacheFolder.getFileObject("index");
+
         try {
+            if (cacheTemp != null) cacheTemp.delete();
+
+            cacheTemp = cacheFolder.createFolder("index");
+            w = new IndexWriter(FSDirectory.open(FileUtil.toFile(cacheTemp)), new KeywordAnalyzer(), IndexWriter.MaxFieldLength.UNLIMITED);
+
+            IndexAccessor.current = new IndexAccessor(w, baseDir);
             Set<FileObject> roots = getRoots(optionValues.get(CATEGORY_PROJECTS), env);
 
             indexProjects(roots, env);
@@ -137,16 +154,24 @@ public class OptionProcessorImpl extends OptionProcessor {
             throw (CommandException) new CommandException(0).initCause(ex);
         } catch (IOException ex) {
             throw (CommandException) new CommandException(0).initCause(ex);
+        } finally {
+            if (w != null) {
+                try {
+                    w.close(true);
+                } catch (CorruptIndexException ex) {
+                    Exceptions.printStackTrace(ex);
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
         }
 
         JarOutputStream out = null;
         InputStream segments = null;
 
         try {
-            FileObject cacheFolder = CacheFolder.getCacheFolder();
-
             out = new JarOutputStream(new FileOutputStream(cache));
-            pack(out, cacheFolder, categoryId, new StringBuilder());
+            pack(out, cacheTemp, "index", new StringBuilder(categoryId));
 
             segments = cacheFolder.getFileObject("segments").getInputStream();
             Properties in = new Properties();
@@ -155,14 +180,13 @@ public class OptionProcessorImpl extends OptionProcessor {
 
             segments.close();//XXX: should be in finally!
 
-            File baseDirFile = new File(optionValues.get(CATEGORY_ROOT_DIR)[0]);
-            String baseDir = baseDirFile.toURI().toString();
+            String baseDirPath = baseDirFile.toURI().toString();
 
             Properties outSegments = new Properties();
 
             for (String segment : in.stringPropertyNames()) {
                 String url = in.getProperty(segment);
-                String rel = url.startsWith(baseDir) ? "rel:/" + url.substring(baseDir.length()) : url;
+                String rel = url.startsWith(baseDirPath) ? "rel:/" + url.substring(baseDirPath.length()) : url;
 
                 outSegments.setProperty(segment, rel);
             }

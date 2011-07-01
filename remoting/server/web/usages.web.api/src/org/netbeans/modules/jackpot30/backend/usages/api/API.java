@@ -42,21 +42,20 @@
 package org.netbeans.modules.jackpot30.backend.usages.api;
 
 import java.io.IOException;
-import java.net.URL;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.search.Query;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
-import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
-import org.netbeans.modules.parsing.lucene.support.DocumentIndex;
-import org.netbeans.modules.parsing.lucene.support.IndexDocument;
-import org.netbeans.modules.parsing.lucene.support.IndexManager;
+import org.netbeans.modules.parsing.lucene.support.Convertor;
+import org.netbeans.modules.parsing.lucene.support.Index;
+import org.netbeans.modules.parsing.lucene.support.Queries;
 import org.netbeans.modules.parsing.lucene.support.Queries.QueryKind;
-import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 
 /**
  *
@@ -70,38 +69,27 @@ public class API {
     @GET
     @Path("/search")
     @Produces("text/plain")
-    public String search(@QueryParam("path") String segment, @QueryParam("signatures") String signatures) throws IOException {
+    public String search(@QueryParam("path") String segment, @QueryParam("signatures") String signatures) throws IOException, InterruptedException {
         StringBuilder result = new StringBuilder();
-        CategoryStorage srcRoots = CategoryStorage.forId(segment);
+        CategoryStorage category = CategoryStorage.forId(segment);
+        Index idx = category.getIndex();
+        Query query = Queries.createQuery(KEY_SIGNATURES, "does-not-exist", signatures, QueryKind.EXACT);
+        List<String> found = new ArrayList<String>();
 
-        for (URL srcRoot : srcRoots.getCategoryIndexFolders()) {
-            DocumentIndex idx = null;
+        //TODO: field selector:
+        idx.query(found, new ConvertorImpl(), null, new AtomicBoolean(), query);
 
-            try {
-                if (!"rel".equals(srcRoot.getProtocol())) continue;
-
-                FileObject dataFolder = CacheFolder.getDataFolder(srcRoot).getFileObject("javausages/1");//XXX: don't hardcode the constants!
-
-                if (dataFolder == null) continue;
-
-                idx = IndexManager.createDocumentIndex(FileUtil.toFile(dataFolder));
-
-                idx.getStatus(); //XXX: to initialize the index
-
-                for (IndexDocument d : idx.query(KEY_SIGNATURES, signatures, QueryKind.EXACT)) {
-                    result.append(srcRoot.toString().substring("rel:/".length()));
-                    result.append(d.getPrimaryKey());
-                    result.append("\n");
-                }
-            } catch (InterruptedException ex) {
-                Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-            } finally {
-                if (idx != null) {
-                    idx.close();
-                }
-            }
+        for (String foundFile : found) {
+            result.append(foundFile);
+            result.append("\n");
         }
 
         return result.toString();
+    }
+
+    private static class ConvertorImpl implements Convertor<Document, String> {
+        @Override public String convert(Document p) {
+            return p.get("file");
+        }
     }
 }

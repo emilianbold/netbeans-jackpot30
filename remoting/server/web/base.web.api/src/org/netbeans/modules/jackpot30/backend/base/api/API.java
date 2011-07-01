@@ -40,19 +40,10 @@
 package org.netbeans.modules.jackpot30.backend.base.api;
 
 import java.io.IOException;
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.Map;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
-import org.netbeans.modules.java.source.usages.ClassIndexImpl;
-import org.netbeans.modules.java.source.usages.ClassIndexManager;
 
 /**
  *
@@ -82,39 +73,8 @@ public class API {
     @Produces("test/plain")
     public String indexUpdated() throws IOException {
         //XXX: should allow individual providers to do their own cleanup:
-        //XXX: synchronize with the queries!
-        //XXX: well, still does not work!
-
-        try {
-            for (String name : Arrays.asList("instances", "transientInstances")) {
-                Field instances = ClassIndexManager.class.getDeclaredField(name);
-
-                instances.setAccessible(true);
-
-                Map<?, ClassIndexImpl> toClear = (Map<?, ClassIndexImpl>) instances.get(ClassIndexManager.getDefault());
-
-                for (ClassIndexImpl impl : toClear.values()) {
-                    Method close = ClassIndexImpl.class.getDeclaredMethod("close");
-
-                    close.setAccessible(true);
-                    close.invoke(impl);
-                }
-
-                toClear.clear();
-            }
-        } catch (InvocationTargetException ex) {
-            Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchMethodException ex) {
-            Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IllegalArgumentException ex) {
-            Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchFieldException ex) {
-            Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (SecurityException ex) {
-            Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        
+        CategoryStorage.internalReset();
         
         return "Done";
     }
