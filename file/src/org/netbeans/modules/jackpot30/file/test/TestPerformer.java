@@ -163,10 +163,12 @@ public class TestPerformer {
                 }
 
                 for (Fix f : ed.getFixes().getFixes()) {
+                    //XXX: this fix is automatically added to all hints that do not have any fixes, filtering it out. Should be done more reliably:
+                    if (f.getClass().getName().equals("org.netbeans.modules.java.hints.jackpot.spi.support.ErrorDescriptionFactory$TopLevelConfigureFix")) continue;
                     currentResults.add(getFixResult(src, f));
                 }
 
-                if (ed.getFixes().getFixes().isEmpty()) {
+                if (currentResults.isEmpty()) {
                     currentResults.add(ed.getDescription() + ":" + ed.getRange().getText() + "\n");
                 }
             }

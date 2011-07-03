@@ -70,4 +70,15 @@ public class DeclarativeHintRegistryTest extends NbTestCase {
         assertEquals(new HashSet<String>(Arrays.asList("java.lang.String")), hd.getAdditionalConstraints().requiredErasedTypes);
     }
 
+    public void testSuppressWarnings() {
+        Collection<Collection<? extends HintDescription>> allHints = DeclarativeHintRegistry.parseHints(null, "$1.isDirectory <!suppress-warnings=isDirectory> :: $1 instanceof java.io.File ;;").values();
+
+        assertEquals(1, allHints.size());
+        assertEquals(1, allHints.iterator().next().size());
+
+        HintDescription hd = allHints.iterator().next().iterator().next();
+
+        assertEquals(Arrays.asList("isDirectory"), hd.getSuppressWarnings());
+    }
+
 }
