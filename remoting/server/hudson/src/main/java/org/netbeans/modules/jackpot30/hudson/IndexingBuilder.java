@@ -50,20 +50,12 @@ import hudson.model.Descriptor;
 import hudson.model.Descriptor.FormException;
 import hudson.model.Hudson;
 import hudson.remoting.VirtualChannel;
-import hudson.scm.ChangeLogSet.AffectedFile;
-import hudson.scm.ChangeLogSet.Entry;
-import hudson.scm.EditType;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
-import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.io.Reader;
 import java.io.Serializable;
 import java.io.Writer;
 import java.net.URL;
@@ -72,8 +64,8 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.StaplerRequest;
@@ -113,91 +105,12 @@ public class IndexingBuilder extends Builder {
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        Set<String> addedFiles = new HashSet<String>();
-        Set<String> removedFiles = new HashSet<String>();
-
-        for (Entry e : build.getChangeSet()) {
-            for (AffectedFile f : e.getAffectedFiles()) {
-                if (f.getEditType() == EditType.DELETE) {
-                    removedFiles.add(stripLeadingSlash(f.getPath()));
-                } else {
-                    addedFiles.add(stripLeadingSlash(f.getPath()));
-                }
-            }
-        }
-
-        boolean success = doIndex(getDescriptor().getCacheDir(), build, launcher, listener, addedFiles, removedFiles);
-
-//        //XXX:
-//        File info = new File(Cache.findCache("jackpot30", 1002).findCacheRoot(build.getWorkspace().toURI().toURL()), "info");
-//        String jsonContent = readFully(info);
-//        JSONObject json = JSONObject.fromObject(jsonContent);
-//
-//        String prjName = projectName;
-//
-//        if (prjName == null || prjName.isEmpty()) {
-//            prjName = build.getParent().getDisplayName();
-//        }
-//
-//        if (!prjName.equals(json.get("displayName"))) {
-//            json.put("displayName", prjName);
-//            write(info, JSONSerializer.toJSON(json).toString());
-//        }
+        boolean success = doIndex(getDescriptor().getCacheDir(), build, launcher, listener);
 
         return success;
     }
 
-    private static String readFully(File file) throws IOException {
-        Reader in = null;
-        StringBuilder result = new StringBuilder();
-
-        try {
-            in = new BufferedReader(new InputStreamReader(new FileInputStream(file), "UTF-8"));
-
-            int read;
-
-            while ((read = in.read()) != (-1)) {
-                result.append((char) read);
-            }
-        } finally {
-            if (in != null) {
-                try {
-                    in.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(IndexingBuilder.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-
-        return result.toString();
-    }
-
-    private static void write(File file, String content) throws IOException {
-        Writer out = null;
-
-        try {
-            out = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), "UTF-8"));
-            out.write(content);
-        } finally {
-            if (out != null) {
-                try {
-                    out.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(IndexingBuilder.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-    }
-
-    private String stripLeadingSlash(String path) {
-        if (path.length() > 0 && path.charAt(0) == '/') {
-            return path.substring(1);
-        }
-
-        return path;
-    }
-
-    protected/*tests*/ boolean doIndex(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener, Set<String> addedOrModified, Set<String> removed) throws IOException, InterruptedException {
+    protected/*tests*/ boolean doIndex(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         IndexingTool t = findSelectedTool();
 
         if (t == null) {
@@ -207,7 +120,7 @@ public class IndexingBuilder extends Builder {
 
         t = t.forNode(build.getBuiltOn(), listener);
 
-        RemoteResult res = build.getWorkspace().act(new FindProjects());
+        RemoteResult res = build.getWorkspace().act(new FindProjects(getDescriptor().getProjectMarkers()));
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
 
@@ -269,17 +182,14 @@ public class IndexingBuilder extends Builder {
         return null;
     }
 
-    private static final String[] PROJECT_MARKERS = new String[] {
-        "nbproject/project.xml",
-        "pom.xml"
-    };
-
-    private static void findProjects(File root, Collection<String> result, StringBuilder relPath) {
+    private static void findProjects(File root, Collection<String> result, Pattern markers, StringBuilder relPath) {
         int len = relPath.length();
         boolean first = relPath.length() == 0;
 
-        for (String marker : PROJECT_MARKERS) {
-            if (new File(root, marker).canRead()) result.add(relPath.toString());
+        Matcher m = markers.matcher(relPath);
+
+        if (m.matches()) {
+            result.add(m.group(1));
         }
 
         File[] children = root.listFiles();
@@ -289,7 +199,7 @@ public class IndexingBuilder extends Builder {
                 if (!first)
                     relPath.append("/");
                 relPath.append(c.getName());
-                findProjects(c, result, relPath);
+                findProjects(c, result, markers, relPath);
                 relPath.delete(len, relPath.length());
             }
         }
@@ -308,6 +218,8 @@ public class IndexingBuilder extends Builder {
     public static final class DescriptorImpl extends Descriptor<Builder> {
 
         private File cacheDir;
+        private static final String DEFAULT_PROJECT_MARKERS = "(.*)/(nbproject/project.xml|pom.xml)";
+        private String projectMarkers = DEFAULT_PROJECT_MARKERS;
 
         public DescriptorImpl() {
             Cache.setStandaloneCacheRoot(cacheDir = new File(Hudson.getInstance().getRootDir(), "index").getAbsoluteFile());
@@ -317,9 +229,25 @@ public class IndexingBuilder extends Builder {
             return cacheDir;
         }
 
+        public String getProjectMarkers() {
+            return projectMarkers;
+        }
+
+        public  void setProjectMarkers(String projectMarkers) {
+            this.projectMarkers = projectMarkers;
+        }
+
         @Override
         public Builder newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             return new IndexingBuilder(req, formData);
+        }
+
+        @Override
+        public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
+            cacheDir = new File(json.getString("cacheDir"));
+            projectMarkers = json.optString("projectMarkers", DEFAULT_PROJECT_MARKERS);
+            
+            return super.configure(req, json);
         }
 
         @Override
@@ -337,10 +265,14 @@ public class IndexingBuilder extends Builder {
     }
 
     private static class FindProjects implements FileCallable<RemoteResult> {
+        private final String markers;
+        public FindProjects(String markers) {
+            this.markers = markers;
+        }
         public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
             Set<String> projects = new HashSet<String>();
 
-            findProjects(file, projects, new StringBuilder());
+            findProjects(file, projects, Pattern.compile(markers), new StringBuilder());
 
             return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
         }

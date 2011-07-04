@@ -4,6 +4,11 @@
         <f:entry title="Cache directory:" field="cacheDir">
             <f:textbox />
         </f:entry>
+        <f:advanced>
+        <f:entry title="Project markers:" field="projectMarkers">
+            <f:textbox />
+        </f:entry>
+        </f:advanced>
     </f:section>
     
 </j:jelly>
