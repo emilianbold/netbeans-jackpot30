@@ -56,7 +56,17 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.element.TypeParameterElement;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ErrorType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
+import javax.lang.model.type.WildcardType;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
@@ -65,11 +75,13 @@ import org.apache.lucene.index.CorruptIndexException;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
+import org.netbeans.modules.java.source.usages.ClassFileUtil;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
@@ -209,7 +221,8 @@ public class IndexerImpl extends CustomIndexer {
                             }
 
                             @Override public Void visitVariable(VariableTree node, Void p) {
-                                handleFeature();
+                                if (!inMethod)
+                                    handleFeature();
                                 return super.visitVariable(node, p);
                             }
 
@@ -224,7 +237,17 @@ public class IndexerImpl extends CustomIndexer {
                                         currentFeatureDocument.add(new Field("featureSimpleName", el.getSimpleName().toString(), Store.YES, Index.NOT_ANALYZED));
                                         currentFeatureDocument.add(new Field("featureSimpleNameLower", el.getSimpleName().toString().toLowerCase(), Store.YES, Index.NOT_ANALYZED));
                                         currentFeatureDocument.add(new Field("featureKind", el.getKind().name(), Store.YES, Index.NO));
+                                        for (Modifier m : el.getModifiers()) {
+                                            currentFeatureDocument.add(new Field("featureModifiers", m.name(), Store.YES, Index.NO));
+                                        }
                                         currentFeatureDocument.add(new Field("file", file, Store.YES, Index.NO));
+
+                                        if (el.getKind() == ElementKind.METHOD || el.getKind() == ElementKind.CONSTRUCTOR) {
+                                            String featureSignature = methodTypeSignature(cc, (ExecutableElement) el);
+                                            
+                                            currentFeatureDocument.add(new Field("featureSignature", featureSignature, Store.YES, Index.NO));
+                                            currentFeatureDocument.add(new Field("featureVMSignature", ClassFileUtil.createExecutableDescriptor((ExecutableElement) el)[2], Store.YES, Index.NO));
+                                        }
 
                                         IndexAccessor.getCurrent().getIndexWriter().addDocument(currentFeatureDocument);
                                     } catch (CorruptIndexException ex) {
@@ -243,6 +266,133 @@ public class IndexerImpl extends CustomIndexer {
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         }
+    }
+
+    private static void encodeTypeParameters(CompilationInfo info, Collection<? extends TypeParameterElement> params, StringBuilder result) {
+        if (params.isEmpty()) return;
+        result.append("<");
+        for (TypeParameterElement tpe : params) {
+            result.append(tpe.getSimpleName());
+            boolean wasClass = false;
+            
+            for (TypeMirror tm : tpe.getBounds()) {
+                assert tm.getKind() == TypeKind.DECLARED;
+                
+                if (!((DeclaredType) tm).asElement().getKind().isClass() && !wasClass) {
+                    result.append(":Ljava/lang/Object;");
+                }
+                
+                wasClass = true;
+                result.append(':');
+                encodeType(info, tm, result);
+            }
+        }
+        result.append(">");
+    }
+    
+    static String methodTypeSignature(CompilationInfo info, ExecutableElement ee) {
+        StringBuilder sb = new StringBuilder ();
+        encodeTypeParameters(info, ee.getTypeParameters(), sb);
+        sb.append('(');             // NOI18N
+        for (VariableElement pd : ee.getParameters()) {
+            encodeType(info, pd.asType(),sb);
+        }
+        sb.append(')');             // NOI18N
+        encodeType(info, ee.getReturnType(), sb);
+        for (TypeMirror tm : ee.getThrownTypes()) {
+            sb.append('^');
+            encodeType(info, tm, sb);
+        }
+        sb.append(';'); //TODO: unsure about this, but classfile signatures seem to have it
+        return sb.toString();
+    }
+
+    private static void encodeType (CompilationInfo info, final TypeMirror type, final StringBuilder sb) {
+	switch (type.getKind()) {
+	    case VOID:
+		sb.append('V');	    // NOI18N
+		break;
+	    case BOOLEAN:
+		sb.append('Z');	    // NOI18N
+		break;
+	    case BYTE:
+		sb.append('B');	    // NOI18N
+		break;
+	    case SHORT:
+		sb.append('S');	    // NOI18N
+		break;
+	    case INT:
+		sb.append('I');	    // NOI18N
+		break;
+	    case LONG:
+		sb.append('J');	    // NOI18N
+		break;
+	    case CHAR:
+		sb.append('C');	    // NOI18N
+		break;
+	    case FLOAT:
+		sb.append('F');	    // NOI18N
+		break;
+	    case DOUBLE:
+		sb.append('D');	    // NOI18N
+		break;
+	    case ARRAY:
+		sb.append('[');	    // NOI18N
+		assert type instanceof ArrayType;
+		encodeType(info, ((ArrayType)type).getComponentType(),sb);
+		break;
+	    case DECLARED:
+            {
+		sb.append('L');	    // NOI18N
+                DeclaredType dt = (DeclaredType) type;
+		TypeElement te = (TypeElement) dt.asElement();
+                sb.append(info.getElements().getBinaryName(te).toString().replace('.', '/'));
+                if (!dt.getTypeArguments().isEmpty()) {
+                    sb.append('<');
+                    for (TypeMirror tm : dt.getTypeArguments()) {
+                        encodeType(info, tm, sb);
+                    }
+                    sb.append('>');
+                }
+		sb.append(';');	    // NOI18N
+		break;
+            }
+	    case TYPEVAR:
+            {
+		assert type instanceof TypeVariable;
+		TypeVariable tr = (TypeVariable) type;
+                sb.append('T');
+                sb.append(tr.asElement().getSimpleName());
+                sb.append(';');
+		break;
+            }
+            case WILDCARD: {
+                WildcardType wt = (WildcardType) type;
+
+                if (wt.getExtendsBound() != null) {
+                    sb.append('+');
+                    encodeType(info, wt.getExtendsBound(), sb);
+                } else if (wt.getSuperBound() != null) {
+                    sb.append('-');
+                    encodeType(info, wt.getSuperBound(), sb);
+                } else {
+                    sb.append('*');
+                }
+                break;
+            }
+            case ERROR:
+            {
+                TypeElement te = (TypeElement) ((ErrorType)type).asElement();
+                if (te != null) {
+                    sb.append('L');
+                    sb.append(info.getElements().getBinaryName(te).toString().replace('.', '/'));
+                    sb.append(';');	    // NOI18N
+                    break;
+                }
+            }
+	    default:
+		throw new IllegalArgumentException (type.getKind().name());
+	}
     }
 
     @MimeRegistration(mimeType="text/x-java", service=CustomIndexerFactory.class)

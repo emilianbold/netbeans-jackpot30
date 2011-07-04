@@ -40,18 +40,12 @@
 package org.netbeans.modules.jackpot30.backend.type.api;
 
 import java.io.IOException;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.ws.rs.DefaultValue;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.search.Query;
 import org.codeviation.pojson.Pojson;
@@ -66,15 +60,9 @@ import org.netbeans.modules.parsing.lucene.support.Queries.QueryKind;
  *
  * @author lahvac
  */
-@Path("/index/type")
-public class API {
+public class Base {
 
-    @GET
-    @Path("/search")
-    @Produces("text/plain")
-    public String findType(@QueryParam("path") String segment, @QueryParam("prefix") String prefix, @QueryParam("casesensitive") @DefaultValue("false") boolean casesensitive, @QueryParam("asynchronous") @DefaultValue(value="false") boolean asynchronous) throws IOException, InterruptedException {
-        assert !asynchronous;
-
+    protected <T> String doFind(String segment, String prefix, boolean casesensitive, String queryKindName, String fieldPrefix, Convertor<Document, Entry<String, T>> conv) throws IOException, InterruptedException {
         //copied (and converted to NameKind) from jumpto's GoToTypeAction:
         boolean exact = prefix.endsWith(" "); // NOI18N
 
@@ -84,47 +72,60 @@ public class API {
             return "";
         }
 
-        QueryKind queryKind;
-        int wildcard = GoToTypeAction.containsWildCard(prefix);
+        QueryKind queryKind = null;
 
-        if (exact) {
-            //nameKind = panel.isCaseSensitive() ? SearchType.EXACT_NAME : SearchType.CASE_INSENSITIVE_EXACT_NAME;
-            queryKind = QueryKind.EXACT;
-        }
-        else if ((GoToTypeAction.isAllUpper(prefix) && prefix.length() > 1) || GoToTypeAction.isCamelCase(prefix)) {
-            queryKind = QueryKind.CAMEL_CASE;
-        }
-        else if (wildcard != -1) {
-            queryKind = casesensitive ? QueryKind.REGEXP : QueryKind.CASE_INSENSITIVE_REGEXP;
-        }
-        else {
-            queryKind = casesensitive ? QueryKind.PREFIX : QueryKind.CASE_INSENSITIVE_PREFIX;
+        if (queryKindName != null) {
+            for (QueryKind k : QueryKind.values()) {
+                if (queryKindName.equals(k.name())) {
+                    queryKind = k;
+                }
+            }
+
+            //TODO: what to do? currently autoguess, but might also return an error
         }
 
-        Map<String, List<String>> result = new LinkedHashMap<String, List<String>>();
+        if (queryKind == null) {
+            int wildcard = GoToTypeAction.containsWildCard(prefix);
+
+            if (exact) {
+                //nameKind = panel.isCaseSensitive() ? SearchType.EXACT_NAME : SearchType.CASE_INSENSITIVE_EXACT_NAME;
+                queryKind = QueryKind.EXACT;
+            }
+            else if ((GoToTypeAction.isAllUpper(prefix) && prefix.length() > 1) || GoToTypeAction.isCamelCase(prefix)) {
+                queryKind = QueryKind.CAMEL_CASE;
+            }
+            else if (wildcard != -1) {
+                queryKind = casesensitive ? QueryKind.REGEXP : QueryKind.CASE_INSENSITIVE_REGEXP;
+            }
+            else {
+                queryKind = casesensitive ? QueryKind.PREFIX : QueryKind.CASE_INSENSITIVE_PREFIX;
+            }
+        }
+
+        Map<String, List<T>> result = new LinkedHashMap<String, List<T>>();
         CategoryStorage category = CategoryStorage.forId(segment);
         Index index = category.getIndex();
 
         List<Query> queries = new ArrayList<Query>(2);
 
-        queries.add(Queries.createQuery("classSimpleName", "classSimpleNameLower", prefix, queryKind));
+        queries.add(Queries.createQuery(fieldPrefix + "SimpleName", fieldPrefix + "SimpleNameLower", prefix, queryKind));
 
         if (queryKind == QueryKind.CAMEL_CASE) {
-            queries.add(Queries.createQuery("classSimpleName", "classSimpleNameLower", prefix, QueryKind.CASE_INSENSITIVE_PREFIX));
+            queries.add(Queries.createQuery(fieldPrefix + "SimpleName", fieldPrefix + "SimpleNameLower", prefix, QueryKind.CASE_INSENSITIVE_PREFIX));
         }
 
-        List<Entry<String, String>> found = new ArrayList<Entry<String, String>>();
+        List<Entry<String, T>> found = new ArrayList<Entry<String, T>>();
 
         //TODO: field selector:
-        index.query(found, new ConvertorImpl(), null, new AtomicBoolean(), queries.toArray(new Query[queries.size()]));
+        index.query(found, conv, null, new AtomicBoolean(), queries.toArray(new Query[queries.size()]));
 
-        for (Entry<String, String> e : found) {
+        for (Entry<String, T> e : found) {
             for (String rel : category.getSourceRoots()) {
                 if (e.getKey().startsWith(rel)) {
-                    List<String> current = result.get(rel);
+                    List<T> current = result.get(rel);
 
                     if (current == null) {
-                        result.put(rel, current = new ArrayList<String>());
+                        result.put(rel, current = new ArrayList<T>());
                     }
 
                     current.add(e.getValue());
@@ -133,12 +134,6 @@ public class API {
         }
 
         return Pojson.save(result);
-    }
-
-    private static class ConvertorImpl implements Convertor<Document, Entry<String, String>> {
-        @Override public Entry<String, String> convert(Document p) {
-            return new SimpleEntry<String, String>(p.get("file"), p.get("classFQN"));
-        }
     }
 
 }
