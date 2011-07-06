@@ -70,7 +70,7 @@ public class IndexingBuilderTest extends HudsonTestCase {
 
     @Override
     protected void setUp() throws Exception {
-        StartWebFrontEnd.disable = true;
+        WebFrontEnd.disable = true;
         
         super.setUp();
 

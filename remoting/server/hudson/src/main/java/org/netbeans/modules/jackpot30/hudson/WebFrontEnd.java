@@ -38,8 +38,10 @@
  */
 package org.netbeans.modules.jackpot30.hudson;
 
+import hudson.Extension;
 import hudson.Launcher;
 import hudson.Proc;
+import hudson.cli.CLICommand;
 import hudson.model.Hudson;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.LogTaskListener;
@@ -53,17 +55,19 @@ import java.util.logging.Logger;
  *
  * @author lahvac
  */
-public class StartWebFrontEnd {
+public class WebFrontEnd {
 
     public static boolean disable = false;
 
     private static Proc frontend;
 
-    public static void ensureStarted() {
+    public static synchronized void ensureStarted() {
         if (disable) return ;
         
         try {
-            if (frontend != null && frontend.isAlive()) return;
+            if (frontend != null && frontend.isAlive()) {
+                frontend = null;
+            }
 
             IndexingTool[] tools = Hudson.getInstance().getDescriptorByType(IndexingTool.DescriptorImpl.class).getInstallations();
 
@@ -87,9 +91,41 @@ public class StartWebFrontEnd {
                                         .stdout(listener)
                                         .start();
         } catch (IOException ex) {
-            Logger.getLogger(StartWebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(WebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
         } catch (InterruptedException ex) {
-            Logger.getLogger(StartWebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
+            Logger.getLogger(WebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
+
+    public static synchronized void stop() {
+        try {
+            if (frontend == null || !frontend.isAlive()) {
+                frontend = null;
+                return;
+            }
+
+            frontend.kill();
+        } catch (IOException ex) {
+            Logger.getLogger(WebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (InterruptedException ex) {
+            Logger.getLogger(WebFrontEnd.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    @Extension
+    public static final class RestartIndexingFrontend extends CLICommand {
+
+        @Override
+        public String getShortDescription() {
+            return "Restart indexing frontend";
+        }
+
+        @Override
+        protected int run() throws Exception {
+            stop();
+            ensureStarted();
+            return 0;
+        }
+
     }
 }

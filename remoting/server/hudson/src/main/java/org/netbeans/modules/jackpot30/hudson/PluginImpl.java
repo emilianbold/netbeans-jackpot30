@@ -50,7 +50,13 @@ public class PluginImpl extends Plugin {
     public void postInitialize() throws Exception {
         super.postInitialize();
         InstallIndexingTool.prepareUpdates();
-        StartWebFrontEnd.ensureStarted();
+        WebFrontEnd.ensureStarted();
+    }
+
+    @Override
+    public void stop() throws Exception {
+        super.stop();
+        WebFrontEnd.stop();
     }
 
 }
