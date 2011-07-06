@@ -157,6 +157,7 @@ public class OptionProcessorImpl extends OptionProcessor {
         } finally {
             if (w != null) {
                 try {
+                    w.optimize(true);
                     w.close(true);
                 } catch (CorruptIndexException ex) {
                     Exceptions.printStackTrace(ex);
