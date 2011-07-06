@@ -1,1 +1,8 @@
-prj1/src/project1/A.java
+package project1;
+
+public class A {
+
+    {
+        B.test();
+    }
+}

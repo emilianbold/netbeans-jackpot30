@@ -48,6 +48,7 @@ import java.io.Reader;
 import java.net.URL;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.lucene.document.CompressionTools;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
@@ -87,7 +88,7 @@ public class SourceIndexer extends CustomIndexer {
                 Document doc = new Document();
 
                 doc.add(new Field("relativePath", relPath, Store.YES, Index.NOT_ANALYZED));
-                doc.add(new Field(KEY_CONTENT, readFully(i.getURL()), Store.YES, Index.NO));
+                doc.add(new Field(KEY_CONTENT, CompressionTools.compressString(readFully(i.getURL())), Store.YES));
 
                 IndexAccessor.getCurrent().getIndexWriter().addDocument(doc);
             }

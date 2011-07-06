@@ -45,10 +45,14 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.zip.DataFormatException;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import org.apache.lucene.document.CompressionTools;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.search.Query;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
@@ -83,7 +87,12 @@ public class API {
 
     private static class ConvertorImpl implements Convertor<Document, String> {
         @Override public String convert(Document p) {
-            return p.get(KEY_CONTENT);
+            try {
+                return CompressionTools.decompressString(p.getBinaryValue(KEY_CONTENT));
+            } catch (DataFormatException ex) {
+                Logger.getLogger(API.class.getName()).log(Level.SEVERE, null, ex);
+                return "";
+            }
         }
     }
 }
