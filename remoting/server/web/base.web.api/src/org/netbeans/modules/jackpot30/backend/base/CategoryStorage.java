@@ -147,6 +147,7 @@ public class CategoryStorage {
             Map<String, String> invertedSegments = (Map<String, String>) invertedSegmentsField.get(null);
 
             for (String c : invertedSegments.keySet()) {
+                if (!c.startsWith("rel:")) continue;
                 result.add(new URL(c));
             }
 
