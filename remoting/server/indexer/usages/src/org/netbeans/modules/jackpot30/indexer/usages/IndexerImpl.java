@@ -48,10 +48,12 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePathScanner;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -161,8 +163,8 @@ public class IndexerImpl extends CustomIndexer {
                                     }
 
                                     if (el.getKind() == ElementKind.METHOD) {
-                                        while ((el = cc.getElementUtilities().getOverriddenMethod((ExecutableElement) el)) != null) {
-                                            serialized = Common.serialize(ElementHandle.create(el));
+                                        for (ExecutableElement e : overrides(cc, (ExecutableElement) el)) {
+                                            serialized = Common.serialize(ElementHandle.create(e));
 
                                             if (SEEN_SIGNATURES.add(serialized)) {
                                                 usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
@@ -182,12 +184,16 @@ public class IndexerImpl extends CustomIndexer {
 
                                     if (el != null) {
                                         try {
-                                            currentClassFQN = cc.getElements().getBinaryName((TypeElement) el).toString();
+                                            TypeElement tel = (TypeElement) el;
+                                            currentClassFQN = cc.getElements().getBinaryName(tel).toString();
                                             Document currentClassDocument = new Document();
 
                                             currentClassDocument.add(new Field("classFQN", currentClassFQN, Store.YES, Index.NO));
                                             currentClassDocument.add(new Field("classSimpleName", node.getSimpleName().toString(), Store.YES, Index.NOT_ANALYZED));
                                             currentClassDocument.add(new Field("classSimpleNameLower", node.getSimpleName().toString().toLowerCase(), Store.YES, Index.NOT_ANALYZED));
+
+                                            recordSuperTypes(currentClassDocument, tel, new HashSet<String>(Arrays.asList(tel.getQualifiedName().toString())));
+
                                             currentClassDocument.add(new Field("file", file, Store.YES, Index.NO));
 
                                             IndexAccessor.getCurrent().getIndexWriter().addDocument(currentClassDocument);
@@ -247,6 +253,10 @@ public class IndexerImpl extends CustomIndexer {
                                             
                                             currentFeatureDocument.add(new Field("featureSignature", featureSignature, Store.YES, Index.NO));
                                             currentFeatureDocument.add(new Field("featureVMSignature", ClassFileUtil.createExecutableDescriptor((ExecutableElement) el)[2], Store.YES, Index.NO));
+
+                                            for (ExecutableElement e : overrides(cc, (ExecutableElement) el)) {
+                                                currentFeatureDocument.add(new Field("featureOverrides", Common.serialize(ElementHandle.create(e)), Store.YES, Index.NOT_ANALYZED));
+                                            }
                                         }
 
                                         IndexAccessor.getCurrent().getIndexWriter().addDocument(currentFeatureDocument);
@@ -265,6 +275,35 @@ public class IndexerImpl extends CustomIndexer {
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
+        }
+    }
+
+    private static Iterable<? extends ExecutableElement> overrides(CompilationInfo info, ExecutableElement method) {
+        List<ExecutableElement> result = new LinkedList<ExecutableElement>();
+
+        //XXX: one method may override+implement more than one method
+        while ((method = info.getElementUtilities().getOverriddenMethod(method)) != null) {
+            result.add(method);
+        }
+
+        return result;
+    }
+    
+    private static void recordSuperTypes(Document target, TypeElement tel, Set<String> alreadySeen) {
+        String fqn = tel.getQualifiedName().toString();
+
+        if (alreadySeen.add(fqn)) {
+            target.add(new Field("classSupertypes", fqn, Store.YES, Index.NOT_ANALYZED));
+        }
+
+        if (tel.getSuperclass().getKind() == TypeKind.DECLARED) {
+            recordSuperTypes(target, (TypeElement) ((DeclaredType) tel.getSuperclass()).asElement(), alreadySeen);
+        }
+
+        for (TypeMirror i : tel.getInterfaces()) {
+            if (i.getKind() == TypeKind.DECLARED) {
+                recordSuperTypes(target, (TypeElement) ((DeclaredType) i).asElement(), alreadySeen);
+            }
         }
     }
 

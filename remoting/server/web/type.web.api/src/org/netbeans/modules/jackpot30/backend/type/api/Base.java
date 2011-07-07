@@ -50,6 +50,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.search.Query;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
+import org.netbeans.modules.jackpot30.backend.base.Utilities;
 import org.netbeans.modules.jumpto.type.GoToTypeAction;
 import org.netbeans.modules.parsing.lucene.support.Convertor;
 import org.netbeans.modules.parsing.lucene.support.Index;
@@ -102,7 +103,6 @@ public class Base {
             }
         }
 
-        Map<String, List<T>> result = new LinkedHashMap<String, List<T>>();
         CategoryStorage category = CategoryStorage.forId(segment);
         Index index = category.getIndex();
 
@@ -119,21 +119,7 @@ public class Base {
         //TODO: field selector:
         index.query(found, conv, null, new AtomicBoolean(), queries.toArray(new Query[queries.size()]));
 
-        for (Entry<String, T> e : found) {
-            for (String rel : category.getSourceRoots()) {
-                if (e.getKey().startsWith(rel)) {
-                    List<T> current = result.get(rel);
-
-                    if (current == null) {
-                        result.put(rel, current = new ArrayList<T>());
-                    }
-
-                    current.add(e.getValue());
-                }
-            }
-        }
-
-        return Pojson.save(result);
+        return Pojson.save(Utilities.sortBySourceRoot(found, category));
     }
 
 }
