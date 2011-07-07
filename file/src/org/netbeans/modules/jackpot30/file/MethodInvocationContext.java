@@ -257,6 +257,12 @@ public class MethodInvocationContext {
         try {
             final Map<String, byte[]> classes = Hacks.compile(classpaths[0], classpaths[1], code.toString());
 
+            if (!classes.containsKey("$." + className)) {
+                //presumably an error in the custom code, skip
+                //TODO: should warn the if happens during an actual hint execution (as opposed to editting the hint in the editor)
+                return;
+            }
+            
             ClassLoader l = new ClassLoader(MethodInvocationContext.class.getClassLoader()) {
                 @Override
                 protected Class<?> findClass(String name) throws ClassNotFoundException {
