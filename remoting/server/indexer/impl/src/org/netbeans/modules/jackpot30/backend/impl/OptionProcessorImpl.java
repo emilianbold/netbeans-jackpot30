@@ -52,6 +52,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarOutputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.index.CorruptIndexException;
@@ -86,6 +88,7 @@ import org.openide.util.lookup.ServiceProvider;
 @ServiceProvider(service=OptionProcessor.class)
 public class OptionProcessorImpl extends OptionProcessor {
 
+    private static final Logger LOG = Logger.getLogger(OptionProcessorImpl.class.getName());
     private final Option CATEGORY_ID = Option.requiredArgument(Option.NO_SHORT_NAME, "category-id");
     private final Option CATEGORY_NAME = Option.requiredArgument(Option.NO_SHORT_NAME, "category-name");
     private final Option CATEGORY_PROJECTS = Option.additionalArguments(Option.NO_SHORT_NAME, "category-projects");
@@ -151,8 +154,10 @@ public class OptionProcessorImpl extends OptionProcessor {
 
             indexProjects(roots, env);
         } catch (InterruptedException ex) {
+            LOG.log(Level.FINE, null, ex);
             throw (CommandException) new CommandException(0).initCause(ex);
         } catch (IOException ex) {
+            LOG.log(Level.FINE, null, ex);
             throw (CommandException) new CommandException(0).initCause(ex);
         } finally {
             if (w != null) {
@@ -200,6 +205,7 @@ public class OptionProcessorImpl extends OptionProcessor {
 
             out.write(("{ \"displayName\": \"" + categoryName + "\" }").getBytes("UTF-8"));
         } catch (IOException ex) {
+            LOG.log(Level.FINE, null, ex);
             throw (CommandException) new CommandException(0).initCause(ex);
         } finally {
             if (out != null) {
@@ -226,6 +232,7 @@ public class OptionProcessorImpl extends OptionProcessor {
         Set<FileObject> sourceRoots = new HashSet<FileObject>(projects.length * 4 / 3 + 1);
 
         for (String p : projects) {
+            LOG.log(Level.FINE, "Processing project specified as: {0}", p);
             File f = PropertyUtils.resolveFile(env.getCurrentDirectory(), p);
             File normalized = FileUtil.normalizeFile(f);
             FileObject prjFO = FileUtil.toFileObject(normalized);
@@ -248,6 +255,7 @@ public class OptionProcessorImpl extends OptionProcessor {
                     continue;
                 }
 
+                LOG.log(Level.FINE, "project resolved: {0} ({1})", new Object[] {ProjectUtils.getInformation(prj), prj.getClass()});
                 SourceGroup[] javaSG = ProjectUtils.getSources(prj).getSourceGroups("java");
 
                 if (javaSG.length == 0) {
@@ -256,11 +264,14 @@ public class OptionProcessorImpl extends OptionProcessor {
                 }
 
                 for (SourceGroup sg : javaSG) {
+                    LOG.log(Level.FINE, "Found source group: {0}", FileUtil.getFileDisplayName(sg.getRootFolder()));
                     sourceRoots.add(sg.getRootFolder());
                 }
             } catch (IOException ex) {
+                LOG.log(Level.FINE, null, ex);
                 Exceptions.printStackTrace(ex);
             } catch (IllegalArgumentException ex) {
+                LOG.log(Level.FINE, null, ex);
                 Exceptions.printStackTrace(ex);
             }
         }
@@ -277,6 +288,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
             ClassPath source = ClassPathSupport.createClassPath(sourceRoots.toArray(new FileObject[0]));
 
+            LOG.log(Level.FINE, "Registering as source path: {0}", source.toString());
             GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {source});
             SourceUtils.waitScanFinished();
             GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {source});
