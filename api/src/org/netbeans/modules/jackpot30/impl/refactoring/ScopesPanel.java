@@ -227,7 +227,7 @@ public class ScopesPanel extends javax.swing.JPanel {
 //            }
 //        }
 //
-//        scope.setModel(dcbm);
+        scope.setModel(dcbm);
 //        if (lastSelectedScope != null) {
 //            scope.setSelectedItem(lastSelectedScope);
 //        } else {
