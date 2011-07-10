@@ -322,4 +322,16 @@ public class CopyFinderTest extends org.netbeans.modules.java.hints.introduce.Co
                              false,
                              true);
     }
+    public void testIgnoreOtherKind() throws Exception {
+        performVariablesTest("package test; public class Test { private java.util.Collection<String> x() { return java.util.Collections.emptySet(); } } }",
+                             "$i{java.lang.Class}",
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             new Pair[] {
+                             },
+                             true,
+                             true);
+    }
 }
