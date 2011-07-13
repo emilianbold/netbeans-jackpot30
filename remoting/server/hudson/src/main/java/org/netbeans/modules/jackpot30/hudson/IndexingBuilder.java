@@ -61,6 +61,7 @@ import java.io.Writer;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -120,7 +121,9 @@ public class IndexingBuilder extends Builder {
 
         t = t.forNode(build.getBuiltOn(), listener);
 
-        RemoteResult res = build.getWorkspace().act(new FindProjects(getDescriptor().getProjectMarkers()));
+        listener.getLogger().println("Looking for projects in: " + build.getWorkspace().getRemote());
+
+        RemoteResult res = build.getWorkspace().act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern()));
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
 
@@ -182,7 +185,7 @@ public class IndexingBuilder extends Builder {
         return null;
     }
 
-    private static void findProjects(File root, Collection<String> result, Pattern markers, StringBuilder relPath) {
+    private static void findProjects(File root, Collection<String> result, Pattern markers, Pattern ignore, StringBuilder relPath) {
         int len = relPath.length();
         boolean first = relPath.length() == 0;
 
@@ -195,11 +198,17 @@ public class IndexingBuilder extends Builder {
         File[] children = root.listFiles();
 
         if (children != null) {
+            Arrays.sort(children, new Comparator<File>() {
+                public int compare(File o1, File o2) {
+                    return o1.getName().compareTo(o2.getName());
+                }
+            });
             for (File c : children) {
+                if (ignore.matcher(c.getName()).matches()) continue;
                 if (!first)
                     relPath.append("/");
                 relPath.append(c.getName());
-                findProjects(c, result, markers, relPath);
+                findProjects(c, result, markers, ignore, relPath);
                 relPath.delete(len, relPath.length());
             }
         }
@@ -220,6 +229,8 @@ public class IndexingBuilder extends Builder {
         private File cacheDir;
         private static final String DEFAULT_PROJECT_MARKERS = "(.*)/(nbproject/project.xml|pom.xml)";
         private String projectMarkers = DEFAULT_PROJECT_MARKERS;
+        private static final String DEFAULT_IGNORE_PATTERN = "CVS|\\.hg|\\.svn";
+        private String ignorePattern = DEFAULT_IGNORE_PATTERN;
 
         public DescriptorImpl() {
             Cache.setStandaloneCacheRoot(cacheDir = new File(Hudson.getInstance().getRootDir(), "index").getAbsoluteFile());
@@ -237,6 +248,14 @@ public class IndexingBuilder extends Builder {
             this.projectMarkers = projectMarkers;
         }
 
+        public String getIgnorePattern() {
+            return ignorePattern;
+        }
+
+        public  void setIgnorePattern(String ignorePattern) {
+            this.ignorePattern = ignorePattern;
+        }
+
         @Override
         public Builder newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             return new IndexingBuilder(req, formData);
@@ -246,6 +265,9 @@ public class IndexingBuilder extends Builder {
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
             cacheDir = new File(json.getString("cacheDir"));
             projectMarkers = json.optString("projectMarkers", DEFAULT_PROJECT_MARKERS);
+            ignorePattern = json.optString("ignorePattern", DEFAULT_IGNORE_PATTERN);
+
+            save();
             
             return super.configure(req, json);
         }
@@ -265,14 +287,16 @@ public class IndexingBuilder extends Builder {
     }
 
     private static class FindProjects implements FileCallable<RemoteResult> {
+        private final String ignorePattern;
         private final String markers;
-        public FindProjects(String markers) {
+        public FindProjects(String markers, String ignorePattern) {
             this.markers = markers;
+            this.ignorePattern = ignorePattern;
         }
         public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
             Set<String> projects = new HashSet<String>();
 
-            findProjects(file, projects, Pattern.compile(markers), new StringBuilder());
+            findProjects(file, projects, Pattern.compile(markers), Pattern.compile(ignorePattern), new StringBuilder());
 
             return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
         }
