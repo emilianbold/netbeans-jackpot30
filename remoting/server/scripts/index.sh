@@ -1,7 +1,5 @@
 DIR=`dirname $0`
-USERDIR=`tempfile`;
-rm $USERDIR
-mkdir -p $USERDIR
+USERDIR=`mktemp -d`;
 trap "rm -rf -- '$USERDIR'" EXIT
 
 ID="$1"; shift
