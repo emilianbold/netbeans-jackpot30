@@ -129,7 +129,7 @@ public class IndexingBuilder extends Builder {
 
         String codeName = build.getParent().getName();
         ArgumentListBuilder args = new ArgumentListBuilder();
-        FilePath targetZip = build.getWorkspace().createTempFile(codeName, "zip");
+        FilePath targetZip = build.getBuiltOn().getRootPath().createTempFile(codeName, "zip");
 
         //XXX: there should be a way to specify Java runtime!
         args.add(new File(t.getHome(), "index.sh")); //XXX
@@ -151,6 +151,7 @@ public class IndexingBuilder extends Builder {
         File newCacheDir = new File(cacheDir, codeName + ".new");
 
         targetZip.unzip(new FilePath(newCacheDir));
+        targetZip.delete();
 
         segCacheDir.renameTo(oldCacheDir);
 
