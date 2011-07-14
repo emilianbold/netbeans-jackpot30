@@ -44,7 +44,7 @@ package org.netbeans.modules.jackpot30.jumpto;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -53,7 +53,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.swing.Icon;
@@ -62,17 +61,14 @@ import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.ui.ElementIcons;
 import org.netbeans.api.java.source.ui.ElementOpen;
-import org.netbeans.api.project.FileOwnerQuery;
-import org.netbeans.api.project.Project;
-import org.netbeans.api.project.ProjectUtils;
+import org.netbeans.modules.jackpot30.jumpto.RemoteGoToSymbol.RemoteSymbolDescriptor;
+import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.modules.java.source.ElementHandleAccessor;
-import org.netbeans.modules.java.source.usages.ClassFileUtil;
 import org.netbeans.spi.jumpto.symbol.SymbolDescriptor;
 import org.netbeans.spi.jumpto.symbol.SymbolProvider;
-import org.netbeans.spi.jumpto.type.TypeDescriptor;
-import org.netbeans.spi.jumpto.type.TypeProvider;
+import org.netbeans.spi.jumpto.type.SearchType;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
@@ -83,7 +79,7 @@ import org.openide.util.lookup.ServiceProvider;
  * @author lahvac
  */
 @ServiceProvider(service=SymbolProvider.class)
-public class RemoteGoToSymbol implements SymbolProvider {
+public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor> implements SymbolProvider {
 
     @Override
     public String name() {
@@ -96,10 +92,22 @@ public class RemoteGoToSymbol implements SymbolProvider {
     }
 
     @Override
-    public void computeSymbolNames(Context context, Result result) {
+    public void computeSymbolNames(Context context, final Result result) {
+        performQuery(context.getText(), context.getSearchType(), new ResultWrapper<RemoteSymbolDescriptor>() {
+            @Override public void setMessage(String message) {
+                result.setMessage(message);
+            }
+            @Override public void addResult(RemoteSymbolDescriptor r) {
+                result.addResult(r);
+            }
+        });
+    }
+
+    @Override
+    protected void compute(String text, SearchType searchType) {
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
             try {
-                URI resolved = new URI(ri.remote.toExternalForm() + "/symbol/search?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(context.getText()) + "&querykind=" + WebUtilities.escapeForQuery(context.getSearchType().name()));
+                URI resolved = new URI(ri.remote.toExternalForm() + "/symbol/search?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(text) + "&querykind=" + WebUtilities.escapeForQuery(searchType.name()));
                 String response = WebUtilities.requestStringResponse(resolved);
 
                 if (response == null) continue;
@@ -107,34 +115,37 @@ public class RemoteGoToSymbol implements SymbolProvider {
                 @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
                 Map<String, Iterable<Map<String, Object>>> types = Pojson.load(LinkedHashMap.class, response);
 
+                List<RemoteSymbolDescriptor> result = new ArrayList<RemoteSymbolDescriptor>();
+
                 for (Entry<String, Iterable<Map<String, Object>>> e : types.entrySet()) {
                     for (Map<String, Object> properties : e.getValue()) {
-                        result.addResult(new RemoteSymbolDescriptor(ri, properties));
+                        result.add(new RemoteSymbolDescriptor(ri, properties));
                     }
                 }
+
+                addResults(result);
             } catch (URISyntaxException ex) {
                 Exceptions.printStackTrace(ex);
             }
         }
     }
 
-    @Override
-    public void cancel() {
-    }
+    static final class RemoteSymbolDescriptor extends SymbolDescriptor implements SimpleNameable {
 
-    @Override
-    public void cleanup() {
-    }
-
-    static final class RemoteSymbolDescriptor extends SymbolDescriptor {
-
-        private final RemoteIndex origin;
         private final Map<String, Object> properties;
-        private final AtomicReference<FileObject> file = new AtomicReference<FileObject>();
+        private final AbstractDescriptor delegate;
 
-        public RemoteSymbolDescriptor(RemoteIndex origin, Map<String, Object> properties) {
-            this.origin = origin;
+        public RemoteSymbolDescriptor(final RemoteIndex origin, final Map<String, Object> properties) {
             this.properties = properties;
+            this.delegate = new AbstractDescriptor() {
+                @Override
+                protected FileObject resolveFile() {
+                    String relativePath = (String) properties.get("file");
+                    FileObject originFolder = FileUtil.toFileObject(FileUtil.normalizeFile(new File(origin.folder)));
+
+                    return originFolder != null ? originFolder.getFileObject(relativePath) : null;
+                }
+            };
         }
 
         @Override
@@ -168,43 +179,17 @@ public class RemoteGoToSymbol implements SymbolProvider {
 
         @Override
         public String getProjectName() {
-            FileObject file = getFileObject();
-
-            if (file == null) return null;
-
-            Project prj = FileOwnerQuery.getOwner(file);
-
-            if (prj == null) return null;
-
-            return ProjectUtils.getInformation(prj).getDisplayName();
+            return delegate.getProjectName();
         }
 
         @Override
         public Icon getProjectIcon() {
-            FileObject file = getFileObject();
-
-            if (file == null) return null;
-
-            Project prj = FileOwnerQuery.getOwner(file);
-
-            if (prj == null) return null;
-
-            return ProjectUtils.getInformation(prj).getIcon();
+            return delegate.getProjectIcon();
         }
 
         @Override
         public FileObject getFileObject() {
-            FileObject f = this.file.get();
-
-            if (f == null) {
-                String relativePath = (String) properties.get("file");
-                FileObject originFolder = FileUtil.toFileObject(FileUtil.normalizeFile(new File(origin.folder)));
-
-                if (originFolder != null) f = originFolder.getFileObject(relativePath);
-                if (f != null) this.file.set(f);
-            }
-
-            return f;
+            return delegate.getFileObject();
         }
 
         @Override
@@ -240,6 +225,11 @@ public class RemoteGoToSymbol implements SymbolProvider {
         @Override
         public String getOwnerName() {
             return (String) properties.get("enclosingFQN");
+        }
+
+        @Override
+        public String getSimpleName() {
+            return (String) properties.get("simpleName");
         }
 
     }

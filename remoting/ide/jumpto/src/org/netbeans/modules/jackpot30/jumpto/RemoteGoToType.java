@@ -44,12 +44,12 @@ package org.netbeans.modules.jackpot30.jumpto;
 import java.io.File;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.swing.Icon;
@@ -58,12 +58,12 @@ import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.ui.ElementIcons;
 import org.netbeans.api.java.source.ui.ElementOpen;
-import org.netbeans.api.project.FileOwnerQuery;
-import org.netbeans.api.project.Project;
-import org.netbeans.api.project.ProjectUtils;
+import org.netbeans.modules.jackpot30.jumpto.RemoteGoToType.RemoteTypeDescriptor;
+import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.modules.java.source.ElementHandleAccessor;
+import org.netbeans.spi.jumpto.type.SearchType;
 import org.netbeans.spi.jumpto.type.TypeDescriptor;
 import org.netbeans.spi.jumpto.type.TypeProvider;
 import org.openide.filesystems.FileObject;
@@ -76,7 +76,7 @@ import org.openide.util.lookup.ServiceProvider;
  * @author lahvac
  */
 @ServiceProvider(service=TypeProvider.class)
-public class RemoteGoToType implements TypeProvider {
+public class RemoteGoToType extends RemoteQuery<RemoteTypeDescriptor> implements TypeProvider {
 
     @Override
     public String name() {
@@ -89,10 +89,23 @@ public class RemoteGoToType implements TypeProvider {
     }
 
     @Override
-    public void computeTypeNames(Context context, Result result) {
+    public void computeTypeNames(Context context, final Result result) {
+        performQuery(context.getText(), context.getSearchType(), new ResultWrapper<RemoteTypeDescriptor>() {
+            @Override public void setMessage(String message) {
+                result.setMessage(message);
+            }
+            @Override public void addResult(RemoteTypeDescriptor r) {
+                result.addResult(r);
+            }
+        });
+    }
+
+    @Override
+    protected void compute(String text, SearchType searchType) {
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
             try {
-                URI resolved = new URI(ri.remote.toExternalForm() + "/type/search?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(context.getText()));
+                //XXX: should send exact search type:
+                URI resolved = new URI(ri.remote.toExternalForm() + "/type/search?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(text));
                 String response = WebUtilities.requestStringResponse(resolved);
 
                 if (response == null) continue;
@@ -100,36 +113,43 @@ public class RemoteGoToType implements TypeProvider {
                 @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
                 Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, response);
 
+                List<RemoteTypeDescriptor> result = new ArrayList<RemoteTypeDescriptor>();
+
                 for (Entry<String, List<String>> e : types.entrySet()) {
                     for (String binaryName : e.getValue()) {
-                        result.addResult(new RemoteTypeDescriptor(ri, e.getKey(), binaryName));
+                        result.add(new RemoteTypeDescriptor(ri, e.getKey(), binaryName));
                     }
                 }
+
+                addResults(result);
             } catch (URISyntaxException ex) {
                 Exceptions.printStackTrace(ex);
             }
         }
     }
 
-    @Override
-    public void cancel() {
-    }
+    static final class RemoteTypeDescriptor extends TypeDescriptor implements SimpleNameable {
 
-    @Override
-    public void cleanup() {
-    }
-
-    private static final class RemoteTypeDescriptor extends TypeDescriptor {
-
-        private final RemoteIndex origin;
-        private final String relativePath;
         private final String binaryName;
-        private final AtomicReference<FileObject> file = new AtomicReference<FileObject>();
+        private final AbstractDescriptor delegate;
 
-        public RemoteTypeDescriptor(RemoteIndex origin, String relativePath, String binaryName) {
-            this.origin = origin;
-            this.relativePath = relativePath;
+        public RemoteTypeDescriptor(final RemoteIndex origin, final String relativePath, final String binaryName) {
             this.binaryName = binaryName;
+
+            delegate = new AbstractDescriptor() {
+                @Override
+                protected FileObject resolveFile() {
+                    String fqn = binaryName;
+
+                    if (fqn.contains("$")) {
+                        fqn = fqn.substring(0, fqn.indexOf("$"));
+                    }
+
+                    FileObject originFolder = FileUtil.toFileObject(FileUtil.normalizeFile(new File(origin.folder)));
+
+                    return originFolder != null ? originFolder.getFileObject(relativePath + "/" + fqn.replace('.', '/') + ".java") : null;
+                }
+            };
         }
 
         @Override
@@ -177,48 +197,17 @@ public class RemoteGoToType implements TypeProvider {
 
         @Override
         public String getProjectName() {
-            FileObject file = getFileObject();
-
-            if (file == null) return null;
-
-            Project prj = FileOwnerQuery.getOwner(file);
-
-            if (prj == null) return null;
-
-            return ProjectUtils.getInformation(prj).getDisplayName();
+            return delegate.getProjectName();
         }
 
         @Override
         public Icon getProjectIcon() {
-            FileObject file = getFileObject();
-
-            if (file == null) return null;
-
-            Project prj = FileOwnerQuery.getOwner(file);
-
-            if (prj == null) return null;
-
-            return ProjectUtils.getInformation(prj).getIcon();
+            return delegate.getProjectIcon();
         }
 
         @Override
         public FileObject getFileObject() {
-            FileObject f = this.file.get();
-
-            if (f == null) {
-                String fqn = binaryName;
-
-                if (fqn.contains("$")) {
-                    fqn = fqn.substring(0, fqn.indexOf("$"));
-                }
-
-                FileObject originFolder = FileUtil.toFileObject(FileUtil.normalizeFile(new File(origin.folder)));
-
-                if (originFolder != null) f = originFolder.getFileObject(relativePath + "/" + fqn.replace('.', '/') + ".java");
-                if (f != null) this.file.set(f);
-            }
-
-            return f;
+            return delegate.getFileObject();
         }
 
         @Override
