@@ -55,14 +55,11 @@ import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
-import org.netbeans.modules.parsing.lucene.support.DocumentIndex;
-import org.netbeans.modules.parsing.lucene.support.IndexManager;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 
 /**
@@ -137,17 +134,19 @@ public class SourceIndexer extends CustomIndexer {
 
         @Override
         public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
-            try {
-                DocumentIndex idx = IndexManager.createDocumentIndex(FileUtil.toFile(context.getIndexFolder()));
-
-                for (Indexable i : deleted) {
-                    idx.removeDocument(i.getRelativePath());
-                }
-
-                idx.close();
-            } catch (IOException ex) {
-                Logger.getLogger(SourceIndexer.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            assert !deleted.iterator().hasNext();
+            //TODO: ability to delete from the index:
+//            try {
+//                DocumentIndex idx = IndexManager.createDocumentIndex(FileUtil.toFile(context.getIndexFolder()));
+//
+//                for (Indexable i : deleted) {
+//                    idx.removeDocument(i.getRelativePath());
+//                }
+//
+//                idx.close();
+//            } catch (IOException ex) {
+//                Logger.getLogger(SourceIndexer.class.getName()).log(Level.SEVERE, null, ex);
+//            }
         }
 
         @Override
