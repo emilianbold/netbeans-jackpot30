@@ -349,7 +349,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                 if (!url.getPath().endsWith("/"))
                     url = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath() + "/" + (url.getQuery() != null ? "?" + url.getQuery() : ""));
                 
-                subindices = WebUtilities.requestStringArrayResponse(url.toURI().resolve("list"));
+                subindices = WebUtilities.requestStringArrayResponse(url.toURI().resolve("list"), new AtomicBoolean());
 
                 if (subindices.isEmpty()) {
                    checkingIndexURLError.set("Not an index.");

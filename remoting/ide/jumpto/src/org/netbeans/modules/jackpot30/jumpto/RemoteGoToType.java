@@ -42,9 +42,12 @@
 package org.netbeans.modules.jackpot30.jumpto;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -101,31 +104,29 @@ public class RemoteGoToType extends RemoteQuery<RemoteTypeDescriptor> implements
     }
 
     @Override
-    protected void compute(String text, SearchType searchType) {
-        for (RemoteIndex ri : RemoteIndex.loadIndices()) {
-            try {
-                //XXX: should send exact search type:
-                URI resolved = new URI(ri.remote.toExternalForm() + "/type/search?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(text));
-                String response = WebUtilities.requestStringResponse(resolved);
+    protected URI computeURL(RemoteIndex idx, String text, SearchType searchType) {
+        try {
+            return new URI(idx.remote.toExternalForm() + "/type/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(text));
+        } catch (URISyntaxException ex) {
+            Exceptions.printStackTrace(ex);
+            return null;
+        }
+    }
 
-                if (response == null) continue;
-                
-                @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
-                Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, response);
+    @Override
+    protected Collection<? extends RemoteTypeDescriptor> decode(RemoteIndex idx, Reader received) throws IOException {
+        @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+        Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, received);
 
-                List<RemoteTypeDescriptor> result = new ArrayList<RemoteTypeDescriptor>();
+        List<RemoteTypeDescriptor> result = new ArrayList<RemoteTypeDescriptor>();
 
-                for (Entry<String, List<String>> e : types.entrySet()) {
-                    for (String binaryName : e.getValue()) {
-                        result.add(new RemoteTypeDescriptor(ri, e.getKey(), binaryName));
-                    }
-                }
-
-                addResults(result);
-            } catch (URISyntaxException ex) {
-                Exceptions.printStackTrace(ex);
+        for (Entry<String, List<String>> e : types.entrySet()) {
+            for (String binaryName : e.getValue()) {
+                result.add(new RemoteTypeDescriptor(idx, e.getKey(), binaryName));
             }
         }
+
+        return result;
     }
 
     static final class RemoteTypeDescriptor extends TypeDescriptor implements SimpleNameable {

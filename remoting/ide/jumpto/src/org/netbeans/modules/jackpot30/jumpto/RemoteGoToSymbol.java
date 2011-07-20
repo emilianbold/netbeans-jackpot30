@@ -42,6 +42,8 @@
 package org.netbeans.modules.jackpot30.jumpto;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -104,30 +106,29 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor> implem
     }
 
     @Override
-    protected void compute(String text, SearchType searchType) {
-        for (RemoteIndex ri : RemoteIndex.loadIndices()) {
-            try {
-                URI resolved = new URI(ri.remote.toExternalForm() + "/symbol/search?path=" + WebUtilities.escapeForQuery(ri.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(text) + "&querykind=" + WebUtilities.escapeForQuery(searchType.name()));
-                String response = WebUtilities.requestStringResponse(resolved);
+    protected URI computeURL(RemoteIndex idx, String text, SearchType searchType) {
+        try {
+            return new URI(idx.remote.toExternalForm() + "/symbol/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&prefix=" + WebUtilities.escapeForQuery(text) + "&querykind=" + WebUtilities.escapeForQuery(searchType.name()));
+        } catch (URISyntaxException ex) {
+            Exceptions.printStackTrace(ex);
+            return null;
+        }
+    }
 
-                if (response == null) continue;
-                
-                @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
-                Map<String, Iterable<Map<String, Object>>> types = Pojson.load(LinkedHashMap.class, response);
+    @Override
+    protected Collection<? extends RemoteSymbolDescriptor> decode(RemoteIndex idx, Reader received) throws IOException {
+        @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+        Map<String, Iterable<Map<String, Object>>> types = Pojson.load(LinkedHashMap.class, received);
 
-                List<RemoteSymbolDescriptor> result = new ArrayList<RemoteSymbolDescriptor>();
+        List<RemoteSymbolDescriptor> result = new ArrayList<RemoteSymbolDescriptor>();
 
-                for (Entry<String, Iterable<Map<String, Object>>> e : types.entrySet()) {
-                    for (Map<String, Object> properties : e.getValue()) {
-                        result.add(new RemoteSymbolDescriptor(ri, properties));
-                    }
-                }
-
-                addResults(result);
-            } catch (URISyntaxException ex) {
-                Exceptions.printStackTrace(ex);
+        for (Entry<String, Iterable<Map<String, Object>>> e : types.entrySet()) {
+            for (Map<String, Object> properties : e.getValue()) {
+                result.add(new RemoteSymbolDescriptor(idx, properties));
             }
         }
+
+        return result;
     }
 
     static final class RemoteSymbolDescriptor extends SymbolDescriptor implements SimpleNameable {

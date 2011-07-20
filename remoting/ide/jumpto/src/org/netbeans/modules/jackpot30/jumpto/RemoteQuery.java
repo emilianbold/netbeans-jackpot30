@@ -41,16 +41,24 @@
  */
 package org.netbeans.modules.jackpot30.jumpto;
 
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
+import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.spi.jumpto.support.NameMatcher;
 import org.netbeans.spi.jumpto.support.NameMatcherFactory;
 import org.netbeans.spi.jumpto.type.SearchType;
+import org.openide.util.Cancellable;
+import org.openide.util.Exceptions;
 import org.openide.util.RequestProcessor;
 import org.openide.util.RequestProcessor.Task;
 
@@ -64,6 +72,7 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
 
     private String mostGenericQueryText;
     private List<R> results;
+    private AtomicBoolean cancel;
     private Task currentWorker;
 
     protected final void performQuery(final String text, final SearchType searchType, ResultWrapper<R> result) {
@@ -71,15 +80,14 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
 
         synchronized (this) {
             if (mostGenericQueryText == null || !text.startsWith(mostGenericQueryText)) {
-                if (currentWorker != null) currentWorker.cancel();
+                if (currentWorker != null) {
+                    cancel.set(true);
+                    currentWorker.cancel();
+                }
 
                 mostGenericQueryText = text;
 
-                currentWorker = WORKER.create(new Runnable() {
-                    @Override public void run() {
-                        compute(text, searchType == SearchType.EXACT_NAME ? SearchType.PREFIX : searchType);
-                    }
-                });
+                currentWorker = WORKER.create(new ComputeResult(text, searchType, cancel = new AtomicBoolean()));
 
                 currentWorker.schedule(0);
                 results = new ArrayList<R>();
@@ -107,18 +115,54 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
         }
     }
 
-    protected abstract void compute(String text, SearchType searchType);
+    protected abstract URI computeURL(RemoteIndex idx, String text, SearchType searchType);
+    protected abstract Collection<? extends R> decode(RemoteIndex idx, Reader received) throws IOException;
 
-    protected final synchronized void addResults(Collection<? extends R> r) {
-        results.addAll(r);
+    private void compute(String text, SearchType searchType, AtomicBoolean cancel) {
+        for (RemoteIndex ri : RemoteIndex.loadIndices()) {
+            URI url = computeURL(ri, text, searchType);
+
+            if (url == null) continue;
+            
+            String response = WebUtilities.requestStringResponse(url, cancel);
+
+            if (cancel.get()) return;
+            if (response == null) continue;
+
+            Reader r = new StringReader(response);
+            Collection<? extends R> decoded;
+
+            try {
+                decoded = decode(ri, r);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+                continue;
+            } finally {
+                try {
+                    r.close();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+
+            synchronized (this) {
+                if (cancel.get()) return;
+                results.addAll(decoded);
+            }
+        }
     }
 
     public void cancel() {
     }
 
-    public void cleanup() {
+    public synchronized void cleanup() {
+        if (currentWorker != null) {
+            cancel.set(true);
+            currentWorker.cancel();
+        }
         mostGenericQueryText = null;
         results = null;
+        cancel = null;
         currentWorker = null;
     }
 
@@ -131,6 +175,29 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
 
     protected static interface SimpleNameable {
         public String getSimpleName();
+    }
+
+    private class ComputeResult implements Runnable, Cancellable {
+
+        private final String text;
+        private final SearchType searchType;
+        private final AtomicBoolean cancel;
+
+        public ComputeResult(String text, SearchType searchType, AtomicBoolean cancel) {
+            this.text = text;
+            this.searchType = searchType;
+            this.cancel = cancel;
+        }
+
+        @Override public void run() {
+            compute(text, searchType == SearchType.EXACT_NAME ? SearchType.PREFIX : searchType, cancel);
+        }
+
+        @Override
+        public boolean cancel() {
+            cancel.set(true);
+            return true;
+        }
     }
 
 }

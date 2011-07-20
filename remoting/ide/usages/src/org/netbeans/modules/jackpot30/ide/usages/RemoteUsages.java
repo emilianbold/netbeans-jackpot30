@@ -51,7 +51,9 @@ import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.Element;
 import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
@@ -74,6 +76,7 @@ import org.openide.awt.ActionID;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.nodes.Node;
+import org.openide.util.Cancellable;
 import org.openide.util.Exceptions;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.RequestProcessor;
@@ -100,59 +103,7 @@ public final class RemoteUsages implements ActionListener {
         DialogDescriptor dd = new DialogDescriptor("Querying remote server(s), please wait", "Please Wait", true, new Object[0], null, DialogDescriptor.DEFAULT_ALIGN, null, null);
         final Dialog d = DialogDisplayer.getDefault().createDialog(dd);
 
-        WORKER.post(new Runnable() {
-            @Override public void run() {
-                try {
-                    final ElementHandle<?>[] handle = new ElementHandle<?>[1];
-                    final String[] serialized = new String[1];
-
-                    JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
-                        @Override public void run(CompilationController parameter) throws Exception {
-                            parameter.toPhase(JavaSource.Phase.RESOLVED);
-
-                            TreePath tp = parameter.getTreeUtilities().pathFor(pos);
-                            Element el = parameter.getTrees().getElement(tp);
-
-                            if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
-                                serialized[0] = serialize(handle[0] = ElementHandle.create(el));
-                            }
-                        }
-                    }, true);
-
-                    if (serialized[0] == null) return ; //XXX: warn user!
-
-                    List<FileObject> result = new ArrayList<FileObject>();
-
-                    for (RemoteIndex idx : RemoteIndex.loadIndices()) {
-                        URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized[0]));
-
-                        for (String path : WebUtilities.requestStringArrayResponse(resolved)) {
-                            File f = new File(idx.folder, path);
-
-                            result.add(FileUtil.toFileObject(f));
-                        }
-                    }
-
-                    final Node view = Nodes.constructSemiLogicalView(result, handle[0]);
-
-                    SwingUtilities.invokeLater(new Runnable() {
-                        @Override public void run() {
-                            RemoteUsagesWindowTopComponent.openFor(view);
-                        }
-                    });
-                } catch (URISyntaxException ex) {
-                    Exceptions.printStackTrace(ex);
-                } catch (IOException ex) {
-                    Exceptions.printStackTrace(ex);
-                } finally {
-                    SwingUtilities.invokeLater(new Runnable() {
-                        @Override public void run() {
-                            d.setVisible(false);
-                        }
-                    });
-                }
-            }
-        });
+        WORKER.post(new FindUsagesWorker(file, pos, d));
 
         d.setVisible(true);
     }
@@ -185,5 +136,82 @@ public final class RemoteUsages implements ActionListener {
         }
 
         return result.toString();
+    }
+
+    private static class FindUsagesWorker implements Runnable, Cancellable {
+
+        private final FileObject file;
+        private final int pos;
+        private final Dialog d;
+        private final AtomicBoolean cancel;
+
+        public FindUsagesWorker(FileObject file, int pos, Dialog d) {
+            this.file = file;
+            this.pos = pos;
+            this.d = d;
+            this.cancel = new AtomicBoolean();
+        }
+
+        @Override public void run() {
+            try {
+                final ElementHandle<?>[] handle = new ElementHandle<?>[1];
+                final String[] serialized = new String[1];
+
+                JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
+                    @Override public void run(CompilationController parameter) throws Exception {
+                        parameter.toPhase(JavaSource.Phase.RESOLVED);
+
+                        TreePath tp = parameter.getTreeUtilities().pathFor(pos);
+                        Element el = parameter.getTrees().getElement(tp);
+
+                        if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
+                            serialized[0] = serialize(handle[0] = ElementHandle.create(el));
+                        }
+                    }
+                }, true);
+
+                if (serialized[0] == null) return ; //XXX: warn user!
+
+                List<FileObject> result = new ArrayList<FileObject>();
+
+                for (RemoteIndex idx : RemoteIndex.loadIndices()) {
+                    URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized[0]));
+                    Collection<? extends String> response = WebUtilities.requestStringArrayResponse(resolved, cancel);
+
+                    if (cancel.get()) return;
+                    if (response == null) continue;
+                    
+                    for (String path : response) {
+                        File f = new File(idx.folder, path);
+
+                        result.add(FileUtil.toFileObject(f));
+                    }
+                }
+
+                final Node view = Nodes.constructSemiLogicalView(result, handle[0]);
+
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override public void run() {
+                        RemoteUsagesWindowTopComponent.openFor(view);
+                    }
+                });
+            } catch (URISyntaxException ex) {
+                Exceptions.printStackTrace(ex);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            } finally {
+                cancel.set(true);
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override public void run() {
+                        d.setVisible(false);
+                    }
+                });
+            }
+        }
+
+        @Override public boolean cancel() {
+            cancel.set(true);
+            return true;
+        }
     }
 }

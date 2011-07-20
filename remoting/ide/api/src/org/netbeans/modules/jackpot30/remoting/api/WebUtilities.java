@@ -47,12 +47,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.annotations.common.CheckForNull;
+import org.openide.util.RequestProcessor;
+import org.openide.util.RequestProcessor.Task;
 
 /**
  *
@@ -62,7 +66,13 @@ public class WebUtilities {
     private WebUtilities() {
     }
 
-    public static @CheckForNull String requestStringResponse (URI uri) {
+    private static final RequestProcessor LOADER = new RequestProcessor(WebUtilities.class.getName(), 100, true, false);
+
+    public static @CheckForNull String requestStringResponse (final URI uri, AtomicBoolean cancel) {
+        final String[] result = new String[1];
+        Task task = LOADER.create(new Runnable() {
+            @Override
+            public void run() {
         final StringBuffer sb = new StringBuffer ();
         final URL url;
         try {
@@ -70,8 +80,6 @@ public class WebUtilities {
             final URLConnection urlConnection = url.openConnection ();
             urlConnection.connect ();
             final Object content = urlConnection.getContent ();
-//            System.out.println (content);
-//            System.out.println (content.getClass ());
             final InputStream inputStream = (InputStream) content;
             final BufferedReader reader = new BufferedReader (new InputStreamReader (inputStream, "ASCII"));
             try {
@@ -84,39 +92,31 @@ public class WebUtilities {
             } finally {
                 reader.close ();
             }
+            result[0] = sb.toString();
         } catch (IOException e) {
             e.printStackTrace ();  // TODO
-            return null;
         }
-        return sb.toString ();
-    }
-    
-    public static Collection<? extends String> requestStringArrayResponse (URI uri) {
-        final List<String> result = new LinkedList<String> ();
-        final URL url;
-        try {
-            url = uri.toURL();
-            final URLConnection urlConnection = url.openConnection ();
-            urlConnection.connect ();
-            final Object content = urlConnection.getContent ();
-//            System.out.println (content);
-//            System.out.println (content.getClass ());
-            final InputStream inputStream = (InputStream) content;
-            final BufferedReader reader = new BufferedReader (new InputStreamReader (inputStream, "ASCII"));
-            try {
-                for (;;) {
-                    String line = reader.readLine ();
-                    if (line == null)
-                        break;
-                    result.add (line);
-                }
-            } finally {
-                reader.close ();
             }
-        } catch (IOException e) {
-            e.printStackTrace ();  // TODO
+        });
+
+        task.schedule(0);
+        
+        while (!cancel.get()) {
+            try {
+                if (task.waitFinished(1000)) return result[0];
+            } catch (InterruptedException ex) {
+                Logger.getLogger(WebUtilities.class.getName()).log(Level.FINE, null, ex);
+            }
         }
-        return result;
+        return null;
+    }
+
+    public static Collection<? extends String> requestStringArrayResponse (URI uri, AtomicBoolean cancel) {
+        String content = requestStringResponse(uri, cancel);
+        
+        if (content == null) return null;
+        
+        return Arrays.asList(content.split("\n"));
     }
 
     private static String[] c = new String[] {"&", "<", ">", "\n", "\""}; // NOI18N
