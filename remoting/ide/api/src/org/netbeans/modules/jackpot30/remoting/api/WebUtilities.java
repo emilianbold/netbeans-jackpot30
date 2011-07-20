@@ -68,6 +68,10 @@ public class WebUtilities {
 
     private static final RequestProcessor LOADER = new RequestProcessor(WebUtilities.class.getName(), 100, true, false);
 
+    public static @CheckForNull String requestStringResponse (final URI uri) {
+        return requestStringResponse(uri, new AtomicBoolean());
+    }
+
     public static @CheckForNull String requestStringResponse (final URI uri, AtomicBoolean cancel) {
         final String[] result = new String[1];
         Task task = LOADER.create(new Runnable() {
@@ -109,6 +113,10 @@ public class WebUtilities {
             }
         }
         return null;
+    }
+
+    public static Collection<? extends String> requestStringArrayResponse (URI uri) {
+        return requestStringArrayResponse(uri, new AtomicBoolean());
     }
 
     public static Collection<? extends String> requestStringArrayResponse (URI uri, AtomicBoolean cancel) {
