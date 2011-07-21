@@ -40,6 +40,9 @@
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
 import java.awt.CardLayout;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -49,6 +52,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import javax.swing.DefaultListModel;
@@ -57,8 +62,10 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import javax.swing.text.Document;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.modules.editor.NbEditorUtilities;
 import org.netbeans.modules.jackpot30.impl.examples.Example;
 import org.netbeans.modules.jackpot30.impl.examples.Example.Option;
 import org.netbeans.modules.jackpot30.impl.examples.LoadExamples;
@@ -66,6 +73,11 @@ import org.netbeans.modules.jackpot30.impl.refactoring.ExamplesList.DialogDescri
 import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Scope;
 import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.openide.cookies.EditorCookie;
+import org.openide.cookies.SaveCookie;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
+import org.openide.loaders.DataObject;
 import org.openide.util.Exceptions;
 import org.openide.util.NbPreferences;
 import org.openide.util.Union2;
@@ -114,7 +126,31 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
             }
             public void changedUpdate(DocumentEvent e) {}
         };
+
+        try {
+            FileObject dummy = FileUtil.createMemoryFileSystem().getRoot().createData("dummy.hint");
+            DataObject od = DataObject.find(dummy);
+            EditorCookie ec = od.getLookup().lookup(EditorCookie.class);
+            Document doc = ec.openDocument();
+            pattern.setContentType("text/x-javahints");
+            pattern.setDocument(doc);
+        } catch (Exception e) {
+            Logger.getLogger(FindDuplicatesRefactoringPanel.class.getName()).log(Level.FINE, null, e);
+        }
+        
         pattern.getDocument().addDocumentListener(dl);
+        //do not close the dialog on esc:
+        pattern.addKeyListener(new KeyListener() {
+            public void keyTyped(KeyEvent e) {}
+            public void keyPressed(KeyEvent e) {
+                keyReleased(e);
+            }
+            public void keyReleased(KeyEvent e) {
+                if (e.getKeyCode() == KeyEvent.VK_ESCAPE && e.getModifiersEx() == 0) {
+                    e.consume();
+                }
+            }
+        });
 
         if (!query) {
             verify.setVisible(false);
@@ -151,11 +187,11 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         removeHint = new javax.swing.JButton();
         removeAllHints = new javax.swing.JButton();
         customPatternPanel = new javax.swing.JPanel();
-        jScrollPane1 = new javax.swing.JScrollPane();
-        pattern = new javax.swing.JTextPane();
         jPanel3 = new javax.swing.JPanel();
         recentButton = new javax.swing.JButton();
         examplesButton = new javax.swing.JButton();
+        jScrollPane4 = new javax.swing.JScrollPane();
+        pattern = new javax.swing.JEditorPane();
         patternTypeSelectionPanel = new javax.swing.JPanel();
         knowPatterns = new javax.swing.JRadioButton();
         customPattern = new javax.swing.JRadioButton();
@@ -294,17 +330,6 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
 
         customPatternPanel.setLayout(new java.awt.GridBagLayout());
 
-        jScrollPane1.setViewportView(pattern);
-
-        gridBagConstraints = new java.awt.GridBagConstraints();
-        gridBagConstraints.gridx = 0;
-        gridBagConstraints.gridy = 1;
-        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
-        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
-        gridBagConstraints.weightx = 1.0;
-        gridBagConstraints.weighty = 1.0;
-        customPatternPanel.add(jScrollPane1, gridBagConstraints);
-
         jPanel3.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 5));
 
         recentButton.setIcon(new javax.swing.ImageIcon(getClass().getResource("/org/netbeans/modules/jackpot30/impl/resources/recent_icon.png"))); // NOI18N
@@ -335,6 +360,17 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         gridBagConstraints.fill = java.awt.GridBagConstraints.VERTICAL;
         gridBagConstraints.anchor = java.awt.GridBagConstraints.EAST;
         customPatternPanel.add(jPanel3, gridBagConstraints);
+
+        jScrollPane4.setViewportView(pattern);
+
+        gridBagConstraints = new java.awt.GridBagConstraints();
+        gridBagConstraints.gridx = 0;
+        gridBagConstraints.gridy = 1;
+        gridBagConstraints.fill = java.awt.GridBagConstraints.BOTH;
+        gridBagConstraints.anchor = java.awt.GridBagConstraints.NORTHWEST;
+        gridBagConstraints.weightx = 1.0;
+        gridBagConstraints.weighty = 1.0;
+        customPatternPanel.add(jScrollPane4, gridBagConstraints);
 
         patternSelection.add(customPatternPanel, "customPattern");
 
@@ -612,6 +648,24 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
         return recent;
     }
 
+    @Override
+    public void removeNotify() {
+        super.removeNotify();
+        DataObject od = NbEditorUtilities.getDataObject(pattern.getDocument());
+
+        if (od != null) {
+            SaveCookie sc = od.getLookup().lookup(SaveCookie.class);
+
+            if (sc != null) {
+                try {
+                    sc.save();
+                } catch (IOException ex) {
+                    Logger.getLogger(FindDuplicatesRefactoringPanel.class.getName()).log(Level.FINE, null, ex);
+                }
+            }
+        }
+    }
+
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton addAllHints;
     private javax.swing.JButton addHint;
@@ -623,13 +677,13 @@ public class FindDuplicatesRefactoringPanel extends javax.swing.JPanel {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JPanel jPanel3;
-    private javax.swing.JScrollPane jScrollPane1;
     private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
+    private javax.swing.JScrollPane jScrollPane4;
     private javax.swing.JRadioButton knowPatterns;
     private javax.swing.JPanel knownPatternsPanel;
     private javax.swing.ButtonGroup main;
-    private javax.swing.JTextPane pattern;
+    private javax.swing.JEditorPane pattern;
     private javax.swing.JPanel patternSelection;
     private javax.swing.JPanel patternTypeSelectionPanel;
     private javax.swing.JButton recentButton;
