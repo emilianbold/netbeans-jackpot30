@@ -48,7 +48,7 @@ import org.netbeans.modules.java.hints.jackpot.code.spi.Hint;
 import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPattern;
 import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
 import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
-import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Kind;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Options;
 import org.netbeans.modules.java.hints.jdk.ConvertToStringSwitch;
 import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -57,7 +57,7 @@ import org.netbeans.spi.editor.hints.ErrorDescription;
  *
  * @author lahvac
  */
-@Hint(category="rules15",enabled=false, hintKind=Kind.HINT_NON_GUI)
+@Hint(category="rules15",enabled=false, options=Options.NON_GUI)
 public class SafeConvertToSwitchString {
 
     static final String KEY_ALSO_EQ = "also-equals";

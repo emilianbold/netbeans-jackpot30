@@ -56,6 +56,7 @@ import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPattern;
 import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPatterns;
 import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
 import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Kind;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Options;
 import org.netbeans.modules.java.hints.jackpot.spi.MatcherUtilities;
 import org.netbeans.modules.java.hints.spi.ErrorRule;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -67,7 +68,7 @@ import org.netbeans.spi.editor.hints.Severity;
  *
  * @author lahvac
  */
-@Hint(category="rules15",enabled=false, hintKind=Kind.HINT_NON_GUI)
+@Hint(category="rules15",enabled=false, options=Options.NON_GUI)
 public class ConvertToDiamondBulkHint {
 
     private static final Map<String, Collection<String>> key2Pattern = new LinkedHashMap<String, Collection<String>>();

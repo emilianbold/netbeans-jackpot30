@@ -233,7 +233,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
 
             String[] w = suppressWarnings(parsed.options);
 
-            meta = HintMetadata.create(id, bundle, cat, true, HintSeverity.WARNING, Kind.HINT, null, w);
+            meta = HintMetadata.Builder.create(id).setBundle(bundle).setCategory(cat).addSuppressWarnings(w).build();
             primarySuppressWarningsKey = w.length > 0 ? w[0] : null;
         } else {
             meta = null;
@@ -286,10 +286,10 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 }
 
                 if (currentId != null) {
-                    currentMeta = HintMetadata.create(currentId, bundle, cat, true, HintSeverity.WARNING, Kind.HINT, null, w);
+                    currentMeta = HintMetadata.Builder.create(currentId).setBundle(bundle).setCategory(cat).addSuppressWarnings(w).build();
                 } else {
                     currentId = file != null ? file.getNameExt() + "-" + count : String.valueOf(count);
-                    currentMeta = HintMetadata.create(currentId, displayName, "No Description", cat, true, HintMetadata.Kind.HINT, HintSeverity.WARNING, null, Arrays.asList(w));
+                    currentMeta = HintMetadata.Builder.create(currentId).setDescription(displayName, "No Description").setCategory(cat).addSuppressWarnings(w).build();
                 }
 
                 primarySuppressWarningsKey = w.length > 0 ? w[0] : null;

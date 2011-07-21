@@ -346,7 +346,7 @@ public class TransformationHintProviderImpl implements ElementBasedHintProvider 
             return null;//XXX
         }
 
-        HintMetadata hm = HintMetadata.create(id, displayName, displayName, CATEGORY, true, HintMetadata.Kind.HINT, HintSeverity.WARNING, Collections.<String>emptyList());
+        HintMetadata hm = HintMetadata.Builder.create(id).setDescription(displayName, displayName).setCategory(CATEGORY).build();
 
         return HintDescriptionFactory.create()
                                      .setMetadata(hm)
