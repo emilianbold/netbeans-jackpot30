@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.file.conditionapi;
 
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree.Kind;
 import com.sun.source.util.TreePath;
 import java.util.ArrayList;
@@ -55,11 +56,13 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.annotations.common.CheckForNull;
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.queries.SourceLevelQuery;
+import org.netbeans.api.java.source.TreeUtilities;
 import org.netbeans.modules.jackpot30.file.APIAccessor;
 import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.modules.jackpot30.spi.HintContext;
@@ -248,6 +251,46 @@ public class Context {
 
     static {
         APIAccessor.IMPL = new APIAccessorImpl();
+    }
+
+    /**Returns canonical names of classes that enclose the {@link Variable}.
+     * If the given {@link Variable} represents a class, its canonical name is also listed.
+     * The names are given from the innermost class to the outermost class.
+     *
+     * @return the canonical names of the enclosing classes
+     */
+    public @NonNull Iterable<? extends String> enclosingClasses(Variable forVariable) {
+        List<String> result = new ArrayList<String>();
+        TreePath path = getSingleVariable(forVariable);
+
+        while (path != null) {
+            TreePath current = path;
+
+            path = path.getParentPath();
+            
+            if (!TreeUtilities.CLASS_TREE_KINDS.contains(current.getLeaf().getKind())) continue;
+
+            Element e = ctx.getInfo().getTrees().getElement(current);
+
+            if (e == null) continue;
+
+            if (e.getKind().isClass() || e.getKind().isInterface()) {
+                result.add(((TypeElement) e).getQualifiedName().toString());
+            }
+        }
+
+        return result;
+    }
+
+    /**Returns name of package in which the current file is located. Default package
+     * is represented by an empty string.
+     *
+     * @return the name of the enclosing package
+     */
+    public @NonNull String enclosingPackage() {
+        CompilationUnitTree cut = ctx.getInfo().getCompilationUnit();
+
+        return cut.getPackageName() != null ? cut.getPackageName().toString() : "";
     }
 
     static final class APIAccessorImpl extends APIAccessor {

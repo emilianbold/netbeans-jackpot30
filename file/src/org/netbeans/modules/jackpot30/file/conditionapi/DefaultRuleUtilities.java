@@ -42,6 +42,7 @@ package org.netbeans.modules.jackpot30.file.conditionapi;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -113,5 +114,52 @@ public final class DefaultRuleUtilities {
 
     public boolean containsAny(Variable var, String... patterns) {
         return matcher.containsAny(var, patterns);
+    }
+
+    /**Tests whether the current occurrences is enclosed (directly or indirectly)
+     * by any of the specified classes.
+     *
+     * @param className canonical class names of possibly enclosing classes
+     * @return true if and only if the current occurrence is directly or indirectly
+     *              enclosed by any of the given classes.
+     */
+    public boolean inClass(String... className) {
+        Pattern p = constructRegexp(className);
+        Variable current = context.variableForName("$_");
+
+        assert current != null;
+
+        for (String canonicalName : context.enclosingClasses(current)) {
+            if (p.matcher(canonicalName).matches()) return true;
+        }
+
+        return false;
+    }
+
+    /**Tests whether the current occurrences is in any of the given packages.
+     *
+     * @param packageName names of possibly enclosing packages
+     * @return true if and only if the current occurrence is inside any of the
+     *              given packages
+     */
+    public boolean inPackage(String... packageName) {
+        Pattern p = constructRegexp(packageName);
+
+        return p.matcher(context.enclosingPackage()).matches();
+    }
+
+    private static Pattern constructRegexp(String[] pattern) {
+        StringBuilder regexp = new StringBuilder();
+        boolean first = true;
+        for (String p : pattern) {
+            if (first) regexp.append("|");
+
+            regexp.append("(");
+            regexp.append(Pattern.quote(p));
+            regexp.append(")");
+            first = false;
+        }
+        Pattern p = Pattern.compile(regexp.toString());
+        return p;
     }
 }
