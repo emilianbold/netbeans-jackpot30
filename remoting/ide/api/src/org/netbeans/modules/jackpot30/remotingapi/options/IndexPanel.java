@@ -202,11 +202,12 @@ final class IndexPanel extends javax.swing.JPanel {
     void load() {
         TableModelImpl model = new TableModelImpl();
 
-        for (RemoteIndex idx : RemoteIndex.loadIndices()) {
+        for (RemoteIndex idx : RemoteIndex.loadIndices(true)) {
             model.indices.add(idx);
         }
 
         indices.setModel(model);
+        model.fireTableStructureChanged();
     }
 
     void store() {
@@ -235,31 +236,46 @@ final class IndexPanel extends javax.swing.JPanel {
         }
 
         public int getColumnCount() {
-            return 3;
+            return 4;
         }
 
         public String getColumnName(int columnIndex) {
             switch (columnIndex) {
-                case 0: return "Local folder";
-                case 1: return "Remote URL";
-                case 2: return "Remote project";
+                case 0: return "";
+                case 1: return "Local folder";
+                case 2: return "Remote URL";
+                case 3: return "Remote project";
                 default: throw new IllegalStateException();
             }
         }
 
         public Class<?> getColumnClass(int columnIndex) {
-            return String.class;
+            return columnIndex == 0 ? Boolean.class : String.class;
         }
 
         public Object getValueAt(int rowIndex, int columnIndex) {
             RemoteIndex idx = indices.get(rowIndex);
 
             switch (columnIndex) {
-                case 0: return idx.folder;
-                case 1: return idx.remote.toExternalForm();
-                case 2: return idx.remoteSegment;
+                case 0: return idx.enabled;
+                case 1: return idx.folder;
+                case 2: return idx.remote.toExternalForm();
+                case 3: return idx.remoteSegment;
                 default: throw new IllegalStateException();
             }
         }
+
+        @Override
+        public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
+            RemoteIndex idx = indices.get(rowIndex);
+
+            indices.set(rowIndex, RemoteIndex.create(aValue instanceof Boolean ? (Boolean) aValue : true, idx.folder, idx.remote, idx.remoteSegment));
+        }
+
+        @Override
+        public boolean isCellEditable(int rowIndex, int columnIndex) {
+            return columnIndex == 0;
+        }
+
     }
 }

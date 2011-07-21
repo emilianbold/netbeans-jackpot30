@@ -57,21 +57,28 @@ import org.openide.util.NbPreferences;
  */
 public class RemoteIndex {
 
+    public final boolean enabled;
     public final String folder;
     public final URL    remote;
     public final String remoteSegment;
 
     public static RemoteIndex create(String folder, URL remote, String remoteSegment) {
-        return new RemoteIndex(folder, remote, remoteSegment);
+        return create(true, folder, remote, remoteSegment);
+    }
+
+    public static RemoteIndex create(boolean enabled, String folder, URL remote, String remoteSegment) {
+        return new RemoteIndex(enabled, folder, remote, remoteSegment);
     }
 
     private RemoteIndex() {//used by Pojson
+        this.enabled = true;
         this.folder = null;
         this.remote = null;
         this.remoteSegment = null;
     }
 
-    private RemoteIndex(String folder, URL remote, String remoteSegment) {
+    private RemoteIndex(boolean enabled, String folder, URL remote, String remoteSegment) {
+        this.enabled = enabled;
         this.folder = folder;
         this.remote = remote;
         this.remoteSegment = remoteSegment;
@@ -80,6 +87,10 @@ public class RemoteIndex {
     private static final String KEY_REMOTE_INDICES = RemoteIndex.class.getSimpleName();
 
     public static Iterable<? extends RemoteIndex> loadIndices() {
+        return loadIndices(false);
+    }
+
+    public static Iterable<? extends RemoteIndex> loadIndices(boolean includeAll) {
         List<RemoteIndex> result = new LinkedList<RemoteIndex>();
         Preferences prefs = NbPreferences.forModule(RemoteIndex.class).node(KEY_REMOTE_INDICES);
 
