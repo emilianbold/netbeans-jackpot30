@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.impl.batch;
 
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Folder;
 import org.netbeans.modules.java.hints.jackpot.spi.Trigger.PatternDescription;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Scope;
@@ -123,8 +124,8 @@ public class EnhancedScopes {
         }
 
         @Override
-        public Collection<? extends FileObject> getTodo() {
-            return Collections.singletonList(FileUtil.toFileObject(new File(folder)));
+        public Collection<? extends Folder> getTodo() {
+            return Collections.singletonList(new Folder(FileUtil.toFileObject(new File(folder))));
         }
 
         @Override
@@ -134,13 +135,13 @@ public class EnhancedScopes {
             if (indexURL != null) {
                 if (subIndex == null) {
                     mapper = new MapIndices() {
-                        public IndexEnquirer findIndex(FileObject root, ProgressHandleWrapper progress) {
-                            return new SimpleIndexIndexEnquirer(root, createOrUpdateIndex(root, new File(indexURL), update, progress));
+                        public IndexEnquirer findIndex(FileObject root, ProgressHandleWrapper progress, boolean recursive) {
+                            return new SimpleIndexIndexEnquirer(root, createOrUpdateIndex(root, new File(indexURL), update, progress, recursive));
                         }
                     };
                 } else {
                     mapper = new MapIndices() {
-                        public IndexEnquirer findIndex(FileObject root, ProgressHandleWrapper progress) {
+                        public IndexEnquirer findIndex(FileObject root, ProgressHandleWrapper progress, boolean recursive) {
                             progress.startNextPart(1);
                             try {
                                 return new SimpleIndexIndexEnquirer(root, Index.createWithRemoteIndex(root.getURL(), indexURL, subIndex));
@@ -167,11 +168,11 @@ public class EnhancedScopes {
         }
 
         @Override
-        public Collection<? extends FileObject> getTodo() {
-            Collection<FileObject> todo = new HashSet<FileObject>();
+        public Collection<? extends Folder> getTodo() {
+            Collection<Folder> todo = new HashSet<Folder>();
 
             for (RemoteIndex remoteIndex : RemoteIndex.loadIndices()) {
-                todo.add(FileUtil.toFileObject(FileUtil.normalizeFile(new File(remoteIndex.folder))));
+                todo.add(new Folder(FileUtil.toFileObject(FileUtil.normalizeFile(new File(remoteIndex.folder)))));
             }
 
             return todo;
@@ -180,7 +181,7 @@ public class EnhancedScopes {
         @Override
         public MapIndices getIndexMapper(final Iterable<? extends HintDescription> patterns) {
             return new MapIndices() {
-                public IndexEnquirer findIndex(FileObject root, ProgressHandleWrapper progress) {
+                public IndexEnquirer findIndex(FileObject root, ProgressHandleWrapper progress, boolean recursive) {
                     for (RemoteIndex remoteIndex : RemoteIndex.loadIndices()) {
                         if (FileUtil.toFileObject(FileUtil.normalizeFile(new File(remoteIndex.folder))) == root) {
                             return enquirerForRemoteIndex(root, remoteIndex, patterns);
@@ -192,7 +193,7 @@ public class EnhancedScopes {
         }
     }
 
-    private static Index createOrUpdateIndex(FileObject src, File indexRoot, boolean update, ProgressHandleWrapper progress) {
+    private static Index createOrUpdateIndex(FileObject src, File indexRoot, boolean update, ProgressHandleWrapper progress, boolean recursive) {
         Index index;
 
         try {
@@ -230,7 +231,7 @@ public class EnhancedScopes {
         Collection<FileObject> collected = new LinkedList<FileObject>();
         Set<String> removed = new HashSet<String>(timeStamps.stringPropertyNames());
 
-        org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities.recursive(src, src, collected, progress, 0, timeStamps, removed);
+        org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities.recursive(src, src, collected, progress, 0, timeStamps, removed, recursive);
 
         CustomIndexerImpl.doIndex(src, collected, removed, index);
 

@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.impl.batch;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -63,6 +64,7 @@ import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
 import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Folder;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
@@ -211,7 +213,13 @@ public class OptionProcessorImpl extends OptionProcessor {
                 hintDescriptions.addAll(descs);
             }
 
-            BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scopes.specifiedFoldersScope(BatchUtilities.getSourceGroups(projects).toArray(new FileObject[0])));
+            Collection<Folder> roots = new ArrayList<Folder>();
+
+            for (FileObject f : BatchUtilities.getSourceGroups(projects)) {
+                roots.add(new Folder(f));
+            }
+
+            BatchResult candidates = BatchSearch.findOccurrences(hintDescriptions, Scopes.specifiedFoldersScope(roots.toArray(new Folder[0])));
             List<MessageImpl> problems = new LinkedList<MessageImpl>(candidates.problems);
             Collection<? extends ModificationResult> res = BatchUtilities.applyFixes(candidates, new ProgressHandleWrapper(100), null, problems);
             Set<FileObject> modified = new HashSet<FileObject>();
