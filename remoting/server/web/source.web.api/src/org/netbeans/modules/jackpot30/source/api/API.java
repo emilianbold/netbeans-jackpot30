@@ -43,11 +43,16 @@ package org.netbeans.modules.jackpot30.source.api;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.DataFormatException;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -83,6 +88,39 @@ public class API {
         idx.query(found, new ConvertorImpl(), null, new AtomicBoolean(), query);
 
         return !found.isEmpty() ? found.get(0) : null;
+    }
+
+    @GET
+    @Path("/randomfiles")
+    @Produces("text/plain")
+    public String randomFiles(@QueryParam("path") String segment, @QueryParam("count") @DefaultValue("3") int count) throws IOException, InterruptedException {
+        CategoryStorage category = CategoryStorage.forId(segment);
+        Index idx = category.getIndex();
+        Query query = Queries.createQuery("relativePath", "does-not-exist", "", QueryKind.PREFIX);
+
+        List<String> found = new ArrayList<String>();
+
+        //TODO: field selector:
+        idx.query(found, new Convertor<Document, String>() {
+            @Override public String convert(Document p) {
+                return p.get("relativePath");
+            }
+        }, null, new AtomicBoolean(), query);
+
+        Set<String> chosen = new LinkedHashSet<String>();
+        StringBuilder result = new StringBuilder();
+        Random r = new Random();
+
+        while (chosen.size() < count) {
+            String sel = found.get(r.nextInt(found.size()));
+
+            if (chosen.add(sel)) {
+                if (result.length() > 0) result.append("\n");
+                result.append(sel);
+            }
+        }
+
+        return result.toString();
     }
 
     private static class ConvertorImpl implements Convertor<Document, String> {

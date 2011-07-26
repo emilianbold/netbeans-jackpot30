@@ -76,9 +76,11 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
         initComponents();
         DocumentListener updateErrorsListener = new DocumentListener() {
             public void insertUpdate(DocumentEvent e) {
+                subindexSelectionUpdated();
                 updateErrors();
             }
             public void removeUpdate(DocumentEvent e) {
+                subindexSelectionUpdated();
                 updateErrors();
             }
             public void changedUpdate(DocumentEvent e) {}
@@ -306,12 +308,22 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
             return;
         }
 
+        if (checkingIndexAgainstFolder.get()) {
+            notificationSupport.setInformationMessage("Checking local folder against the index");
+        }
+
         String urlError = checkingIndexURLError.get();
 
         if (urlError != null) {
             notificationSupport.setErrorMessage(urlError);
             okButton.setEnabled(false);
             return;
+        }
+
+        String urlWarning = checkingIndexURLWarning.get();
+
+        if (urlWarning != null) {
+            notificationSupport.setWarningMessage(urlWarning);
         }
         
         okButton.setEnabled(true);
@@ -320,8 +332,11 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     private final AtomicBoolean checkingIndexURL = new AtomicBoolean();
     private final AtomicReference<String> checkingIndexURLContentCopy = new AtomicReference<String>();
     private final AtomicReference<String> checkingIndexURLError = new AtomicReference<String>();
+    private final AtomicReference<String> checkingIndexURLWarning = new AtomicReference<String>();
+    private final AtomicReference<Collection<? extends String>> indexRandomFiles = new AtomicReference<Collection<? extends String>>();
 
     private void indexURLUpdated() {
+        indexRandomFiles.set(null);
         checkingIndexURLContentCopy.set(indexURL.getText());
         urlCheckerTask.cancel();
         urlCheckerTask.schedule(50);
@@ -333,6 +348,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
         public void run() {
             checkingIndexURL.set(true);
             checkingIndexURLError.set(null);
+            indexRandomFiles.set(null);
 
             SwingUtilities.invokeLater(new Runnable() {
                 public void run() {
@@ -400,11 +416,14 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
         }
     });
 
+    private final AtomicBoolean checkingIndexAgainstFolder = new AtomicBoolean();
     private final AtomicReference<String> indexInfoURLContentCopy = new AtomicReference<String>();
     private final AtomicReference<String> indexInfoSubIndexCopy = new AtomicReference<String>();
+    private final AtomicReference<String> checkingIndexFolderContentCopy = new AtomicReference<String>();
     private void subindexSelectionUpdated() {
         indexInfoURLContentCopy.set(indexURL.getText());
         indexInfoSubIndexCopy.set((String) subIndex.getSelectedItem());
+        checkingIndexFolderContentCopy.set(folder.getText());
         indexInfoTask.cancel();
         indexInfoTask.schedule(50);
     }
@@ -412,9 +431,74 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     private final RequestProcessor.Task indexInfoTask = WORKER.create(new Runnable() {
 
         public void run() {
+            checkingIndexAgainstFolder.set(true);
+            checkingIndexURLWarning.set(null);
+
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    updateErrors();
+                }
+            });
+            
+            String urlText = indexInfoURLContentCopy.get();
+            String subIndex = indexInfoSubIndexCopy.get();
+            File folder = new File(checkingIndexFolderContentCopy.get());
+
+            try {
+
+                Collection<? extends String> random = indexRandomFiles.get();
+
+                if (random == null) {
+                    URL url = new URL(urlText);
+
+                    if (!url.getPath().endsWith("/"))
+                        url = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath() + "/" + (url.getQuery() != null ? "?" + url.getQuery() : ""));
+
+                    indexRandomFiles.set(random = WebUtilities.requestStringArrayResponse(url.toURI().resolve("source/randomfiles?path=" + WebUtilities.escapeForQuery(subIndex))));
+                }
+
+                if (!random.isEmpty()) {
+                    boolean found = matches(folder, random);
+
+                    if (!found) {
+                        if (matches(folder.getParentFile(), random)) {
+                            checkingIndexURLWarning.set("The given folder is unlikely to match the index content, parent folder does.");
+                        } else {
+                            StringBuilder matchingChildren = new StringBuilder();
+                            File[] cs = folder.listFiles();
+
+                            if (cs != null) {
+                                for (File c : cs) {
+                                    if (matches(c, random)) {
+                                        if (matchingChildren.length() > 0) matchingChildren.append(", ");
+                                        matchingChildren.append(c.getName());
+                                    }
+                                }
+                            }
+
+                            if (matchingChildren.length() > 0) {
+                                checkingIndexURLWarning.set("The given folder is unlikely to match the index content, subfolders: " + matchingChildren.toString() + " do.");
+                            } else {
+                                checkingIndexURLWarning.set("The given folder is unlikely to match the index content.");
+                            }
+                        }
+                    }
+                } else {
+                    //no random files? ignoring for now...
+                }
+            } catch (URISyntaxException ex) {
+                checkingIndexURLError.set(ex.getLocalizedMessage());
+            } catch (MalformedURLException ex) {
+                checkingIndexURLError.set(ex.getLocalizedMessage());
+            } catch (ThreadDeath td) {
+                throw td;
+            } catch (Throwable t) {//#6541019
+                checkingIndexURLError.set("Invalid URL");
+            } finally {
+                checkingIndexAgainstFolder.set(false);
+            }
+
             //XXX: the index currently does not provide the info anyway...
-//            String urlText = indexInfoURLContentCopy.get();
-//            String subIndex = indexInfoSubIndexCopy.get();
 //            IndexInfo info = null;
 //
 //            try {
@@ -436,15 +520,27 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
 //
 //            final IndexInfo infoFinal = info;
 //
-//            SwingUtilities.invokeLater(new Runnable() {
-//                public void run() {
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    updateErrors();
 //                    if (infoFinal != null) {
 //                        indexInfo.setText(toDisplayText(infoFinal));
 //                    } else {
 //                        indexInfo.setText("");
 //                    }
-//                }
-//            });
+                }
+            });
+        }
+
+        private boolean matches(File folder, Collection<? extends String> random) {
+            boolean found = false;
+            for (String rel : random) {
+                if (new File(folder, rel).exists()) {
+                    found = true;
+                    break;
+                }
+            }
+            return found;
         }
     });
 
