@@ -73,6 +73,7 @@ import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
 import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Folder;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Resource;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.VerifiedSpansCallBack;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
@@ -186,6 +187,7 @@ public class Main {
             RepositoryUpdater.getDefault().start(false);
 
             List<FileObject> roots = new ArrayList<FileObject>();
+            List<Folder> rootFolders = new ArrayList<Folder>();
 
             for (String sr : parsed.nonOptionArguments()) {
                 File r = new File(sr);
@@ -193,6 +195,7 @@ public class Main {
 
                 if (root != null) {
                     roots.add(root);
+                    rootFolders.add(new Folder(root));
                 }
             }
 
@@ -257,9 +260,9 @@ public class Main {
                 ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1) : new ProgressHandleWrapper(1);
 
                 if (parsed.has(OPTION_NO_APPLY)) {
-                    findOccurrences(hints, roots.toArray(new FileObject[0]), progress, parsed.valueOf(out));
+                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, parsed.valueOf(out));
                 } else {
-                    apply(hints, roots.toArray(new FileObject[0]), progress, parsed.valueOf(out));
+                    apply(hints, rootFolders.toArray(new Folder[0]), progress, parsed.valueOf(out));
                 }
             } catch (Throwable e) {
                 e.printStackTrace();
@@ -296,7 +299,7 @@ public class Main {
         TOP_LOGGER.setLevel(Level.OFF);
     }
     
-    private static void findOccurrences(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
+    private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w);
 
@@ -337,7 +340,7 @@ public class Main {
         System.out.println(b);
     }
 
-    private static void apply(Iterable<? extends HintDescription> descs, FileObject[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
+    private static void apply(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w);
 
