@@ -142,7 +142,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
         for (Iterator<HintDescription> it = hardCodedHints.iterator(); it.hasNext(); ) {
             HintMetadata current = it.next().getMetadata();
 
-            if (   (current.kind == HintMetadata.Kind.HINT || current.kind == HintMetadata.Kind.HINT_NON_GUI)
+            if (   (current.kind == HintMetadata.Kind.HINT)
                 && enabledHints.contains(current.id)) {
                 continue;
             }
