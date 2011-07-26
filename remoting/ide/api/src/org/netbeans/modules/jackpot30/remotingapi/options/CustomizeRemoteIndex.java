@@ -76,11 +76,11 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
         initComponents();
         DocumentListener updateErrorsListener = new DocumentListener() {
             public void insertUpdate(DocumentEvent e) {
-                subindexSelectionUpdated();
+                validateIndexSelection();
                 updateErrors();
             }
             public void removeUpdate(DocumentEvent e) {
-                subindexSelectionUpdated();
+                validateIndexSelection();
                 updateErrors();
             }
             public void changedUpdate(DocumentEvent e) {}
@@ -421,6 +421,10 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     private final AtomicReference<String> indexInfoSubIndexCopy = new AtomicReference<String>();
     private final AtomicReference<String> checkingIndexFolderContentCopy = new AtomicReference<String>();
     private void subindexSelectionUpdated() {
+        indexRandomFiles.set(null);
+        validateIndexSelection();
+    }
+    private void validateIndexSelection() {
         indexInfoURLContentCopy.set(indexURL.getText());
         indexInfoSubIndexCopy.set((String) subIndex.getSelectedItem());
         checkingIndexFolderContentCopy.set(folder.getText());
