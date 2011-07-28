@@ -204,7 +204,12 @@ made subject to such option by the copyright holder.
             <file name="HintTemplate.hint" url="HintTemplate.hint">
                 <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.file.resources.Bundle"/>
                 <attr name="template" boolvalue="true"/>
-            </file>
+                </file>
+            <file name="HintSample.hint" url="HintSample.hint">
+                <attr name="SystemFileSystem.localizingBundle" stringvalue="org.netbeans.modules.jackpot30.file.resources.Bundle"/>
+                <attr name="template" boolvalue="true"/>
+                </file>
+                
         </folder>
     </folder>
 
