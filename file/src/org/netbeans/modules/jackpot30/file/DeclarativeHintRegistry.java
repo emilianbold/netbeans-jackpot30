@@ -153,7 +153,16 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             return Collections.emptyList();
         }
 
-        return findFilesRecursive(folder);
+        Collection result = findFilesRecursive(folder);
+        
+        folder = FileUtil.getConfigFile("rules");
+        
+        if (folder==null) {
+            return result;
+        }
+        
+        result.addAll(findFilesRecursive(folder));
+        return result;
     }
 
     private static Collection<? extends FileObject> findFiles(FileObject folder) {
@@ -228,7 +237,11 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
             String cat = parsed.options.get("hint-category");
 
             if (cat == null) {
-                cat = "general";
+                if ("rules".equals(file.getParent().getName())) {
+                    cat = "custom";
+                } else {
+                    cat = "general";
+                }
             }
 
             String[] w = suppressWarnings(parsed.options);
@@ -282,7 +295,11 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 String cat = parsed.options.get("hint-category");
 
                 if (cat == null) {
-                    cat = "general";
+                    if ("rules".equals(file.getParent().getName())) {
+                        cat = "custom";
+                    } else {
+                        cat = "general";
+                    }
                 }
 
                 if (currentId != null) {
