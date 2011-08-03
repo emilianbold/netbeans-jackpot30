@@ -41,10 +41,18 @@
  */
 package org.netbeans.modules.jackpot30.file.idebinding;
 
+import java.util.Collection;
+import java.util.Map;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintRegistry;
 import org.netbeans.modules.jackpot30.file.HintDataObject;
-import org.netbeans.modules.java.hints.jackpot.impl.refactoring.ApplyPatternAction;
+import org.netbeans.modules.java.hints.jackpot.impl.refactoring.InspectAndRefactorUI;
+import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
 import org.netbeans.spi.project.ActionProvider;
+import org.openide.awt.StatusDisplayer;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
+import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -60,20 +68,25 @@ public class HintsActionProvider implements ActionProvider {
 
     public void invokeAction(String command, Lookup context) throws IllegalArgumentException {
         assert ActionProvider.COMMAND_RUN_SINGLE.equals(command);
-        ApplyPatternAction action = new ApplyPatternAction();
-        action.actionPerformed(null);
+        
+        HintDataObject hdo = context.lookup(HintDataObject.class);
+        
+        assert hdo != null;
+        
+        Map<HintMetadata, Collection<? extends HintDescription>> hints = DeclarativeHintRegistry.parseHintFile(hdo.getPrimaryFile());
+
+        if (hints.isEmpty()) {
+            StatusDisplayer.getDefault().setStatusText("No hints specified in " + FileUtil.getFileDisplayName(hdo.getPrimaryFile()));
+            return;
+        }
+
+        HintMetadata m = hints.entrySet().iterator().next().getKey();
+        InspectAndRefactorUI.openRefactoringUI(Lookups.singleton(new InspectAndRefactorUI.HintWrap(m, DeclarativeHintRegistry.join(hints))));
     }
 
     public boolean isActionEnabled(String command, Lookup context) throws IllegalArgumentException {
         assert ActionProvider.COMMAND_RUN_SINGLE.equals(command);
-        HintDataObject hdo = context.lookup(HintDataObject.class);
-        if (hdo==null) {
-            return false;
-        }
-        if ("rules".equals(hdo.getPrimaryFile().getParent().getName())) {
-            return true;
-        }
-        return false;
+        return context.lookup(HintDataObject.class) != null;
     }
     
 }
