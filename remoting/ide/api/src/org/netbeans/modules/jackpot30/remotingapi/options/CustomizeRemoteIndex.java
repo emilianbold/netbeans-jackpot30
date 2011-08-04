@@ -265,15 +265,26 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
         }
     }
 
+    private String tempSubIndexSelection;
     public void setIndex(RemoteIndex index) {
         folder.setText(index.folder);
         indexURL.setText(index.remote.toExternalForm());
-        subIndex.setSelectedItem(index.remoteSegment);
+        tempSubIndexSelection = index.remoteSegment;
     }
 
+    private String getSubIndexSelectedItem() {
+        String sel = (String) subIndex.getSelectedItem();
+
+        if (sel == null) {
+            return tempSubIndexSelection;
+        }
+
+        return sel;
+    }
+    
     public RemoteIndex getIndex() {
         try {
-            return RemoteIndex.create(folder.getText(), new URL(indexURL.getText()), (String) subIndex.getSelectedItem());
+            return RemoteIndex.create(folder.getText(), new URL(indexURL.getText()), getSubIndexSelectedItem());
         } catch (MalformedURLException ex) {
             throw new IllegalStateException(ex);
         }
@@ -391,8 +402,9 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                     if (subindicesFinal == null || subindicesFinal.isEmpty()) return;
 
                     DefaultComboBoxModel model = (DefaultComboBoxModel) subIndex.getModel();
-                    String selected = (String) model.getSelectedItem();
+                    String selected = getSubIndexSelectedItem();
 
+                    tempSubIndexSelection = null;
                     model.removeAllElements();
 
                     boolean containsSelection = false;
