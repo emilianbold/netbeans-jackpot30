@@ -177,7 +177,7 @@ final class IndexPanel extends javax.swing.JPanel {
             RemoteIndex remoteIndex = panel.getIndex();
 
             if (edit) {
-                int index = model.indices.indexOf(indices.getSelectedRow());
+                int index = indices.getSelectedRow();
 
                 model.indices.remove(index);
                 model.indices.add(index, remoteIndex);
