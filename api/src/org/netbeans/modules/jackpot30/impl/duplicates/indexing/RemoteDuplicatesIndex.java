@@ -88,6 +88,7 @@ import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex.NoAnalyzer;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 
 /**
@@ -314,7 +315,7 @@ public class RemoteDuplicatesIndex {
             List<Span> foundDuplicates = new LinkedList<Span>();
 
             for (Entry<RemoteIndex, Collection<String>> root2Occurrences : e.getValue().entrySet()) {
-                FileObject localRoot = FileUtil.toFileObject(new File(root2Occurrences.getKey().folder));
+                FileObject localRoot = URLMapper.findFileObject(root2Occurrences.getKey().getLocalFolder());
 
                 for (String cand : root2Occurrences.getValue()) {
                     FileObject o = localRoot.getFileObject(cand);

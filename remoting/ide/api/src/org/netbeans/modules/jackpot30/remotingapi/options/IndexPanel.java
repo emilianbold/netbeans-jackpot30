@@ -258,7 +258,7 @@ final class IndexPanel extends javax.swing.JPanel {
 
             switch (columnIndex) {
                 case 0: return idx.enabled;
-                case 1: return idx.folder;
+                case 1: return Utils.toDisplayName(idx.getLocalFolder());
                 case 2: return idx.remote.toExternalForm();
                 case 3: return idx.remoteSegment;
                 default: throw new IllegalStateException();
@@ -269,7 +269,7 @@ final class IndexPanel extends javax.swing.JPanel {
         public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
             RemoteIndex idx = indices.get(rowIndex);
 
-            indices.set(rowIndex, RemoteIndex.create(aValue instanceof Boolean ? (Boolean) aValue : true, idx.folder, idx.remote, idx.remoteSegment));
+            indices.set(rowIndex, RemoteIndex.create(aValue instanceof Boolean ? (Boolean) aValue : true, idx.getLocalFolder(), idx.remote, idx.remoteSegment));
         }
 
         @Override

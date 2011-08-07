@@ -61,6 +61,8 @@ import javax.swing.event.DocumentListener;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.openide.NotificationLineSupport;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.RequestProcessor;
 
 /**
@@ -253,21 +255,16 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     // End of variables declaration//GEN-END:variables
 
     private void showFileChooser(JTextField folder) {
-        JFileChooser c = new JFileChooser();
+        URL result = FSChooser.select("Select folder", "Select", Utils.fromDisplayName(folder.getText()));
 
-        c.setSelectedFile(new File(folder.getText()));
-        c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-        c.setMultiSelectionEnabled(false);
-        c.setApproveButtonText("Select");
-
-        if (c.showDialog(this, null) == JFileChooser.APPROVE_OPTION) {
-            folder.setText(c.getSelectedFile().getAbsolutePath());
+        if (result != null) {
+            folder.setText(Utils.toDisplayName(result));
         }
     }
 
     private String tempSubIndexSelection;
     public void setIndex(RemoteIndex index) {
-        folder.setText(index.folder);
+        folder.setText(Utils.toDisplayName(index.getLocalFolder()));
         indexURL.setText(index.remote.toExternalForm());
         tempSubIndexSelection = index.remoteSegment;
     }
@@ -284,7 +281,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     
     public RemoteIndex getIndex() {
         try {
-            return RemoteIndex.create(folder.getText(), new URL(indexURL.getText()), getSubIndexSelectedItem());
+            return RemoteIndex.create(Utils.fromDisplayName(folder.getText()), new URL(indexURL.getText()), getSubIndexSelectedItem());
         } catch (MalformedURLException ex) {
             throw new IllegalStateException(ex);
         }
@@ -298,16 +295,17 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
 
     private void updateErrors() {
         notificationSupport.clearMessages();
-        
-        File folderFile = new File(folder.getText());
 
-        if (!folderFile.exists()) {
+        URL folderURL = Utils.fromDisplayName(folder.getText());
+        FileObject folder = URLMapper.findFileObject(folderURL);
+
+        if (folder == null) {
             notificationSupport.setErrorMessage("Specified directory does not exist.");
             okButton.setEnabled(false);
             return;
         }
 
-        if (!folderFile.isDirectory()) {
+        if (!folder.isFolder()) {
             notificationSupport.setErrorMessage("Specified directory is not directory.");
             okButton.setEnabled(false);
             return ;
@@ -458,7 +456,10 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
             
             String urlText = indexInfoURLContentCopy.get();
             String subIndex = indexInfoSubIndexCopy.get();
-            File folder = new File(checkingIndexFolderContentCopy.get());
+            URL folderURL = Utils.fromDisplayName(checkingIndexFolderContentCopy.get());
+            FileObject folder = URLMapper.findFileObject(folderURL);
+
+            assert folder != null;
 
             try {
 
@@ -477,18 +478,15 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                     boolean found = matches(folder, random);
 
                     if (!found) {
-                        if (matches(folder.getParentFile(), random)) {
+                        if (matches(folder.getParent(), random)) {
                             checkingIndexURLWarning.set("The given folder is unlikely to match the index content, parent folder does.");
                         } else {
                             StringBuilder matchingChildren = new StringBuilder();
-                            File[] cs = folder.listFiles();
 
-                            if (cs != null) {
-                                for (File c : cs) {
-                                    if (matches(c, random)) {
-                                        if (matchingChildren.length() > 0) matchingChildren.append(", ");
-                                        matchingChildren.append(c.getName());
-                                    }
+                            for (FileObject c : folder.getChildren()) {
+                                if (matches(c, random)) {
+                                    if (matchingChildren.length() > 0) matchingChildren.append(", ");
+                                    matchingChildren.append(c.getName());
                                 }
                             }
 
@@ -548,10 +546,10 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
             });
         }
 
-        private boolean matches(File folder, Collection<? extends String> random) {
+        private boolean matches(FileObject folder, Collection<? extends String> random) {
             boolean found = false;
             for (String rel : random) {
-                if (new File(folder, rel).exists()) {
+                if (folder.getFileObject(rel) != null) {
                     found = true;
                     break;
                 }

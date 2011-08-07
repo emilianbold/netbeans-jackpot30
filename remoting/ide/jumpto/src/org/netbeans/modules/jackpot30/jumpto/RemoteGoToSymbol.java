@@ -73,6 +73,7 @@ import org.netbeans.spi.jumpto.symbol.SymbolProvider;
 import org.netbeans.spi.jumpto.type.SearchType;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 
@@ -142,7 +143,7 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor> implem
                 @Override
                 protected FileObject resolveFile() {
                     String relativePath = (String) properties.get("file");
-                    FileObject originFolder = FileUtil.toFileObject(FileUtil.normalizeFile(new File(origin.folder)));
+                    FileObject originFolder = URLMapper.findFileObject(origin.getLocalFolder());
 
                     return originFolder != null ? originFolder.getFileObject(relativePath) : null;
                 }

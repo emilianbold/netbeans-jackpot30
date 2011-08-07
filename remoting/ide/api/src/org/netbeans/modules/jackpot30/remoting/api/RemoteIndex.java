@@ -42,12 +42,15 @@
 
 package org.netbeans.modules.jackpot30.remoting.api;
 
+import java.io.File;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import org.codeviation.pojson.Pojson;
+import org.netbeans.modules.jackpot30.remotingapi.options.Utils;
 import org.openide.util.Exceptions;
 import org.openide.util.NbPreferences;
 
@@ -58,16 +61,16 @@ import org.openide.util.NbPreferences;
 public class RemoteIndex {
 
     public final boolean enabled;
-    public final String folder;
+    private final String folder;
     public final URL    remote;
     public final String remoteSegment;
 
-    public static RemoteIndex create(String folder, URL remote, String remoteSegment) {
-        return create(true, folder, remote, remoteSegment);
+    public static RemoteIndex create(URL localFolder, URL remote, String remoteSegment) {
+        return create(true, localFolder, remote, remoteSegment);
     }
 
-    public static RemoteIndex create(boolean enabled, String folder, URL remote, String remoteSegment) {
-        return new RemoteIndex(enabled, folder, remote, remoteSegment);
+    public static RemoteIndex create(boolean enabled, URL localFolder, URL remote, String remoteSegment) {
+        return new RemoteIndex(enabled, localFolder.toExternalForm(), remote, remoteSegment);
     }
 
     private RemoteIndex() {//used by Pojson
@@ -82,6 +85,10 @@ public class RemoteIndex {
         this.folder = folder;
         this.remote = remote;
         this.remoteSegment = remoteSegment;
+    }
+
+    public URL getLocalFolder() {
+        return Utils.fromDisplayName(folder);
     }
 
     private static final String KEY_REMOTE_INDICES = RemoteIndex.class.getSimpleName();

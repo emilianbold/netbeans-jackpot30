@@ -50,6 +50,7 @@ import java.io.IOException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -75,6 +76,7 @@ import org.openide.awt.ActionReferences;
 import org.openide.awt.ActionID;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.nodes.Node;
 import org.openide.util.Cancellable;
 import org.openide.util.Exceptions;
@@ -175,6 +177,7 @@ public final class RemoteUsages implements ActionListener {
                 List<FileObject> result = new ArrayList<FileObject>();
 
                 for (RemoteIndex idx : RemoteIndex.loadIndices()) {
+                    FileObject localFolder = URLMapper.findFileObject(idx.getLocalFolder());
                     URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized[0]));
                     Collection<? extends String> response = WebUtilities.requestStringArrayResponse(resolved, cancel);
 
@@ -182,9 +185,7 @@ public final class RemoteUsages implements ActionListener {
                     if (response == null) continue;
                     
                     for (String path : response) {
-                        File f = new File(idx.folder, path);
-
-                        result.add(FileUtil.toFileObject(f));
+                        result.add(localFolder.getFileObject(path));
                     }
                 }
 

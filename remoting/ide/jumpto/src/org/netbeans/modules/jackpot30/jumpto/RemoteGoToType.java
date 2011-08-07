@@ -71,6 +71,7 @@ import org.netbeans.spi.jumpto.type.TypeDescriptor;
 import org.netbeans.spi.jumpto.type.TypeProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 
@@ -146,7 +147,7 @@ public class RemoteGoToType extends RemoteQuery<RemoteTypeDescriptor> implements
                         fqn = fqn.substring(0, fqn.indexOf("$"));
                     }
 
-                    FileObject originFolder = FileUtil.toFileObject(FileUtil.normalizeFile(new File(origin.folder)));
+                    FileObject originFolder = URLMapper.findFileObject(origin.getLocalFolder());
 
                     return originFolder != null ? originFolder.getFileObject(relativePath + "/" + fqn.replace('.', '/') + ".java") : null;
                 }

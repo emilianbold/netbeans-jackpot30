@@ -89,6 +89,7 @@ import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import static org.netbeans.modules.jackpot30.remoting.api.WebUtilities.escapeForQuery;
 
@@ -172,7 +173,10 @@ public class EnhancedScopes {
             Collection<Folder> todo = new HashSet<Folder>();
 
             for (RemoteIndex remoteIndex : RemoteIndex.loadIndices()) {
-                todo.add(new Folder(FileUtil.toFileObject(FileUtil.normalizeFile(new File(remoteIndex.folder)))));
+                FileObject localFolder = URLMapper.findFileObject(remoteIndex.getLocalFolder());
+
+                if (localFolder == null) continue;
+                todo.add(new Folder(localFolder));
             }
 
             return todo;
@@ -183,7 +187,10 @@ public class EnhancedScopes {
             return new MapIndices() {
                 public IndexEnquirer findIndex(FileObject root, ProgressHandleWrapper progress, boolean recursive) {
                     for (RemoteIndex remoteIndex : RemoteIndex.loadIndices()) {
-                        if (FileUtil.toFileObject(FileUtil.normalizeFile(new File(remoteIndex.folder))) == root) {
+                        FileObject localFolder = URLMapper.findFileObject(remoteIndex.getLocalFolder());
+
+                        if (localFolder == null) continue;
+                        if (localFolder == root) {
                             return enquirerForRemoteIndex(root, remoteIndex, patterns);
                         }
                     }
