@@ -44,7 +44,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map.Entry;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.FixTextDescription;
@@ -64,23 +63,23 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
 
     @Override
     public List<Embedding> getEmbeddings(Snapshot snapshot) {
-        int index = 0;
-        List<Embedding> result = new LinkedList<Embedding>();
         TokenSequence<DeclarativeHintTokenId> ts = snapshot.getTokenHierarchy().tokenSequence(DeclarativeHintTokenId.language());
-
-        result.add(snapshot.create(GLOBAL_PATTERN_PACKAGE, "text/x-java"));
 
         Result parsed = new DeclarativeHintsParser().parse(snapshot.getSource().getFileObject(), snapshot.getText(), ts);
 
-        if (parsed.importsBlock != null) {
-            result.add(snapshot.create(parsed.importsBlock[0], parsed.importsBlock[1] - parsed.importsBlock[0], "text/x-java"));
-            result.add(snapshot.create("\n", "text/x-java"));
-        }
+        return Arrays.asList(Embedding.create(rules(snapshot, parsed)), Embedding.create(predicates(snapshot, parsed)));
+    }
 
-        if (!parsed.blocks.isEmpty()) {
-            for (String imp : MethodInvocationContext.AUXILIARY_IMPORTS) {
-                result.add(snapshot.create(imp + "\n", "text/x-java"));
-            }
+    private List<Embedding> rules(Snapshot snapshot, Result parsed) {
+        int index = 0;
+        List<Embedding> result = new LinkedList<Embedding>();
+
+        result.add(snapshot.create("//no-errors", "text/x-java"));
+        result.add(snapshot.create(GLOBAL_PATTERN_PACKAGE, "text/x-java"));
+
+        if (parsed.importsBlock != null) {
+            result.add(snapshot.create(snapshot.getText().subSequence(parsed.importsBlock[0], parsed.importsBlock[1]), "text/x-java"));
+            result.add(snapshot.create("\n", "text/x-java"));
         }
 
         result.add(snapshot.create(GLOBAL_PATTERN_CLASS, "text/x-java"));
@@ -96,12 +95,12 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
                     continue;
 
                 Instanceof i = (Instanceof) c;
-                
+
                 if (!first) {
                     result.add(snapshot.create(", ", "text/x-java"));
                     builder.append(", ");
                 }
-                
+
                 Embedding e1 = snapshot.create(i.constraintSpan[0], i.constraintSpan[1] - i.constraintSpan[0], "text/x-java");
                 Embedding e2 = snapshot.create(" " + i.variable, "text/x-java");
 
@@ -109,7 +108,7 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
 
                 builder.append(i.constraint);
                 builder.append(" " + i.variable);
-                
+
                 first = false;
             }
 
@@ -127,19 +126,37 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
             }
         }
 
-        if (!parsed.blocks.isEmpty()) {
-            result.add(snapshot.create(CUSTOM_CONDITIONS_VARIABLES, "text/x-java"));
+        result.add(snapshot.create(GLOBAL_PATTERN_SUFFIX, "text/x-java"));
+
+        return result;
+    }
+    
+    private List<Embedding> predicates(Snapshot snapshot, Result parsed) {
+        List<Embedding> result = new LinkedList<Embedding>();
+
+        result.add(snapshot.create(GLOBAL_PATTERN_PACKAGE, "text/x-java"));
+
+        if (parsed.importsBlock != null) {
+            result.add(snapshot.create(parsed.importsBlock[0], parsed.importsBlock[1] - parsed.importsBlock[0], "text/x-java"));
+            result.add(snapshot.create("\n", "text/x-java"));
         }
-        
+
+        for (String imp : MethodInvocationContext.AUXILIARY_IMPORTS) {
+            result.add(snapshot.create(imp + "\n", "text/x-java"));
+        }
+
+        result.add(snapshot.create(GLOBAL_PATTERN_CLASS, "text/x-java"));
+        result.add(snapshot.create(CUSTOM_CONDITIONS_VARIABLES, "text/x-java"));
+
         for (int[] span : parsed.blocks) {
             result.add(snapshot.create(span[0], span[1] - span[0], "text/x-java"));
         }
 
         result.add(snapshot.create(GLOBAL_PATTERN_SUFFIX, "text/x-java"));
 
-        return Collections.singletonList(Embedding.create(result));
+        return result;
     }
-    
+
     @Override
     public int getPriority() {
         return 100;

@@ -38,9 +38,21 @@
  */
 package org.netbeans.modules.jackpot30.file.idebinding;
 
+import com.sun.source.tree.Tree;
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
+import java.util.List;
+import javax.tools.Diagnostic;
+import javax.tools.JavaFileObject;
+import org.netbeans.api.java.source.ClasspathInfo;
+import org.netbeans.api.java.source.CompilationController;
+import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser;
+import org.netbeans.modules.jackpot30.file.DeclarativeHintsParser.HintTextDescription;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
 import org.netbeans.modules.parsing.api.Snapshot;
 import org.netbeans.modules.parsing.spi.Parser.Result;
 import org.netbeans.modules.parsing.spi.ParserResultTask;
@@ -48,7 +60,11 @@ import org.netbeans.modules.parsing.spi.Scheduler;
 import org.netbeans.modules.parsing.spi.SchedulerEvent;
 import org.netbeans.modules.parsing.spi.SchedulerTask;
 import org.netbeans.modules.parsing.spi.TaskFactory;
+import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.HintsController;
+import org.netbeans.spi.editor.hints.Severity;
+import org.openide.util.Exceptions;
 
 /**
  *
@@ -57,14 +73,36 @@ import org.netbeans.spi.editor.hints.HintsController;
 public class HintsTask extends ParserResultTask<Result> {
 
     @Override
-    public void run(Result result, SchedulerEvent event) {
-        DeclarativeHintsParser.Result res = ParserImpl.getResult(result);
+    public void run(final Result result, SchedulerEvent event) {
+        final DeclarativeHintsParser.Result res = ParserImpl.getResult(result);
+        final List<ErrorDescription> errors = new LinkedList<ErrorDescription>();
 
-        if (res == null) return ;
+        if (res != null) {
+            errors.addAll(res.errors);
+            
+            ClasspathInfo cpInfo = ClasspathInfo.create(result.getSnapshot().getSource().getFileObject());
+            try {
+                JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
+                    public void run(CompilationController parameter) throws Exception {
+                        for (HintTextDescription hd : res.hints) {
+                            String code = result.getSnapshot().getText().subSequence(hd.textStart, hd.textEnd).toString();
+                            Collection<Diagnostic<? extends JavaFileObject>> parsedErrors = new LinkedList<Diagnostic<? extends JavaFileObject>>();
+                            Tree parsed = Utilities.parseAndAttribute(parameter, code, null, parsedErrors);
+
+                            for (Diagnostic<? extends JavaFileObject> d : parsedErrors) {
+                                errors.add(ErrorDescriptionFactory.createErrorDescription(Severity.ERROR/*XXX*/, d.getMessage(null), result.getSnapshot().getSource().getFileObject(), (int) (hd.textStart + d.getStartPosition()), (int) (hd.textStart + d.getEndPosition())));
+                            }
+                        }
+                    }
+                }, true);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
 
         HintsController.setErrors(result.getSnapshot().getSource().getFileObject(),
                                   HintsTask.class.getName(),
-                                  res.errors);
+                                  errors);
     }
 
     @Override
