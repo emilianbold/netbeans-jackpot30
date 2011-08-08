@@ -295,7 +295,7 @@ public class DeclarativeHintRegistry implements HintProvider, ClassPathBasedHint
                 String cat = parsed.options.get("hint-category");
 
                 if (cat == null) {
-                    if ("rules".equals(file.getParent().getName())) {
+                    if (file != null && "rules".equals(file.getParent().getName())) {
                         cat = "custom";
                     } else {
                         cat = "general";
