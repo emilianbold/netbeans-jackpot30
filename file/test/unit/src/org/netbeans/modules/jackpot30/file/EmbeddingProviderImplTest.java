@@ -79,6 +79,7 @@ public class EmbeddingProviderImplTest extends NbTestCase {
 
     public void testSimpleEmbedding() throws Exception {
         performEmbeddingTest("\'\': 1 + 1 => 1 + 1;;",
+                             "//no-errors\n" +
                              "package $; class $ {\n" +
                              "     private void $0() throws Throwable {\n" +
                              "         1 + 1 ;\n" +
@@ -91,6 +92,7 @@ public class EmbeddingProviderImplTest extends NbTestCase {
 
     public void testEmbeddingWithVariables1() throws Exception {
         performEmbeddingTest("\'\': $1 + $2 :: $1 instanceof int && $2 instanceof double => 1 + 1;;",
+                             "//no-errors\n" +
                              "package $; class $ {\n" +
                              "     private void $0( int $1, double $2) throws Throwable {\n" +
                              "         $1 + $2 ;\n" +
@@ -103,6 +105,7 @@ public class EmbeddingProviderImplTest extends NbTestCase {
 
     public void testEmbeddingWithVariables2() throws Exception {
         performEmbeddingTest("\'\': $1 + $2 :: $1 instanceof int && $2 instanceof double => 1 + 1;; 1 + 1 => 1 + 1;;",
+                             "//no-errors\n" +
                              "package $; class $ {\n" +
                              "     private void $0( int $1, double $2) throws Throwable {\n" +
                              "         $1 + $2 ;\n" +
@@ -121,15 +124,20 @@ public class EmbeddingProviderImplTest extends NbTestCase {
 
     public void testEmbeddingWithImportsAndConditions() throws Exception {
         performEmbeddingTest("<?import java.util.List;?>\'\': $1 + $2 :: $1 instanceof int && $2 instanceof double && cond($1, $2);; <?private boolean test(Variable v1, Variable v2) {return true;}?>",
+                             "//no-errors\n" +
                              "package $;\n" + 
+                             "import java.util.List;\n" +
+                             "class $ {\n" +
+                             "     private void $0( int $1, double $2) throws Throwable {\n" +
+                             "         $1 + $2 ;\n" +
+                             "     }\n" +
+                             "}\n",
+                             "package $;\n" +
                              "import java.util.List;\n" +
                              "import org.netbeans.modules.jackpot30.file.conditionapi.Context;\n" +
                              "import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;\n" +
                              "import org.netbeans.modules.jackpot30.file.conditionapi.Variable;\n" +
                              "class $ {\n" +
-                             "     private void $0( int $1, double $2) throws Throwable {\n" +
-                             "         $1 + $2 ;\n" +
-                             "     }\n" +
                              "     private final Context context = null;\n" +
                              "     private final Matcher matcher = null;\n" +
                              "     private boolean test(Variable v1, Variable v2) {return true;}\n" +

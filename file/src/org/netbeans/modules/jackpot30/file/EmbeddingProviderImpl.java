@@ -67,14 +67,18 @@ public class EmbeddingProviderImpl extends EmbeddingProvider {
 
         Result parsed = new DeclarativeHintsParser().parse(snapshot.getSource().getFileObject(), snapshot.getText(), ts);
 
-        return Arrays.asList(Embedding.create(rules(snapshot, parsed)), Embedding.create(predicates(snapshot, parsed)));
+        if (parsed.blocks.isEmpty()) {
+            return Arrays.asList(Embedding.create(rules(snapshot, parsed)));
+        } else {
+            return Arrays.asList(Embedding.create(rules(snapshot, parsed)), Embedding.create(predicates(snapshot, parsed)));
+        }
     }
 
     private List<Embedding> rules(Snapshot snapshot, Result parsed) {
         int index = 0;
         List<Embedding> result = new LinkedList<Embedding>();
 
-        result.add(snapshot.create("//no-errors", "text/x-java"));
+        result.add(snapshot.create("//no-errors\n", "text/x-java"));
         result.add(snapshot.create(GLOBAL_PATTERN_PACKAGE, "text/x-java"));
 
         if (parsed.importsBlock != null) {
