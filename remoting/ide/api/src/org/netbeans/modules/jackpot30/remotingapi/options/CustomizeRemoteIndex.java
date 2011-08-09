@@ -43,8 +43,10 @@ import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -374,7 +376,12 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                 if (!url.getPath().endsWith("/"))
                     url = new URL(url.getProtocol(), url.getHost(), url.getPort(), url.getPath() + "/" + (url.getQuery() != null ? "?" + url.getQuery() : ""));
                 
-                subindices = WebUtilities.requestStringArrayResponse(url.toURI().resolve("list"), new AtomicBoolean());
+                subindices = new ArrayList<String>(WebUtilities.requestStringArrayResponse(url.toURI().resolve("list"), new AtomicBoolean()));
+
+                for (Iterator<? extends String> it = subindices.iterator(); it.hasNext();) {
+                    String idx = it.next();
+                    if (idx.trim().isEmpty() || !idx.contains(":")) it.remove();
+                }
 
                 if (subindices.isEmpty()) {
                    checkingIndexURLError.set("Not an index.");
@@ -459,10 +466,8 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
             URL folderURL = Utils.fromDisplayName(checkingIndexFolderContentCopy.get());
             FileObject folder = URLMapper.findFileObject(folderURL);
 
-            assert folder != null;
-
             try {
-
+                if (folder != null) {
                 Collection<? extends String> random = indexRandomFiles.get();
 
                 if (random == null) {
@@ -499,6 +504,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                     }
                 } else {
                     //no random files? ignoring for now...
+                }
                 }
             } catch (URISyntaxException ex) {
                 checkingIndexURLError.set(ex.getLocalizedMessage());
