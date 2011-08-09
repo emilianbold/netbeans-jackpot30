@@ -47,16 +47,21 @@ import java.io.StringReader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.spi.jumpto.support.NameMatcher;
 import org.netbeans.spi.jumpto.support.NameMatcherFactory;
 import org.netbeans.spi.jumpto.type.SearchType;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Cancellable;
 import org.openide.util.Exceptions;
 import org.openide.util.RequestProcessor;
@@ -119,6 +124,8 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
     protected abstract Collection<? extends R> decode(RemoteIndex idx, Reader received) throws IOException;
 
     private void compute(String text, SearchType searchType, AtomicBoolean cancel) {
+        Set<FileObject> sources = GlobalPathRegistry.getDefault().getSourceRoots();
+        
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
             URI url = computeURL(ri, text, searchType);
 
@@ -133,7 +140,7 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
             Collection<? extends R> decoded;
 
             try {
-                decoded = decode(ri, r);
+                decoded = new ArrayList<R>(decode(ri, r));
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
                 continue;
@@ -142,6 +149,16 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
                     r.close();
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
+                }
+            }
+            for (Iterator<? extends R> it = decoded.iterator(); it.hasNext();) {
+                FileObject f = it.next().getFileObject();
+
+                for (FileObject sr : sources) {
+                    if (FileUtil.isParentOf(sr, f)) {
+                        it.remove();
+                        break;
+                    }
                 }
             }
 
@@ -175,6 +192,7 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
 
     protected static interface SimpleNameable {
         public String getSimpleName();
+        public FileObject getFileObject();
     }
 
     private class ComputeResult implements Runnable, Cancellable {
