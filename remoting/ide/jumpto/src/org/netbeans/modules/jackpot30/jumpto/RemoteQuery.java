@@ -47,12 +47,15 @@ import java.io.StringReader;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.codeviation.pojson.Pojson;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
@@ -61,7 +64,7 @@ import org.netbeans.spi.jumpto.support.NameMatcher;
 import org.netbeans.spi.jumpto.support.NameMatcherFactory;
 import org.netbeans.spi.jumpto.type.SearchType;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Cancellable;
 import org.openide.util.Exceptions;
 import org.openide.util.RequestProcessor;
@@ -71,9 +74,19 @@ import org.openide.util.RequestProcessor.Task;
  *
  * @author lahvac
  */
-public abstract class RemoteQuery<R extends SimpleNameable> {
+public abstract class RemoteQuery<R extends SimpleNameable, P> {
 
     private static final RequestProcessor WORKER = new RequestProcessor(RemoteGoToType.class.getName(), 1, true, false);
+
+    private final boolean synchronous;
+
+    public RemoteQuery() {
+        this(false);
+    }
+
+    public RemoteQuery(boolean synchronous) {
+        this.synchronous = synchronous;
+    }
 
     private String mostGenericQueryText;
     private List<R> results;
@@ -100,7 +113,11 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
         }
 
         try {
-            currentWorker.waitFinished(100);
+            if (synchronous) {
+                currentWorker.waitFinished();
+            } else {
+                currentWorker.waitFinished(100);
+            }
         } catch (InterruptedException ex) {
             Logger.getLogger(RemoteGoToType.class.getName()).log(Level.FINE, null, ex);
         }
@@ -121,12 +138,13 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
     }
 
     protected abstract URI computeURL(RemoteIndex idx, String text, SearchType searchType);
-    protected abstract Collection<? extends R> decode(RemoteIndex idx, Reader received) throws IOException;
+    protected abstract R decode(RemoteIndex idx, String root, P data);
 
     private void compute(String text, SearchType searchType, AtomicBoolean cancel) {
         Set<FileObject> sources = GlobalPathRegistry.getDefault().getSourceRoots();
         
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
+            FileObject originFolder = URLMapper.findFileObject(ri.getLocalFolder());
             URI url = computeURL(ri, text, searchType);
 
             if (url == null) continue;
@@ -137,10 +155,19 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
             if (response == null) continue;
 
             Reader r = new StringReader(response);
-            Collection<? extends R> decoded;
+            Collection<R> decoded = new ArrayList<R>();
 
             try {
-                decoded = new ArrayList<R>(decode(ri, r));
+                @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+                Map<String, Collection<P>> objectized = Pojson.load(LinkedHashMap.class, r);
+
+                for (Entry<String, Collection<P>> e : objectized.entrySet()) {
+                    if (originFolder != null && sources.contains(originFolder.getFileObject(e.getKey()))) continue;
+
+                    for (P data : e.getValue()) {
+                        decoded.add(decode(ri, e.getKey(), data));
+                    }
+                }
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
                 continue;
@@ -149,16 +176,6 @@ public abstract class RemoteQuery<R extends SimpleNameable> {
                     r.close();
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
-                }
-            }
-            for (Iterator<? extends R> it = decoded.iterator(); it.hasNext();) {
-                FileObject f = it.next().getFileObject();
-
-                for (FileObject sr : sources) {
-                    if (FileUtil.isParentOf(sr, f)) {
-                        it.remove();
-                        break;
-                    }
                 }
             }
 

@@ -41,24 +41,16 @@
  */
 package org.netbeans.modules.jackpot30.jumpto;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.swing.Icon;
-import org.codeviation.pojson.Pojson;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.ui.ElementIcons;
@@ -72,7 +64,6 @@ import org.netbeans.spi.jumpto.symbol.SymbolDescriptor;
 import org.netbeans.spi.jumpto.symbol.SymbolProvider;
 import org.netbeans.spi.jumpto.type.SearchType;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
@@ -82,7 +73,7 @@ import org.openide.util.lookup.ServiceProvider;
  * @author lahvac
  */
 @ServiceProvider(service=SymbolProvider.class)
-public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor> implements SymbolProvider {
+public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<String, Object>> implements SymbolProvider {
 
     @Override
     public String name() {
@@ -117,19 +108,8 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor> implem
     }
 
     @Override
-    protected Collection<? extends RemoteSymbolDescriptor> decode(RemoteIndex idx, Reader received) throws IOException {
-        @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
-        Map<String, Iterable<Map<String, Object>>> types = Pojson.load(LinkedHashMap.class, received);
-
-        List<RemoteSymbolDescriptor> result = new ArrayList<RemoteSymbolDescriptor>();
-
-        for (Entry<String, Iterable<Map<String, Object>>> e : types.entrySet()) {
-            for (Map<String, Object> properties : e.getValue()) {
-                result.add(new RemoteSymbolDescriptor(idx, properties));
-            }
-        }
-
-        return result;
+    protected RemoteSymbolDescriptor decode(RemoteIndex idx, String root, Map<String, Object> properties) {
+        return new RemoteSymbolDescriptor(idx, properties);
     }
 
     static final class RemoteSymbolDescriptor extends SymbolDescriptor implements SimpleNameable {
