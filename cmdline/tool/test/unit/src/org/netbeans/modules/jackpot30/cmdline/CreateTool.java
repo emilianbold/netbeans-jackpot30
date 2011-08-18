@@ -40,7 +40,6 @@ package org.netbeans.modules.jackpot30.cmdline;
 
 import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar;
 import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar.Info;
-import org.netbeans.modules.jackpot30.hintsimpl.jdk7.ConvertToDiamondBulkHint;
 import org.netbeans.modules.java.j2seproject.J2SEProject;
 import org.netbeans.modules.java.platform.DefaultJavaPlatformProvider;
 import org.netbeans.modules.project.ui.OpenProjectsTrampolineImpl;
@@ -57,7 +56,7 @@ public class CreateTool extends CreateStandaloneJar {
 
     @Override
     protected Info computeInfo() {
-        return new Info().addAdditionalRoots(Main.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName(), ConvertToDiamondBulkHint.class.getName())
+        return new Info().addAdditionalRoots(Main.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName())
                          .addMetaInfRegistrations(new MetaInfRegistration(org.netbeans.modules.project.uiapi.OpenProjectsTrampoline.class, OpenProjectsTrampolineImpl.class))
                          .setEscapeJavaxLang();
     }
