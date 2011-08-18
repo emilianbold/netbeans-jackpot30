@@ -79,16 +79,19 @@ public class IndexingBuilder extends Builder {
 
     private final String projectName;
     private final String toolName;
+    private final String indexSubDirectory;
     
     public IndexingBuilder(StaplerRequest req, JSONObject json) throws FormException {
         projectName = json.getString("projectName");
         toolName = json.optString("toolName", IndexingTool.DEFAULT_INDEXING_NAME);
+        indexSubDirectory = json.optString("indexSubDirectory", "");
     }
 
     @DataBoundConstructor
-    public IndexingBuilder(String projectName, String toolName) {
+    public IndexingBuilder(String projectName, String toolName, String indexSubDirectory) {
         this.projectName = projectName;
         this.toolName = toolName;
+        this.indexSubDirectory = indexSubDirectory;
     }
 
     public String getProjectName() {
@@ -97,6 +100,10 @@ public class IndexingBuilder extends Builder {
 
     public String getToolName() {
         return toolName;
+    }
+
+    public String getIndexSubDirectory() {
+        return indexSubDirectory;
     }
 
     @Override
@@ -123,7 +130,8 @@ public class IndexingBuilder extends Builder {
 
         listener.getLogger().println("Looking for projects in: " + build.getWorkspace().getRemote());
 
-        RemoteResult res = build.getWorkspace().act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern()));
+        FilePath base = indexSubDirectory.isEmpty() ? build.getWorkspace() : build.getWorkspace().child(indexSubDirectory);
+        RemoteResult res = base.act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern()));
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
 
@@ -139,10 +147,10 @@ public class IndexingBuilder extends Builder {
         args.add(res.root);
         args.add(res.foundProjects.toArray(new String[0]));
 
-        Proc indexer = launcher.launch().pwd(build.getWorkspace())
-                                                .cmds(args)
-                                                .stdout(listener)
-                                                .start();
+        Proc indexer = launcher.launch().pwd(base)
+                                        .cmds(args)
+                                        .stdout(listener)
+                                        .start();
 
         indexer.join();
 

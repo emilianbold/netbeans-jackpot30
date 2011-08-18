@@ -14,4 +14,9 @@
         </f:entry>
     </j:if>
 
+    <f:advanced>
+        <f:entry title="Index subdirectory" field="indexSubDirectory">
+            <f:textbox />
+        </f:entry>
+    </f:advanced>
 </j:jelly>
