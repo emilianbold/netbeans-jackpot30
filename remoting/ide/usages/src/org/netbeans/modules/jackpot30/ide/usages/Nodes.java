@@ -44,20 +44,18 @@ package org.netbeans.modules.jackpot30.ide.usages;
 
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SourcePositions;
-import com.sun.source.util.TreePathScanner;
 import java.awt.Image;
-import java.beans.PropertyChangeEvent;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -68,7 +66,6 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.swing.Action;
-import javax.swing.SwingUtilities;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationController;
@@ -83,7 +80,6 @@ import org.netbeans.api.java.source.support.CancellableTreePathScanner;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
-import org.netbeans.spi.project.support.ant.PropertyEvaluator;
 import org.netbeans.spi.project.ui.LogicalViewProvider;
 import org.openide.actions.OpenAction;
 import org.openide.cookies.EditorCookie;
@@ -98,11 +94,7 @@ import org.openide.nodes.ChildFactory;
 import org.openide.nodes.Children;
 import org.openide.nodes.FilterNode;
 import org.openide.nodes.Node;
-import org.openide.nodes.NodeEvent;
-import org.openide.nodes.NodeListener;
-import org.openide.nodes.NodeMemberEvent;
 import org.openide.nodes.NodeOp;
-import org.openide.nodes.NodeReorderEvent;
 import org.openide.text.Line;
 import org.openide.util.Exceptions;
 import org.openide.util.ImageUtilities;
@@ -280,60 +272,11 @@ public class Nodes {
             this.eh = eh;
         }
 
-        private boolean computeOccurrences(final List<Node> toPopulate) {
-            final boolean[] success = new boolean[] {true};
-
-            try {
-                JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
-                    @Override public void run(final CompilationController parameter) throws Exception {
-                        parameter.toPhase(Phase.RESOLVED);
-
-                        final Element toFind = eh.resolve(parameter);
-
-                        if (toFind == null) {
-                            return;
-                        }
-
-                        final AtomicBoolean stop = new AtomicBoolean();
-
-                        new CancellableTreePathScanner<Void, Void>(stop) {
-                            @Override public Void visitIdentifier(IdentifierTree node, Void p) {
-                                handleNode(node.getName());
-                                return super.visitIdentifier(node, p);
-                            }
-                            @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
-                                handleNode(node.getIdentifier());
-                                return super.visitMemberSelect(node, p);
-                            }
-                            private void handleNode(Name simpleName) {
-                                Element el = parameter.getTrees().getElement(getCurrentPath());
-
-                                if (el == null || el.asType().getKind() == TypeKind.ERROR) {
-                                    if (toFind.getSimpleName().equals(simpleName)) {
-                                        success[0] = false;
-                                        stop.set(true);
-                                        return; //TODO: should stop the computation altogether
-                                    }
-                                }
-                                if (Nodes.equals(parameter, toFind, el)) {
-                                    toPopulate.add(new OccurrenceNode(parameter, getCurrentPath().getLeaf()));
-                                }
-                            }
-                        }.scan(parameter.getCompilationUnit(), null);
-                    }
-                }, true);
-            } catch (IOException ex) {
-                Exceptions.printStackTrace(ex);
-            }
-
-            return success[0];
-        }
-
         @Override
         protected boolean createKeys(final List<Node> toPopulate) {
             List<Node> result = new ArrayList<Node>();
 
-            if (!computeOccurrences(result)) {
+            if (!computeOccurrences(file, eh, result)) {
                 result.clear();
 
                 ClassPath source = ClassPath.getClassPath(file, ClassPath.SOURCE);
@@ -342,7 +285,7 @@ public class Nodes {
 
                 try {
                     SourceUtils.waitScanFinished();
-                    computeOccurrences(result);
+                    computeOccurrences(file, eh, result);
                 } catch (InterruptedException ex) {
                     Exceptions.printStackTrace(ex);
                 } finally {
@@ -362,6 +305,71 @@ public class Nodes {
             return key;
         }
 
+    }
+
+    static boolean computeOccurrences(FileObject file, final ElementHandle<?> eh, final List<Node> toPopulate) {
+        final boolean[] success = new boolean[] {true};
+
+        try {
+            JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
+                @Override public void run(final CompilationController parameter) throws Exception {
+                    parameter.toPhase(Phase.RESOLVED);
+
+                    final Element toFind = eh.resolve(parameter);
+
+                    if (toFind == null) {
+                        return;
+                    }
+
+                    final AtomicBoolean stop = new AtomicBoolean();
+
+                    new CancellableTreePathScanner<Void, Void>(stop) {
+                        @Override public Void visitIdentifier(IdentifierTree node, Void p) {
+                            handleNode(node.getName(), getCurrentPath().getLeaf());
+                            return super.visitIdentifier(node, p);
+                        }
+                        @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
+                            handleNode(node.getIdentifier(), getCurrentPath().getLeaf());
+                            return super.visitMemberSelect(node, p);
+                        }
+                        @Override public Void visitNewClass(NewClassTree node, Void p) {
+                            Name simpleName = null;
+                            Tree name = node.getIdentifier();
+
+                            OUTER: while (true) {
+                                switch (name.getKind()) {
+                                    case PARAMETERIZED_TYPE: name = ((ParameterizedTypeTree) name).getType(); break;
+                                    case MEMBER_SELECT: simpleName = ((MemberSelectTree) name).getIdentifier(); break OUTER;
+                                    case IDENTIFIER: simpleName = ((IdentifierTree) name).getName(); break OUTER;
+                                    default: name = node; break OUTER;
+                                }
+                            }
+
+                            handleNode(simpleName, name);
+                            return super.visitNewClass(node, p);
+                        }
+                        private void handleNode(Name simpleName, Tree toHighlight) {
+                            Element el = parameter.getTrees().getElement(getCurrentPath());
+
+                            if (el == null || el.asType().getKind() == TypeKind.ERROR) {
+                                if (toFind.getSimpleName().equals(simpleName)) {
+                                    success[0] = false;
+                                    stop.set(true);
+                                    return; //TODO: should stop the computation altogether
+                                }
+                            }
+                            if (Nodes.equals(parameter, toFind, el)) {
+                                toPopulate.add(new OccurrenceNode(parameter, toHighlight));
+                            }
+                        }
+                    }.scan(parameter.getCompilationUnit(), null);
+                }
+            }, true);
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        }
+
+        return success[0];
     }
 
     private static boolean equals(CompilationInfo info, Element toFind, Element what) {

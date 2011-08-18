@@ -45,6 +45,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePathScanner;
 import java.io.IOException;
@@ -151,6 +152,10 @@ public class IndexerImpl extends CustomIndexer {
                             @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
                                 handleNode();
                                 return super.visitMemberSelect(node, p);
+                            }
+                            @Override public Void visitNewClass(NewClassTree node, Void p) {
+                                handleNode();
+                                return super.visitNewClass(node, p);
                             }
                             private void handleNode() {
                                 Element el = cc.getTrees().getElement(getCurrentPath());
