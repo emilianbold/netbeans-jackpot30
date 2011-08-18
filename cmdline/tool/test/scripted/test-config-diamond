@@ -49,7 +49,7 @@ public class Test {
 }
 EOF
 
-    run_tool --hint "Convert to diamond bulk hint" --config enabled="" src
+    run_tool --hint "Can Use Diamond" --config enabledVariants="" src
 
     assert_file_content  src/test/Test.java <<EOF
 package test;
@@ -62,7 +62,7 @@ public class Test {
 }
 EOF
 
-    run_tool --hint "Convert to diamond bulk hint" --config enabled="initializer" src
+    run_tool --hint "Can Use Diamond" --config enabledVariants="initializer" src
 
     assert_file_content  src/test/Test.java <<EOF
 package test;
