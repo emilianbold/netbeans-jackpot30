@@ -130,7 +130,7 @@ public class IndexingBuilder extends Builder {
 
         listener.getLogger().println("Looking for projects in: " + build.getWorkspace().getRemote());
 
-        FilePath base = indexSubDirectory.isEmpty() ? build.getWorkspace() : build.getWorkspace().child(indexSubDirectory);
+        FilePath base = indexSubDirectory == null || indexSubDirectory.isEmpty() ? build.getWorkspace() : build.getWorkspace().child(indexSubDirectory);
         RemoteResult res = base.act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern()));
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
