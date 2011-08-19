@@ -64,7 +64,7 @@ import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.queries.SourceLevelQuery;
 import org.netbeans.api.java.source.TreeUtilities;
 import org.netbeans.modules.jackpot30.file.APIAccessor;
-import org.netbeans.modules.jackpot30.spi.Hacks;
+import org.netbeans.modules.jackpot30.file.Hacks;
 import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
 
 /**

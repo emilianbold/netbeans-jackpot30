@@ -80,7 +80,6 @@ import org.netbeans.modules.jackpot30.file.Condition.Instanceof;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation;
 import org.netbeans.modules.jackpot30.file.Condition.MethodInvocation.ParameterKind;
 import org.netbeans.modules.jackpot30.file.Condition.Otherwise;
-import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.Severity;

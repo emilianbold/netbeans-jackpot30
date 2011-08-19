@@ -46,9 +46,9 @@ import com.sun.source.util.TreePath;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.infrastructure.TreeRuleTestBase;
 import org.netbeans.modules.java.hints.jackpot.impl.hints.HintsInvoker;
+import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 
 /**

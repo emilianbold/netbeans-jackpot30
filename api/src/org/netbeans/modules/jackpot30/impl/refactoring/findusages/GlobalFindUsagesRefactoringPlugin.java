@@ -48,12 +48,12 @@ import java.util.List;
 import org.netbeans.modules.jackpot30.impl.batch.EnhancedScopes;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.impl.refactoring.AbstractApplyHintsRefactoringPlugin;
-import org.netbeans.modules.jackpot30.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
 import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
+import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 

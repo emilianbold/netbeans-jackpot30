@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.file.conditionapi.Context;
-import org.netbeans.modules.jackpot30.spi.Hacks;
 
 /**
  *

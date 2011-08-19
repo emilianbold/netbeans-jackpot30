@@ -60,7 +60,6 @@ import org.netbeans.modules.jackpot30.file.conditionapi.Context;
 import org.netbeans.modules.jackpot30.file.conditionapi.DefaultRuleUtilities;
 import org.netbeans.modules.jackpot30.file.conditionapi.Matcher;
 import org.netbeans.modules.jackpot30.file.conditionapi.Variable;
-import org.netbeans.modules.jackpot30.spi.Hacks;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
