@@ -98,7 +98,7 @@ public class WebUtilities {
             }
             result[0] = sb.toString();
         } catch (IOException e) {
-            e.printStackTrace ();  // TODO
+            Logger.getLogger(WebUtilities.class.getName()).log(Level.INFO, uri.toASCIIString(), e);
         }
             }
         });
