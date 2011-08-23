@@ -54,6 +54,7 @@ public class ClassOptions extends javax.swing.JPanel {
     public ClassOptions(Set<RemoteUsages.SearchOptions> options) {
         this.options = options;
         initComponents();
+        usages.setSelected(true);
     }
 
     /** This method is called from within the constructor to
@@ -70,19 +71,18 @@ public class ClassOptions extends javax.swing.JPanel {
         subclasses = new javax.swing.JRadioButton();
 
         buttonGroup.add(usages);
-        usages.setSelected(true);
         usages.setText(org.openide.util.NbBundle.getMessage(ClassOptions.class, "ClassOptions.usages.text", new Object[] {})); // NOI18N
-        usages.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                usagesActionPerformed(evt);
+        usages.addItemListener(new java.awt.event.ItemListener() {
+            public void itemStateChanged(java.awt.event.ItemEvent evt) {
+                usagesItemStateChanged(evt);
             }
         });
 
         buttonGroup.add(subclasses);
         subclasses.setText(org.openide.util.NbBundle.getMessage(ClassOptions.class, "ClassOptions.subclasses.text", new Object[] {})); // NOI18N
-        subclasses.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                subclassesActionPerformed(evt);
+        subclasses.addItemListener(new java.awt.event.ItemListener() {
+            public void itemStateChanged(java.awt.event.ItemEvent evt) {
+                subclassesItemStateChanged(evt);
             }
         });
 
@@ -108,19 +108,19 @@ public class ClassOptions extends javax.swing.JPanel {
         );
     }// </editor-fold>//GEN-END:initComponents
 
-    private void usagesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_usagesActionPerformed
+    private void usagesItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_usagesItemStateChanged
         if (usages.isSelected())
             options.add(RemoteUsages.SearchOptions.USAGES);
         else
             options.remove(RemoteUsages.SearchOptions.USAGES);
-    }//GEN-LAST:event_usagesActionPerformed
+    }//GEN-LAST:event_usagesItemStateChanged
 
-    private void subclassesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_subclassesActionPerformed
+    private void subclassesItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_subclassesItemStateChanged
         if (subclasses.isSelected())
             options.add(RemoteUsages.SearchOptions.SUB);
         else
             options.remove(RemoteUsages.SearchOptions.SUB);
-    }//GEN-LAST:event_subclassesActionPerformed
+    }//GEN-LAST:event_subclassesItemStateChanged
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.ButtonGroup buttonGroup;

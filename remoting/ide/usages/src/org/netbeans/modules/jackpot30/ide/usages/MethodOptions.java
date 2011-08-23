@@ -78,23 +78,23 @@ public class MethodOptions extends javax.swing.JPanel {
         fromBaseClass = new javax.swing.JCheckBox();
 
         usages.setText(org.openide.util.NbBundle.getMessage(MethodOptions.class, "MethodOptions.usages.text")); // NOI18N
-        usages.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                usagesActionPerformed(evt);
+        usages.addItemListener(new java.awt.event.ItemListener() {
+            public void itemStateChanged(java.awt.event.ItemEvent evt) {
+                usagesItemStateChanged(evt);
             }
         });
 
         overriding.setText(org.openide.util.NbBundle.getMessage(MethodOptions.class, "MethodOptions.overriding.text")); // NOI18N
-        overriding.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                overridingActionPerformed(evt);
+        overriding.addItemListener(new java.awt.event.ItemListener() {
+            public void itemStateChanged(java.awt.event.ItemEvent evt) {
+                overridingItemStateChanged(evt);
             }
         });
 
         fromBaseClass.setText(org.openide.util.NbBundle.getMessage(MethodOptions.class, "MethodOptions.fromBaseClass.text", new Object[] {superMethod})); // NOI18N
-        fromBaseClass.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                fromBaseClassActionPerformed(evt);
+        fromBaseClass.addItemListener(new java.awt.event.ItemListener() {
+            public void itemStateChanged(java.awt.event.ItemEvent evt) {
+                fromBaseClassItemStateChanged(evt);
             }
         });
 
@@ -123,26 +123,26 @@ public class MethodOptions extends javax.swing.JPanel {
         );
     }// </editor-fold>//GEN-END:initComponents
 
-    private void usagesActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_usagesActionPerformed
+    private void usagesItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_usagesItemStateChanged
         if (usages.isSelected())
             options.add(RemoteUsages.SearchOptions.USAGES);
         else
             options.remove(RemoteUsages.SearchOptions.USAGES);
-    }//GEN-LAST:event_usagesActionPerformed
+    }//GEN-LAST:event_usagesItemStateChanged
 
-    private void overridingActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_overridingActionPerformed
+    private void overridingItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_overridingItemStateChanged
         if (overriding.isSelected())
             options.add(RemoteUsages.SearchOptions.SUB);
         else
             options.remove(RemoteUsages.SearchOptions.SUB);
-    }//GEN-LAST:event_overridingActionPerformed
+    }//GEN-LAST:event_overridingItemStateChanged
 
-    private void fromBaseClassActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_fromBaseClassActionPerformed
+    private void fromBaseClassItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_fromBaseClassItemStateChanged
         if (fromBaseClass.isSelected())
             options.add(RemoteUsages.SearchOptions.FROM_BASE);
         else
             options.remove(RemoteUsages.SearchOptions.FROM_BASE);
-    }//GEN-LAST:event_fromBaseClassActionPerformed
+    }//GEN-LAST:event_fromBaseClassItemStateChanged
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JCheckBox fromBaseClass;
