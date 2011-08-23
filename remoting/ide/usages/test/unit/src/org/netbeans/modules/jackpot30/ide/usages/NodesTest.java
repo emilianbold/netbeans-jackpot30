@@ -42,7 +42,9 @@
 package org.netbeans.modules.jackpot30.ide.usages;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import javax.lang.model.element.TypeElement;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
@@ -76,11 +78,63 @@ public class NodesTest extends NbTestCase {
         ElementHandle<?> eh = ElementHandle.create(info.getTopLevelElements().get(0).getEnclosedElements().get(0));
         List<Node> constructed = new ArrayList<Node>();
 
-        Nodes.computeOccurrences(data, eh, constructed);
+        Nodes.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.USAGES), constructed);
 
         Node n = constructed.get(0);
 
         assertEquals("    private void test() { new <b>Test</b>(); }<br>", n.getHtmlDisplayName());
+    }
+
+    public void testMethodImplementations() throws Exception {
+        FileObject data = FileUtil.createData(src, "test/Test.java");
+        TestUtilities.copyStringToFile(data, "package test;\n" +
+                                             "public class Test implements Runnable {\n" +
+                                             "    public void run() {\n" +
+                                             "         Runnable r = null;\n" +
+                                             "         r.run();\n" +
+                                             "    }\n" +
+                                             "}\n");
+        CompilationInfo info = SourceUtilsTestUtil.getCompilationInfo(JavaSource.forFileObject(data), Phase.RESOLVED);
+        TypeElement runnable = info.getElements().getTypeElement("java.lang.Runnable");
+
+        assertNotNull(runnable);
+
+        ElementHandle<?> eh = ElementHandle.create(runnable.getEnclosedElements().get(0));
+        List<Node> constructed = new ArrayList<Node>();
+
+        Nodes.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), constructed);
+
+        assertEquals(1, constructed.size());
+        
+        Node n = constructed.get(0);
+
+        assertEquals("    public void <b>run</b>() {<br>", n.getHtmlDisplayName());
+    }
+
+    public void testSubtypes() throws Exception {
+        FileObject data = FileUtil.createData(src, "test/Test.java");
+        TestUtilities.copyStringToFile(data, "package test;\n" +
+                                             "public class Test implements Runnable {\n" +
+                                             "    public void run() {\n" +
+                                             "         Runnable r = null;\n" +
+                                             "         r.run();\n" +
+                                             "    }\n" +
+                                             "}\n");
+        CompilationInfo info = SourceUtilsTestUtil.getCompilationInfo(JavaSource.forFileObject(data), Phase.RESOLVED);
+        TypeElement runnable = info.getElements().getTypeElement("java.lang.Runnable");
+
+        assertNotNull(runnable);
+
+        ElementHandle<?> eh = ElementHandle.create(runnable);
+        List<Node> constructed = new ArrayList<Node>();
+
+        Nodes.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), constructed);
+
+        assertEquals(1, constructed.size());
+
+        Node n = constructed.get(0);
+
+        assertEquals("public class <b>Test</b> implements Runnable {<br>", n.getHtmlDisplayName());
     }
 
     @Override

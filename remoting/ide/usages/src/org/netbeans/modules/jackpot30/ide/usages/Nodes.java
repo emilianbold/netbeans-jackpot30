@@ -42,8 +42,10 @@
 
 package org.netbeans.modules.jackpot30.ide.usages;
 
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
@@ -53,9 +55,11 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -65,6 +69,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import javax.swing.Action;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
@@ -108,7 +113,7 @@ import org.openide.util.lookup.InstanceContent;
  */
 public class Nodes {
 
-    public static Node constructSemiLogicalView(Iterable<? extends FileObject> filesWithOccurrences, ElementHandle<?> eh) {
+    public static Node constructSemiLogicalView(Iterable<? extends FileObject> filesWithOccurrences, ElementHandle<?> eh, Set<RemoteUsages.SearchOptions> options) {
         Map<Project, Collection<FileObject>> projects = new HashMap<Project, Collection<FileObject>>();
 
         for (FileObject file : filesWithOccurrences) {
@@ -135,13 +140,13 @@ public class Nodes {
         List<Node> nodes = new LinkedList<Node>();
 
         for (Project p : projects.keySet()) {
-            nodes.add(constructSemiLogicalView(p, projects.get(p), eh));
+            nodes.add(constructSemiLogicalView(p, projects.get(p), eh, options));
         }
 
         return new AbstractNode(new DirectChildren(nodes));
     }
 
-    private static Node constructSemiLogicalView(final Project p, final Iterable<? extends FileObject> files, ElementHandle<?> eh) {
+    private static Node constructSemiLogicalView(final Project p, final Iterable<? extends FileObject> files, ElementHandle<?> eh, Set<RemoteUsages.SearchOptions> options) {
         final LogicalViewProvider lvp = p.getLookup().lookup(LogicalViewProvider.class);
         final Node view;
 
@@ -156,7 +161,7 @@ public class Nodes {
             }
         }
 
-        return new Wrapper(view, new ComputeNodes(files, view, lvp, p), eh);
+        return new Wrapper(view, new ComputeNodes(files, view, lvp, p), eh, options);
     }
 
     private static Node locateChild(Node parent, LogicalViewProvider lvp, FileObject file) {
@@ -169,8 +174,8 @@ public class Nodes {
 
     private static class Wrapper extends FilterNode {
 
-        public Wrapper(Node orig, ComputeNodes fileNodes, ElementHandle<?> eh) {
-            super(orig, new WrapperChildren(orig, fileNodes, eh));
+        public Wrapper(Node orig, ComputeNodes fileNodes, ElementHandle<?> eh, Set<RemoteUsages.SearchOptions> options) {
+            super(orig, new WrapperChildren(orig, fileNodes, eh, options));
         }
 
         @Override
@@ -199,11 +204,13 @@ public class Nodes {
         private final Node orig;
         private final ComputeNodes fileNodes;
         private final ElementHandle<?> eh;
+        private final Set<RemoteUsages.SearchOptions> options;
 
-        public WrapperChildren(Node orig, ComputeNodes fileNodes, ElementHandle<?> eh) {
+        public WrapperChildren(Node orig, ComputeNodes fileNodes, ElementHandle<?> eh, Set<RemoteUsages.SearchOptions> options) {
             this.orig = orig;
             this.fileNodes = fileNodes;
             this.eh = eh;
+            this.options = options;
 
         }
 
@@ -233,11 +240,11 @@ public class Nodes {
         protected Node[] createNodes(Node key) {
             if (fileNodes.compute().contains(key)) {
                 FileObject file = key.getLookup().lookup(FileObject.class);
-                Children c = file != null ? Children.create(new UsagesChildren(file, eh), true) : Children.LEAF;
+                Children c = file != null ? Children.create(new UsagesChildren(file, eh, options), true) : Children.LEAF;
                 
                 return new Node[] {new FilterNode(key, c)}; //XXX
             }
-            return new Node[] {new Wrapper(key, fileNodes, eh)};
+            return new Node[] {new Wrapper(key, fileNodes, eh, options)};
         }
 
     }
@@ -266,17 +273,19 @@ public class Nodes {
 
         private final FileObject file;
         private final ElementHandle<?> eh;
+        private final Set<RemoteUsages.SearchOptions> options;
 
-        public UsagesChildren(FileObject file, ElementHandle<?> eh) {
+        public UsagesChildren(FileObject file, ElementHandle<?> eh, Set<RemoteUsages.SearchOptions> options) {
             this.file = file;
             this.eh = eh;
+            this.options = options;
         }
 
         @Override
         protected boolean createKeys(final List<Node> toPopulate) {
             List<Node> result = new ArrayList<Node>();
 
-            if (!computeOccurrences(file, eh, result)) {
+            if (!computeOccurrences(file, eh, options, result)) {
                 result.clear();
 
                 ClassPath source = ClassPath.getClassPath(file, ClassPath.SOURCE);
@@ -285,7 +294,7 @@ public class Nodes {
 
                 try {
                     SourceUtils.waitScanFinished();
-                    computeOccurrences(file, eh, result);
+                    computeOccurrences(file, eh, options, result);
                 } catch (InterruptedException ex) {
                     Exceptions.printStackTrace(ex);
                 } finally {
@@ -307,7 +316,7 @@ public class Nodes {
 
     }
 
-    static boolean computeOccurrences(FileObject file, final ElementHandle<?> eh, final List<Node> toPopulate) {
+    static boolean computeOccurrences(FileObject file, final ElementHandle<?> eh, final Set<RemoteUsages.SearchOptions> options, final List<Node> toPopulate) {
         final boolean[] success = new boolean[] {true};
 
         try {
@@ -324,45 +333,113 @@ public class Nodes {
                     final AtomicBoolean stop = new AtomicBoolean();
 
                     new CancellableTreePathScanner<Void, Void>(stop) {
-                        @Override public Void visitIdentifier(IdentifierTree node, Void p) {
-                            handleNode(node.getName(), getCurrentPath().getLeaf());
-                            return super.visitIdentifier(node, p);
-                        }
-                        @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
-                            handleNode(node.getIdentifier(), getCurrentPath().getLeaf());
-                            return super.visitMemberSelect(node, p);
-                        }
-                        @Override public Void visitNewClass(NewClassTree node, Void p) {
-                            Name simpleName = null;
-                            Tree name = node.getIdentifier();
+                                    @Override public Void visitIdentifier(IdentifierTree node, Void p) {
+                                        handleNode(node.getName(), getCurrentPath().getLeaf());
+                                        return super.visitIdentifier(node, p);
+                                    }
+                                    @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
+                                        handleNode(node.getIdentifier(), getCurrentPath().getLeaf());
+                                        return super.visitMemberSelect(node, p);
+                                    }
+                                    @Override public Void visitNewClass(NewClassTree node, Void p) {
+                                        Name simpleName = null;
+                                        Tree name = node.getIdentifier();
 
-                            OUTER: while (true) {
-                                switch (name.getKind()) {
-                                    case PARAMETERIZED_TYPE: name = ((ParameterizedTypeTree) name).getType(); break;
-                                    case MEMBER_SELECT: simpleName = ((MemberSelectTree) name).getIdentifier(); break OUTER;
-                                    case IDENTIFIER: simpleName = ((IdentifierTree) name).getName(); break OUTER;
-                                    default: name = node; break OUTER;
-                                }
-                            }
+                                        OUTER: while (true) {
+                                            switch (name.getKind()) {
+                                                case PARAMETERIZED_TYPE: name = ((ParameterizedTypeTree) name).getType(); break;
+                                                case MEMBER_SELECT: simpleName = ((MemberSelectTree) name).getIdentifier(); break OUTER;
+                                                case IDENTIFIER: simpleName = ((IdentifierTree) name).getName(); break OUTER;
+                                                default: name = node; break OUTER;
+                                            }
+                                        }
 
-                            handleNode(simpleName, name);
-                            return super.visitNewClass(node, p);
-                        }
-                        private void handleNode(Name simpleName, Tree toHighlight) {
-                            Element el = parameter.getTrees().getElement(getCurrentPath());
+                                        handleNode(simpleName, name);
+                                        return super.visitNewClass(node, p);
+                                    }
+                                    private void handleNode(Name simpleName, Tree toHighlight) {
+                                        if (!options.contains(RemoteUsages.SearchOptions.USAGES)) return;
+                                        Element el = parameter.getTrees().getElement(getCurrentPath());
 
-                            if (el == null || el.asType().getKind() == TypeKind.ERROR) {
-                                if (toFind.getSimpleName().equals(simpleName)) {
-                                    success[0] = false;
-                                    stop.set(true);
-                                    return; //TODO: should stop the computation altogether
-                                }
-                            }
-                            if (Nodes.equals(parameter, toFind, el)) {
-                                toPopulate.add(new OccurrenceNode(parameter, toHighlight));
-                            }
-                        }
-                    }.scan(parameter.getCompilationUnit(), null);
+                                        if (el == null || el.asType().getKind() == TypeKind.ERROR) {
+                                            if (toFind.getSimpleName().equals(simpleName)) {
+                                                success[0] = false;
+                                                stop.set(true);
+                                                return; //TODO: correct? what about the second pass?
+                                            }
+                                        }
+                                        if (Nodes.equals(parameter, toFind, el)) {
+                                            toPopulate.add(new OccurrenceNode(parameter, toHighlight));
+                                        }
+                                    }
+                                    @Override
+                                    public Void visitMethod(MethodTree node, Void p) {
+                                        if (options.contains(RemoteUsages.SearchOptions.SUB) && toFind.getKind() == ElementKind.METHOD) {
+                                            boolean found = false;
+                                            Element el = parameter.getTrees().getElement(getCurrentPath());
+
+                                            if (el != null && el.getKind() == ElementKind.METHOD) {
+                                                if (parameter.getElements().overrides((ExecutableElement) el, (ExecutableElement) toFind, (TypeElement) el.getEnclosingElement())) {
+                                                    toPopulate.add(new OccurrenceNode(parameter, node));
+                                                    found = true;
+                                                }
+                                            }
+
+                                            if (!found && el != null && el.getSimpleName().contentEquals(toFind.getSimpleName())) {
+                                                for (TypeMirror sup : superTypes((TypeElement) el.getEnclosingElement())) {
+                                                    if (sup.getKind() == TypeKind.ERROR) {
+                                                        success[0] = false;
+                                                        stop.set(true);
+                                                        return null; //TODO: correct? what about the second pass?
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        return super.visitMethod(node, p);
+                                    }
+                                    @Override
+                                    public Void visitClass(ClassTree node, Void p) {
+                                        if (options.contains(RemoteUsages.SearchOptions.SUB) && (toFind.getKind().isClass() || toFind.getKind().isInterface())) {
+                                            Element el = parameter.getTrees().getElement(getCurrentPath());
+                                            boolean wasError = false;
+
+                                            for (TypeMirror sup : superTypes((TypeElement) el)) {
+                                                if (sup.getKind() == TypeKind.ERROR) {
+                                                    wasError = true;
+                                                } else {
+                                                    if (toFind.equals(parameter.getTypes().asElement(sup))) {
+                                                        wasError = false;
+                                                        toPopulate.add(new OccurrenceNode(parameter, node));
+                                                        break;
+                                                    }
+                                                }
+                                            }
+
+                                            if (wasError) {
+                                                success[0] = false;
+                                                stop.set(true);
+                                                return null; //TODO: correct? what about the second pass?
+                                            }
+                                        }
+                                        
+                                        return super.visitClass(node, p);
+                                    }
+                                    private Set<TypeMirror> superTypes(TypeElement type) {
+                                        Set<TypeMirror> result = new HashSet<TypeMirror>();
+                                        List<TypeMirror> todo = new LinkedList<TypeMirror>();
+                                        
+                                        todo.add(type.asType());
+                                        
+                                        while (!todo.isEmpty()) {
+                                            List<? extends TypeMirror> directSupertypes = parameter.getTypes().directSupertypes(todo.remove(0));
+
+                                            todo.addAll(directSupertypes);
+                                            result.addAll(directSupertypes);
+                                        }
+
+                                        return result;
+                                    }
+                                }.scan(parameter.getCompilationUnit(), null);
                 }
             }, true);
         } catch (IOException ex) {
@@ -397,6 +474,8 @@ public class Nodes {
 
             switch (occurrence.getKind()) {
                 case MEMBER_SELECT: span = info.getTreeUtilities().findNameSpan((MemberSelectTree) occurrence); break;
+                case METHOD: span = info.getTreeUtilities().findNameSpan((MethodTree) occurrence); break;
+                case CLASS: span = info.getTreeUtilities().findNameSpan((ClassTree) occurrence); break;
                 default:
                     SourcePositions sp = info.getTrees().getSourcePositions();
 

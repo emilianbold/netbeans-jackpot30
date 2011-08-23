@@ -42,7 +42,10 @@
 package org.netbeans.modules.jackpot30.ide.usages;
 
 import com.sun.source.util.TreePath;
+import java.awt.BorderLayout;
+import java.awt.CardLayout;
 import java.awt.Dialog;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.File;
@@ -53,16 +56,32 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.swing.JButton;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
+import javax.swing.border.EmptyBorder;
 import javax.swing.text.JTextComponent;
+import org.codeviation.pojson.Pojson;
 import org.netbeans.api.editor.EditorRegistry;
 import org.netbeans.api.java.source.CompilationController;
+import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
+import org.netbeans.api.java.source.ui.ElementHeaders;
+import org.netbeans.api.java.source.ui.ScanDialog;
 import org.netbeans.modules.editor.NbEditorUtilities;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
@@ -101,15 +120,108 @@ public final class RemoteUsages implements ActionListener {
 
         final FileObject file = NbEditorUtilities.getFileObject(comp.getDocument());
         final int pos = comp.getCaretPosition();
+        final ElementDescription element = findElement(file, pos);
 
-        DialogDescriptor dd = new DialogDescriptor("Querying remote server(s), please wait", "Please Wait", true, new Object[0], null, DialogDescriptor.DEFAULT_ALIGN, null, null);
+        if (element == null) {
+            Message message = new NotifyDescriptor.Message("Cannot find usages of this element", NotifyDescriptor.Message.ERROR_MESSAGE);
+            DialogDisplayer.getDefault().notifyLater(message);
+            return ;
+        }
+
+        final Set<SearchOptions> options = EnumSet.noneOf(SearchOptions.class);
+        final JButton okButton = new JButton("OK");
+        JButton cancelButton = new JButton("Cancel");
+        JPanel dialogContent = constructDialog(element, options, okButton);
+
+        DialogDescriptor dd = new DialogDescriptor(dialogContent, "Remote Find Usages", true, new Object[] {okButton, cancelButton}, okButton, DialogDescriptor.DEFAULT_ALIGN, null, new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) { }
+        });
         final Dialog d = DialogDisplayer.getDefault().createDialog(dd);
 
-        WORKER.post(new FindUsagesWorker(file, pos, d));
+        final AtomicBoolean cancel = new AtomicBoolean();
+
+        okButton.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                okButton.setEnabled(false);
+                WORKER.post(new FindUsagesWorker(options.contains(SearchOptions.FROM_BASE) ? element.superMethod : element.element, options, d, cancel));
+            }
+        });
+
+        cancelButton.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                cancel.set(true);
+                d.setVisible(false);
+            }
+        });
 
         d.setVisible(true);
     }
 
+    private static ElementDescription findElement(final FileObject file, final int pos) {
+        final ElementDescription[] handle = new ElementDescription[1];
+
+        final JavaSource js = JavaSource.forFileObject(file);
+
+        ScanDialog.runWhenScanFinished(new Runnable() {
+            @Override public void run() {
+                try {
+                    js.runUserActionTask(new Task<CompilationController>() {
+                        @Override public void run(CompilationController parameter) throws Exception {
+                            parameter.toPhase(JavaSource.Phase.RESOLVED);
+
+                            TreePath tp = parameter.getTreeUtilities().pathFor(pos);
+                            Element el = parameter.getTrees().getElement(tp);
+
+                            if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
+                                handle[0] = new ElementDescription(parameter, el);
+                            }
+                        }
+                    }, true);
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+
+        }, "Find Remote Usages");
+
+        return handle[0];
+    }
+
+    private JPanel constructDialog(ElementDescription toSearch, Set<SearchOptions> options, JButton ok) {
+        JPanel searchKind;
+
+        switch (toSearch.element.getKind()) {
+            case METHOD: searchKind = new MethodOptions(toSearch, options); break;
+            case CLASS:
+            case INTERFACE:
+            case ANNOTATION_TYPE: searchKind = new ClassOptions(options); break;
+            default: searchKind = new JPanel(); break;
+        }
+        
+        final JPanel progress = new JPanel();
+
+        progress.setLayout(new CardLayout());
+        progress.add(new JPanel(), "hide");
+        progress.add(new JLabel("Querying remote server(s), please wait"), "show");
+
+        ok.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                ((CardLayout) progress.getLayout()).show(progress, "show");
+            }
+        });
+
+        JPanel result = new JPanel();
+
+        result.setLayout(new BorderLayout());
+        result.setBorder(new EmptyBorder(new Insets(12, 12, 12, 12)));
+
+        result.add(new JLabel(toSearch.displayName), BorderLayout.NORTH);
+        result.add(searchKind, BorderLayout.CENTER);
+        result.add(progress, BorderLayout.SOUTH);
+
+        return result;
+    }
+    
     //XXX:
     public static String serialize(ElementHandle<?> h) {
         StringBuilder result = new StringBuilder();
@@ -140,65 +252,140 @@ public final class RemoteUsages implements ActionListener {
         return result.toString();
     }
 
-    private static class FindUsagesWorker implements Runnable, Cancellable {
+    public static final class ElementDescription {
+        public final ElementHandle<?> element;
+        public final String displayName;
+        public final ElementHandle<?> superMethod;
+        public final String superMethodDisplayName;
 
-        private final FileObject file;
-        private final int pos;
+        public ElementDescription(CompilationInfo info, Element el) {
+            this.displayName = displayNameForElement(el, info);
+
+            if (el.getKind() == ElementKind.METHOD) {
+                ExecutableElement base = (ExecutableElement) el;
+
+                while (true) {
+                    ExecutableElement current = info.getElementUtilities().getOverriddenMethod(base);
+
+                    if (current == null) break;
+
+                    base = current;
+                }
+
+                if (base != el) {
+                    superMethod = ElementHandle.create(base);
+                    superMethodDisplayName = displayNameForElement(base, info);
+                } else {
+                    superMethod = null;
+                    superMethodDisplayName = null;
+                }
+            } else {
+                superMethod = null;
+                superMethodDisplayName = null;
+            }
+
+            element = ElementHandle.create(el);
+        }
+
+        private String displayNameForElement(Element el, CompilationInfo info) throws UnsupportedOperationException {
+            switch (el.getKind()) {
+                case METHOD:
+                    return "<html>Method <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME + ElementHeaders.PARAMETERS) + "</b> of class <b>" + ElementHeaders.getHeader(el.getEnclosingElement(), info, ElementHeaders.NAME);
+                case CONSTRUCTOR:
+                    return "<html>Constructor <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME + ElementHeaders.PARAMETERS) + "</b> of class <b>" + ElementHeaders.getHeader(el.getEnclosingElement(), info, ElementHeaders.NAME);
+                case CLASS:
+                case INTERFACE:
+                case ENUM:
+                case ANNOTATION_TYPE:
+                    return "<html>Type <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME);
+                case FIELD:
+                case ENUM_CONSTANT:
+                    return "<html>Field <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME) + " of class " + ElementHeaders.getHeader(el.getEnclosingElement(), info, ElementHeaders.NAME);
+                default:
+                    throw new UnsupportedOperationException();
+            }
+        }
+
+    }
+
+    private static class FindUsagesWorker implements Runnable, Cancellable {
+        
+        private final ElementHandle<?> toSearch;
+        private final Set<SearchOptions> options;
         private final Dialog d;
         private final AtomicBoolean cancel;
 
-        public FindUsagesWorker(FileObject file, int pos, Dialog d) {
-            this.file = file;
-            this.pos = pos;
+        public FindUsagesWorker(ElementHandle<?> toSearch, Set<SearchOptions> options, Dialog d, AtomicBoolean cancel) {
+            this.toSearch = toSearch;
+            this.options = options;
             this.d = d;
-            this.cancel = new AtomicBoolean();
+            this.cancel = cancel;
         }
 
         @Override public void run() {
             try {
-                final ElementHandle<?>[] handle = new ElementHandle<?>[1];
-                final String[] serialized = new String[1];
+                final String serialized = serialize(toSearch);
 
-                JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
-                    @Override public void run(CompilationController parameter) throws Exception {
-                        parameter.toPhase(JavaSource.Phase.RESOLVED);
-
-                        TreePath tp = parameter.getTreeUtilities().pathFor(pos);
-                        Element el = parameter.getTrees().getElement(tp);
-
-                        if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
-                            serialized[0] = serialize(handle[0] = ElementHandle.create(el));
-                        }
-                    }
-                }, true);
-
-                if (serialized[0] == null) return ; //XXX: warn user!
-
+                Set<FileObject> resultSet = new HashSet<FileObject>();
                 List<FileObject> result = new ArrayList<FileObject>();
 
                 for (RemoteIndex idx : RemoteIndex.loadIndices()) {
                     FileObject localFolder = URLMapper.findFileObject(idx.getLocalFolder());
-                    URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized[0]));
-                    Collection<? extends String> response = WebUtilities.requestStringArrayResponse(resolved, cancel);
 
-                    if (cancel.get()) return;
-                    if (response == null) continue;
-                    
-                    for (String path : response) {
-                        result.add(localFolder.getFileObject(path));
+                    if (options.contains(SearchOptions.USAGES)) {
+                        URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized));
+                        Collection<? extends String> response = WebUtilities.requestStringArrayResponse(resolved, cancel);
+
+                        if (cancel.get()) return;
+                        if (response == null) continue;
+
+                        for (String path : response) {
+                            FileObject file = localFolder.getFileObject(path);
+
+                            if (resultSet.add(file)) {
+                                result.add(file);
+                            }
+                        }
+                    }
+
+                    if (options.contains(SearchOptions.SUB)) {
+                        URI resolved;
+                        if (toSearch.getKind() == ElementKind.METHOD) {
+                            resolved = new URI(idx.remote.toExternalForm() + "/implements/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&method=" + WebUtilities.escapeForQuery(serialized));
+                        } else {
+                            resolved = new URI(idx.remote.toExternalForm() + "/implements/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&type=" + WebUtilities.escapeForQuery(toSearch.getBinaryName()));
+                        }
+
+                        String response = WebUtilities.requestStringResponse(resolved, cancel);
+
+                        if (cancel.get()) return;
+                        if (response == null) continue;
+
+                        //XXX:
+                        Map<String, List<Map<String, String>>> formattedResponse = Pojson.load(LinkedHashMap.class, response);
+
+                        for (Entry<String, List<Map<String, String>>> e : formattedResponse.entrySet()) {
+                            for (Map<String, String> p : e.getValue()) {
+                                FileObject file = localFolder.getFileObject(p.get("file"));
+
+                                if (resultSet.add(file)) {
+                                    result.add(file);
+                                }
+                            }
+                        }
                     }
                 }
 
-                final Node view = Nodes.constructSemiLogicalView(result, handle[0]);
+                final Node view = Nodes.constructSemiLogicalView(result, toSearch, options);
 
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override public void run() {
-                        RemoteUsagesWindowTopComponent.openFor(view);
-                    }
-                });
+                if (!cancel.get()) {
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override public void run() {
+                            RemoteUsagesWindowTopComponent.openFor(view);
+                        }
+                    });
+                }
             } catch (URISyntaxException ex) {
-                Exceptions.printStackTrace(ex);
-            } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
             } finally {
                 cancel.set(true);
@@ -214,5 +401,11 @@ public final class RemoteUsages implements ActionListener {
             cancel.set(true);
             return true;
         }
+    }
+
+    public enum SearchOptions {
+        USAGES,
+        SUB,
+        FROM_BASE;
     }
 }
