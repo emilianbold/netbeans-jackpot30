@@ -105,7 +105,10 @@ public class RemoteIndex {
             try {
                 for (String key : prefs.keys()) {
                     if (key.startsWith("index")) {
-                        result.add(Pojson.load(RemoteIndex.class, prefs.get(key, null)));
+                        RemoteIndex idx = Pojson.load(RemoteIndex.class, prefs.get(key, null));
+
+                        if (includeAll || idx.enabled)
+                            result.add(idx);
                     }
                 }
             } catch (BackingStoreException ex) {
