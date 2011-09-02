@@ -54,6 +54,8 @@ import java.awt.Image;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -137,12 +139,18 @@ public class Nodes {
 
         projects.remove(null);//XXX!!!XXX
 
-        List<Node> nodes = new LinkedList<Node>();
+        List<Node> nodes = new ArrayList<Node>(projects.size());
 
         for (Project p : projects.keySet()) {
             nodes.add(constructSemiLogicalView(p, projects.get(p), eh, options));
         }
 
+        Collections.sort(nodes, new Comparator<Node>() {
+            @Override public int compare(Node o1, Node o2) {
+                return o1.getDisplayName().compareToIgnoreCase(o2.getDisplayName());
+            }
+        });
+        
         return new AbstractNode(new DirectChildren(nodes));
     }
 
