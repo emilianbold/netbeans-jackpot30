@@ -41,12 +41,11 @@
  */
 package org.netbeans.modules.jackpot30.ide.usages;
 
-import java.lang.reflect.Field;
 import java.util.EnumSet;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
 import org.netbeans.api.java.source.ElementHandle;
-import org.openide.util.Exceptions;
+import org.netbeans.api.java.source.SourceUtils;
 
 /**XXX: Copied between indexing and ide!
  *
@@ -64,25 +63,11 @@ public class Common {
 
         result.append(h.getKind());
 
-        try {
-            Field signaturesField = ElementHandle.class.getDeclaredField("signatures");
+        String[] signatures = SourceUtils.getJVMSignature(h);
 
-            signaturesField.setAccessible(true);
-
-            String[] signatures = (String[]) signaturesField.get(h);
-
-            for (String sig : signatures) {
-                result.append(":");
-                result.append(sig);
-            }
-        } catch (IllegalArgumentException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (IllegalAccessException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (NoSuchFieldException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (SecurityException ex) {
-            Exceptions.printStackTrace(ex);
+        for (String sig : signatures) {
+            result.append(":");
+            result.append(sig);
         }
 
         return result.toString();

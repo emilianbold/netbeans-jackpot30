@@ -48,12 +48,9 @@ import java.awt.Dialog;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -94,7 +91,6 @@ import org.openide.awt.ActionReference;
 import org.openide.awt.ActionReferences;
 import org.openide.awt.ActionID;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.nodes.Node;
 import org.openide.util.Cancellable;
@@ -222,36 +218,6 @@ public final class RemoteUsages implements ActionListener {
         return result;
     }
     
-    //XXX:
-    public static String serialize(ElementHandle<?> h) {
-        StringBuilder result = new StringBuilder();
-
-        result.append(h.getKind());
-
-        try {
-            Field signaturesField = ElementHandle.class.getDeclaredField("signatures");
-
-            signaturesField.setAccessible(true);
-
-            String[] signatures = (String[]) signaturesField.get(h);
-
-            for (String sig : signatures) {
-                result.append(":");
-                result.append(sig);
-            }
-        } catch (IllegalArgumentException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (IllegalAccessException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (NoSuchFieldException ex) {
-            Exceptions.printStackTrace(ex);
-        } catch (SecurityException ex) {
-            Exceptions.printStackTrace(ex);
-        }
-
-        return result.toString();
-    }
-
     public static final class ElementDescription {
         public final ElementHandle<?> element;
         public final String displayName;
@@ -324,7 +290,7 @@ public final class RemoteUsages implements ActionListener {
 
         @Override public void run() {
             try {
-                final String serialized = serialize(toSearch);
+                final String serialized = Common.serialize(toSearch);
 
                 Set<FileObject> resultSet = new HashSet<FileObject>();
                 List<FileObject> result = new ArrayList<FileObject>();
