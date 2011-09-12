@@ -46,6 +46,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Map;
@@ -192,7 +193,11 @@ public class OptionProcessorImpl extends OptionProcessor {
 
             for (String segment : in.stringPropertyNames()) {
                 String url = in.getProperty(segment);
-                String rel = url.startsWith(baseDirPath) ? "rel:/" + url.substring(baseDirPath.length()) : url;
+                String rel;
+                
+                if (url.startsWith(baseDirPath)) rel = "rel:/" + url.substring(baseDirPath.length());
+                else if (url.startsWith("jar:" + baseDirPath)) rel = "jar:rel:/" + url.substring(4 + baseDirPath.length());
+                else rel = url;
 
                 outSegments.setProperty(segment, rel);
             }
@@ -204,6 +209,23 @@ public class OptionProcessorImpl extends OptionProcessor {
             out.putNextEntry(new ZipEntry(categoryId + "/info"));
 
             out.write(("{ \"displayName\": \"" + categoryName + "\" }").getBytes("UTF-8"));
+
+            for (FileObject s : cacheFolder.getChildren()) {
+                if (!s.isFolder() || !s.getNameExt().startsWith("s")) continue;
+
+                JarOutputStream local = null;
+                try {
+                    out.putNextEntry(new ZipEntry(categoryId + "/" + s.getNameExt()));
+
+                    local = new JarOutputStream(out);
+
+                    pack(local, s, s.getNameExt(), new StringBuilder(categoryId));
+                } finally {
+                    if (local != null) {
+                        local.finish();
+                    }
+                }
+            }
         } catch (IOException ex) {
             LOG.log(Level.FINE, null, ex);
             throw (CommandException) new CommandException(0).initCause(ex);

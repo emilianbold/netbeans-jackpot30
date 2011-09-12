@@ -171,7 +171,7 @@ public class CategoryStorage {
 
         for (URL srcRoot : getCategoryIndexFolders()) {
             if (!"rel".equals(srcRoot.getProtocol())) continue;
-            result.add(srcRoot.getPath().substring(1));
+                result.add(srcRoot.getPath().substring(1));
         }
 
         return result;
@@ -211,5 +211,49 @@ public class CategoryStorage {
         } catch (IOException ex) {
             throw new IllegalStateException(ex);
         }
+    }
+
+    public File getSegment(String relPath) {
+        try {
+            FileObject root = getCacheRoot();
+            CacheFolder.setCacheFolder(root);
+            Set<URL> result = new HashSet<URL>();
+
+            CacheFolder.getDataFolder(new URL("file:/"), true);
+
+            //XXX:
+            Field invertedSegmentsField = CacheFolder.class.getDeclaredField("invertedSegments");
+
+            invertedSegmentsField.setAccessible(true);
+
+            @SuppressWarnings("unchecked")
+            Map<String, String> invertedSegments = (Map<String, String>) invertedSegmentsField.get(null);
+            String segment = invertedSegments.get(relPath);
+
+            if (segment == null) {
+                segment = invertedSegments.get("rel:/" + relPath);
+            }
+
+            if (segment == null) {
+                segment = invertedSegments.get("rel:/" + relPath + "/");
+            }
+            
+            if (segment != null) {
+                return new File(new File(cacheRoot, id), segment);
+            } else {
+                return null;
+            }
+        } catch (IllegalArgumentException ex) {
+            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IllegalAccessException ex) {
+            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (NoSuchFieldException ex) {
+            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (SecurityException ex) {
+            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
+        } catch (IOException ex) {
+            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        return null;
     }
 }
