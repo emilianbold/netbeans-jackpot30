@@ -211,7 +211,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             out.write(("{ \"displayName\": \"" + categoryName + "\" }").getBytes("UTF-8"));
 
             for (FileObject s : cacheFolder.getChildren()) {
-                if (!s.isFolder() || !s.getNameExt().startsWith("s") || !containsAFile(s)) continue;
+                if (!s.isFolder() || !s.getNameExt().startsWith("s") || s.getChildren().length == 0) continue;
 
                 JarOutputStream local = null;
                 try {
@@ -219,7 +219,7 @@ public class OptionProcessorImpl extends OptionProcessor {
 
                     local = new JarOutputStream(out);
 
-                    pack(local, s, s.getNameExt(), new StringBuilder(categoryId));
+                    pack(local, s, "", new StringBuilder(""));
                 } finally {
                     if (local != null) {
                         local.finish();
@@ -324,14 +324,13 @@ public class OptionProcessorImpl extends OptionProcessor {
         if (!first) relPath.append("/");
         relPath.append(name);
 
-        for (FileObject c : index.getChildren()) {
-            if (first && c.getNameExt().equals("segments")) continue;
-            pack(target, c, c.getNameExt(), relPath);
+        boolean data = index.isData();
+
+        if (relPath.length() > 0) {
+            target.putNextEntry(new ZipEntry(relPath.toString() + (data ? "" : "/")));
         }
 
-        if (index.isData()) {
-            target.putNextEntry(new ZipEntry(relPath.toString()));
-
+        if (data) {
             InputStream in = index.getInputStream();
 
             try {
@@ -341,16 +340,12 @@ public class OptionProcessorImpl extends OptionProcessor {
             }
         }
 
+        for (FileObject c : index.getChildren()) {
+            if (first && c.getNameExt().equals("segments")) continue;
+            pack(target, c, c.getNameExt(), relPath);
+        }
+
         relPath.delete(len, relPath.length());
     }
 
-    private static boolean containsAFile(FileObject root) {
-        if (root.isData()) return true;
-
-        for (FileObject c : root.getChildren()) {
-            if (containsAFile(c)) return true;
-        }
-
-        return false;
-    }
 }
