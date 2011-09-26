@@ -61,7 +61,7 @@ public class DownloadableIndex {
         CategoryStorage category = CategoryStorage.forId(segment);
         final File idx = category.getSegment(root);
 
-        if (idx == null) return Response.status(Response.Status.NOT_FOUND).build();
+        if (idx == null || !idx.canRead()) return Response.status(Response.Status.NOT_FOUND).build();
         
         return Response.ok().entity(new StreamingOutput() {
             @Override public void write(OutputStream output) throws IOException, WebApplicationException {
