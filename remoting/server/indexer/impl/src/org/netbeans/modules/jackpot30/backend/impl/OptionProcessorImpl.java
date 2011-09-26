@@ -211,7 +211,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             out.write(("{ \"displayName\": \"" + categoryName + "\" }").getBytes("UTF-8"));
 
             for (FileObject s : cacheFolder.getChildren()) {
-                if (!s.isFolder() || !s.getNameExt().startsWith("s")) continue;
+                if (!s.isFolder() || !s.getNameExt().startsWith("s") || !containsAFile(s)) continue;
 
                 JarOutputStream local = null;
                 try {
@@ -342,5 +342,15 @@ public class OptionProcessorImpl extends OptionProcessor {
         }
 
         relPath.delete(len, relPath.length());
+    }
+
+    private static boolean containsAFile(FileObject root) {
+        if (root.isData()) return true;
+
+        for (FileObject c : root.getChildren()) {
+            if (containsAFile(c)) return true;
+        }
+
+        return false;
     }
 }
