@@ -1,4 +1,0 @@
-   return $expr;
-=> return $o != $t; :: matchesWithBind($expr, "$o == $t")
-=> return $t == $o; :: matchesWithBind($expr, "$t != $o")
-;;
