@@ -40,7 +40,7 @@
 package org.netbeans.modules.jackpot30.hintsimpl;
 
 import junit.framework.TestSuite;
-import org.netbeans.modules.jackpot30.file.test.spi.DeclarativeHintsTestBase;
+import org.netbeans.modules.java.hints.declarative.test.api.DeclarativeHintsTestBase;
 
 /**
  *
