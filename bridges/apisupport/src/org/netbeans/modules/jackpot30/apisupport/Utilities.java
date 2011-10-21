@@ -39,6 +39,7 @@
 
 package org.netbeans.modules.jackpot30.apisupport;
 
+import org.netbeans.modules.java.hints.jackpot.spi.ProjectDependencyUpgrader;
 import org.openide.modules.SpecificationVersion;
 
 /**
@@ -46,6 +47,8 @@ import org.openide.modules.SpecificationVersion;
  * @author lahvac
  */
 public class Utilities {
+
+    public static final ProjectDependencyUpgrader UPGRADER = Boolean.getBoolean("jackpot.upgrade.apisupport.use.api") ? new APIProjectDependencyUpgraderImpl() : new HackyProjectDependencyUpgraderImpl();
 
     public static ParsedDependency parseDependency(String spec) {
         String cnb;

@@ -57,8 +57,7 @@ import org.openide.util.lookup.ServiceProvider;
  *
  * @author lahvac
  */
-@ServiceProvider(service=ProjectDependencyUpgrader.class)
-public class ProjectDependencyUpgraderImpl extends ProjectDependencyUpgrader {
+public class HackyProjectDependencyUpgraderImpl extends ProjectDependencyUpgrader {
 
     public boolean ensureDependency(Project currentProject, FileObject depFO, SpecificationVersion spec, final boolean canShowUI) {
         File lib = InstalledFileLocator.getDefault().locate("modules/ext/org-netbeans-modules-jackpot30-apisupport.jar", null, false);
