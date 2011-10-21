@@ -15,6 +15,9 @@
                     <code-name-base>org.netbeans.modules.apisupport.project</code-name-base>
                     <build-prerequisite/>
                     <compile-dependency/>
+                </dependency>
+                <dependency>
+                    <code-name-base>org.netbeans.modules.apisupport.project</code-name-base>
                     <run-dependency>
                         <release-version>1</release-version>
                     </run-dependency>
