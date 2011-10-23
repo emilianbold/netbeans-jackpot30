@@ -320,7 +320,7 @@ public class IndexerImpl extends CustomIndexer {
             boolean wasClass = false;
             
             for (TypeMirror tm : tpe.getBounds()) {
-                assert tm.getKind() == TypeKind.DECLARED;
+                assert tm.getKind() == TypeKind.DECLARED : String.valueOf(tm);
                 
                 if (!((DeclaredType) tm).asElement().getKind().isClass() && !wasClass) {
                     result.append(":Ljava/lang/Object;");
