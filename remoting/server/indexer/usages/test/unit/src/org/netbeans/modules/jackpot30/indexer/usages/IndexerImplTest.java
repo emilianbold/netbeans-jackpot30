@@ -116,7 +116,7 @@ public class IndexerImplTest extends NbTestCase {
 
                 ExecutableElement method = ElementFilter.methodsIn(parameter.getTopLevelElements().get(0).getEnclosedElements()).iterator().next();
 
-                assertEquals(signature, IndexerImpl.methodTypeSignature(parameter, method));
+                assertEquals(signature, IndexerImpl.methodTypeSignature(parameter.getElements(), method));
                 invoked[0] = true;
             }
         }, true);

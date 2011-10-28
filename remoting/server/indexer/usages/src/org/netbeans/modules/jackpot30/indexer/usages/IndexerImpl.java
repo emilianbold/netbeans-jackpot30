@@ -42,16 +42,18 @@
 package org.netbeans.modules.jackpot30.indexer.usages;
 
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.Trees;
 import java.io.IOException;
+import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -70,224 +72,192 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
+import javax.lang.model.util.Elements;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.index.CorruptIndexException;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
-import org.netbeans.api.java.source.ClasspathInfo;
-import org.netbeans.api.java.source.CompilationController;
-import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.ElementHandle;
-import org.netbeans.api.java.source.JavaSource;
-import org.netbeans.api.java.source.JavaSource.Phase;
-import org.netbeans.api.java.source.Task;
+import org.netbeans.api.java.source.ElementUtilities;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
+import org.netbeans.modules.java.preprocessorbridge.spi.JavaIndexerPlugin;
 import org.netbeans.modules.java.source.usages.ClassFileUtil;
-import org.netbeans.modules.parsing.spi.indexing.Context;
-import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
-import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
+import org.openide.util.Lookup;
 
 /**
  *
  * @author lahvac
  */
-public class IndexerImpl extends CustomIndexer {
+public class IndexerImpl implements JavaIndexerPlugin {
 
     private static final String KEY_SIGNATURES = "signatures";
-    
-    @Override
-    protected void index(Iterable<? extends Indexable> files, Context context) {
-        Collection<FileObject> toIndex = new LinkedList<FileObject>(); //XXX: better would be to use File
 
-        for (Indexable i : files) {
-            FileObject f = URLMapper.findFileObject(i.getURL());
+    private final URL root;
 
-            if (f != null) {
-                toIndex.add(f);
-            }
-        }
-
-        if (toIndex.isEmpty()) {
-            return ;
-        }
-
-        doIndex(context, toIndex, Collections.<String>emptyList());
+    public IndexerImpl(URL root) {
+        this.root = root;
     }
 
-    public static void doIndex(final Context context, Collection<? extends FileObject> toIndex, Iterable<? extends String> deleted) {
-        if (toIndex.isEmpty() && !deleted.iterator().hasNext()) {
-            return ;
-        }
-
+    @Override
+    public void process(CompilationUnitTree toProcess, Indexable indexable, Lookup services) {
         try {
-            ClasspathInfo cpInfo = ClasspathInfo.create(context.getRoot());
+            final String file = IndexAccessor.getCurrent().getPath(indexable.getURL());
+            final Trees trees = services.lookup(Trees.class);
+            final Elements elements = services.lookup(Elements.class);
+            final ElementUtilities eu = services.lookup(ElementUtilities.class);
+            final Document usages = new Document();
 
-            for (String path : deleted) {
-                assert false;
-            }
+            usages.add(new Field("file", file, Store.YES, Index.NO));
 
-            if (!toIndex.isEmpty()) {
-                JavaSource.create(cpInfo, toIndex).runUserActionTask(new Task<CompilationController>() {
-                    public void run(final CompilationController cc) throws Exception {
-                        if (cc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0)
-                            return ;
+            new TreePathScanner<Void, Void>() {
+                private final Set<String> SEEN_SIGNATURES = new HashSet<String>();
+                @Override public Void visitIdentifier(IdentifierTree node, Void p) {
+                    handleNode();
+                    return super.visitIdentifier(node, p);
+                }
+                @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
+                    handleNode();
+                    return super.visitMemberSelect(node, p);
+                }
+                @Override public Void visitNewClass(NewClassTree node, Void p) {
+                    handleNode();
+                    return super.visitNewClass(node, p);
+                }
+                private void handleNode() {
+                    Element el = trees.getElement(getCurrentPath());
 
-                        final String file = IndexAccessor.getCurrent().getPath(cc.getFileObject());
-                        final Document usages = new Document();
+                    if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
+                        String serialized = Common.serialize(ElementHandle.create(el));
 
-                        usages.add(new Field("file", file, Store.YES, Index.NO));
-                        
-                        new TreePathScanner<Void, Void>() {
-                            private final Set<String> SEEN_SIGNATURES = new HashSet<String>();
-                            @Override public Void visitIdentifier(IdentifierTree node, Void p) {
-                                handleNode();
-                                return super.visitIdentifier(node, p);
-                            }
-                            @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
-                                handleNode();
-                                return super.visitMemberSelect(node, p);
-                            }
-                            @Override public Void visitNewClass(NewClassTree node, Void p) {
-                                handleNode();
-                                return super.visitNewClass(node, p);
-                            }
-                            private void handleNode() {
-                                Element el = cc.getTrees().getElement(getCurrentPath());
+                        if (SEEN_SIGNATURES.add(serialized)) {
+                            usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
+                        }
 
-                                if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
-                                    String serialized = Common.serialize(ElementHandle.create(el));
+                        if (el.getKind() == ElementKind.METHOD) {
+                            for (ExecutableElement e : overrides(eu, (ExecutableElement) el)) {
+                                serialized = Common.serialize(ElementHandle.create(e));
 
-                                    if (SEEN_SIGNATURES.add(serialized)) {
-                                        usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
-                                    }
-
-                                    if (el.getKind() == ElementKind.METHOD) {
-                                        for (ExecutableElement e : overrides(cc, (ExecutableElement) el)) {
-                                            serialized = Common.serialize(ElementHandle.create(e));
-
-                                            if (SEEN_SIGNATURES.add(serialized)) {
-                                                usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
-                                            }
-                                        }
-                                    }
+                                if (SEEN_SIGNATURES.add(serialized)) {
+                                    usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
                                 }
                             }
-
-                            private String currentClassFQN;
-                            @Override public Void visitClass(ClassTree node, Void p) {
-                                String oldClassFQN = currentClassFQN;
-                                boolean oldInMethod = inMethod;
-
-                                try {
-                                    Element el = cc.getTrees().getElement(getCurrentPath());
-
-                                    if (el != null) {
-                                        try {
-                                            TypeElement tel = (TypeElement) el;
-                                            currentClassFQN = cc.getElements().getBinaryName(tel).toString();
-                                            Document currentClassDocument = new Document();
-
-                                            currentClassDocument.add(new Field("classFQN", currentClassFQN, Store.YES, Index.NO));
-                                            currentClassDocument.add(new Field("classSimpleName", node.getSimpleName().toString(), Store.YES, Index.NOT_ANALYZED));
-                                            currentClassDocument.add(new Field("classSimpleNameLower", node.getSimpleName().toString().toLowerCase(), Store.YES, Index.NOT_ANALYZED));
-
-                                            recordSuperTypes(currentClassDocument, tel, new HashSet<String>(Arrays.asList(tel.getQualifiedName().toString())));
-
-                                            currentClassDocument.add(new Field("file", file, Store.YES, Index.NO));
-
-                                            IndexAccessor.getCurrent().getIndexWriter().addDocument(currentClassDocument);
-                                        } catch (CorruptIndexException ex) {
-                                            Exceptions.printStackTrace(ex);
-                                        } catch (IOException ex) {
-                                            Exceptions.printStackTrace(ex);
-                                        }
-                                    }
-
-                                    inMethod = false;
-
-                                    return super.visitClass(node, p);
-                                } finally {
-                                    currentClassFQN = oldClassFQN;
-                                    inMethod = oldInMethod;
-                                }
-                            }
-
-                            private boolean inMethod;
-                            @Override public Void visitMethod(MethodTree node, Void p) {
-                                boolean oldInMethod = inMethod;
-
-                                try {
-                                    handleFeature();
-                                    inMethod = true;
-                                    return super.visitMethod(node, p);
-                                } finally {
-                                    inMethod = oldInMethod;
-                                }
-                            }
-
-                            @Override public Void visitVariable(VariableTree node, Void p) {
-                                if (!inMethod)
-                                    handleFeature();
-                                return super.visitVariable(node, p);
-                            }
-
-                            public void handleFeature() {
-                                Element el = cc.getTrees().getElement(getCurrentPath());
-
-                                if (el != null) {
-                                    try {
-                                        Document currentFeatureDocument = new Document();
-
-                                        currentFeatureDocument.add(new Field("featureClassFQN", currentClassFQN, Store.YES, Index.NO));
-                                        currentFeatureDocument.add(new Field("featureSimpleName", el.getSimpleName().toString(), Store.YES, Index.NOT_ANALYZED));
-                                        currentFeatureDocument.add(new Field("featureSimpleNameLower", el.getSimpleName().toString().toLowerCase(), Store.YES, Index.NOT_ANALYZED));
-                                        currentFeatureDocument.add(new Field("featureKind", el.getKind().name(), Store.YES, Index.NO));
-                                        for (Modifier m : el.getModifiers()) {
-                                            currentFeatureDocument.add(new Field("featureModifiers", m.name(), Store.YES, Index.NO));
-                                        }
-                                        currentFeatureDocument.add(new Field("file", file, Store.YES, Index.NO));
-
-                                        if (el.getKind() == ElementKind.METHOD || el.getKind() == ElementKind.CONSTRUCTOR) {
-                                            String featureSignature = methodTypeSignature(cc, (ExecutableElement) el);
-                                            
-                                            currentFeatureDocument.add(new Field("featureSignature", featureSignature, Store.YES, Index.NO));
-                                            currentFeatureDocument.add(new Field("featureVMSignature", ClassFileUtil.createExecutableDescriptor((ExecutableElement) el)[2], Store.YES, Index.NO));
-
-                                            for (ExecutableElement e : overrides(cc, (ExecutableElement) el)) {
-                                                currentFeatureDocument.add(new Field("featureOverrides", Common.serialize(ElementHandle.create(e)), Store.YES, Index.NOT_ANALYZED));
-                                            }
-                                        }
-
-                                        IndexAccessor.getCurrent().getIndexWriter().addDocument(currentFeatureDocument);
-                                    } catch (CorruptIndexException ex) {
-                                        Exceptions.printStackTrace(ex);
-                                    } catch (IOException ex) {
-                                        Exceptions.printStackTrace(ex);
-                                    }
-                                }
-                            }
-                        }.scan(cc.getCompilationUnit(), null);
-
-                        IndexAccessor.getCurrent().getIndexWriter().addDocument(usages);
+                        }
                     }
-                }, true);
-            }
+                }
+
+                private String currentClassFQN;
+                @Override public Void visitClass(ClassTree node, Void p) {
+                    String oldClassFQN = currentClassFQN;
+                    boolean oldInMethod = inMethod;
+
+                    try {
+                        Element el = trees.getElement(getCurrentPath());
+
+                        if (el != null) {
+                            try {
+                                TypeElement tel = (TypeElement) el;
+                                currentClassFQN = elements.getBinaryName(tel).toString();
+                                Document currentClassDocument = new Document();
+
+                                currentClassDocument.add(new Field("classFQN", currentClassFQN, Store.YES, Index.NO));
+                                currentClassDocument.add(new Field("classSimpleName", node.getSimpleName().toString(), Store.YES, Index.NOT_ANALYZED));
+                                currentClassDocument.add(new Field("classSimpleNameLower", node.getSimpleName().toString().toLowerCase(), Store.YES, Index.NOT_ANALYZED));
+
+                                recordSuperTypes(currentClassDocument, tel, new HashSet<String>(Arrays.asList(tel.getQualifiedName().toString())));
+
+                                currentClassDocument.add(new Field("file", file, Store.YES, Index.NO));
+
+                                IndexAccessor.getCurrent().getIndexWriter().addDocument(currentClassDocument);
+                            } catch (CorruptIndexException ex) {
+                                Exceptions.printStackTrace(ex);
+                            } catch (IOException ex) {
+                                Exceptions.printStackTrace(ex);
+                            }
+                        }
+
+                        inMethod = false;
+
+                        return super.visitClass(node, p);
+                    } finally {
+                        currentClassFQN = oldClassFQN;
+                        inMethod = oldInMethod;
+                    }
+                }
+
+                private boolean inMethod;
+                @Override public Void visitMethod(MethodTree node, Void p) {
+                    boolean oldInMethod = inMethod;
+
+                    try {
+                        handleFeature();
+                        inMethod = true;
+                        return super.visitMethod(node, p);
+                    } finally {
+                        inMethod = oldInMethod;
+                    }
+                }
+
+                @Override public Void visitVariable(VariableTree node, Void p) {
+                    if (!inMethod)
+                        handleFeature();
+                    return super.visitVariable(node, p);
+                }
+
+                public void handleFeature() {
+                    Element el = trees.getElement(getCurrentPath());
+
+                    if (el != null) {
+                        try {
+                            Document currentFeatureDocument = new Document();
+
+                            currentFeatureDocument.add(new Field("featureClassFQN", currentClassFQN, Store.YES, Index.NO));
+                            currentFeatureDocument.add(new Field("featureSimpleName", el.getSimpleName().toString(), Store.YES, Index.NOT_ANALYZED));
+                            currentFeatureDocument.add(new Field("featureSimpleNameLower", el.getSimpleName().toString().toLowerCase(), Store.YES, Index.NOT_ANALYZED));
+                            currentFeatureDocument.add(new Field("featureKind", el.getKind().name(), Store.YES, Index.NO));
+                            for (Modifier m : el.getModifiers()) {
+                                currentFeatureDocument.add(new Field("featureModifiers", m.name(), Store.YES, Index.NO));
+                            }
+                            currentFeatureDocument.add(new Field("file", file, Store.YES, Index.NO));
+
+                            if (el.getKind() == ElementKind.METHOD || el.getKind() == ElementKind.CONSTRUCTOR) {
+                                String featureSignature = methodTypeSignature(elements, (ExecutableElement) el);
+
+                                currentFeatureDocument.add(new Field("featureSignature", featureSignature, Store.YES, Index.NO));
+                                currentFeatureDocument.add(new Field("featureVMSignature", ClassFileUtil.createExecutableDescriptor((ExecutableElement) el)[2], Store.YES, Index.NO));
+
+                                for (ExecutableElement e : overrides(eu, (ExecutableElement) el)) {
+                                    currentFeatureDocument.add(new Field("featureOverrides", Common.serialize(ElementHandle.create(e)), Store.YES, Index.NOT_ANALYZED));
+                                }
+                            }
+
+                            IndexAccessor.getCurrent().getIndexWriter().addDocument(currentFeatureDocument);
+                        } catch (CorruptIndexException ex) {
+                            Exceptions.printStackTrace(ex);
+                        } catch (IOException ex) {
+                            Exceptions.printStackTrace(ex);
+                        }
+                    }
+                }
+            }.scan(toProcess, null);
+
+            IndexAccessor.getCurrent().getIndexWriter().addDocument(usages);
+        } catch (CorruptIndexException ex) {
+            Exceptions.printStackTrace(ex);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         }
     }
 
-    private static Iterable<? extends ExecutableElement> overrides(CompilationInfo info, ExecutableElement method) {
+    private static Iterable<? extends ExecutableElement> overrides(ElementUtilities eu, ExecutableElement method) {
         List<ExecutableElement> result = new LinkedList<ExecutableElement>();
 
         //XXX: one method may override+implement more than one method
-        while ((method = info.getElementUtilities().getOverriddenMethod(method)) != null) {
+        while ((method = eu.getOverriddenMethod(method)) != null) {
             result.add(method);
         }
 
@@ -312,7 +282,7 @@ public class IndexerImpl extends CustomIndexer {
         }
     }
 
-    private static void encodeTypeParameters(CompilationInfo info, Collection<? extends TypeParameterElement> params, StringBuilder result) {
+    private static void encodeTypeParameters(Elements elements, Collection<? extends TypeParameterElement> params, StringBuilder result) {
         if (params.isEmpty()) return;
         result.append("<");
         for (TypeParameterElement tpe : params) {
@@ -328,30 +298,30 @@ public class IndexerImpl extends CustomIndexer {
                 
                 wasClass = true;
                 result.append(':');
-                encodeType(info, tm, result);
+                encodeType(elements, tm, result);
             }
         }
         result.append(">");
     }
     
-    static String methodTypeSignature(CompilationInfo info, ExecutableElement ee) {
+    static String methodTypeSignature(Elements elements, ExecutableElement ee) {
         StringBuilder sb = new StringBuilder ();
-        encodeTypeParameters(info, ee.getTypeParameters(), sb);
+        encodeTypeParameters(elements, ee.getTypeParameters(), sb);
         sb.append('(');             // NOI18N
         for (VariableElement pd : ee.getParameters()) {
-            encodeType(info, pd.asType(),sb);
+            encodeType(elements, pd.asType(),sb);
         }
         sb.append(')');             // NOI18N
-        encodeType(info, ee.getReturnType(), sb);
+        encodeType(elements, ee.getReturnType(), sb);
         for (TypeMirror tm : ee.getThrownTypes()) {
             sb.append('^');
-            encodeType(info, tm, sb);
+            encodeType(elements, tm, sb);
         }
         sb.append(';'); //TODO: unsure about this, but classfile signatures seem to have it
         return sb.toString();
     }
 
-    private static void encodeType (CompilationInfo info, final TypeMirror type, final StringBuilder sb) {
+    private static void encodeType(Elements elements, final TypeMirror type, final StringBuilder sb) {
 	switch (type.getKind()) {
 	    case VOID:
 		sb.append('V');	    // NOI18N
@@ -383,18 +353,18 @@ public class IndexerImpl extends CustomIndexer {
 	    case ARRAY:
 		sb.append('[');	    // NOI18N
 		assert type instanceof ArrayType;
-		encodeType(info, ((ArrayType)type).getComponentType(),sb);
+		encodeType(elements, ((ArrayType)type).getComponentType(),sb);
 		break;
 	    case DECLARED:
             {
 		sb.append('L');	    // NOI18N
                 DeclaredType dt = (DeclaredType) type;
 		TypeElement te = (TypeElement) dt.asElement();
-                sb.append(info.getElements().getBinaryName(te).toString().replace('.', '/'));
+                sb.append(elements.getBinaryName(te).toString().replace('.', '/'));
                 if (!dt.getTypeArguments().isEmpty()) {
                     sb.append('<');
                     for (TypeMirror tm : dt.getTypeArguments()) {
-                        encodeType(info, tm, sb);
+                        encodeType(elements, tm, sb);
                     }
                     sb.append('>');
                 }
@@ -415,10 +385,10 @@ public class IndexerImpl extends CustomIndexer {
 
                 if (wt.getExtendsBound() != null) {
                     sb.append('+');
-                    encodeType(info, wt.getExtendsBound(), sb);
+                    encodeType(elements, wt.getExtendsBound(), sb);
                 } else if (wt.getSuperBound() != null) {
                     sb.append('-');
-                    encodeType(info, wt.getSuperBound(), sb);
+                    encodeType(elements, wt.getSuperBound(), sb);
                 } else {
                     sb.append('*');
                 }
@@ -429,7 +399,7 @@ public class IndexerImpl extends CustomIndexer {
                 TypeElement te = (TypeElement) ((ErrorType)type).asElement();
                 if (te != null) {
                     sb.append('L');
-                    sb.append(info.getElements().getBinaryName(te).toString().replace('.', '/'));
+                    sb.append(elements.getBinaryName(te).toString().replace('.', '/'));
                     sb.append(';');	    // NOI18N
                     break;
                 }
@@ -439,44 +409,21 @@ public class IndexerImpl extends CustomIndexer {
 	}
     }
 
-    @MimeRegistration(mimeType="text/x-java", service=CustomIndexerFactory.class)
-    public static final class FactoryImpl extends CustomIndexerFactory {
+
+    @Override
+    public void delete(Indexable indexable) {
+//        assert false : indexable.getURL().toExternalForm() + "/" + indexable.getRelativePath();
+    }
+
+    @Override
+    public void finish() {}
+
+    @MimeRegistration(mimeType="text/x-java", service=Factory.class)
+    public static final class FactoryImpl implements Factory {
 
         @Override
-        public CustomIndexer createIndexer() {
-            return new IndexerImpl();
-        }
-
-        @Override
-        public boolean supportsEmbeddedIndexers() {
-            return false;
-        }
-
-        @Override
-        public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
-            assert false;
-            Collection<String> deletedPaths = new LinkedList<String>();
-
-            for (Indexable i : deleted) {
-                deletedPaths.add(i.getRelativePath());
-
-            }
-
-            doIndex(context, Collections.<FileObject>emptyList(), deletedPaths);
-        }
-
-        @Override
-        public void filesDirty(Iterable<? extends Indexable> dirty, Context context) {
-        }
-
-        @Override
-        public String getIndexerName() {
-            return "javausages";
-        }
-
-        @Override
-        public int getIndexVersion() {
-            return 1;
+        public JavaIndexerPlugin create(URL root, FileObject cacheFolder) {
+            return new IndexerImpl(root);
         }
 
     }
