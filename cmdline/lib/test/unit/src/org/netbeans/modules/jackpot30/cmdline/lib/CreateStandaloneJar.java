@@ -74,9 +74,12 @@ import org.netbeans.modules.classfile.ClassFile;
 import org.netbeans.modules.classfile.ClassName;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
 import org.netbeans.modules.jackpot30.spi.Hacks.HintPreferencesProvider;
+import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
 import org.netbeans.modules.java.hints.jackpot.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.jackpot.code.FSWrapper;
 import org.netbeans.modules.java.hints.jackpot.impl.Utilities.SPI;
+import org.netbeans.modules.java.hints.jackpot.spi.ClassPathBasedHintProvider;
+import org.netbeans.modules.java.hints.jackpot.spi.HintProvider;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.openide.util.NbPreferences.Provider;
 import org.openide.xml.EntityCatalog;
@@ -394,7 +397,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             DumpHints.class.getName(),
             RepositoryImpl.class.getName(),
             "org.netbeans.core.startup.layers.ArchiveURLMapper",
-            "org.netbeans.modules.jackpot30.file.DeclarativeHintRegistry",
+            DeclarativeHintRegistry.class.getName(),
             "org.netbeans.core.startup.layers.NbinstURLMapper",
             "org.netbeans.modules.masterfs.MasterURLMapper",
             "org.netbeans.core.NbLoaderPool",
@@ -414,12 +417,12 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
-            "org.netbeans.modules.jackpot30.spi.HintProvider",
-            "org.netbeans.modules.java.hints.jackpot.spi.HintProvider",
+            HintProvider.class.getName(),
             "org.openide.filesystems.URLMapper",
             "org.openide.util.Lookup",
             "org.netbeans.modules.openide.util.PreferencesProvider",
-            HintPreferencesProvider.class.getName()
+            HintPreferencesProvider.class.getName(),
+            ClassPathBasedHintProvider.class.getName()
             ));
 
     private static final Set<String> RESOURCES = new HashSet<String>(Arrays.asList(
