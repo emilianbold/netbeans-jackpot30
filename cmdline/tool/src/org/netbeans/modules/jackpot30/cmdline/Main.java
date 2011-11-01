@@ -359,7 +359,7 @@ public class Main {
 
         b.append('^');
 
-        System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + lineNumber + ":" + error.getDescription());
+        System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + lineNumber + ": warning: " + error.getDescription());
         System.out.println(line);
         System.out.println(b);
     }
