@@ -82,6 +82,7 @@ import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper.
 import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
 import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
 import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
+import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Kind;
 import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.modules.java.source.parsing.JavaPathRecognizer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
@@ -119,7 +120,7 @@ public class Main {
         ArgumentAcceptingOptionSpec<File> classpath = parser.accepts("classpath", "classpath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> bootclasspath = parser.accepts("bootclasspath", "bootclasspath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> sourcepath = parser.accepts("sourcepath", "sourcepath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
-        ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "source directory").withRequiredArg().ofType(File.class);
+        ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "a cache directory to store working data").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<File> out = parser.accepts("out", "output diff").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
         ArgumentAcceptingOptionSpec<String> config = parser.accepts("config", "configurations").withRequiredArg().ofType(String.class);
@@ -204,10 +205,21 @@ public class Main {
                 return 1;
             }
 
-            Iterable<? extends HintDescription> hints = findHints(parsed.valueOf(hint));
+            Iterable<? extends HintDescription> hints;
+            
+            if (parsed.has(hint)) {
+                hints = findHints(parsed.valueOf(hint));
+            } else {
+                hints = allHints();
+            }
 
             if (!hints.iterator().hasNext()) {
                 System.err.println("no hints specified");
+                return 1;
+            }
+
+            if (parsed.has(config) && !parsed.has(hint)) {
+                System.err.println("--config cannot specified when no hint is specified");
                 return 1;
             }
 
@@ -288,6 +300,18 @@ public class Main {
             if (e.getKey().displayName.equals(name)) {
                 descs.addAll(e.getValue());
             }
+        }
+
+        return descs;
+    }
+
+    private static Iterable<? extends HintDescription> allHints() {
+        List<HintDescription> descs = new LinkedList<HintDescription>();
+
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
+            if (e.getKey().kind != Kind.HINT) continue;
+            if (!e.getKey().enabled) continue;
+            descs.addAll(e.getValue());
         }
 
         return descs;
