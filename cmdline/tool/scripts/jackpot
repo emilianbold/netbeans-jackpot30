@@ -1,2 +1,4 @@
 #!/bin/bash
-java -Xbootclasspath/p:`dirname $0`/jackpot.jar org.netbeans.modules.jackpot30.cmdline.Main "$@"
+JACKPOT_JAR=`readlink -f "$0"`
+JACKPOT_JAR=`dirname "$JACKPOT_JAR"`/jackpot.jar
+java -Xbootclasspath/p:`dirname "$JACKPOT_JAR"`/jackpot.jar org.netbeans.modules.jackpot30.cmdline.Main "$@"
