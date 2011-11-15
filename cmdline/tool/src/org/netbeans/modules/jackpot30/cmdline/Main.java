@@ -49,9 +49,12 @@ import java.io.Writer;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
@@ -71,6 +74,7 @@ import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
 import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
 import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
+import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
 import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Folder;
@@ -179,11 +183,6 @@ public class Main {
 
             CacheFolder.setCacheFolder(FileUtil.toFileObject(FileUtil.normalizeFile(cacheDir)));
 
-            if (parsed.has("list")) {
-                listHints();
-                return 0;
-            }
-
             org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
             RepositoryUpdater.getDefault().start(false);
 
@@ -200,17 +199,27 @@ public class Main {
                 }
             }
 
-            if (roots.isEmpty()) {
+            if (roots.isEmpty() && !parsed.has("list")) {
                 System.err.println("no source roots to work on");
                 return 1;
             }
 
             Iterable<? extends HintDescription> hints;
             
+            ClassPath bootCP = createClassPath(parsed.has(bootclasspath) ? parsed.valuesOf(bootclasspath) : null, createDefaultBootClassPath());
+            ClassPath compileCP = createClassPath(parsed.has(classpath) ? parsed.valuesOf(classpath) : null, ClassPath.EMPTY);
+            ClassPath sourceCP = createClassPath(parsed.has(sourcepath) ? parsed.valuesOf(sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
+            ClassPath hintsCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP, sourceCP);
+
+            if (parsed.has("list")) {
+                printHints(hintsCP);
+                return 0;
+            }
+
             if (parsed.has(hint)) {
-                hints = findHints(parsed.valueOf(hint));
+                hints = findHints(hintsCP, parsed.valueOf(hint));
             } else {
-                hints = allHints();
+                hints = allHints(hintsCP);
             }
 
             if (!hints.iterator().hasNext()) {
@@ -260,9 +269,6 @@ public class Main {
             }
 
             try {
-                ClassPath bootCP = createClassPath(parsed.has(bootclasspath) ? parsed.valuesOf(bootclasspath) : null, createDefaultBootClassPath());
-                ClassPath compileCP = createClassPath(parsed.has(classpath) ? parsed.valuesOf(classpath) : null, ClassPath.EMPTY);
-                ClassPath sourceCP = createClassPath(parsed.has(sourcepath) ? parsed.valuesOf(sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
                 MainLookup.register(new ClassPathProviderImpl(bootCP, compileCP, sourceCP));
                 MainLookup.register(new JavaPathRecognizer());
                 MainLookup.register(new SourceLevelQueryImpl(sourceCP, "1.7"));
@@ -293,10 +299,24 @@ public class Main {
         return 0;
     }
 
-    private static Iterable<? extends HintDescription> findHints(String name) {
+    private static Map<HintMetadata, Collection<? extends HintDescription>> listHints(ClassPath from) {
+        Map<HintMetadata, Collection<? extends HintDescription>> result = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
+
+        for (Map.Entry<HintMetadata, Collection<? extends HintDescription>> entry: RulesManager.getInstance().allHints.entrySet()) {
+            result.put(entry.getKey(), entry.getValue());
+        }
+
+        for (Map.Entry<? extends HintMetadata, ? extends Collection<? extends HintDescription>> entry: org.netbeans.modules.java.hints.jackpot.impl.refactoring.Utilities.sortByMetadata(Utilities.listClassPathHints(Collections.singleton(from))).entrySet()) {
+            result.put(entry.getKey(), entry.getValue());
+        }
+
+        return result;
+    }
+    
+    private static Iterable<? extends HintDescription> findHints(ClassPath from, String name) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(from).entrySet()) {
             if (e.getKey().displayName.equals(name)) {
                 descs.addAll(e.getValue());
             }
@@ -305,10 +325,10 @@ public class Main {
         return descs;
     }
 
-    private static Iterable<? extends HintDescription> allHints() {
+    private static Iterable<? extends HintDescription> allHints(ClassPath from) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(from).entrySet()) {
             if (e.getKey().kind != Kind.HINT) continue;
             if (!e.getKey().enabled) continue;
             descs.addAll(e.getValue());
@@ -394,10 +414,10 @@ public class Main {
         }
     }
 
-    private static void listHints() throws IOException {
+    private static void printHints(ClassPath from) throws IOException {
         Set<String> hints = new TreeSet<String>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : RulesManager.getInstance().allHints.entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(from).entrySet()) {
             hints.add(e.getKey().displayName);
         }
 
