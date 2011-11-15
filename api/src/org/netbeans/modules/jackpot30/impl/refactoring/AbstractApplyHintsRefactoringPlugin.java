@@ -140,7 +140,7 @@ public abstract class AbstractApplyHintsRefactoringPlugin extends ProgressProvid
                 public void cannotVerifySpan(Resource r) {
                     refactoringElements.addAll(refactoring, Utilities.createRefactoringElementImplementation(r.getResolvedFile(), prepareSpansFor(r), verify));
                 }
-            }, problems);
+            }, problems, cancel);
         } else {
             int[] parts = new int[candidates.getResources().size()];
             int   index = 0;

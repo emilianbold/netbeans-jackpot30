@@ -75,6 +75,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.codeviation.pojson.Pojson;
@@ -92,6 +93,7 @@ import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import static org.netbeans.modules.jackpot30.remoting.api.WebUtilities.escapeForQuery;
+import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.VerifiedSpansCallBack;
 
 /**
  *
@@ -379,7 +381,7 @@ public class EnhancedScopes {
         }
 
         @Override
-        public void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper phw, BatchSearch.VerifiedSpansCallBack callback, boolean bln, Collection<? super MessageImpl> clctn1) {
+        public void validateResource(Collection<? extends Resource> resources, ProgressHandleWrapper progress, VerifiedSpansCallBack callback, boolean doNotRegisterClassPath, Collection<? super MessageImpl> problems, AtomicBoolean cancel) {
             for (Resource r : resources) {
                 try {
                     URI spanURI = new URI(remoteIndex.remote.toExternalForm() + "/findSpans?path=" + escapeForQuery(remoteIndex.remoteSegment) + "&relativePath=" + escapeForQuery(r.getRelativePath()) + "&pattern=" + escapeForQuery(textualHintRepresentation));
