@@ -96,10 +96,10 @@ public class MainTest extends NbTestCase {
             "}\n";
 
         doRunCompiler(golden,
-                      "${workdir}/src/test/Test.java:3:Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                      "${workdir}/src/test/Test.java:3: warning: Usage of .size() == 0 can be replaced with .isEmpty()\n" +
                       "        boolean b1 = c.size() == 0;\n" +
                       "                     ^\n" +
-                      "${workdir}/src/test/Test.java:4:Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                      "${workdir}/src/test/Test.java:4: warning: Usage of .size() == 0 can be replaced with .isEmpty()\n" +
                       "\tboolean b2 = c.size() == 0;\n" +
                       "\t             ^\n",
                       null,
