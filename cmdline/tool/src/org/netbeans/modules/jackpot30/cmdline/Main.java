@@ -360,7 +360,7 @@ public class Main {
             @Override public void cannotVerifySpan(Resource r) {
                 //TODO: ignored - what to do?
             }
-        }, problems);
+        }, problems, new AtomicBoolean());
     }
 
     private static void print(ErrorDescription error) throws IOException {
