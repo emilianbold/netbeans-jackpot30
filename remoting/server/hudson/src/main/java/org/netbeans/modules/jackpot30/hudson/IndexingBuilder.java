@@ -55,10 +55,10 @@ import hudson.util.ArgumentListBuilder;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStreamWriter;
 import java.io.Serializable;
 import java.io.Writer;
-import java.net.URL;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
@@ -154,21 +154,14 @@ public class IndexingBuilder extends Builder {
 
         indexer.join();
 
-        File oldCacheDir = new File(cacheDir, codeName + ".old");
-        File segCacheDir = new File(cacheDir, codeName);
-        File newCacheDir = new File(cacheDir, codeName + ".new");
+        InputStream ins = targetZip.read();
 
-        targetZip.unzip(new FilePath(newCacheDir));
-        targetZip.delete();
-
-        segCacheDir.renameTo(oldCacheDir);
-
-        new File(newCacheDir, codeName).renameTo(segCacheDir);
-
-        new URL("http://localhost:9998/index/internal/indexUpdated").openStream().close();
-
-        new FilePath(newCacheDir).deleteRecursive();
-        new FilePath(oldCacheDir).deleteRecursive();
+        try {
+            UploadIndex.uploadIndex(codeName, ins);
+        } finally {
+            ins.close();
+            targetZip.delete();
+        }
 
         return true;
     }
