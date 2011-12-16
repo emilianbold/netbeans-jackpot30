@@ -54,6 +54,7 @@ import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.java.JavaDataLoader;
 import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.parsing.impl.indexing.MimeTypes;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
 import org.netbeans.modules.parsing.impl.indexing.Util;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
@@ -156,7 +157,7 @@ public class JackpotBasedRefactoringTestBase extends NbTestCase {
         org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
         prepareTest();
         org.netbeans.api.project.ui.OpenProjects.getDefault().open(new Project[] {prj = ProjectManager.getDefault().findProject(src)}, false);
-        Util.allMimeTypes = Collections.singleton("text/x-java");
+        MimeTypes.setAllMimeTypes(Collections.singleton("text/x-java"));
         GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {ClassPathSupport.createClassPath(src)});
         RepositoryUpdater.getDefault().start(true);
         super.setUp();

@@ -46,12 +46,12 @@ import java.io.File;
 import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.logging.Logger;
 import java.util.logging.Level;
@@ -69,7 +69,7 @@ import org.netbeans.modules.java.source.parsing.JavacParser;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
 import org.netbeans.modules.java.source.usages.IndexUtil;
 import org.netbeans.modules.parsing.api.indexing.IndexingManager;
-import org.netbeans.modules.parsing.impl.indexing.Util;
+import org.netbeans.modules.parsing.impl.indexing.MimeTypes;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -150,13 +150,17 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
         
         SourceUtilsTestUtil2.disableLocks();
 
-        if (Util.allMimeTypes == null) {
-            Util.allMimeTypes = new HashSet<String>();
+        Set<String> mimeTypes = MimeTypes.getAllMimeTypes();
+
+        if (mimeTypes == null) {
+            mimeTypes = new HashSet<String>();
         } else {
-            Util.allMimeTypes = new HashSet<String>(Util.allMimeTypes);
+            mimeTypes = new HashSet<String>(mimeTypes);
         }
 
-        Util.allMimeTypes.add("text/x-java");
+        mimeTypes.add("text/x-java");
+
+        MimeTypes.setAllMimeTypes(mimeTypes);
         org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
     }
     

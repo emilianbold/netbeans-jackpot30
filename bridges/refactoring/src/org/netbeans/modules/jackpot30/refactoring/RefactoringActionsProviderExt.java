@@ -48,10 +48,11 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.TreePathHandle;
+import org.netbeans.api.java.source.ui.ScanDialog;
 import org.netbeans.modules.jackpot30.refactoring.invertboolean.InvertBooleanRefactoringUI;
 import org.netbeans.modules.jackpot30.refactoring.noconstructor.ReplaceConstructorRefactoringUI;
 import org.netbeans.modules.refactoring.api.RenameRefactoring;
-import org.netbeans.modules.refactoring.java.RetoucheUtils;
+import org.netbeans.modules.refactoring.java.RefactoringUtils;
 import org.netbeans.modules.refactoring.java.ui.RefactoringActionsProvider;
 import org.netbeans.modules.refactoring.spi.ui.ActionsImplementationProvider;
 import org.netbeans.modules.refactoring.spi.ui.RefactoringUI;
@@ -113,7 +114,7 @@ public class RefactoringActionsProviderExt extends RefactoringActionsProvider {
             };
         }
         
-        RetoucheUtils.invokeAfterScanFinished(task, "Remove Constructor");//getActionName(RefactoringActionsFactory.renameAction()));
+        ScanDialog.runWhenScanFinished(task, "Remove Constructor");//getActionName(RefactoringActionsFactory.renameAction()));
     }
 
     private static RefactoringUI doInvertBooleanImpl(TreePathHandle selectedElement, CompilationInfo info) {
@@ -160,7 +161,7 @@ public class RefactoringActionsProviderExt extends RefactoringActionsProvider {
             };
         }
 
-        RetoucheUtils.invokeAfterScanFinished(task, "Remove Constructor");//getActionName(RefactoringActionsFactory.renameAction()));
+        ScanDialog.runWhenScanFinished(task, "Remove Constructor");//getActionName(RefactoringActionsFactory.renameAction()));
     }
 
 //    static String getActionName(Action action) {
@@ -185,13 +186,13 @@ public class RefactoringActionsProviderExt extends RefactoringActionsProvider {
         Node node = nodes.iterator().next();
         TreePathHandle tph = node.getLookup().lookup(TreePathHandle.class);
         if (tph != null) {
-            return RetoucheUtils.isRefactorable(tph.getFileObject());
+            return RefactoringUtils.isRefactorable(tph.getFileObject());
         }
         DataObject dObj = node.getCookie(DataObject.class);
         if(null == dObj)
             return false;
         FileObject fileObj = dObj.getPrimaryFile();
-        if(null == fileObj || !RetoucheUtils.isRefactorable(fileObj))
+        if(null == fileObj || !RefactoringUtils.isRefactorable(fileObj))
             return false;
 
         EditorCookie ec = lookup.lookup(EditorCookie.class);
