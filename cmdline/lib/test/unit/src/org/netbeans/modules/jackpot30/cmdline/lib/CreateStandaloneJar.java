@@ -64,6 +64,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.jar.JarOutputStream;
+import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttributeImpl;
 import org.apache.lucene.analysis.tokenattributes.PositionIncrementAttributeImpl;
@@ -72,6 +73,7 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.classfile.ClassFile;
 import org.netbeans.modules.classfile.ClassName;
+import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.JavaMimeResolver;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
 import org.netbeans.modules.jackpot30.spi.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
@@ -125,11 +127,15 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         Set<String> done = new HashSet<String>();
         Set<String> bundlesToCopy = new HashSet<String>();
 
-        while (!toProcess.isEmpty()) {
+        OUTER: while (!toProcess.isEmpty()) {
             String fqn = toProcess.remove(0);
 
             if (!done.add(fqn)) {
                 continue;
+            }
+
+            for (Pattern p : info.exclude) {
+                if (p.matcher(fqn).matches()) continue OUTER;
             }
 
 //            System.err.println("processing: " + fqn);
@@ -256,6 +262,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         private final List<MetaInfRegistration> metaInf = new LinkedList<MetaInfRegistration>();
         private final Set<String> copyMetaInfRegistration = new HashSet<String>();
         private       boolean escapeJavaxLang;
+        private final List<Pattern> exclude = new LinkedList<Pattern>();
         public Info() {}
         public Info addAdditionalRoots(String... fqns) {
             additionalRoots.addAll(Arrays.asList(fqns));
@@ -267,6 +274,10 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         }
         public Info addMetaInfRegistrationToCopy(String... registrationsToCopy) {
             copyMetaInfRegistration.addAll(Arrays.asList(registrationsToCopy));
+            return this;
+        }
+        public Info addExcludePattern(Pattern... pattern) {
+            exclude.addAll(Arrays.asList(pattern));
             return this;
         }
         public Info setEscapeJavaxLang() {
@@ -414,6 +425,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             , "org.netbeans.modules.java.hints.infrastructure.RulesManager$HintProviderImpl"
             , Tree.class.getName()
             ,JavacTool.class.getName()
+            ,JavaMimeResolver.class.getName()
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
@@ -422,7 +434,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.openide.util.Lookup",
             "org.netbeans.modules.openide.util.PreferencesProvider",
             HintPreferencesProvider.class.getName(),
-            ClassPathBasedHintProvider.class.getName()
+            ClassPathBasedHintProvider.class.getName(),
+            "org.openide.filesystems.MIMEResolver"
             ));
 
     private static final Set<String> RESOURCES = new HashSet<String>(Arrays.asList(

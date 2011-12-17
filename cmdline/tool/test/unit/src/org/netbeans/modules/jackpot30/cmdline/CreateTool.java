@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2009-2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2009-2011 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,12 +34,14 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2009-2010 Sun Microsystems, Inc.
+ * Portions Copyrighted 2009-2011 Sun Microsystems, Inc.
  */
 package org.netbeans.modules.jackpot30.cmdline;
 
+import java.util.regex.Pattern;
 import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar;
 import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar.Info;
+import org.netbeans.modules.java.hints.declarative.test.api.DeclarativeHintsTestBase;
 import org.netbeans.modules.java.j2seproject.J2SEProject;
 import org.netbeans.modules.java.platform.DefaultJavaPlatformProvider;
 import org.netbeans.modules.project.ui.OpenProjectsTrampolineImpl;
@@ -56,8 +58,9 @@ public class CreateTool extends CreateStandaloneJar {
 
     @Override
     protected Info computeInfo() {
-        return new Info().addAdditionalRoots(Main.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName())
+        return new Info().addAdditionalRoots(Main.class.getName(), DeclarativeHintsTestBase.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName())
                          .addMetaInfRegistrations(new MetaInfRegistration(org.netbeans.modules.project.uiapi.OpenProjectsTrampoline.class, OpenProjectsTrampolineImpl.class))
+                         .addExcludePattern(Pattern.compile("junit\\.framework\\..*"))
                          .setEscapeJavaxLang();
     }
 

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2010-2011 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,22 +34,28 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2010 Sun Microsystems, Inc.
+ * Portions Copyrighted 2010-2011 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.cmdline;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.io.PrintStream;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.junit.runner.Result;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.junit.NbTestCase;
+import org.openide.filesystems.FileUtil;
 
 /**
  *
@@ -232,4 +238,60 @@ public class MainTest extends NbTestCase {
         }
     }
 
+    //verify that the DeclarativeHintsTestBase works:
+    public void testRunTest() throws Exception {
+        clearWorkDir();
+
+        File wd = getWorkDir();
+        File classes = new File(wd, "classes");
+
+        classes.mkdirs();
+        TestUtilities.copyStringToFile(new File(classes, "h.hint"), "$1.equals(\"\") :: $1 instanceof java.lang.String => $1.isEmpty();;");
+
+        String test = "%%TestCase pos\n" +
+                      "package test;\n" +
+                      "public class Test {{\n" +
+                      " System.err.println(\"a\".equals(\"\"));\n" +
+                      "}}\n" +
+                      "%%=>\n" +
+                      "package test;\n" +
+                      "public class Test {{\n" +
+                      " System.err.println(\"a\".isEmpty());\n" +
+                      "}}\n" +
+                      "%%TestCase neg\n" +
+                      "package test;\n" +
+                      "public class Test {{\n" +
+                      " System.err.println(\"a\".equals(\"a\"));\n" +
+                      "}}\n" +
+                      "%%=>\n" +
+                      "package test;\n" +
+                      "public class Test {{\n" +
+                      " System.err.println(\"a\".isEmpty());\n" +
+                      "}}\n";
+        TestUtilities.copyStringToFile(new File(classes, "h.test"), test);
+
+        File runner = new File(classes, "org/netbeans/modules/jackpot30/cmdline/testtool/DoRunTests.class");
+
+        assertTrue(runner.getParentFile().mkdirs());
+
+        FileOutputStream os = new FileOutputStream(runner);
+        InputStream is = MainTest.class.getResourceAsStream("DoRunTests.classx");
+
+        assertNotNull(is);
+
+        FileUtil.copy(is, os);
+        os.close ();
+        is.close();
+
+        runAndTest(classes);
+    }
+
+    protected void runAndTest(File classes) throws Exception {
+        ClassLoader cl = new URLClassLoader(new URL[] {classes.toURI().toURL()}, MainTest.class.getClassLoader());
+        Class<?> doRunTests = Class.forName("org.netbeans.modules.jackpot30.cmdline.testtool.DoRunTests", true, cl);
+        Result testResult = org.junit.runner.JUnitCore.runClasses(doRunTests);
+
+        assertEquals(1, testResult.getFailureCount());
+        assertTrue(testResult.getFailures().toString(), testResult.getFailures().get(0).getDescription().getMethodName().endsWith("/h.test/neg"));
+    }
 }

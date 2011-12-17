@@ -60,13 +60,16 @@ import org.netbeans.api.java.queries.SourceForBinaryQuery;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.modules.java.hints.jackpot.impl.Utilities.SPI;
 import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
+import org.netbeans.modules.java.source.parsing.JavacParser;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation;
 import org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation2;
+import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileSystem;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.MIMEResolver;
 import org.openide.filesystems.MultiFileSystem;
 import org.openide.filesystems.Repository;
 import org.openide.filesystems.XMLFileSystem;
@@ -317,4 +320,21 @@ public class StandaloneTools {
         return ClassPathSupport.createClassPath(roots.toArray(new URL[roots.size()]));
     }
 
+    @ServiceProvider(service=MIMEResolver.class)
+    public static final class JavaMimeResolver extends MIMEResolver {
+
+        public JavaMimeResolver() {
+            super(JavacParser.MIME_TYPE);
+        }
+
+        @Override
+        public String findMIMEType(FileObject fo) {
+            if ("java".equals(fo.getExt())) {
+                return JavacParser.MIME_TYPE;
+            }
+
+            return null;
+        }
+
+    }
 }

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2010 Sun Microsystems, Inc. All rights reserved.
+ * Copyright 2010-2011 Sun Microsystems, Inc. All rights reserved.
  *
  * The contents of this file are subject to the terms of either the GNU
  * General Public License Version 2 only ("GPL") or the Common
@@ -34,7 +34,7 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2010 Sun Microsystems, Inc.
+ * Portions Copyrighted 2010-2011 Sun Microsystems, Inc.
  */
 
 package org.netbeans.modules.jackpot30.cmdline;
@@ -273,8 +273,6 @@ public class Main {
                 MainLookup.register(new JavaPathRecognizer());
                 MainLookup.register(new SourceLevelQueryImpl(sourceCP, "1.7"));
                 
-                FileUtil.setMIMEType("java", "text/x-java");
-
                 ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1) : new ProgressHandleWrapper(1);
 
                 if (parsed.has(OPTION_NO_APPLY)) {
