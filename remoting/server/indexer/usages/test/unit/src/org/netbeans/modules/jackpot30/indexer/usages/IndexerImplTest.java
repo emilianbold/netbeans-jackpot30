@@ -45,6 +45,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.HashSet;
+import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.ElementFilter;
 import org.netbeans.api.editor.mimelookup.MimePath;
@@ -56,7 +57,7 @@ import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.java.source.parsing.JavacParser;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
-import org.netbeans.modules.parsing.impl.indexing.Util;
+import org.netbeans.modules.parsing.impl.indexing.MimeTypes;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -77,13 +78,16 @@ public class IndexerImplTest extends NbTestCase {
 
     @Override
     protected void setUp() throws Exception {
-        if (Util.allMimeTypes == null) {
-            Util.allMimeTypes = new HashSet<String>();
+        Set<String> mimeTypes = MimeTypes.getAllMimeTypes();
+        if (mimeTypes == null) {
+            mimeTypes = new HashSet<String>();
         } else {
-            Util.allMimeTypes = new HashSet<String>(Util.allMimeTypes);
+            mimeTypes = new HashSet<String>(mimeTypes);
         }
 
-        Util.allMimeTypes.add("text/x-java");
+        mimeTypes.add("text/x-java");
+        MimeTypes.setAllMimeTypes(mimeTypes);
+        
         org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
         clearWorkDir();
         CacheFolder.setCacheFolder(FileUtil.toFileObject(getWorkDir()));
