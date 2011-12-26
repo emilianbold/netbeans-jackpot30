@@ -52,6 +52,7 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
@@ -72,7 +73,9 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import javax.lang.model.type.WildcardType;
+import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
@@ -80,7 +83,6 @@ import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.index.CorruptIndexException;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.api.java.source.ElementHandle;
-import org.netbeans.api.java.source.ElementUtilities;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
 import org.netbeans.modules.java.preprocessorbridge.spi.JavaIndexerPlugin;
 import org.netbeans.modules.java.source.usages.ClassFileUtil;
@@ -109,7 +111,7 @@ public class IndexerImpl implements JavaIndexerPlugin {
             final String file = IndexAccessor.getCurrent().getPath(indexable.getURL());
             final Trees trees = services.lookup(Trees.class);
             final Elements elements = services.lookup(Elements.class);
-            final ElementUtilities eu = services.lookup(ElementUtilities.class);
+            final Types types = services.lookup(Types.class);
             final Document usages = new Document();
 
             usages.add(new Field("file", file, Store.YES, Index.NO));
@@ -139,7 +141,7 @@ public class IndexerImpl implements JavaIndexerPlugin {
                         }
 
                         if (el.getKind() == ElementKind.METHOD) {
-                            for (ExecutableElement e : overrides(eu, (ExecutableElement) el)) {
+                            for (ExecutableElement e : overrides(types, elements, (ExecutableElement) el)) {
                                 serialized = Common.serialize(ElementHandle.create(e));
 
                                 if (SEEN_SIGNATURES.add(serialized)) {
@@ -230,7 +232,7 @@ public class IndexerImpl implements JavaIndexerPlugin {
                                 currentFeatureDocument.add(new Field("featureSignature", featureSignature, Store.YES, Index.NO));
                                 currentFeatureDocument.add(new Field("featureVMSignature", ClassFileUtil.createExecutableDescriptor((ExecutableElement) el)[2], Store.YES, Index.NO));
 
-                                for (ExecutableElement e : overrides(eu, (ExecutableElement) el)) {
+                                for (ExecutableElement e : overrides(types, elements, (ExecutableElement) el)) {
                                     currentFeatureDocument.add(new Field("featureOverrides", Common.serialize(ElementHandle.create(e)), Store.YES, Index.NOT_ANALYZED));
                                 }
                             }
@@ -253,12 +255,28 @@ public class IndexerImpl implements JavaIndexerPlugin {
         }
     }
 
-    private static Iterable<? extends ExecutableElement> overrides(ElementUtilities eu, ExecutableElement method) {
+    static Collection<? extends ExecutableElement> overrides(Types types, Elements elements, ExecutableElement method) {
+        TypeElement enclosing = (TypeElement) method.getEnclosingElement();
+        List<TypeMirror> todo = new LinkedList<TypeMirror>(types.directSupertypes(enclosing.asType()));
+        List<TypeMirror> seen = new ArrayList<TypeMirror>();
         List<ExecutableElement> result = new LinkedList<ExecutableElement>();
 
-        //XXX: one method may override+implement more than one method
-        while ((method = eu.getOverriddenMethod(method)) != null) {
-            result.add(method);
+        OUTER: while (!todo.isEmpty()) {
+            TypeMirror type = todo.remove(0);
+
+            if (type.getKind() != TypeKind.DECLARED) continue;
+
+            for (TypeMirror s : seen) {
+                if (types.isSameType(s, type)) continue OUTER;
+            }
+
+            TypeElement te = (TypeElement) ((DeclaredType) type).asElement();
+
+            for (ExecutableElement m : ElementFilter.methodsIn(te.getEnclosedElements())) {
+                if (elements.overrides(method, m, enclosing))
+                    result.add(m);
+            }
+
         }
 
         return result;

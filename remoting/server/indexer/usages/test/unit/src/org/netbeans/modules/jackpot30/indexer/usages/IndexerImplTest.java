@@ -41,15 +41,20 @@
  */
 package org.netbeans.modules.jackpot30.indexer.usages;
 
+import com.sun.source.util.TreePath;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.ElementFilter;
 import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.api.java.source.CompilationController;
+import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.junit.NbTestCase;
@@ -121,6 +126,50 @@ public class IndexerImplTest extends NbTestCase {
                 ExecutableElement method = ElementFilter.methodsIn(parameter.getTopLevelElements().get(0).getEnclosedElements()).iterator().next();
 
                 assertEquals(signature, IndexerImpl.methodTypeSignature(parameter.getElements(), method));
+                invoked[0] = true;
+            }
+        }, true);
+
+        assertTrue(invoked[0]);
+    }
+
+    public void testOverriddenMethods() throws IOException {
+        doOverriddenMethodsTest("package test; public class Test { public String toStr|ing() { return null; } }",
+                                "METHOD:java.lang.Object:toString:()Ljava/lang/String;");
+        doOverriddenMethodsTest("package test; public class Test extends A implements B { public void t|t() { } } class A implements B { public void tt() {} } interface B { public void tt(); }",
+                                "METHOD:test.A:tt:()V",
+                                "METHOD:test.B:tt:()V");
+    }
+
+    protected void doOverriddenMethodsTest(String code, final String... signature) throws IOException {
+        final int pos = code.indexOf('|');
+
+        code = code.replace("|", "");
+
+        FileObject testFile = FileUtil.createData(new File(getWorkDir(), "Test.java"));
+        OutputStream out = testFile.getOutputStream();
+
+        try {
+            out.write(code.getBytes());
+        } finally {
+            out.close();
+        }
+
+        final boolean[] invoked = new boolean[1];
+
+        JavaSource.forFileObject(testFile).runUserActionTask(new Task<CompilationController>() {
+            @Override public void run(CompilationController parameter) throws Exception {
+                parameter.toPhase(JavaSource.Phase.RESOLVED);
+
+                TreePath selected = parameter.getTreeUtilities().pathFor(pos);
+                ExecutableElement method = (ExecutableElement) parameter.getTrees().getElement(selected);
+                List<String> result = new ArrayList<String>();
+
+                for (ExecutableElement ee : IndexerImpl.overrides(parameter.getTypes(), parameter.getElements(), method)) {
+                    result.add(Common.serialize(ElementHandle.create(ee)));
+                }
+
+                assertEquals(Arrays.asList(signature), result);
                 invoked[0] = true;
             }
         }, true);
