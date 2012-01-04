@@ -36,7 +36,7 @@ write_failure_results_file() {
 EOF
 }
 
-do_index
+do_index "$@"
 
 (cd ../web/web.main; ant jar)
 OUT=`mktemp`;
