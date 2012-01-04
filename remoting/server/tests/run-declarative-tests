@@ -39,11 +39,16 @@ EOF
 do_index
 
 (cd ../web/web.main; ant jar)
-java -jar ../web/web.main/dist/web.main.jar cache >/dev/null 2>/dev/null &
+OUT=`mktemp`;
+trap "rm $OUT" EXIT
+java -jar ../web/web.main/dist/web.main.jar --freeport cache >"$OUT" &
 
 trap "kill %1" EXIT
 
-sleep 1s; #XXX
+while [ -z "$PORT" ] ; do
+     sleep 1s;
+     PORT=`cat "$OUT" | grep "Running on port: " | cut -d ':' -f 2 | tr -d ' '`;
+done
 
 rm -rf results
 mkdir results
@@ -52,7 +57,7 @@ for tc in `find testcases -name "*.tc" -type d`; do
     REQUEST=`cat $tc/request`;
     TEST_NAME=`basename $tc`;
     RESULT_FILE="`pwd`/results/TEST-$TEST_NAME.xml"
-    if wget -O - "http://localhost:9998$REQUEST" | diff -w - $tc/response; then
+    if wget -O - "http://localhost:${PORT}$REQUEST" | diff -w - $tc/response; then
         write_passed_results_file
     else
         write_failure_results_file

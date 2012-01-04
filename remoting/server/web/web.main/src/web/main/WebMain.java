@@ -46,10 +46,16 @@ import com.sun.grizzly.http.servlet.ServletAdapter;
 import com.sun.grizzly.tcp.http11.GrizzlyAdapter;
 import com.sun.grizzly.tcp.http11.GrizzlyRequest;
 import com.sun.grizzly.tcp.http11.GrizzlyResponse;
+import com.sun.jersey.api.container.httpserver.HttpServerFactory;
+import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.spi.container.servlet.ServletContainer;
+import com.sun.net.httpserver.HttpServer;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.RelStreamHandlerFactory;
 
@@ -62,21 +68,43 @@ public class WebMain {
     /**
      * @param args the command line arguments
      */
-    public static void main(String... args) throws IOException {
-        if (args.length != 1 && args.length != 2) {
-            System.err.println("Usage: java -jar " + WebMain.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " <cache> [<static-content>]");
+    public static void main(String... origArgs) throws IOException, InterruptedException {
+        boolean freePort = false;
+
+        List<String> args = new ArrayList<String>(Arrays.asList(origArgs));
+
+        if (args.size() > 0 && "--freeport".equals(args.get(0))) {
+            freePort = true;
+            args.remove(0);
+        }
+
+        if (args.size() != 1 && args.size() != 2) {
+            System.err.println("Usage: java -jar " + WebMain.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [--freeport] <cache> [<static-content>]");
             return ;
         }
 
-        CategoryStorage.setCacheRoot(new File(args[0]));
+        if (freePort && args.size() == 2) {
+            System.err.println("Usage: java -jar " + WebMain.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [--freeport] <cache> [<static-content>]");
+            System.err.println("<static-content> not supported in combination with --freeport option");
+            return ;
+        }
+
+        CategoryStorage.setCacheRoot(new File(args.get(0)));
         
 //        org.netbeans.ProxyURLStreamHandlerFactory.register();
         URL.setURLStreamHandlerFactory(new RelStreamHandlerFactory());
-        
+
+        if (freePort) {
+            final HttpServer f = HttpServerFactory.create("http://127.0.0.1:0/", new PackagesResourceConfig("org.netbeans.modules.jackpot30"));
+            f.start();
+            System.out.println("Running on port: " + f.getAddress().getPort());
+            return;
+        }
+
         GrizzlyWebServer gws;
 
-        if (args.length == 2) {
-            gws = new GrizzlyWebServer(9998, args[1]);
+        if (args.size() == 2) {
+            gws = new GrizzlyWebServer(9998, args.get(1));
         } else {
             gws = new GrizzlyWebServer(9998);
         }
