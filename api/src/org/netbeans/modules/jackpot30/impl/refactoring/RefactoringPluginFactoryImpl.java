@@ -39,10 +39,6 @@
 
 package org.netbeans.modules.jackpot30.impl.refactoring;
 
-import org.netbeans.modules.jackpot30.impl.refactoring.findusages.GlobalFindUsagesRefactoring;
-import org.netbeans.modules.jackpot30.impl.refactoring.findusages.GlobalFindUsagesRefactoringPlugin;
-import org.netbeans.modules.jackpot30.impl.refactoring.upgrade.UpgradeRefactoring;
-import org.netbeans.modules.jackpot30.impl.refactoring.upgrade.UpgradeRefactoringPlugin;
 import org.netbeans.modules.refactoring.api.AbstractRefactoring;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
 import org.netbeans.modules.refactoring.spi.RefactoringPluginFactory;
@@ -54,10 +50,6 @@ public class RefactoringPluginFactoryImpl implements RefactoringPluginFactory {
     public RefactoringPlugin createInstance(AbstractRefactoring refactoring) {
         if (refactoring instanceof FindDuplicatesRefactoring) {
             return new FindDuplicatesRefactoringPlugin((FindDuplicatesRefactoring) refactoring);
-        } else if (refactoring instanceof UpgradeRefactoring) {
-            return new UpgradeRefactoringPlugin((UpgradeRefactoring) refactoring);
-        } else if (refactoring instanceof GlobalFindUsagesRefactoring) {
-            return new GlobalFindUsagesRefactoringPlugin((GlobalFindUsagesRefactoring) refactoring);
         }
 
         return null;
