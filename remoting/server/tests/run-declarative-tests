@@ -41,7 +41,7 @@ do_index "$@"
 (cd ../web/web.main; ant jar)
 OUT=`mktemp`;
 trap "rm $OUT" EXIT
-java -jar ../web/web.main/dist/web.main.jar --freeport cache >"$OUT" &
+java -jar ../web/web.main/dist/web.main.jar --port 0 cache >"$OUT" &
 
 trap "kill %1" EXIT
 

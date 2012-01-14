@@ -46,10 +46,7 @@ import com.sun.grizzly.http.servlet.ServletAdapter;
 import com.sun.grizzly.tcp.http11.GrizzlyAdapter;
 import com.sun.grizzly.tcp.http11.GrizzlyRequest;
 import com.sun.grizzly.tcp.http11.GrizzlyResponse;
-import com.sun.jersey.api.container.httpserver.HttpServerFactory;
-import com.sun.jersey.api.core.PackagesResourceConfig;
 import com.sun.jersey.spi.container.servlet.ServletContainer;
-import com.sun.net.httpserver.HttpServer;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -69,23 +66,17 @@ public class WebMain {
      * @param args the command line arguments
      */
     public static void main(String... origArgs) throws IOException, InterruptedException {
-        boolean freePort = false;
+        int port = 9998;
 
         List<String> args = new ArrayList<String>(Arrays.asList(origArgs));
 
-        if (args.size() > 0 && "--freeport".equals(args.get(0))) {
-            freePort = true;
+        if (args.size() > 1 && "--port".equals(args.get(0))) {
             args.remove(0);
+            port = Integer.parseInt(args.remove(0));
         }
 
         if (args.size() != 1 && args.size() != 2) {
-            System.err.println("Usage: java -jar " + WebMain.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [--freeport] <cache> [<static-content>]");
-            return ;
-        }
-
-        if (freePort && args.size() == 2) {
-            System.err.println("Usage: java -jar " + WebMain.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [--freeport] <cache> [<static-content>]");
-            System.err.println("<static-content> not supported in combination with --freeport option");
+            System.err.println("Usage: java -jar " + WebMain.class.getProtectionDomain().getCodeSource().getLocation().getPath() + " [--port <port>] <cache> [<static-content>]");
             return ;
         }
 
@@ -94,19 +85,12 @@ public class WebMain {
 //        org.netbeans.ProxyURLStreamHandlerFactory.register();
         URL.setURLStreamHandlerFactory(new RelStreamHandlerFactory());
 
-        if (freePort) {
-            final HttpServer f = HttpServerFactory.create("http://127.0.0.1:0/", new PackagesResourceConfig("org.netbeans.modules.jackpot30"));
-            f.start();
-            System.out.println("Running on port: " + f.getAddress().getPort());
-            return;
-        }
-
         GrizzlyWebServer gws;
 
         if (args.size() == 2) {
-            gws = new GrizzlyWebServer(9998, args.get(1));
+            gws = new GrizzlyWebServer(port, args.get(1));
         } else {
-            gws = new GrizzlyWebServer(9998);
+            gws = new GrizzlyWebServer(port);
         }
 
         // Jersey web resources
@@ -123,6 +107,10 @@ public class WebMain {
 
         // let Grizzly run
         gws.start();
+
+        if (port == 0) {
+            System.out.println("Running on port: " + gws.getSelectorThread().getPortLowLevel());
+        }
     }
 
 }
