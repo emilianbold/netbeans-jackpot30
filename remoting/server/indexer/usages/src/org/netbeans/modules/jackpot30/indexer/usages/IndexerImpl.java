@@ -169,6 +169,10 @@ public class IndexerImpl implements JavaIndexerPlugin {
                                 currentClassDocument.add(new Field("classFQN", currentClassFQN, Store.YES, Index.NO));
                                 currentClassDocument.add(new Field("classSimpleName", node.getSimpleName().toString(), Store.YES, Index.NOT_ANALYZED));
                                 currentClassDocument.add(new Field("classSimpleNameLower", node.getSimpleName().toString().toLowerCase(), Store.YES, Index.NOT_ANALYZED));
+                                currentClassDocument.add(new Field("classKind", el.getKind().name(), Store.YES, Index.NO));
+                                for (Modifier m : el.getModifiers()) {
+                                    currentClassDocument.add(new Field("classModifiers", m.name(), Store.YES, Index.NO));
+                                }
 
                                 recordSuperTypes(currentClassDocument, tel, new HashSet<String>(Arrays.asList(tel.getQualifiedName().toString())));
 
