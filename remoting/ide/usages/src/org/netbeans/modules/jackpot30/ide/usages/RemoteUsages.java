@@ -54,6 +54,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -294,6 +295,7 @@ public final class RemoteUsages implements ActionListener {
 
                 Set<FileObject> resultSet = new HashSet<FileObject>();
                 List<FileObject> result = new ArrayList<FileObject>();
+                Map<RemoteIndex, List<String>> unmappable = new HashMap<RemoteIndex, List<String>>();
 
                 for (RemoteIndex idx : RemoteIndex.loadIndices()) {
                     FileObject localFolder = URLMapper.findFileObject(idx.getLocalFolder());
@@ -308,8 +310,18 @@ public final class RemoteUsages implements ActionListener {
                         for (String path : response) {
                             FileObject file = localFolder.getFileObject(path);
 
-                            if (resultSet.add(file)) {
-                                result.add(file);
+                            if (file != null) {
+                                if (resultSet.add(file)) {
+                                    result.add(file);
+                                }
+                            } else {
+                                List<String> um = unmappable.get(idx);
+
+                                if (um == null) {
+                                    unmappable.put(idx, um = new ArrayList<String>());
+                                }
+
+                                um.add(path);
                             }
                         }
                     }
@@ -332,17 +344,28 @@ public final class RemoteUsages implements ActionListener {
 
                         for (Entry<String, List<Map<String, String>>> e : formattedResponse.entrySet()) {
                             for (Map<String, String> p : e.getValue()) {
-                                FileObject file = localFolder.getFileObject(p.get("file"));
+                                String path = p.get("file");
+                                FileObject file = localFolder.getFileObject(path);
 
-                                if (resultSet.add(file)) {
-                                    result.add(file);
+                                if (file != null) {
+                                    if (resultSet.add(file)) {
+                                        result.add(file);
+                                    }
+                                } else {
+                                    List<String> um = unmappable.get(idx);
+
+                                    if (um == null) {
+                                        unmappable.put(idx, um = new ArrayList<String>());
+                                    }
+
+                                    um.add(path);
                                 }
                             }
                         }
                     }
                 }
 
-                final Node view = Nodes.constructSemiLogicalView(result, toSearch, options);
+                final Node view = Nodes.constructSemiLogicalView(result, unmappable, toSearch, options);
 
                 if (!cancel.get()) {
                     SwingUtilities.invokeLater(new Runnable() {

@@ -61,6 +61,7 @@ import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
@@ -87,6 +88,7 @@ import org.netbeans.api.java.source.support.CancellableTreePathScanner;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
+import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.spi.project.ui.LogicalViewProvider;
 import org.openide.actions.OpenAction;
 import org.openide.cookies.EditorCookie;
@@ -115,7 +117,7 @@ import org.openide.util.lookup.InstanceContent;
  */
 public class Nodes {
 
-    public static Node constructSemiLogicalView(Iterable<? extends FileObject> filesWithOccurrences, ElementHandle<?> eh, Set<RemoteUsages.SearchOptions> options) {
+    public static Node constructSemiLogicalView(Iterable<? extends FileObject> filesWithOccurrences, Map<RemoteIndex, List<String>> unmappable, ElementHandle<?> eh, Set<RemoteUsages.SearchOptions> options) {
         Map<Project, Collection<FileObject>> projects = new HashMap<Project, Collection<FileObject>>();
 
         for (FileObject file : filesWithOccurrences) {
@@ -137,7 +139,7 @@ public class Nodes {
             ClassPath.getClassPath(file, ClassPath.COMPILE).getRoots();
         }
 
-        projects.remove(null);//XXX!!!XXX
+        final Collection<FileObject> outsideProjects = projects.remove(null);
 
         List<Node> nodes = new ArrayList<Node>(projects.size());
 
@@ -150,7 +152,56 @@ public class Nodes {
                 return o1.getDisplayName().compareToIgnoreCase(o2.getDisplayName());
             }
         });
+
+        if (outsideProjects != null) {
+            AbstractNode outsideProjectsNode = new AbstractNode(Children.create(new ChildFactory<FileObject>() {
+                @Override protected boolean createKeys(List<FileObject> toPopulate) {
+                    toPopulate.addAll(outsideProjects);
+                    return true;
+                }
+                @Override protected Node createNodeForKey(FileObject file) {
+                    try {
+                        DataObject od = DataObject.find(file);
+                        return od.getNodeDelegate();
+                    } catch (DataObjectNotFoundException ex) {
+                        Exceptions.printStackTrace(ex);
+                        return null;
+                    }
+                }
+            }, true));
+
+            outsideProjectsNode.setDisplayName("Occurrences outside locally recognized projects");
+            nodes.add(outsideProjectsNode);
+        }
         
+        if (!unmappable.isEmpty()) {
+            List<Node> localNodes = new ArrayList<Node>(unmappable.size());
+
+            for (final Entry<RemoteIndex, List<String>> e : unmappable.entrySet()) {
+                AbstractNode localNode = new AbstractNode(Children.create(new ChildFactory<String>() {
+                    @Override protected boolean createKeys(List<String> toPopulate) {
+                        Collections.sort(e.getValue());
+                        toPopulate.addAll(e.getValue());
+                        return true;
+                    }
+                    @Override protected Node createNodeForKey(String rel) {
+                        AbstractNode fileNode = new AbstractNode(Children.LEAF);
+
+                        fileNode.setDisplayName(rel);
+                        return fileNode;
+                    }
+                }, true));
+
+                localNode.setDisplayName("Index: " + e.getKey().remote.toExternalForm() + ", segment: " + e.getKey().remoteSegment);
+                localNodes.add(localNode);
+            }
+
+            AbstractNode notExisting = new AbstractNode(new DirectChildren(localNodes));
+
+            notExisting.setDisplayName("Occurrences in files that are not locally available");
+            nodes.add(notExisting);
+        }
+
         return new AbstractNode(new DirectChildren(nodes));
     }
 
