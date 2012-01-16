@@ -41,15 +41,29 @@
  */
 package org.netbeans.modules.jackpot30.remotingapi.options;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import javax.swing.DefaultCellEditor;
 import javax.swing.JButton;
+import javax.swing.JComboBox;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
+import org.netbeans.api.progress.ProgressHandle;
+import org.netbeans.api.progress.ProgressHandleFactory;
+import org.netbeans.modules.jackpot30.remoting.api.LocalServer;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
+import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex.UseLocalCache;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
+import org.openide.execution.ExecutionEngine;
+import org.openide.util.Exceptions;
+import org.openide.util.Lookup;
+import org.openide.windows.InputOutput;
 
 final class IndexPanel extends javax.swing.JPanel {
 
@@ -63,6 +77,8 @@ final class IndexPanel extends javax.swing.JPanel {
                 enableDisable();
             }
         });
+        JComboBox cacheEditor = new JComboBox(UseLocalCache.values());
+        indices.setDefaultEditor(UseLocalCache.class, new DefaultCellEditor(cacheEditor));
         enableDisable();
     }
 
@@ -79,6 +95,7 @@ final class IndexPanel extends javax.swing.JPanel {
         addButton = new javax.swing.JButton();
         removeButton = new javax.swing.JButton();
         editButton = new javax.swing.JButton();
+        synchronizeOffline = new javax.swing.JButton();
 
         indices.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -114,18 +131,26 @@ final class IndexPanel extends javax.swing.JPanel {
             }
         });
 
+        org.openide.awt.Mnemonics.setLocalizedText(synchronizeOffline, org.openide.util.NbBundle.getMessage(IndexPanel.class, "IndexPanel.synchronizeOffline.text", new Object[] {})); // NOI18N
+        synchronizeOffline.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                synchronizeOfflineActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 281, Short.MAX_VALUE)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 263, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addComponent(removeButton, javax.swing.GroupLayout.DEFAULT_SIZE, 154, Short.MAX_VALUE)
-                    .addComponent(addButton, javax.swing.GroupLayout.DEFAULT_SIZE, 154, Short.MAX_VALUE)
-                    .addComponent(editButton, javax.swing.GroupLayout.DEFAULT_SIZE, 154, Short.MAX_VALUE))
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(removeButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(addButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(editButton, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                    .addComponent(synchronizeOffline, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                 .addContainerGap())
         );
         layout.setVerticalGroup(
@@ -139,7 +164,9 @@ final class IndexPanel extends javax.swing.JPanel {
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(editButton)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(removeButton)))
+                        .addComponent(removeButton)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                        .addComponent(synchronizeOffline)))
                 .addContainerGap())
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -158,6 +185,45 @@ final class IndexPanel extends javax.swing.JPanel {
         model.indices.remove(indices.getSelectedRow());
         model.fireTableDataChanged();
     }//GEN-LAST:event_removeButtonActionPerformed
+
+    private void synchronizeOfflineActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_synchronizeOfflineActionPerformed
+        ExecutionEngine.getDefault().execute("Synchronizing remote indices", new Runnable() {
+            @Override public void run() {
+                TableModelImpl model = (TableModelImpl) indices.getModel();
+                Collection<RemoteIndex> indices = new ArrayList<RemoteIndex>(model.indices);
+
+                for (Iterator<RemoteIndex> it = indices.iterator(); it.hasNext();) {
+                    if (it.next().useLocalCache == UseLocalCache.NEVER) {
+                        it.remove();
+                    }
+                }
+
+                ProgressHandle h = ProgressHandleFactory.createHandle("Synchronizing remote indices");
+
+                h.start(indices.size());
+
+                try {
+                    int i = 0;
+
+                    for (RemoteIndex idx : indices) {
+                        try {
+                            h.progress("Downloading index from " + idx.remote.toURI() + " subindex " + idx.remoteSegment);
+                            Lookup.getDefault().lookup(LocalServer.class).downloadIndex(idx);
+                        } catch (URISyntaxException ex) {
+                            Exceptions.printStackTrace(ex);
+                        } catch (IOException ex) {
+                            Exceptions.printStackTrace(ex);
+                        }
+
+                        h.progress(++i);
+                    }
+                } finally {
+                    h.finish();
+                }
+            }
+        }, InputOutput.NULL);
+
+    }//GEN-LAST:event_synchronizeOfflineActionPerformed
 
     private void addEditIndex(boolean edit) {
         JButton okButton = new JButton("OK");
@@ -197,6 +263,17 @@ final class IndexPanel extends javax.swing.JPanel {
             editButton.setEnabled(false);
             removeButton.setEnabled(false);
         }
+
+        if (indices.getModel() instanceof TableModelImpl) {
+            TableModelImpl model = (TableModelImpl) indices.getModel();
+            boolean enableDownload = false;
+
+            for (RemoteIndex idx : model.indices) {
+                enableDownload |= idx.useLocalCache != UseLocalCache.NEVER;
+            }
+
+            synchronizeOffline.setEnabled(enableDownload);
+        }
     }
 
     void load() {
@@ -225,6 +302,7 @@ final class IndexPanel extends javax.swing.JPanel {
     private javax.swing.JButton editButton;
     private javax.swing.JTable indices;
     private javax.swing.JButton removeButton;
+    private javax.swing.JButton synchronizeOffline;
     // End of variables declaration//GEN-END:variables
 
     private static final class TableModelImpl extends AbstractTableModel {
@@ -236,7 +314,7 @@ final class IndexPanel extends javax.swing.JPanel {
         }
 
         public int getColumnCount() {
-            return 4;
+            return 5;
         }
 
         public String getColumnName(int columnIndex) {
@@ -245,12 +323,13 @@ final class IndexPanel extends javax.swing.JPanel {
                 case 1: return "Local folder";
                 case 2: return "Remote URL";
                 case 3: return "Remote project";
+                case 4: return "Use local cache";
                 default: throw new IllegalStateException();
             }
         }
 
         public Class<?> getColumnClass(int columnIndex) {
-            return columnIndex == 0 ? Boolean.class : String.class;
+            return columnIndex == 0 ? Boolean.class : columnIndex != 4 ? String.class : UseLocalCache.class;
         }
 
         public Object getValueAt(int rowIndex, int columnIndex) {
@@ -261,6 +340,7 @@ final class IndexPanel extends javax.swing.JPanel {
                 case 1: return Utils.toDisplayName(idx.getLocalFolder());
                 case 2: return idx.remote.toExternalForm();
                 case 3: return idx.remoteSegment;
+                case 4: return idx.useLocalCache;
                 default: throw new IllegalStateException();
             }
         }
@@ -269,12 +349,17 @@ final class IndexPanel extends javax.swing.JPanel {
         public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
             RemoteIndex idx = indices.get(rowIndex);
 
-            indices.set(rowIndex, RemoteIndex.create(aValue instanceof Boolean ? (Boolean) aValue : true, idx.getLocalFolder(), idx.remote, idx.remoteSegment));
+            if (columnIndex == 0) {
+                idx = RemoteIndex.create(aValue instanceof Boolean ? (Boolean) aValue : true, idx.useLocalCache, idx.getLocalFolder(), idx.remote, idx.remoteSegment);
+            } else {
+                idx = RemoteIndex.create(idx.enabled, aValue instanceof UseLocalCache ? (UseLocalCache) aValue : UseLocalCache.NEVER, idx.getLocalFolder(), idx.remote, idx.remoteSegment);
+            }
+            indices.set(rowIndex, idx);
         }
 
         @Override
         public boolean isCellEditable(int rowIndex, int columnIndex) {
-            return columnIndex == 0;
+            return columnIndex == 0 || columnIndex == 4;
         }
 
     }

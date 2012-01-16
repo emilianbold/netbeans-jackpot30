@@ -42,7 +42,6 @@
 
 package org.netbeans.modules.jackpot30.remoting.api;
 
-import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.LinkedList;
@@ -52,6 +51,7 @@ import java.util.prefs.Preferences;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.remotingapi.options.Utils;
 import org.openide.util.Exceptions;
+import org.openide.util.Lookup;
 import org.openide.util.NbPreferences;
 
 /**
@@ -62,26 +62,29 @@ public class RemoteIndex {
 
     public final boolean enabled;
     private final String folder;
+    public final UseLocalCache useLocalCache;
     public final URL    remote;
     public final String remoteSegment;
 
     public static RemoteIndex create(URL localFolder, URL remote, String remoteSegment) {
-        return create(true, localFolder, remote, remoteSegment);
+        return create(true, UseLocalCache.NEVER, localFolder, remote, remoteSegment);
     }
 
-    public static RemoteIndex create(boolean enabled, URL localFolder, URL remote, String remoteSegment) {
-        return new RemoteIndex(enabled, localFolder.toExternalForm(), remote, remoteSegment);
+    public static RemoteIndex create(boolean enabled, UseLocalCache useLocalCache, URL localFolder, URL remote, String remoteSegment) {
+        return new RemoteIndex(enabled, useLocalCache, localFolder.toExternalForm(), remote, remoteSegment);
     }
 
     private RemoteIndex() {//used by Pojson
         this.enabled = true;
+        this.useLocalCache = UseLocalCache.NEVER;
         this.folder = null;
         this.remote = null;
         this.remoteSegment = null;
     }
 
-    private RemoteIndex(boolean enabled, String folder, URL remote, String remoteSegment) {
+    private RemoteIndex(boolean enabled, UseLocalCache useLocalCache, String folder, URL remote, String remoteSegment) {
         this.enabled = enabled;
+        this.useLocalCache = useLocalCache;
         this.folder = folder;
         this.remote = remote;
         this.remoteSegment = remoteSegment;
@@ -92,6 +95,7 @@ public class RemoteIndex {
     }
 
     private static final String KEY_REMOTE_INDICES = RemoteIndex.class.getSimpleName();
+    private static int localServerPort = -2;
 
     public static Iterable<? extends RemoteIndex> loadIndices() {
         return loadIndices(false);
@@ -106,6 +110,20 @@ public class RemoteIndex {
                 for (String key : prefs.keys()) {
                     if (key.startsWith("index")) {
                         RemoteIndex idx = Pojson.load(RemoteIndex.class, prefs.get(key, null));
+
+                        if (idx.enabled && idx.useLocalCache == UseLocalCache.ALWAYS) {
+                            if (localServerPort == (-2)) {
+                                localServerPort = Lookup.getDefault().lookup(LocalServer.class).startLocalServer();
+                            }
+
+                            if (localServerPort != (-1)) {
+                                try {
+                                    idx = new RemoteIndex(true, UseLocalCache.ALWAYS, idx.folder, new URL("http://localhost:" + localServerPort + "/index"), idx.remoteSegment);
+                                } catch (MalformedURLException ex) {
+                                    Exceptions.printStackTrace(ex);
+                                }
+                            }
+                        }
 
                         if (includeAll || idx.enabled)
                             result.add(idx);
@@ -139,5 +157,10 @@ public class RemoteIndex {
         } catch (BackingStoreException ex) {
             Exceptions.printStackTrace(ex);
         }
+    }
+
+    public enum UseLocalCache {
+        ALWAYS,
+        NEVER;
     }
 }

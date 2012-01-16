@@ -42,10 +42,18 @@
 package org.netbeans.modules.jackpot30.backend.usages.api;
 
 import java.io.*;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.jar.JarOutputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
+import org.openide.util.NbCollections;
 
 /**
  *
@@ -77,6 +85,53 @@ public class DownloadableIndex {
                 }
 
                 in.close(); //TODO: finally
+            }
+        } ).build();
+    }
+
+    @GET
+    @Path("/index")
+    @Produces("application/octet-stream")
+    public Response index(@QueryParam("path") String segment) throws IOException, InterruptedException {
+        CategoryStorage category = CategoryStorage.forId(segment);
+        final FileObject idxRoot = category.getCacheRoot();
+
+        if (idxRoot == null || !idxRoot.canRead()) return Response.status(Response.Status.NOT_FOUND).build();
+
+        return Response.ok().entity(new StreamingOutput() {
+            @Override public void write(OutputStream output) throws IOException, WebApplicationException {
+                JarOutputStream out = new JarOutputStream(output);
+
+                try {
+                    for (String rel : Arrays.asList("index", "info", "segments")) {
+                        FileObject relFO = idxRoot.getFileObject(rel);
+
+                        if (relFO == null) return;
+
+                        Iterable<? extends FileObject> children;
+
+                        if (relFO.isFolder()) children = NbCollections.iterable(relFO.getChildren(true));
+                        else children = Collections.singletonList(relFO);
+
+                        for (FileObject c : children) {
+                            if (c.isFolder()) continue;
+
+                            out.putNextEntry(new ZipEntry(FileUtil.getRelativePath(idxRoot, c)));
+
+                            InputStream in = c.getInputStream();
+
+                            try {
+                                FileUtil.copy(in, out);
+                            } finally {
+                                in.close();
+                            }
+
+                            out.closeEntry();
+                        }
+                    }
+                } finally {
+                    out.close();
+                }
             }
         } ).build();
     }

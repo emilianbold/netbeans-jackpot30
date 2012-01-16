@@ -24,3 +24,4 @@
 ^remoting/server/tests/cache$
 ^remoting/server/tests/results$
 ^remoting/server/hudson/nb-configuration.xml$
+^remoting/ide/local/release$

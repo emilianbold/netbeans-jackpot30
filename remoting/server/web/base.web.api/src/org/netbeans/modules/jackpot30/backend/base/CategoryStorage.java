@@ -60,6 +60,7 @@ import java.util.logging.Logger;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.parsing.lucene.LuceneIndexFactory;
 import org.netbeans.modules.parsing.lucene.support.Index;
 import org.netbeans.modules.parsing.lucene.support.IndexManager;
 import org.openide.filesystems.FileObject;
@@ -185,7 +186,7 @@ public class CategoryStorage {
         return displayName;
     }
 
-    private FileObject getCacheRoot() {
+    public FileObject getCacheRoot() {
         return FileUtil.toFileObject(FileUtil.normalizeFile(new File(cacheRoot, id)));
     }
 
