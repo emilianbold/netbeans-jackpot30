@@ -353,12 +353,12 @@ public abstract class AbstractLuceneIndex extends Index {
         }
 
         public void close() throws IOException {
-            luceneWriter.optimize();
-            luceneWriter.close();
             info.majorVersion = MAJOR_VERSION;
             info.minorVersion = MINOR_VERSION;
             info.totalFiles = luceneWriter.numDocs();
             info.lastUpdate = System.currentTimeMillis();
+            luceneWriter.optimize();
+            luceneWriter.close();
             storeIndexInfo(info);
         }
     }
