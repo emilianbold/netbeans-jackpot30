@@ -43,6 +43,16 @@
     <target name="test" depends="suite.test">
         <subant target="test" buildpath="${server.modules}" inheritall="false"/>
     </target>
+    
+    <property name="subprojects" value="remoting/common:remoting/ide:remoting/server/indexer:remoting/server/web/web.main:language/ide:duplicates/ide" />
+
+    <target name="build-subprojects">
+        <subant target="build" buildpath="${subprojects}" inheritall="false"/>
+    </target>
+
+    <target name="test-subprojects">
+        <subant target="test" buildpath="${subprojects}" inheritall="false"/>
+    </target>
 
 <!--    <target name="coverage-report" depends="testcoverage-suite.coverage-report">
         <subant target="test" buildpath="${server.modules}" inheritall="false"/>
