@@ -86,14 +86,16 @@ public class IndexAccess {
     
     public void finish() {
         this.root = null;
-        try {
-            w.close();
-        } catch (CorruptIndexException ex) {
-            throw new IllegalStateException(ex);
-        } catch (IOException ex) {
-            throw new IllegalStateException(ex);
+        if (w != null) {
+            try {
+                w.close();
+            } catch (CorruptIndexException ex) {
+                throw new IllegalStateException(ex);
+            } catch (IOException ex) {
+                throw new IllegalStateException(ex);
+            }
+            w = null;
         }
-        w = null;
     }
     
     public String getRelativePath(Indexable i) {
