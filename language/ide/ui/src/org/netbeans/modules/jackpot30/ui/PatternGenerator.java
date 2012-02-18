@@ -40,7 +40,7 @@
  * Portions Copyrighted 2011 Sun Microsystems, Inc.
  */
 
-package org.netbeans.modules.jackpot30.impl.refactoring.findusages;
+package org.netbeans.modules.jackpot30.ui;
 
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
