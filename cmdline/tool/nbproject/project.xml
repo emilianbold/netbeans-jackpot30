@@ -61,7 +61,7 @@
                     </run-dependency>
                 </dependency>
                 <dependency>
-                    <code-name-base>org.netbeans.modules.jackpot30.api</code-name-base>
+                    <code-name-base>org.netbeans.modules.jackpot30.indexing</code-name-base>
                     <build-prerequisite/>
                     <compile-dependency/>
                     <run-dependency>
@@ -248,11 +248,6 @@
                         <recursive/>
                         <compile-dependency/>
                         <test/>
-                    </test-dependency>
-                    <test-dependency>
-                        <code-name-base>org.netbeans.modules.jackpot30.hintsimpl</code-name-base>
-                        <recursive/>
-                        <compile-dependency/>
                     </test-dependency>
                     <test-dependency>
                         <code-name-base>org.netbeans.modules.jackpot30.test.borrowed</code-name-base>

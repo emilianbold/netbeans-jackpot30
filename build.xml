@@ -3,7 +3,7 @@
 <!-- for some information on what you could do (e.g. targets to override). -->
 <!-- If you delete this file and reopen the project it will be recreated. -->
 <project name="jackpot30" basedir=".">
-    <description>Builds the module suite jackpot30.</description>
+<!--    <description>Builds the module suite jackpot30.</description>
     <import file="nbproject/build-impl.xml"/>
     
     <property name="server.modules" value="server/indexer:server/web.api" />
@@ -52,7 +52,7 @@
 
     <target name="test-subprojects">
         <subant target="test" buildpath="${subprojects}" inheritall="false"/>
-    </target>
+    </target>-->
 
 <!--    <target name="coverage-report" depends="testcoverage-suite.coverage-report">
         <subant target="test" buildpath="${server.modules}" inheritall="false"/>

@@ -246,8 +246,7 @@ public abstract class IndexQuery {
     }
     
     public static IndexQuery open(URL sourceRoot) throws IOException {
-        FileObject dataFolder = CacheFolder.getDataFolder(sourceRoot);
-        FileObject cacheFO  = dataFolder.getFileObject(JavaIndex.NAME + "/" + JavaIndex.VERSION + "/" + Indexer.INDEX_NAME);
+        FileObject cacheFO  = Indexer.resolveCacheFolder(sourceRoot).getFileObject(Indexer.INDEX_NAME);
         File cache = cacheFO != null ? FileUtil.toFile(cacheFO) : null;
         
         return new LocalIndexQuery(cache);

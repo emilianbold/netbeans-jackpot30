@@ -8,7 +8,7 @@
 ^external$
 .*/external$
 \.old$
-^server/lib$
+^lib$
 .*/nbproject-.*/private.xml
 \.aux$
 \.dvi$

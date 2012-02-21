@@ -60,11 +60,10 @@ import javax.swing.text.BadLocationException;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
-import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationInfoHack;
 import org.netbeans.api.java.source.ModificationResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
+import org.netbeans.modules.jackpot30.indexing.batch.BatchUtilities;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
 import org.netbeans.modules.java.hints.jackpot.impl.JavaFixImpl;
 import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
@@ -155,7 +154,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
         List<HintDescription> hintDescriptions = new LinkedList<HintDescription>(hardCodedHints);
 
         if (isEnabled(processingEnv, CLASSPATH_HINTS_ENABLE)) {
-            hintDescriptions.addAll(new LinkedList<HintDescription>(Utilities.listClassPathHints(new HashSet<ClassPath>(Arrays.asList(info.getClasspathInfo().getClassPath(PathKind.COMPILE), info.getClasspathInfo().getClassPath(PathKind.SOURCE))))));
+            hintDescriptions.addAll(new LinkedList<HintDescription>(Utilities.listClassPathHints(Collections.singleton(info.getClasspathInfo().getClassPath(PathKind.SOURCE)), Collections.singleton(info.getClasspathInfo().getClassPath(PathKind.COMPILE)))));
         }
 
         boolean applyCPHints = isEnabled(processingEnv, CLASSPATH_HINTS_FIXES_ENABLE);

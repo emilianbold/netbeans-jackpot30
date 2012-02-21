@@ -1,5 +1,5 @@
 <project name="download" default="download">
-    <target name="download">
+    <target name="download" depends="copy-from-platform">
         <property name="imported.basedir" value="${basedir}"/>
             
         <macrodef name="download">
@@ -57,13 +57,32 @@
     </target>
     
     <target name="-download" depends="-download-check-exists" unless="file.exists">
-        <dirname property="dir" file="${imported.basedir}/lib/${target}" />
+        <dirname property="dir" file="${imported.basedir}/${target}" />
         <mkdir dir="${dir}" />
-        <get src="${url}" dest="${imported.basedir}/lib/${target}" usetimestamp="true"/>
+        <get src="${url}" dest="${imported.basedir}/${target}" usetimestamp="true"/>
     </target>
     
     <target name="-prepare-imported-basedir-property">
         <dirname property="imported.basedir" file="${ant.file.download}"/>
     </target>
     <target name="-post-init" depends="-prepare-imported-basedir-property,download"/>
+
+    <target name="copy-from-platform">
+        <fail unless="nbplatform.active.dir" />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-source.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-hints.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/platform/core/org-openide-filesystems.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util-lookup.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-spi-editor-hints.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-api-java-classpath.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-api-nb-7.0-b07.jar" todir="javac" />
+        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-impl-nb-7.0-b07.jar" todir="javac" />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-jumpto.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/platform/modules/org-netbeans-modules-masterfs.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-lucene.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-api.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-projectapi.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-project.jar" todir="." />
+    </target>
 </project>

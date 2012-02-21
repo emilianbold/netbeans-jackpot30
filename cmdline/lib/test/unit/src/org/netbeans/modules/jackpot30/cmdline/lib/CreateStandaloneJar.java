@@ -75,11 +75,12 @@ import org.netbeans.modules.classfile.ClassFile;
 import org.netbeans.modules.classfile.ClassName;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.JavaMimeResolver;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
-import org.netbeans.modules.jackpot30.spi.Hacks.HintPreferencesProvider;
+import org.netbeans.modules.jackpot30.common.api.IndexAccess;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
 import org.netbeans.modules.java.hints.jackpot.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.jackpot.code.FSWrapper;
 import org.netbeans.modules.java.hints.jackpot.impl.Utilities.SPI;
+import org.netbeans.modules.java.hints.jackpot.refactoring.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.java.hints.jackpot.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.java.hints.jackpot.spi.HintProvider;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
@@ -414,6 +415,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.netbeans.core.NbLoaderPool",
             "org.netbeans.core.startup.preferences.PreferencesProviderImpl",
             "org.netbeans.modules.java.platform.DefaultJavaPlatformProvider",
+            IndexAccess.class.getName(),
             
             "com.sun.tools.javac.resources.compiler",
             "com.sun.tools.javac.resources.javac",
@@ -435,7 +437,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.netbeans.modules.openide.util.PreferencesProvider",
             HintPreferencesProvider.class.getName(),
             ClassPathBasedHintProvider.class.getName(),
-            "org.openide.filesystems.MIMEResolver"
+            "org.openide.filesystems.MIMEResolver",
+            IndexAccess.class.getName()
             ));
 
     private static final Set<String> RESOURCES = new HashSet<String>(Arrays.asList(

@@ -71,8 +71,11 @@ import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
 import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.EncodingContext;
 import org.netbeans.modules.java.preprocessorbridge.spi.JavaIndexerPlugin;
+import org.netbeans.modules.java.source.indexing.JavaIndex;
+import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 
@@ -219,6 +222,12 @@ public final class Indexer implements JavaIndexerPlugin {
         }
     }
 
+    public static @NonNull FileObject resolveCacheFolder(@NonNull URL sourceRoot) throws IOException {
+        FileObject dataFolder = CacheFolder.getDataFolder(sourceRoot);
+        
+        return FileUtil.createFolder(dataFolder, JavaIndex.NAME + "/" + JavaIndex.VERSION);
+    }
+    
     @MimeRegistration(mimeType="text/x-java", service=Factory.class)
     public static final class FactoryImpl implements Factory {
 
