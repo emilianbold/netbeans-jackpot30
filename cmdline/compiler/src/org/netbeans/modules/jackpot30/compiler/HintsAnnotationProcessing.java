@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -74,6 +75,7 @@ import org.netbeans.modules.java.hints.jackpot.spi.HintsRunner;
 import org.netbeans.modules.java.hints.options.HintsSettings;
 import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.openide.filesystems.FileUtil;
@@ -186,7 +188,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
                     JavaFixImpl jfi = (JavaFixImpl) f;
 
                     try {
-                        JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, false);
+                        JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, false, new ArrayList<RefactoringElementImplementation>());
                     } catch (Exception ex) {
                         Exceptions.printStackTrace(ex);
                     }
