@@ -41,13 +41,13 @@ package org.netbeans.modules.jackpot30.compiler;
 import java.io.File;
 import java.util.Collections;
 import javax.lang.model.type.TypeMirror;
-import org.netbeans.modules.java.hints.jackpot.code.spi.Hint;
-import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerCompileTime;
-import org.netbeans.modules.java.hints.jackpot.code.spi.TriggerPattern;
-import org.netbeans.modules.java.hints.jackpot.spi.HintContext;
-import org.netbeans.modules.java.hints.jackpot.spi.JavaFix;
-import org.netbeans.modules.java.hints.jackpot.spi.support.ErrorDescriptionFactory;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.java.hints.ErrorDescriptionFactory;
+import org.netbeans.spi.java.hints.Hint;
+import org.netbeans.spi.java.hints.HintContext;
+import org.netbeans.spi.java.hints.JavaFix;
+import org.netbeans.spi.java.hints.JavaFixUtilities;
+import org.netbeans.spi.java.hints.TriggerPattern;
 
 /**
  *
@@ -247,11 +247,10 @@ public class HintsAnnotationProcessingTest extends HintsAnnotationProcessingTest
         assertEquals(goldenDiff, diffText);
     }
 
-    @Hint(category="general")
+    @Hint(displayName="test", description="test", category="general")
     @TriggerPattern("$1 == null && null == $1")
-    @TriggerCompileTime //XXX: currently not really used
     public static ErrorDescription codeHint(HintContext ctx) {
-        return ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "test", JavaFix.rewriteFix(ctx.getInfo(), "test", ctx.getPath(), "$1 == null", ctx.getVariables(), ctx.getMultiVariables(), ctx.getVariableNames(), Collections.<String, TypeMirror>emptyMap()));
+        return ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "test", JavaFixUtilities.rewriteFix(ctx, "test", ctx.getPath(), "$1 == null"));
     }
 
 }

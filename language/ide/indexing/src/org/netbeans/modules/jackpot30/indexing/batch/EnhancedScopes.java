@@ -78,19 +78,19 @@ import org.netbeans.modules.jackpot30.indexing.index.Indexer;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import static org.netbeans.modules.jackpot30.remoting.api.WebUtilities.escapeForQuery;
-import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Folder;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.IndexEnquirer;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.LocalIndexEnquirer;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.MapIndices;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Resource;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Scope;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.VerifiedSpansCallBack;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
-import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
-import org.netbeans.modules.java.hints.jackpot.spi.Trigger.PatternDescription;
+import org.netbeans.modules.java.hints.providers.spi.HintDescription;
+import org.netbeans.modules.java.hints.providers.spi.Trigger.PatternDescription;
+import org.netbeans.modules.java.hints.spiimpl.MessageImpl;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Folder;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.IndexEnquirer;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.LocalIndexEnquirer;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.MapIndices;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Resource;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Scope;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.VerifiedSpansCallBack;
+import org.netbeans.modules.java.hints.spiimpl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.spiimpl.batch.Scopes;
+import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.java.preprocessorbridge.spi.JavaIndexerPlugin;
 import org.netbeans.modules.parsing.impl.indexing.FileObjectIndexable;
 import org.netbeans.modules.parsing.impl.indexing.IndexableImpl;
@@ -247,7 +247,7 @@ public class EnhancedScopes {
         Collection<FileObject> collected = new LinkedList<FileObject>();
         Set<String> removed = new HashSet<String>(timeStamps.stringPropertyNames());
 
-        org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities.recursive(src, src, collected, progress, 0, timeStamps, removed, recursive);
+        org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities.recursive(src, src, collected, progress, 0, timeStamps, removed, recursive);
 
         for (String r : removed) {
             index.delete(SPIAccessor.getInstance().create(new FakeIndexableImpl(r)));

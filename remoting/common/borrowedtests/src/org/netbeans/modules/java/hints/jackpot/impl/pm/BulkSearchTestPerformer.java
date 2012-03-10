@@ -42,8 +42,6 @@
 
 package org.netbeans.modules.java.hints.jackpot.impl.pm;
 
-import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.BulkPattern;
-import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch.EncodingContext;
 import com.sun.source.util.TreePath;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -75,6 +73,9 @@ import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.loaders.DataObject;
 import static org.junit.Assert.*;
+import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch;
+import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.EncodingContext;
 
 /**
  *

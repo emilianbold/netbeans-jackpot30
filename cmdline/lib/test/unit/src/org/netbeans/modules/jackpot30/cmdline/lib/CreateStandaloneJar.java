@@ -77,12 +77,12 @@ import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.JavaMimeResolv
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
 import org.netbeans.modules.jackpot30.common.api.IndexAccess;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
-import org.netbeans.modules.java.hints.jackpot.code.CodeHintProviderImpl;
-import org.netbeans.modules.java.hints.jackpot.code.FSWrapper;
-import org.netbeans.modules.java.hints.jackpot.impl.Utilities.SPI;
 import org.netbeans.modules.java.hints.jackpot.refactoring.Hacks.HintPreferencesProvider;
-import org.netbeans.modules.java.hints.jackpot.spi.ClassPathBasedHintProvider;
-import org.netbeans.modules.java.hints.jackpot.spi.HintProvider;
+import org.netbeans.modules.java.hints.providers.code.CodeHintProviderImpl;
+import org.netbeans.modules.java.hints.providers.code.FSWrapper;
+import org.netbeans.modules.java.hints.providers.spi.ClassPathBasedHintProvider;
+import org.netbeans.modules.java.hints.providers.spi.HintProvider;
+import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.openide.util.NbPreferences.Provider;
 import org.openide.xml.EntityCatalog;

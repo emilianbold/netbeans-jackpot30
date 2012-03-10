@@ -48,7 +48,7 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.jackpot30.indexing.index.IndexQuery;
 import org.netbeans.modules.java.hints.declarative.Hacks;
-import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
+import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.openide.filesystems.FileUtil;
 
