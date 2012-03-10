@@ -17,5 +17,5 @@ chmod u+x build/temp-indexing-backend/web
 
 mkdir -p ide/local/release/index-server
 (cd server/web/web.main; cp -r dist/* ../../../ide/local/release/index-server) || exit 1
-(cd ide; ant "$@" clean && ant "$@" nbms && cp -r build/updates ../build) || exit 1
+(cd ide; ant "$@" clean && ant "$@" nbms) || exit 1
 

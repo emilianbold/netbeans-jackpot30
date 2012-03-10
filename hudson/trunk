@@ -1,4 +1,5 @@
 #!/bin/bash -x
+prepare_platform() {
 if [ "$TRUNK_URL" == "" ] ; then
     TRUNK_URL="http://deadlock.netbeans.org/hudson/job/nbms-and-javadoc";
 fi;
@@ -30,36 +31,28 @@ done
 cd ../..
 
 PLATFORM=$PWD/nbbuild/netbeans
+}
+
+if [ "$PLATFORM" == "" ] ; then
+    prepare_platform
+fi;
 
 call_ant() {
     ant -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM "$@"
 }
 
-(cd borrowedtests; call_ant clean && call_ant) || exit
-call_ant copy-from-platform
-(cd server; ant -f download.xml) || exit
-(cd remoting; ./build-indexing-backend -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
-(cd remoting/server/tests; ./run-declarative-tests  -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
-call_ant clean || exit
-call_ant build || exit
-#call_ant coverage-report || exit
-call_ant test || exit
+SUBPROJECTS="remoting language duplicates cmdline";
 
-(cd cmdline; call_ant clean && call_ant build && call_ant test && (cd compiler; call_ant create-standalone-compiler && build/test/scripted/run )  && (cd tool; call_ant create-standalone-tool && build/test/scripted/run )) || exit
+for subproject in $SUBPROJECTS; do
+    (cd $subproject; ./build.sh -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
+done
 
 mkdir -p build/updates
-cp nbbuild/download/*.nbm build/updates
 
-call_ant -Ddist.base=$DIST_BASE nbms || exit
+NBMS_SUBPROJECTS="remoting language duplicates";
+
+cp `find $NBMS_SUBPROJECTS -type f -name "*.nbm"` build/updates
+ant -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM -Ddist.base=$DIST_BASE build-auc || exit 1
 gzip <build/updates/updates.xml >build/updates/updates.xml.gz
 
-#(cd cmdline/compiler; call_ant copy-to-hudson) || exit
-#(cd server/indexer; call_ant copy-to-hudson) || exit
-(cd cmdline/tool; call_ant create-standalone-tool) || exit
-(cd cmdline/compiler; call_ant create-standalone-compiler) || exit
-
-call_ant -Ddist.base=$DIST_BASE findbugs || exit
-
-mkdir -p build/server
-(cp server/do-indexing server/indexer/dist; cd server/indexer/dist/; zip -r ../../../build/server/indexer.zip *)
-(cd server/web.api/dist/; zip -r ../../../build/server/web.api.zip *)
+exit 0
