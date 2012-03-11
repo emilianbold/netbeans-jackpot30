@@ -1,6 +1,6 @@
 #!/bin/bash
-(cd common; ant "$@" clean && ant "$@" nbms) || exit 1
-(cd ide; ant "$@" clean && ant "$@" nbms) || exit 1
+(cd common; ant "$@" clean && ant "$@" build) || exit 1
+(cd ide; ant "$@" clean && (cd ../common; ant "$@" -Dbuild.updates.dir=../ide/build/updates nbms) && ant "$@" nbms) || exit 1
 rm -rf build
 mkdir -p build/indexing-backend
 (cd server/indexer; ant "$@" clean && ant "$@" build-zip && unzip -d ../../build/indexing-backend dist/indexer.zip) || exit 1
