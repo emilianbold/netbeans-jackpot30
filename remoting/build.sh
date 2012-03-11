@@ -1,4 +1,6 @@
 #!/bin/bash
+(cd common; ant "$@" clean && ant "$@" nbms) || exit 1
+(cd ide; ant "$@" clean && ant "$@" nbms) || exit 1
 rm -rf build
 mkdir -p build/indexing-backend
 (cd server/indexer; ant "$@" clean && ant "$@" build-zip && unzip -d ../../build/indexing-backend dist/indexer.zip) || exit 1
@@ -17,5 +19,3 @@ chmod u+x build/temp-indexing-backend/web
 
 mkdir -p ide/local/release/index-server
 (cd server/web/web.main; cp -r dist/* ../../../ide/local/release/index-server) || exit 1
-(cd ide; ant "$@" clean && ant "$@" nbms) || exit 1
-

@@ -82,8 +82,11 @@ import org.netbeans.modules.java.hints.providers.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.providers.code.FSWrapper;
 import org.netbeans.modules.java.hints.providers.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.java.hints.providers.spi.HintProvider;
+import org.netbeans.modules.java.hints.spiimpl.RulesManager;
+import org.netbeans.modules.java.hints.spiimpl.RulesManagerImpl;
 import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
+import org.openide.filesystems.MIMEResolver;
 import org.openide.util.NbPreferences.Provider;
 import org.openide.xml.EntityCatalog;
 import org.openide.xml.XMLUtil;
@@ -231,6 +234,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         registrations.add(new MetaInfRegistration(Provider.class.getName(), StandaloneTools.PreferencesProvider.class.getName(), 0));
         registrations.add(new MetaInfRegistration(MimeDataProvider.class.getName(), StandaloneTools.StandaloneMimeDataProviderImpl.class.getName()));
         registrations.add(new MetaInfRegistration(SPI.class.getName(), StandaloneTools.UtilitiesSPIImpl.class.getName()));
+        registrations.add(new MetaInfRegistration(MIMEResolver.class.getName(), JavaMimeResolver.class.getName()));
         registrations.addAll(info.metaInf);
 
         Map<String, Collection<MetaInfRegistration>> api2Registrations = new HashMap<String, Collection<MetaInfRegistration>>();
@@ -416,6 +420,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.netbeans.core.startup.preferences.PreferencesProviderImpl",
             "org.netbeans.modules.java.platform.DefaultJavaPlatformProvider",
             IndexAccess.class.getName(),
+            RulesManagerImpl.class.getName(),
             
             "com.sun.tools.javac.resources.compiler",
             "com.sun.tools.javac.resources.javac",
@@ -424,7 +429,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             PositionIncrementAttributeImpl.class.getName()
 
 
-            , "org.netbeans.modules.java.hints.infrastructure.RulesManager$HintProviderImpl"
+            , "org.netbeans.modules.java.hints.legacy.spi.RulesManager$HintProviderImpl"
             , Tree.class.getName()
             ,JavacTool.class.getName()
             ,JavaMimeResolver.class.getName()
@@ -437,8 +442,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.netbeans.modules.openide.util.PreferencesProvider",
             HintPreferencesProvider.class.getName(),
             ClassPathBasedHintProvider.class.getName(),
-            "org.openide.filesystems.MIMEResolver",
-            IndexAccess.class.getName()
+            IndexAccess.class.getName(),
+            RulesManager.class.getName()
             ));
 
     private static final Set<String> RESOURCES = new HashSet<String>(Arrays.asList(
