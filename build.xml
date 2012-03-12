@@ -3,49 +3,21 @@
 <!-- for some information on what you could do (e.g. targets to override). -->
 <!-- If you delete this file and reopen the project it will be recreated. -->
 <project name="jackpot30" basedir=".">
-    <description>Builds the module suite jackpot30.</description>
-    <import file="nbproject/build-impl.xml"/>
-    
-    <property name="server.modules" value="server/indexer:server/web.api" />
-    
-    <target name="-init" depends="suite.-init,copy-from-platform" />
-    
-    <target name="copy-from-platform" depends="suite.-init">
-        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-source.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-hints.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/platform/core/org-openide-filesystems.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util-lookup.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-spi-editor-hints.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-api-java-classpath.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-api-nb-7.0-b07.jar" todir="server/lib/javac" />
-        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-impl-nb-7.0-b07.jar" todir="server/lib/javac" />
-        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-jumpto.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/platform/modules/org-netbeans-modules-masterfs.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-lucene.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-api.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-projectapi.jar" todir="server/lib" />
-        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-project.jar" todir="server/lib" />
+    <target name="build-auc">
+        <taskdef classpath="${nbplatform.default.harness.dir}/tasks.jar" resource="org/netbeans/nbbuild/taskdefs.properties"/>
+        <fileset id="updater.jar" dir="${nbplatform.default.netbeans.dest.dir}">
+            <filename name="platform/modules/ext/updater.jar"/>
+        </fileset>
+        <property name="catalog.base.url" value="."/>
+        <mkdir dir="build/updates" />
+        <makeupdatedesc desc="build/updates/updates.xml" distbase="${catalog.base.url}" automaticgrouping="true" uselicenseurl="${use.license.url.in.catalog}">
+            <fileset dir="build/updates">
+                <include name="*.nbm"/>
+                <include name="*.jar"/> <!-- #181025: bare OSGi bundles -->
+            </fileset>
+            <updaterjar>
+                <resources refid="updater.jar"/>
+            </updaterjar>
+        </makeupdatedesc>
     </target>
-    
-    <target name="findbugs" depends="-init">
-        <subant target="findbugs" buildpath="${modules}" inheritall="false"/>
-    </target>
-
-    <target name="clean" depends="suite.clean">
-        <subant target="clean" buildpath="${server.modules}" inheritall="false"/>
-    </target>
-
-    <target name="build" depends="suite.build">
-        <subant target="jar" buildpath="${server.modules}" inheritall="false"/>
-    </target>
-
-    <target name="test" depends="suite.test">
-        <subant target="test" buildpath="${server.modules}" inheritall="false"/>
-    </target>
-
-<!--    <target name="coverage-report" depends="testcoverage-suite.coverage-report">
-        <subant target="test" buildpath="${server.modules}" inheritall="false"/>
-    </target>-->
-
 </project>

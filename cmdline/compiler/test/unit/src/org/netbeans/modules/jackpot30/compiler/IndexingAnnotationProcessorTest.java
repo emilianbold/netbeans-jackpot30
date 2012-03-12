@@ -46,10 +46,11 @@ import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
-import org.netbeans.modules.jackpot30.impl.indexing.Cache;
-import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
+import org.netbeans.modules.jackpot30.indexing.index.IndexQuery;
 import org.netbeans.modules.java.hints.declarative.Hacks;
-import org.netbeans.modules.java.hints.jackpot.impl.pm.BulkSearch;
+import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch;
+import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.openide.filesystems.FileUtil;
 
 /**
  *
@@ -64,7 +65,7 @@ public class IndexingAnnotationProcessorTest extends HintsAnnotationProcessingTe
     protected void setUp() throws Exception {
         super.setUp();
         cache = new File(workDir, "cache");
-        Cache.setStandaloneCacheRoot(cache);
+        CacheFolder.setCacheFolder(FileUtil.createFolder(cache));
     }
 
     private File cache;
@@ -109,7 +110,7 @@ public class IndexingAnnotationProcessorTest extends HintsAnnotationProcessingTe
 
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
-                real.addAll(FileBasedIndex.get(src.toURI().toURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
+                real.addAll(IndexQuery.open(src.toURI().toURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
             }
         }, true);
 

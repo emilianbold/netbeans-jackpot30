@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.compiler;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
+import com.sun.source.util.Trees;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
@@ -52,19 +53,18 @@ import java.util.Map;
 import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.tools.Diagnostic;
-import org.netbeans.api.annotations.common.NonNull;
-import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.java.source.ClasspathInfo.PathKind;
-import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.CompilationInfoHack;
-import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
-import org.netbeans.modules.jackpot30.impl.indexing.FileBasedIndex;
-import org.netbeans.modules.jackpot30.impl.indexing.Index.AttributionWrapper;
-import org.netbeans.modules.jackpot30.impl.indexing.Index.IndexWriter;
+import org.netbeans.modules.jackpot30.indexing.index.Indexer;
+import org.netbeans.modules.java.preprocessorbridge.spi.JavaIndexerPlugin;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.parsing.impl.indexing.FileObjectIndexable;
+import org.netbeans.modules.parsing.impl.indexing.SPIAccessor;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
+import org.openide.util.Lookup;
+import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -85,7 +85,7 @@ public class IndexingAnnotationProcessor extends AbstractHintsAnnotationProcessi
     )));
 
     private boolean enabled;
-    private Map<FileObject, Writers> writers;
+    private Map<FileObject, JavaIndexerPlugin> writers;
 
     @Override
     protected boolean initialize(ProcessingEnvironment processingEnv) {
@@ -102,7 +102,7 @@ public class IndexingAnnotationProcessor extends AbstractHintsAnnotationProcessi
         FileUtil.refreshFor(cache.getParentFile());
         CacheFolder.setCacheFolder(FileUtil.toFileObject(cache));
 
-        writers = new HashMap<FileObject, Writers>();
+        writers = new HashMap<FileObject, JavaIndexerPlugin>();
 
         return true;
     }
@@ -143,13 +143,16 @@ public class IndexingAnnotationProcessor extends AbstractHintsAnnotationProcessi
                 }
             }
 
-            Writers w = writers.get(root);
+            JavaIndexerPlugin w = writers.get(root);
+            URL sourceRoot = root.toURL();
 
             if (w == null) {
-                writers.put(root, w = new Writers(root.getURL()));
+                writers.put(root, w = new Indexer.FactoryImpl().create(sourceRoot, Indexer.resolveCacheFolder(sourceRoot)));
             }
+            
+            Lookup services = Lookups.fixed(processingEnv.getElementUtils(), processingEnv.getTypeUtils(), Trees.instance(processingEnv));
 
-            w.record(info);
+            w.process(info.getCompilationUnit(), SPIAccessor.getInstance().create(new FileObjectIndexable(root, info.getFileObject())), services);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         }
@@ -159,12 +162,8 @@ public class IndexingAnnotationProcessor extends AbstractHintsAnnotationProcessi
     protected void finish() {
         if (!enabled) return;
 
-        for (Writers w : writers.values()) {
-            try {
-                w.close();
-            } catch (IOException ex) {
-                Exceptions.printStackTrace(ex);
-            }
+        for (JavaIndexerPlugin w : writers.values()) {
+            w.finish();
         }
 
         writers = null;
@@ -175,31 +174,4 @@ public class IndexingAnnotationProcessor extends AbstractHintsAnnotationProcessi
         return OPTIONS;
     }
 
-    static final class Writers {
-        private final @NonNull IndexWriter w;
-        private final @NullAllowed DuplicatesIndex.IndexWriter dw;
-
-        public Writers(URL src) throws IOException {
-            w = FileBasedIndex.get(src).openForWriting();
-            //duplicates index does not currently work:
-//            dw = DuplicatesIndex.get(src).openForWriting();
-            dw = null;
-        }
-
-        public void record(CompilationInfo info) throws IOException {
-            w.record(info.getFileObject().getURL(), info.getCompilationUnit(), new AttributionWrapper(info));
-
-            if (dw != null) {
-                dw.record(info, info.getFileObject().getURL(), info.getCompilationUnit());
-            }
-        }
-
-        public void close() throws IOException {
-            w.close();
-
-            if (dw != null) {
-                dw.close();
-            }
-        }
-    }
 }

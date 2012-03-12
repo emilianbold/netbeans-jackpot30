@@ -48,8 +48,8 @@ import java.io.PrintStream;
 import java.io.Writer;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -72,28 +72,27 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
-import org.netbeans.modules.java.hints.jackpot.impl.MessageImpl;
-import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
-import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.BatchResult;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Folder;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.Resource;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchSearch.VerifiedSpansCallBack;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.BatchUtilities;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
-import org.netbeans.modules.java.hints.jackpot.impl.batch.Scopes;
-import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
-import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
-import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata.Kind;
-import org.netbeans.modules.java.hints.options.HintsSettings;
+import org.netbeans.modules.java.hints.providers.spi.HintDescription;
+import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
+import org.netbeans.modules.java.hints.spiimpl.MessageImpl;
+import org.netbeans.modules.java.hints.spiimpl.RulesManager;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Folder;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Resource;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.VerifiedSpansCallBack;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities;
+import org.netbeans.modules.java.hints.spiimpl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.spiimpl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
+import org.netbeans.modules.java.hints.spiimpl.batch.Scopes;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
 import org.netbeans.modules.java.source.parsing.JavaPathRecognizer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.netbeans.spi.java.hints.Hint.Kind;
 import org.netbeans.spi.java.queries.SourceLevelQueryImplementation2;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
@@ -209,17 +208,17 @@ public class Main {
             ClassPath bootCP = createClassPath(parsed.has(bootclasspath) ? parsed.valuesOf(bootclasspath) : null, createDefaultBootClassPath());
             ClassPath compileCP = createClassPath(parsed.has(classpath) ? parsed.valuesOf(classpath) : null, ClassPath.EMPTY);
             ClassPath sourceCP = createClassPath(parsed.has(sourcepath) ? parsed.valuesOf(sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
-            ClassPath hintsCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP, sourceCP);
+            ClassPath binaryCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP);
 
             if (parsed.has("list")) {
-                printHints(hintsCP);
+                printHints(sourceCP, binaryCP);
                 return 0;
             }
 
             if (parsed.has(hint)) {
-                hints = findHints(hintsCP, parsed.valueOf(hint));
+                hints = findHints(sourceCP, binaryCP, parsed.valueOf(hint));
             } else {
-                hints = allHints(hintsCP);
+                hints = allHints(sourceCP, binaryCP);
             }
 
             if (!hints.iterator().hasNext()) {
@@ -242,7 +241,7 @@ public class Main {
                     return 1;
                 }
 
-                Preferences prefs = RulesManager.getPreferences(hd.getMetadata().id, HintsSettings.getCurrentProfileId());
+                Preferences prefs = HintsSettings.getPreferences(hd.getMetadata().id, HintsSettings.getCurrentProfileId());
 
                 if (prefs == null) {
                     System.err.println("hint '" + parsed.valueOf(hint) + "' cannot be configured");
@@ -297,24 +296,20 @@ public class Main {
         return 0;
     }
 
-    private static Map<HintMetadata, Collection<? extends HintDescription>> listHints(ClassPath from) {
+    private static Map<HintMetadata, Collection<? extends HintDescription>> listHints(ClassPath sourceFrom, ClassPath binaryFrom) {
         Map<HintMetadata, Collection<? extends HintDescription>> result = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
 
-        for (Map.Entry<HintMetadata, Collection<? extends HintDescription>> entry: RulesManager.getInstance().allHints.entrySet()) {
-            result.put(entry.getKey(), entry.getValue());
-        }
-
-        for (Map.Entry<? extends HintMetadata, ? extends Collection<? extends HintDescription>> entry: org.netbeans.modules.java.hints.jackpot.impl.refactoring.Utilities.sortByMetadata(Utilities.listClassPathHints(Collections.singleton(from))).entrySet()) {
+        for (Entry<HintMetadata, ? extends Collection<? extends HintDescription>> entry: RulesManager.getInstance().readHints(null, Arrays.asList(sourceFrom, binaryFrom), null).entrySet()) {
             result.put(entry.getKey(), entry.getValue());
         }
 
         return result;
     }
     
-    private static Iterable<? extends HintDescription> findHints(ClassPath from, String name) {
+    private static Iterable<? extends HintDescription> findHints(ClassPath sourceFrom, ClassPath binaryFrom, String name) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(from).entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(sourceFrom, binaryFrom).entrySet()) {
             if (e.getKey().displayName.equals(name)) {
                 descs.addAll(e.getValue());
             }
@@ -323,11 +318,11 @@ public class Main {
         return descs;
     }
 
-    private static Iterable<? extends HintDescription> allHints(ClassPath from) {
+    private static Iterable<? extends HintDescription> allHints(ClassPath sourceFrom, ClassPath binaryFrom) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(from).entrySet()) {
-            if (e.getKey().kind != Kind.HINT) continue;
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(sourceFrom, binaryFrom).entrySet()) {
+            if (e.getKey().kind != Kind.INSPECTION) continue;
             if (!e.getKey().enabled) continue;
             descs.addAll(e.getValue());
         }
@@ -396,7 +391,7 @@ public class Main {
                 outS = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(out)));
 
                 for (ModificationResult mr : diffs) {
-                    org.netbeans.modules.jackpot30.impl.batch.BatchUtilities.exportDiff(mr, null, outS);
+                    org.netbeans.modules.jackpot30.indexing.batch.BatchUtilities.exportDiff(mr, null, outS);
                 }
             } finally {
                 try {
@@ -412,10 +407,10 @@ public class Main {
         }
     }
 
-    private static void printHints(ClassPath from) throws IOException {
+    private static void printHints(ClassPath sourceFrom, ClassPath binaryFrom) throws IOException {
         Set<String> hints = new TreeSet<String>();
 
-        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(from).entrySet()) {
+        for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(sourceFrom, binaryFrom).entrySet()) {
             hints.add(e.getKey().displayName);
         }
 

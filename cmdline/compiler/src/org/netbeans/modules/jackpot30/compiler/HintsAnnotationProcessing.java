@@ -42,6 +42,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -60,23 +61,25 @@ import javax.swing.text.BadLocationException;
 import javax.tools.Diagnostic.Kind;
 import javax.tools.FileObject;
 import javax.tools.StandardLocation;
-import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo.PathKind;
 import org.netbeans.api.java.source.CompilationInfoHack;
 import org.netbeans.api.java.source.ModificationResult;
-import org.netbeans.modules.jackpot30.impl.batch.BatchUtilities;
+import org.netbeans.modules.jackpot30.indexing.batch.BatchUtilities;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
-import org.netbeans.modules.java.hints.jackpot.impl.JavaFixImpl;
-import org.netbeans.modules.java.hints.jackpot.impl.RulesManager;
-import org.netbeans.modules.java.hints.jackpot.impl.Utilities;
-import org.netbeans.modules.java.hints.jackpot.spi.HintDescription;
-import org.netbeans.modules.java.hints.jackpot.spi.HintMetadata;
 import org.netbeans.modules.java.hints.jackpot.spi.HintsRunner;
-import org.netbeans.modules.java.hints.options.HintsSettings;
-import org.netbeans.modules.java.hints.spi.AbstractHint.HintSeverity;
+import org.netbeans.modules.java.hints.providers.spi.HintDescription;
+import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
+import org.netbeans.modules.java.hints.spiimpl.JavaFixImpl;
+import org.netbeans.modules.java.hints.spiimpl.RulesManager;
+import org.netbeans.modules.java.hints.spiimpl.Utilities;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
+import org.netbeans.spi.editor.hints.Severity;
+import org.netbeans.spi.java.hints.Hint;
+import org.netbeans.spi.java.hints.HintSeverity;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
@@ -133,7 +136,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
     protected void doProcess(CompilationInfoHack info, ProcessingEnvironment processingEnv, Reporter reporter) {
         Set<HintDescription> hardCodedHints = new LinkedHashSet<HintDescription>();
 
-        for (Collection<? extends HintDescription> v : RulesManager.getInstance().allHints.values()) {
+        for (Collection<? extends HintDescription> v : RulesManager.getInstance().readHints(null, null, null).values()) {
             hardCodedHints.addAll(v);
         }
 
@@ -142,7 +145,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
         for (Iterator<HintDescription> it = hardCodedHints.iterator(); it.hasNext(); ) {
             HintMetadata current = it.next().getMetadata();
 
-            if (   (current.kind == HintMetadata.Kind.HINT)
+            if (   (current.kind == Hint.Kind.INSPECTION)
                 && enabledHints.contains(current.id)) {
                 continue;
             }
@@ -155,7 +158,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
         List<HintDescription> hintDescriptions = new LinkedList<HintDescription>(hardCodedHints);
 
         if (isEnabled(processingEnv, CLASSPATH_HINTS_ENABLE)) {
-            hintDescriptions.addAll(new LinkedList<HintDescription>(Utilities.listClassPathHints(new HashSet<ClassPath>(Arrays.asList(info.getClasspathInfo().getClassPath(PathKind.COMPILE), info.getClasspathInfo().getClassPath(PathKind.SOURCE))))));
+            hintDescriptions.addAll(new LinkedList<HintDescription>(Utilities.listClassPathHints(Collections.singleton(info.getClasspathInfo().getClassPath(PathKind.SOURCE)), Collections.singleton(info.getClasspathInfo().getClassPath(PathKind.COMPILE)))));
         }
 
         boolean applyCPHints = isEnabled(processingEnv, CLASSPATH_HINTS_FIXES_ENABLE);
@@ -187,7 +190,7 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
                     JavaFixImpl jfi = (JavaFixImpl) f;
 
                     try {
-                        JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, false);
+                        JavaFixImpl.Accessor.INSTANCE.process(jfi.jf, info, false, null, new ArrayList<RefactoringElementImplementation>());
                     } catch (Exception ex) {
                         Exceptions.printStackTrace(ex);
                     }
@@ -301,9 +304,9 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
     private static final class SettingsBasedChecker implements ContainsChecker<String> {
         private static final Set<String> enabled = new HashSet<String>();
         public SettingsBasedChecker() {
-            for (HintMetadata hm : RulesManager.getInstance().allHints.keySet()) {
+            for (HintMetadata hm : RulesManager.getInstance().readHints(null, null, null).keySet()) {
                 if (   HintsSettings.isEnabled(hm)
-                    && HintsSettings.getSeverity(hm, RulesManager.getPreferences(hm.id, HintsSettings.getCurrentProfileId())) != HintSeverity.CURRENT_LINE_WARNING) {
+                    && HintsSettings.getSeverity(hm, HintsSettings.getPreferences(hm.id, HintsSettings.getCurrentProfileId())) != Severity.HINT) {
                     enabled.add(hm.id);
                 }
             }

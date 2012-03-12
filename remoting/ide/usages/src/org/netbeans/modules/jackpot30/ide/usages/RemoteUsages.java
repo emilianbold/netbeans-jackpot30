@@ -81,16 +81,17 @@ import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.ui.ElementHeaders;
 import org.netbeans.api.java.source.ui.ScanDialog;
 import org.netbeans.modules.editor.NbEditorUtilities;
+import org.netbeans.modules.jackpot30.common.api.JavaUtils;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
 import org.openide.NotifyDescriptor;
 import org.openide.NotifyDescriptor.Message;
-import org.openide.awt.ActionRegistration;
+import org.openide.awt.ActionID;
 import org.openide.awt.ActionReference;
 import org.openide.awt.ActionReferences;
-import org.openide.awt.ActionID;
+import org.openide.awt.ActionRegistration;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.URLMapper;
 import org.openide.nodes.Node;
@@ -169,7 +170,7 @@ public final class RemoteUsages implements ActionListener {
                             TreePath tp = parameter.getTreeUtilities().pathFor(pos);
                             Element el = parameter.getTrees().getElement(tp);
 
-                            if (el != null && Common.SUPPORTED_KINDS.contains(el.getKind())) {
+                            if (el != null && JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
                                 handle[0] = new ElementDescription(parameter, el);
                             }
                         }
@@ -291,7 +292,7 @@ public final class RemoteUsages implements ActionListener {
 
         @Override public void run() {
             try {
-                final String serialized = Common.serialize(toSearch);
+                final String serialized = JavaUtils.serialize(toSearch);
 
                 Set<FileObject> resultSet = new HashSet<FileObject>();
                 List<FileObject> result = new ArrayList<FileObject>();
