@@ -24,13 +24,15 @@ download_and_unpack_cluster() {
     unzip -q ../download/*$TRUNK_ID-$1.zip || exit
 }
 
-for cluster in ide platform java harness nb apisupport extra enterprise cnd dlight websvccommon; do
+for cluster in ide platform java harness nb apisupport enterprise cnd dlight websvccommon; do
     download_and_unpack_cluster $cluster;
 done
 
 cd ../..
 
 PLATFORM=$PWD/nbbuild/netbeans
+
+ant -f hudson/download-extra-nbms.xml -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM
 }
 
 if [ "$PLATFORM" == "" ] ; then
