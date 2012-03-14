@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="platform" default="download" basedir="..">
+    <target name="download" unless="no.download">
+        <mkdir dir="${nbplatform.default.netbeans.dest.dir}"/>
+        <property name="tasks.jar" location="${nbplatform.default.harness.dir}/tasks.jar"/>
+        <taskdef name="autoupdate" classname="org.netbeans.nbbuild.AutoUpdate" classpath="${tasks.jar}"/>
+        <autoupdate installdir="${nbplatform.default.netbeans.dest.dir}" updatecenter="http://deadlock.netbeans.org/hudson/job/nbms-and-javadoc/lastSuccessfulBuild/artifact/nbbuild/nbms/updates.xml.gz">
+            <modules includes=".*junit4.*" clusters="platform"/>
+        </autoupdate>
+    </target>
+</project>
