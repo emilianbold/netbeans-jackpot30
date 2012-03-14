@@ -55,7 +55,6 @@ import org.netbeans.modules.jackpot30.jumpto.RemoteGoToType.RemoteTypeDescriptor
 import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
-import org.netbeans.modules.java.source.ElementHandleAccessor;
 import org.netbeans.spi.jumpto.type.SearchType;
 import org.netbeans.spi.jumpto.type.TypeDescriptor;
 import org.netbeans.spi.jumpto.type.TypeProvider;
@@ -208,7 +207,7 @@ public class RemoteGoToType extends RemoteQuery<RemoteTypeDescriptor, String> im
             if (file == null) return ; //XXX tell to the user
 
             ClasspathInfo cpInfo = ClasspathInfo.create(file);
-            ElementHandle<?> handle = ElementHandleAccessor.INSTANCE.create(ElementKind.CLASS, binaryName);
+            ElementHandle<?> handle = ElementHandle.createTypeElementHandle(ElementKind.CLASS, binaryName);
 
             ElementOpen.open(cpInfo, handle);
         }

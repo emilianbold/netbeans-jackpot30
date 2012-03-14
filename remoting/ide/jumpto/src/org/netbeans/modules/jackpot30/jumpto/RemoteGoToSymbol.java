@@ -41,6 +41,9 @@
  */
 package org.netbeans.modules.jackpot30.jumpto;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -48,6 +51,8 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.swing.Icon;
@@ -59,7 +64,6 @@ import org.netbeans.modules.jackpot30.jumpto.RemoteGoToSymbol.RemoteSymbolDescri
 import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
-import org.netbeans.modules.java.source.ElementHandleAccessor;
 import org.netbeans.spi.jumpto.symbol.SymbolDescriptor;
 import org.netbeans.spi.jumpto.symbol.SymbolProvider;
 import org.netbeans.spi.jumpto.type.SearchType;
@@ -74,6 +78,7 @@ import org.openide.util.lookup.ServiceProvider;
  */
 @ServiceProvider(service=SymbolProvider.class)
 public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<String, Object>> implements SymbolProvider {
+    private static final Logger LOG = Logger.getLogger(RemoteGoToSymbol.class.getName());
 
     @Override
     public String name() {
@@ -186,7 +191,7 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<St
             if (file == null) return ; //XXX tell to the user
 
             ClasspathInfo cpInfo = ClasspathInfo.create(file);
-            ElementHandle<?> handle = ElementHandleAccessor.INSTANCE.create(resolveKind(), (String) properties.get("enclosingFQN"), (String) properties.get("simpleName"), (String) properties.get("vmsignature"));
+            ElementHandle<?> handle = createElementHandle(resolveKind(), (String) properties.get("enclosingFQN"), (String) properties.get("simpleName"), (String) properties.get("vmsignature"));
 
             ElementOpen.open(cpInfo, handle);
         }
@@ -216,6 +221,31 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<St
 
     }
 
+    private static ElementHandle<?> createElementHandle(ElementKind kind, String clazz, String simpleName, String signature) {
+        try {
+            Class<?> elementHandleAccessor = Class.forName("org.netbeans.modules.java.source.ElementHandleAccessor", false, ElementHandle.class.getClassLoader());
+            Field instance = elementHandleAccessor.getDeclaredField("INSTANCE");
+            Method m = elementHandleAccessor.getDeclaredMethod("create", ElementKind.class, String.class, String.class, String.class);
+            return (ElementHandle<?>) m.invoke(instance.get(null), kind, clazz, simpleName, signature);
+        } catch (IllegalAccessException ex) {
+            LOG.log(Level.INFO, null, ex);
+        } catch (IllegalArgumentException ex) {
+            LOG.log(Level.INFO, null, ex);
+        } catch (InvocationTargetException ex) {
+            LOG.log(Level.INFO, null, ex);
+        } catch (NoSuchMethodException ex) {
+            LOG.log(Level.INFO, null, ex);
+        } catch (NoSuchFieldException ex) {
+            LOG.log(Level.INFO, null, ex);
+        } catch (SecurityException ex) {
+            LOG.log(Level.INFO, null, ex);
+        } catch (ClassNotFoundException ex) {
+            LOG.log(Level.INFO, null, ex);
+        }
+
+        return ElementHandle.createTypeElementHandle(ElementKind.CLASS, clazz);
+    }
+    
     private static char getChar (final String buffer, final int pos) {
         if (pos>=buffer.length()) {
             throw new IllegalStateException ();
