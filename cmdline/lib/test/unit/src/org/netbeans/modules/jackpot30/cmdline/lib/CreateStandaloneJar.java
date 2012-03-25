@@ -80,12 +80,14 @@ import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
 import org.netbeans.modules.java.hints.jackpot.refactoring.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.java.hints.providers.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.providers.code.FSWrapper;
+import org.netbeans.modules.java.hints.providers.code.FSWrapper.MethodWrapper;
 import org.netbeans.modules.java.hints.providers.spi.ClassPathBasedHintProvider;
 import org.netbeans.modules.java.hints.providers.spi.HintProvider;
 import org.netbeans.modules.java.hints.spiimpl.RulesManager;
 import org.netbeans.modules.java.hints.spiimpl.RulesManagerImpl;
 import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
+import org.netbeans.spi.java.hints.Hint;
 import org.openide.filesystems.MIMEResolver;
 import org.openide.util.NbPreferences.Provider;
 import org.openide.xml.EntityCatalog;
@@ -122,6 +124,22 @@ public abstract class CreateStandaloneJar extends NbTestCase {
 
         for (FSWrapper.ClassWrapper cw : FSWrapper.listClasses()) {
             toProcess.add(cw.getName());
+
+            //XXX: CodeHintProviderImpl currently resolves customizer providers eagerly,
+            //so need to copy them as well, even though these won't be normally used:
+            Hint ch = cw.getAnnotation(Hint.class);
+
+            if (ch != null) {
+                toProcess.add(ch.customizerProvider().getName());
+            }
+
+            for (MethodWrapper mw : cw.getMethods()) {
+                Hint mh = mw.getAnnotation(Hint.class);
+
+                if (mh != null) {
+                    toProcess.add(mh.customizerProvider().getName());
+                }
+            }
         }
 
         Info info = computeInfo();
