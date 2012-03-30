@@ -1,0 +1,36 @@
+<html>
+<head>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
+</head>
+<body>
+<form method="get">
+<label for="path">Project:</label>
+<select size="1" name="path">");
+    <#list paths as path>
+        <option <#if selectedPath?? && path.segment == selectedPath>selected</#if> value="${path.segment}">
+            ${path.displayName}
+        </option>
+    </#list>
+</select>
+<br>
+<label for="prefix">Symbol Prefix:</label><input type="text" name="prefix"<#if prefix??>value="${prefix}"</#if>/><br>
+<input type="submit" name="Find Candidates"/>
+</form>
+
+<#if results??>
+    Found symbols:<br>
+<!--    <table>-->
+        <#list results as result>
+<!--            <tr>-->
+<!--                <td>Icon</td>-->
+<!--                <td><a href="/index/source/cat?path=${selectedPath}&relative=${result.file}">${result.simpleName} in ${result.enclosingFQN}</a></td>-->
+                <img src="/index/icons/${result.icon}" alt="${result.kind}"/>
+                <a href="/index/source/cat?path=${selectedPath}&relative=${result.file}">${result.displayName}</a> in ${result.enclosingFQN}
+                <br>
+<!--            </tr>-->
+        </#list>
+<!--    </table>-->
+</#if>
+
+</body>
+</html>

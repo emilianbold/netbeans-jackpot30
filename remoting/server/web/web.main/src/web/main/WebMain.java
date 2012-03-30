@@ -44,17 +44,20 @@ package web.main;
 import com.sun.grizzly.http.embed.GrizzlyWebServer;
 import com.sun.grizzly.http.servlet.ServletAdapter;
 import com.sun.grizzly.tcp.http11.GrizzlyAdapter;
+import com.sun.grizzly.tcp.http11.GrizzlyOutputStream;
 import com.sun.grizzly.tcp.http11.GrizzlyRequest;
 import com.sun.grizzly.tcp.http11.GrizzlyResponse;
 import com.sun.jersey.spi.container.servlet.ServletContainer;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.RelStreamHandlerFactory;
+import org.openide.util.Exceptions;
 
 /**
  *
@@ -102,7 +105,45 @@ public class WebMain {
         // register all above defined adapters
         gws.addGrizzlyAdapter(jerseyAdapter);
         gws.addGrizzlyAdapter(new GrizzlyAdapter(){
-            public void service(GrizzlyRequest request, GrizzlyResponse response){}
+            public void service(GrizzlyRequest request, GrizzlyResponse response){
+                if (request.getRequestURI().contains("/index/icons/")) {
+                    String icon = request.getRequestURI().substring("/index".length());
+                    URL iconURL = WebMain.class.getResource(icon);
+
+                    if (iconURL == null) return;
+
+                    InputStream in = null;
+                    GrizzlyOutputStream out = null;
+
+                    try {
+                        in = iconURL.openStream();
+                        out = response.createOutputStream();
+
+                        int read;
+
+                        while ((read = in.read()) != (-1)) {
+                            out.write(read);
+                        }
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
+                    } finally {
+                        if (in != null) {
+                            try {
+                                in.close();
+                            } catch (IOException ex) {
+                                Exceptions.printStackTrace(ex);
+                            }
+                        }
+                        if (out != null) {
+                            try {
+                                out.close();
+                            } catch (IOException ex) {
+                                Exceptions.printStackTrace(ex);
+                            }
+                        }
+                    }
+                }
+            }
         });
 
         // let Grizzly run
