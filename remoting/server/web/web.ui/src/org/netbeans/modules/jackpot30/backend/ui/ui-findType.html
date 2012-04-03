@@ -1,6 +1,34 @@
 <html>
 <head>
-    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/base/jquery-ui.css" rel="stylesheet" type="text/css">
+    <script type="text/javascript">
+        function methodPopup(relativePath, resultFile, signature) {
+            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
+                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
+                             '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>')
+                            .dialog({
+                                title: 'Show'
+                            });
+        }
+        function classPopup(relativePath, resultFile, signature) {
+            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
+                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
+                             '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>')
+                            .dialog({
+                                title: 'Show'
+                            });
+        }
+        function otherPopup(relativePath, resultFile, signature) {
+            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
+                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
+                             '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>')
+                            .dialog({
+                                title: 'Show'
+                            });
+        }
+    </script>
 </head>
 <body>
 <form method="get">
@@ -19,18 +47,20 @@
 
 <#if results??>
     Found symbols:<br>
-<!--    <table>-->
         <#list results as result>
-<!--            <tr>-->
-<!--                <td>Icon</td>-->
-<!--                <td><a href="/index/source/cat?path=${selectedPath}&relative=${result.file}">${result.simpleName} in ${result.enclosingFQN}</a></td>-->
                 <img src="/index/icons/${result.icon}" alt="${result.kind}"/>
-                <a href="/index/source/cat?path=${selectedPath}&relative=${result.file}">${result.displayName}</a> in ${result.enclosingFQN}
+                <#if result.kind == "METHOD">
+                    <a href="javascript: methodPopup('${selectedPath}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}:${result.signature}')">
+                <#elseif result.kind == "CLASS" || result.kind == "INTERFACE" || result.kind == "ENUM" || result.kind == "ANNOTATION_TYPE">
+                    <a href="javascript: classPopup('${selectedPath}', '${result.file}', '${result.kind}:${result.fqn}')">
+                <#else>
+                    <a href="javascript: otherPopup('${selectedPath}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}')">
+                </#if>
+                ${result.displayName?replace("&", "&amp;")?replace("<", "&lt;")}</a> in ${result.enclosingFQN?replace("&", "&amp;")?replace("<", "&lt;")}
                 <br>
-<!--            </tr>-->
         </#list>
-<!--    </table>-->
 </#if>
 
+<div id="popup"></div>
 </body>
 </html>

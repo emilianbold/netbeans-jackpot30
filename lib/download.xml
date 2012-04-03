@@ -84,5 +84,8 @@
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-api.jar" todir="." />
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-projectapi.jar" todir="." />
         <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-project.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-lexer.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-lexer.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-editor-util.jar" todir="." />
     </target>
 </project>

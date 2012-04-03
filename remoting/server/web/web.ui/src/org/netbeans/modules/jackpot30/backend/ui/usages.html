@@ -1,0 +1,20 @@
+<html>
+<head>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js"></script>
+    <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/base/jquery-ui.css" rel="stylesheet" type="text/css">
+</head>
+<body>
+    Occurrences of ${elementDisplayName?replace("&", "&amp;")?replace("<", "&lt;")} found in the following files:<br>
+        <ul>
+            <#list results as rootResults>
+                <li>${rootResults.rootDisplayName?replace("&", "&amp;")?replace("<", "&lt;")}<br>
+                    <#list rootResults.files as file>
+                        <img src="/index/icons/javaFile.png" alt="Java File"/>
+                        <a href='/index/ui/show?path=${rootResults.rootPath}&relative=${file}'>${file}</a><br>
+                    </#list>
+                </li>
+            </#list>
+        </ul>
+</body>
+</html>

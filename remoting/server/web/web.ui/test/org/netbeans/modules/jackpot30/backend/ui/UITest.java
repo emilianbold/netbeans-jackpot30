@@ -65,4 +65,10 @@ public class UITest extends TestCase {
         assertEquals("(Function<P, R>, P)", UI.decodeMethodSignature("<P:Lorg/netbeans/modules/java/source/queries/api/Queries;R:Ljava/lang/Object;>(Lorg/netbeans/modules/java/source/queries/api/Function<TP;TR;>;TP;)Lorg/netbeans/modules/java/source/queries/spi/QueriesController$Context<TR;>;;"));
     }
 
+    public void testSimplifySignature() {
+        assertEquals("METHOD:org.netbeans.spi.java.hints.JavaFixUtilities:rewriteFix:(Lorg/netbeans/api/java/source/CompilationInfo;Ljava/lang/String;Lcom/sun/source/util/TreePath;Ljava/lang/String;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;Ljava/util/Map;[Ljava/lang/String;)Lorg/netbeans/spi/editor/hints/Fix;",
+                     UI.simplify("METHOD:org.netbeans.spi.java.hints.JavaFixUtilities:rewriteFix:(Lorg/netbeans/api/java/source/CompilationInfo;Ljava/lang/String;Lcom/sun/source/util/TreePath;Ljava/lang/String;Ljava/util/Map<Ljava/lang/String;Lcom/sun/source/util/TreePath;>;Ljava/util/Map<Ljava/lang/String;Ljava/util/Collection<Lcom/sun/source/util/TreePath;>;>;Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;Ljava/util/Map<Ljava/lang/String;Ljavax/lang/model/type/TypeMirror;>;Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;[Ljava/lang/String;)Lorg/netbeans/spi/editor/hints/Fix;;"));
+        assertEquals("METHOD:org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities:fixDependencies:(Lorg/openide/filesystems/FileObject;Ljava/util/List;Ljava/util/Map;)Z",
+                     UI.simplify("METHOD:org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities:fixDependencies:(Lorg/openide/filesystems/FileObject;Ljava/util/List<Lorg/netbeans/spi/java/hints/JavaFix;>;Ljava/util/Map<Lorg/netbeans/api/project/Project;Ljava/util/Set<Ljava/lang/String;>;>;)Z;"));
+    }
 }
