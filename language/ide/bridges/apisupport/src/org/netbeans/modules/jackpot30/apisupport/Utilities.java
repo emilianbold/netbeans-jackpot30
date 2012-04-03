@@ -39,7 +39,7 @@
 
 package org.netbeans.modules.jackpot30.apisupport;
 
-import org.netbeans.modules.java.hints.jackpot.spi.ProjectDependencyUpgrader;
+import org.netbeans.modules.java.hints.spiimpl.ipi.upgrade.ProjectDependencyUpgrader;
 import org.openide.modules.SpecificationVersion;
 
 /**
