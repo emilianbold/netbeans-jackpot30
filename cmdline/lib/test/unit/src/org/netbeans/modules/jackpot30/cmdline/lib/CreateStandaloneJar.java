@@ -77,7 +77,6 @@ import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.JavaMimeResolv
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
 import org.netbeans.modules.jackpot30.common.api.IndexAccess;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
-import org.netbeans.modules.java.hints.jackpot.refactoring.Hacks.HintPreferencesProvider;
 import org.netbeans.modules.java.hints.providers.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.providers.code.FSWrapper;
 import org.netbeans.modules.java.hints.providers.code.FSWrapper.MethodWrapper;
@@ -458,7 +457,6 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.openide.filesystems.URLMapper",
             "org.openide.util.Lookup",
             "org.netbeans.modules.openide.util.PreferencesProvider",
-            HintPreferencesProvider.class.getName(),
             ClassPathBasedHintProvider.class.getName(),
             IndexAccess.class.getName(),
             RulesManager.class.getName()
