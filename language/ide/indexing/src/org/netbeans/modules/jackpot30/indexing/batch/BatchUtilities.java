@@ -39,16 +39,31 @@
 
 package org.netbeans.modules.jackpot30.indexing.batch;
 
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ImportTree;
+import com.sun.source.util.TreePath;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.io.Writer;
 import java.nio.charset.Charset;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import javax.swing.text.Document;
 import org.netbeans.api.annotations.common.NullAllowed;
+import org.netbeans.api.java.source.ClasspathInfo;
+import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.JavaSource.Phase;
 import org.netbeans.api.java.source.ModificationResult;
+import org.netbeans.api.java.source.Task;
+import org.netbeans.api.java.source.TreePathHandle;
+import org.netbeans.api.java.source.WorkingCopy;
 import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.modules.diff.builtin.provider.BuiltInDiffProvider;
 import org.netbeans.modules.diff.builtin.visualizer.TextDiffVisualizer;
+import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.spi.diff.DiffProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -118,4 +133,36 @@ public class BatchUtilities {
         }
     }
 
+    public static void removeUnusedImports(Collection<? extends FileObject> files) throws IOException {
+        Map<ClasspathInfo, Collection<FileObject>> sortedFastFiles = org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities.sortFiles(files);
+
+        for (Entry<ClasspathInfo, Collection<FileObject>> e : sortedFastFiles.entrySet()) {
+            JavaSource.create(e.getKey(), e.getValue()).runModificationTask(new RemoveUnusedImports()).commit();
+        }
+    }
+
+    private static final class RemoveUnusedImports implements Task<WorkingCopy> {
+        public void run(WorkingCopy wc) throws IOException {
+            Document doc = wc.getSnapshot().getSource().getDocument(true);
+
+            if (wc.toPhase(Phase.RESOLVED).compareTo(Phase.RESOLVED) < 0) {
+                return;
+            }
+
+            //compute imports to remove:
+            List<TreePathHandle> unusedImports = SemanticHighlighter.computeUnusedImports(wc);
+            CompilationUnitTree cut = wc.getCompilationUnit();
+            // make the changes to the source
+            for (TreePathHandle handle : unusedImports) {
+                TreePath path = handle.resolve(wc);
+                assert path != null;
+                cut = wc.getTreeMaker().removeCompUnitImport(cut,
+                        (ImportTree) path.getLeaf());
+            }
+
+            if (!unusedImports.isEmpty()) {
+                wc.rewrite(wc.getCompilationUnit(), cut);
+            }
+        }
+    }
 }

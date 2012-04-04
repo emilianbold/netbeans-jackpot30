@@ -235,7 +235,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             }
 
             try {
-                BatchUtilities.removeUnusedImports(modified);
+                org.netbeans.modules.jackpot30.indexing.batch.BatchUtilities.removeUnusedImports(modified);
             } catch (IOException ex) {
                 ex.printStackTrace(env.getErrorStream());
                 problems.add(new MessageImpl(MessageKind.ERROR, "Cannot remove unused imports: " + ex.getLocalizedMessage()));
