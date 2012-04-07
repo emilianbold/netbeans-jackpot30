@@ -41,6 +41,7 @@
  */
 package org.netbeans.modules.jackpot30.indexer.usages;
 
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
@@ -65,6 +66,10 @@ public class Common {
 
         String[] signatures = SourceUtils.getJVMSignature(h);
 
+        if (h.getKind().isField()) {
+            signatures = Arrays.copyOf(signatures, signatures.length - 1);
+        }
+        
         for (String sig : signatures) {
             result.append(":");
             result.append(sig);

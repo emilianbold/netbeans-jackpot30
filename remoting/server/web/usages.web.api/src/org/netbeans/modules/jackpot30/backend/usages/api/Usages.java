@@ -73,11 +73,26 @@ public class Usages {
         StringBuilder result = new StringBuilder();
         CategoryStorage category = CategoryStorage.forId(segment);
         Index idx = category.getIndex();
-        Query query = Queries.createQuery(KEY_SIGNATURES, "does-not-exist", signatures, QueryKind.EXACT);
+        String origSignature = signatures;
+
+        if ((signatures.startsWith("FIELD:") || signatures.startsWith("ENUM_CONSTANT:")) && signatures.split(":").length == 4) {
+            //handle old clients sending field type inside as part of the field handle:
+            signatures = signatures.substring(0, signatures.lastIndexOf(':'));
+        }
+
         List<String> found = new ArrayList<String>();
+        Query query = Queries.createQuery(KEY_SIGNATURES, "does-not-exist", signatures, QueryKind.EXACT);
 
         //TODO: field selector:
         idx.query(found, new ConvertorImpl(), null, new AtomicBoolean(), query);
+
+        if (found.isEmpty()) {
+            //transient: try old index structure with field handles containing the field type
+            query = Queries.createQuery(KEY_SIGNATURES, "does-not-exist", origSignature, QueryKind.EXACT);
+
+            //TODO: field selector:
+            idx.query(found, new ConvertorImpl(), null, new AtomicBoolean(), query);
+        }
 
         for (String foundFile : found) {
             result.append(foundFile);

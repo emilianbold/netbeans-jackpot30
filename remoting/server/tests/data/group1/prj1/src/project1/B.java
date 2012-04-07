@@ -4,4 +4,5 @@ public class B {
 
     static void test() {}
 
+    static int F;
 }
