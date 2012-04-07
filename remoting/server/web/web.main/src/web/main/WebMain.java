@@ -103,7 +103,6 @@ public class WebMain {
         jerseyAdapter.setServletInstance(new ServletContainer());
 
         // register all above defined adapters
-        gws.addGrizzlyAdapter(jerseyAdapter);
         gws.addGrizzlyAdapter(new GrizzlyAdapter(){
             public void service(GrizzlyRequest request, GrizzlyResponse response){
                 if (request.getRequestURI().contains("/index/icons/")) {
@@ -143,8 +142,10 @@ public class WebMain {
                         }
                     }
                 }
+                response.setStatus(404);
             }
         });
+        gws.addGrizzlyAdapter(jerseyAdapter);
 
         // let Grizzly run
         gws.start();

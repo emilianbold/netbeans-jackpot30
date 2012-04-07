@@ -41,6 +41,7 @@
  */
 package org.netbeans.modules.jackpot30.backend.base;
 
+import com.sun.jersey.api.NotFoundException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -120,7 +121,7 @@ public class CategoryStorage {
             if (s.id.equals(id)) return s;
         }
 
-        return null;
+        throw new NotFoundException("No category with id: " + id);
     }
     
     private final String id;
