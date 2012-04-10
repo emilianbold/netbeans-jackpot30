@@ -18,6 +18,10 @@
             <property name="test.config" value="standalone"/>
             <property name="test-unit-sys-prop.outputDir" location="${build.classes.dir}/../jackpot" />
         </ant>
+        <ant target="jar" inheritall="false" inheritrefs="false" dir="../ant">
+            <property name="var.nbplatform.default.netbeans.dest.dir" location="${nbplatform.default.netbeans.dest.dir}" />
+        </ant>
+        <copy file="../ant/dist/jackpot-ant.jar" todir="${build.classes.dir}/../jackpot"/>
         <zip destfile="${build.classes.dir}/../jackpot.zip">
             <zipfileset file="${build.classes.dir}/../jackpot/jackpot" filemode="755" fullpath="jackpot/jackpot"/>
             <zipfileset dir="${build.classes.dir}/../jackpot" prefix="jackpot">
