@@ -344,6 +344,7 @@ public class Main {
 
     private static void prepareLoggers() {
         TOP_LOGGER.setLevel(Level.OFF);
+        System.setProperty("RepositoryUpdate.increasedLogLevel", "OFF");
     }
     
     private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
