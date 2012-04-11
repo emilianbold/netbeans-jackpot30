@@ -71,6 +71,12 @@ public class JackpotTask extends Task {
         this.sourcepath = sourcepath;
     }
 
+    private String sourcelevel;
+
+    public void setSource(String sourcelevel) {
+        this.sourcelevel = sourcelevel;
+    }
+
     private Path classpath;
 
     public Path createClasspath() {
@@ -101,6 +107,7 @@ public class JackpotTask extends Task {
             cmdLine.addArguments(new String[] {"-no-apply"});
             cmdLine.addArguments(new String[] {"-sourcepath", srcPath.toString()});
             cmdLine.addArguments(new String[] {"-classpath", classpath.toString()});
+            if (sourcelevel != null) cmdLine.addArguments(new String[] {"--source", sourcelevel});
             cmdLine.addArguments(srcPath.list());
 
             Execute exec = new Execute(new LogStreamHandler(this, Project.MSG_INFO, Project.MSG_WARN));

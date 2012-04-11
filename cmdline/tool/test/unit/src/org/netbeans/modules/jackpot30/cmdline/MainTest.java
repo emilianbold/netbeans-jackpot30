@@ -57,7 +57,7 @@ import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.junit.NbTestCase;
 import org.openide.filesystems.FileUtil;
 
-/**
+/**XXX: should also test error conditions
  *
  * @author lahvac
  */
@@ -159,6 +159,32 @@ public class MainTest extends NbTestCase {
                       "Use switch over Strings where possible.",
                       "--config",
                       "also-equals=false");
+    }
+
+    public void testValidSourceLevel() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b = c.isEmpty();\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      null,
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b = c.size() == 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      null,
+                      "--hint",
+                      "Usage of .size() == 0",
+                      "--source",
+                      "1.6");
     }
 
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {

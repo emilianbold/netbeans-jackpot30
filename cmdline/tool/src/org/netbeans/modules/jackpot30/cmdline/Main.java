@@ -110,6 +110,8 @@ import org.openide.util.lookup.ServiceProvider;
 public class Main {
 
     private static final String OPTION_NO_APPLY = "no-apply";
+    private static final String SOURCE_LEVEL_DEFAULT = "1.7";
+    private static final String ACCEPTABLE_SOURCE_LEVEL_PATTERN = "(1\\.)?[2-9][0-9]*";
     
     public static void main(String... args) throws IOException, ClassNotFoundException {
         System.exit(compile(args));
@@ -127,6 +129,7 @@ public class Main {
         ArgumentAcceptingOptionSpec<File> out = parser.accepts("out", "output diff").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
         ArgumentAcceptingOptionSpec<String> config = parser.accepts("config", "configurations").withRequiredArg().ofType(String.class);
+        ArgumentAcceptingOptionSpec<String> source = parser.accepts("source", "source level").withRequiredArg().ofType(String.class).defaultsTo(SOURCE_LEVEL_DEFAULT);
 
         parser.accepts("list", "list all known hints");
         parser.accepts("progress", "show progress");
@@ -267,10 +270,17 @@ public class Main {
                 }
             }
 
+            String sourceLevel = parsed.valueOf(source);
+
+            if (!Pattern.compile(ACCEPTABLE_SOURCE_LEVEL_PATTERN).matcher(sourceLevel).matches()) {
+                System.err.println("unrecognized source level specification: " + sourceLevel);
+                return 1;
+            }
+            
             try {
                 MainLookup.register(new ClassPathProviderImpl(bootCP, compileCP, sourceCP));
                 MainLookup.register(new JavaPathRecognizer());
-                MainLookup.register(new SourceLevelQueryImpl(sourceCP, "1.7"));
+                MainLookup.register(new SourceLevelQueryImpl(sourceCP, sourceLevel));
                 
                 ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1) : new ProgressHandleWrapper(1);
 
