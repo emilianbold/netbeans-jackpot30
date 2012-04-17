@@ -47,6 +47,8 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.servlet.ServletException;
 import org.apache.commons.fileupload.FileItem;
 import org.kohsuke.args4j.Argument;
@@ -66,17 +68,26 @@ public class UploadIndex {
         File segCacheDir = new File(cacheDir, codeName);
         File newCacheDir = new File(cacheDir, codeName + ".new");
 
-        new FilePath(newCacheDir).unzipFrom(ins);
+        try {
+            new FilePath(newCacheDir).unzipFrom(ins);
 
-        segCacheDir.renameTo(oldCacheDir);
+            segCacheDir.renameTo(oldCacheDir);
 
-        new File(newCacheDir, codeName).renameTo(segCacheDir);
+            new File(newCacheDir, codeName).renameTo(segCacheDir);
 
-        new URL("http://localhost:9998/index/internal/indexUpdated").openStream().close();
-
-        new FilePath(newCacheDir).deleteRecursive();
-        new FilePath(oldCacheDir).deleteRecursive();
+            try {
+                new URL("http://localhost:9998/index/internal/indexUpdated").openStream().close();
+            } catch (IOException ex) {
+                //inability to refresh the web frontend should not crash the build...
+                LOG.log(Level.FINE, null, ex);
+            }
+        } finally {
+            new FilePath(newCacheDir).deleteRecursive();
+            new FilePath(oldCacheDir).deleteRecursive();
+        }
     }
+    
+    private static final Logger LOG = Logger.getLogger(UploadIndex.class.getName());
 
     @Extension
     public static final class UploadIndexCommand extends CLICommand {
