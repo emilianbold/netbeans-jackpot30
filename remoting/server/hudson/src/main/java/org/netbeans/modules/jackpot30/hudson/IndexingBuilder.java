@@ -236,6 +236,7 @@ public class IndexingBuilder extends Builder {
 
         public DescriptorImpl() {
             Cache.setStandaloneCacheRoot(cacheDir = new File(Hudson.getInstance().getRootDir(), "index").getAbsoluteFile());
+            load();
         }
 
         public File getCacheDir() {
