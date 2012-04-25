@@ -92,7 +92,7 @@ public class CompilationInfoHack extends WorkingCopy {
     private PositionConverter conv;
     
     public CompilationInfoHack(Context context, ClasspathInfo cpInfo, JCCompilationUnit cut) {
-        super(HackAccessor.createCII(cpInfo), new ElementOverlay());
+        super(HackAccessor.createCII(cpInfo), ElementOverlay.getOrCreateOverlay());
         this.context = context;
         this.cpInfo = cpInfo;
         try {
