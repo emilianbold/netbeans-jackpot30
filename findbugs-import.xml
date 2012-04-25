@@ -42,7 +42,7 @@ made subject to such option by the copyright holder.
 -->
 <project name="findbugs" basedir=".">
 
-    <property name="bootclasspath.prepend" value="${nbplatform.active.dir}/java/modules/ext/javac-api-nb-7.0-b07.jar" />
+    <property name="bootclasspath.prepend" value="${nbplatform.active.dir}/java/modules/ext/nb-javac-api.jar" />
 
     <target name="findbugs-init" depends="build-init">       
         <property name="findbugs.home" location="${suite.dir}/external/findbugs"/>
