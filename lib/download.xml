@@ -76,8 +76,8 @@
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util-lookup.jar" todir="." />
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-spi-editor-hints.jar" todir="." />
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-api-java-classpath.jar" todir="." />
-        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-api-nb-7.0-b07.jar" todir="javac" />
-        <copy file="${nbplatform.active.dir}/java/modules/ext/javac-impl-nb-7.0-b07.jar" todir="javac" />
+        <copy file="${nbplatform.active.dir}/java/modules/ext/nb-javac-api.jar" todir="javac" />
+        <copy file="${nbplatform.active.dir}/java/modules/ext/nb-javac-impl.jar" todir="javac" />
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-jumpto.jar" todir="." />
         <copy file="${nbplatform.active.dir}/platform/modules/org-netbeans-modules-masterfs.jar" todir="." />
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-parsing-lucene.jar" todir="." />
