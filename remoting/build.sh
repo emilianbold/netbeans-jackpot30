@@ -1,4 +1,5 @@
 #!/bin/bash
+(cd ../lib; ant -f download.xml) || exit 1
 (cd common; ant "$@" clean && ant "$@" build) || exit 1
 (cd ide; ant "$@" clean && (cd ../common; ant "$@" -Dbuild.updates.dir=../ide/build/updates nbms) && ant "$@" nbms) || exit 1
 rm -rf build
