@@ -117,6 +117,7 @@ public class IndexerImplTest extends NbTestCase {
         doMethodSignatureTest("package test; public class Test <T extends String> { public void test(java.util.Map<java.util.List<String>, T> m, boolean p) {} }", "(Ljava/util/Map<Ljava/util/List<Ljava/lang/String;>;TT;>;Z)V;");
         doMethodSignatureTest("package test; public class Test { public void test() throws java.io.IOException {} }", "()V^Ljava/io/IOException;;");
         doMethodSignatureTest("package test; public class Test { public void test(java.util.List<? extends String> l) {} }", "(Ljava/util/List<+Ljava/lang/String;>;)V;");
+        doMethodSignatureTest("package test; public class Test <T extends String> { public <P extends T> void test(P p) {} }", "<P:TT;>(TP;)V;");
     }
     
     protected void doMethodSignatureTest(String code, final String signature) throws IOException {
