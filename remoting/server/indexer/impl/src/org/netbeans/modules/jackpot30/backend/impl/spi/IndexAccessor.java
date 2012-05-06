@@ -30,20 +30,18 @@ public class IndexAccessor {
         return w;
     }
 
-    public String getPath(FileObject file) {
-        return FileUtil.getRelativePath(root, file);
-    }
-
     public String getPath(URL file) {
         try {
-            return root.getURL().toURI().relativize(file.toURI()).toString();
-        } catch (FileStateInvalidException ex) {
-            Exceptions.printStackTrace(ex);
+            return root.toURI().relativize(file.toURI()).toString();
         } catch (URISyntaxException ex) {
             Exceptions.printStackTrace(ex);
         }
 
         return file.toExternalForm();
+    }
+
+    public boolean isAcceptable(URL file) {
+        return file.toString().startsWith(root.toURL().toString());
     }
 
     public static IndexAccessor current;

@@ -59,8 +59,6 @@ import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
-import org.openide.filesystems.FileObject;
-import org.openide.filesystems.URLMapper;
 
 /**
  *
@@ -74,11 +72,8 @@ public class SourceIndexer extends CustomIndexer {
     protected void index(Iterable<? extends Indexable> files, Context context) {
         try {
             for (Indexable i : files) {
-                FileObject f = URLMapper.findFileObject(i.getURL());
-
-                if (f == null) continue;
-
-                String relPath = IndexAccessor.getCurrent().getPath(f);
+                if (!IndexAccessor.getCurrent().isAcceptable(i.getURL())) continue;
+                String relPath = IndexAccessor.getCurrent().getPath(i.getURL());
 
                 if (relPath == null) continue;
                 

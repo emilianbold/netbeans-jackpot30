@@ -57,6 +57,7 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.document.Fieldable;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.Directory;
@@ -190,7 +191,7 @@ public class IndexerImplTest extends NbTestCase {
 
         iw.addDocument(fakeDocument(testFile));
 
-        doIndex(testFile, root);
+        doIndex(root, testFile);
         
         iw.close();
         IndexReader ir = IndexReader.open(store);
@@ -205,13 +206,46 @@ public class IndexerImplTest extends NbTestCase {
 
         iw.addDocument(fakeDocument(testFile));
 
-        doIndex(testFile, root);
-        doIndex(testFile, root);
+        doIndex(root, testFile);
+        doIndex(root, testFile);
 
         iw.close();
         ir = IndexReader.open(store);
 
         assertEquals(expectedDocumentsCount, ir.numDocs());
+    }
+
+    public void testSubdirIndexing() throws IOException {
+        final FileObject root = FileUtil.toFileObject(getWorkDir());
+        FileObject aFile = FileUtil.createData(root, "a/A.java");
+        copyToFile(aFile, "public class A {}");
+        FileObject bFile = FileUtil.createData(root, "b/B.java");
+        copyToFile(bFile, "public class B {}");
+
+        Directory store = new RAMDirectory();
+        IndexWriter iw = new IndexWriter(store, new KeywordAnalyzer(), IndexWriter.MaxFieldLength.UNLIMITED);
+        IndexAccessor.current = new IndexAccessor(iw, root.getFileObject("a"));
+
+        doIndex(root, aFile, bFile);
+
+        iw.close();
+
+        IndexReader ir = IndexReader.open(store);
+        int maxDocs = ir.maxDoc();
+        boolean foundA = false;
+        
+        for (int i = 0; i < maxDocs; i++) {
+            Fieldable f = ir.document(i).getFieldable("file");
+            
+            if (f != null) {
+                assertFalse(f.stringValue(), f.stringValue().contains("B"));
+                if (f.stringValue().contains("A.java")) {
+                    foundA = true;
+                }
+            }
+        }
+
+        assertTrue(foundA);
     }
 
     private void copyToFile(FileObject testFile, String code) throws IOException {
@@ -228,22 +262,24 @@ public class IndexerImplTest extends NbTestCase {
         //to test that unrelated document are not deleted:
         Document doc = new Document();
 
-        doc.add(new Field("file", IndexAccessor.getCurrent().getPath(testFile), Store.YES, Index.NOT_ANALYZED));
+        doc.add(new Field("file", IndexAccessor.getCurrent().getPath(testFile.toURL()), Store.YES, Index.NOT_ANALYZED));
 
         return doc;
     }
 
-    private void doIndex(FileObject testFile, final FileObject root) throws IOException, IllegalArgumentException {
+    private void doIndex(final FileObject root, FileObject... testFiles) throws IOException, IllegalArgumentException {
         final boolean[] invoked = new boolean[1];
 
-        JavaSource.forFileObject(testFile).runUserActionTask(new Task<CompilationController>() {
-            @Override public void run(CompilationController parameter) throws Exception {
-                parameter.toPhase(JavaSource.Phase.RESOLVED);
+        for (FileObject testFile : testFiles) {
+            JavaSource.forFileObject(testFile).runUserActionTask(new Task<CompilationController>() {
+                @Override public void run(CompilationController parameter) throws Exception {
+                    parameter.toPhase(JavaSource.Phase.RESOLVED);
 
-                new IndexerImpl(root.toURL()).process(parameter.getCompilationUnit(), SPIAccessor.getInstance().create(new FileObjectIndexable(root, parameter.getFileObject())), Lookups.fixed(parameter.getTrees(), parameter.getElements(), parameter.getTypes()));
-                invoked[0] = true;
-            }
-        }, true);
+                    new IndexerImpl(root.toURL()).process(parameter.getCompilationUnit(), SPIAccessor.getInstance().create(new FileObjectIndexable(root, parameter.getFileObject())), Lookups.fixed(parameter.getTrees(), parameter.getElements(), parameter.getTypes()));
+                    invoked[0] = true;
+                }
+            }, true);
+        }
 
         assertTrue(invoked[0]);
     }

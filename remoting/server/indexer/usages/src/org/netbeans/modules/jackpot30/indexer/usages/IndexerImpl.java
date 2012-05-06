@@ -113,6 +113,7 @@ public class IndexerImpl implements JavaIndexerPlugin {
 
     @Override
     public void process(CompilationUnitTree toProcess, Indexable indexable, Lookup services) {
+        if (!IndexAccessor.getCurrent().isAcceptable(indexable.getURL())) return;
         try {
             doDelete(indexable);
             
