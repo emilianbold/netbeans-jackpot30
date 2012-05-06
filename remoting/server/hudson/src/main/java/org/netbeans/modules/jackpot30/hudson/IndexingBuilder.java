@@ -80,18 +80,26 @@ public class IndexingBuilder extends Builder {
     private final String projectName;
     private final String toolName;
     private final String indexSubDirectory;
+    private final String ignorePatterns;
     
     public IndexingBuilder(StaplerRequest req, JSONObject json) throws FormException {
         projectName = json.getString("projectName");
         toolName = json.optString("toolName", IndexingTool.DEFAULT_INDEXING_NAME);
         indexSubDirectory = json.optString("indexSubDirectory", "");
+        ignorePatterns = json.optString("ignorePatterns", "");
     }
 
     @DataBoundConstructor
     public IndexingBuilder(String projectName, String toolName, String indexSubDirectory) {
+        this(projectName, toolName, indexSubDirectory, "");
+    }
+
+    @DataBoundConstructor
+    public IndexingBuilder(String projectName, String toolName, String indexSubDirectory, String ignorePatterns) {
         this.projectName = projectName;
         this.toolName = toolName;
         this.indexSubDirectory = indexSubDirectory;
+        this.ignorePatterns = ignorePatterns;
     }
 
     public String getProjectName() {
@@ -104,6 +112,10 @@ public class IndexingBuilder extends Builder {
 
     public String getIndexSubDirectory() {
         return indexSubDirectory;
+    }
+
+    public String getIgnorePatterns() {
+        return ignorePatterns;
     }
 
     @Override
@@ -131,7 +143,7 @@ public class IndexingBuilder extends Builder {
         listener.getLogger().println("Looking for projects in: " + build.getWorkspace().getRemote());
 
         FilePath base = indexSubDirectory == null || indexSubDirectory.isEmpty() ? build.getWorkspace() : build.getWorkspace().child(indexSubDirectory);
-        RemoteResult res = base.act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern()));
+        RemoteResult res = base.act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern(), getIgnorePatterns()));
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
 
@@ -187,14 +199,16 @@ public class IndexingBuilder extends Builder {
         return null;
     }
 
-    private static void findProjects(File root, Collection<String> result, Pattern markers, Pattern ignore, StringBuilder relPath) {
+    private static void findProjects(File root, Collection<String> result, Pattern markers, Pattern ignore, Pattern perProjectIgnore, StringBuilder relPath) {
         int len = relPath.length();
         boolean first = relPath.length() == 0;
 
         Matcher m = markers.matcher(relPath);
 
         if (m.matches()) {
-            result.add(m.group(1));
+            if (perProjectIgnore == null || !perProjectIgnore.matcher(relPath).matches()) {
+                result.add(m.group(1));
+            }
         }
 
         File[] children = root.listFiles();
@@ -210,7 +224,7 @@ public class IndexingBuilder extends Builder {
                 if (!first)
                     relPath.append("/");
                 relPath.append(c.getName());
-                findProjects(c, result, markers, ignore, relPath);
+                findProjects(c, result, markers, ignore, perProjectIgnore, relPath);
                 relPath.delete(len, relPath.length());
             }
         }
@@ -292,14 +306,16 @@ public class IndexingBuilder extends Builder {
     private static class FindProjects implements FileCallable<RemoteResult> {
         private final String ignorePattern;
         private final String markers;
-        public FindProjects(String markers, String ignorePattern) {
+        private final String perProjectIgnore;
+        public FindProjects(String markers, String ignorePattern, String perProjectIgnore) {
             this.markers = markers;
             this.ignorePattern = ignorePattern;
+            this.perProjectIgnore = perProjectIgnore;
         }
         public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
             Set<String> projects = new HashSet<String>();
 
-            findProjects(file, projects, Pattern.compile(markers), Pattern.compile(ignorePattern), new StringBuilder());
+            findProjects(file, projects, Pattern.compile(markers), Pattern.compile(ignorePattern), perProjectIgnore.trim().isEmpty() ? null : Pattern.compile(perProjectIgnore), new StringBuilder());
 
             return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
         }
