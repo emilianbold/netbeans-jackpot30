@@ -52,17 +52,29 @@ import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.util.ElementFilter;
+import org.apache.lucene.analysis.KeywordAnalyzer;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.Field.Index;
+import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.RAMDirectory;
 import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
 import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.java.source.parsing.JavacParser;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.parsing.impl.indexing.FileObjectIndexable;
 import org.netbeans.modules.parsing.impl.indexing.MimeTypes;
+import org.netbeans.modules.parsing.impl.indexing.SPIAccessor;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -109,13 +121,8 @@ public class IndexerImplTest extends NbTestCase {
     
     protected void doMethodSignatureTest(String code, final String signature) throws IOException {
         FileObject testFile = FileUtil.createData(new File(getWorkDir(), "Test.java"));
-        OutputStream out = testFile.getOutputStream();
 
-        try {
-            out.write(code.getBytes());
-        } finally {
-            out.close();
-        }
+        copyToFile(testFile, code);
 
         final boolean[] invoked = new boolean[1];
 
@@ -145,15 +152,9 @@ public class IndexerImplTest extends NbTestCase {
         final int pos = code.indexOf('|');
 
         code = code.replace("|", "");
-
         FileObject testFile = FileUtil.createData(new File(getWorkDir(), "Test.java"));
-        OutputStream out = testFile.getOutputStream();
-
-        try {
-            out.write(code.getBytes());
-        } finally {
-            out.close();
-        }
+        
+        copyToFile(testFile, code);
 
         final boolean[] invoked = new boolean[1];
 
@@ -170,6 +171,75 @@ public class IndexerImplTest extends NbTestCase {
                 }
 
                 assertEquals(Arrays.asList(signature), result);
+                invoked[0] = true;
+            }
+        }, true);
+
+        assertTrue(invoked[0]);
+    }
+
+    public void testRepeatedIndexing() throws IOException {
+        final FileObject root = FileUtil.toFileObject(getWorkDir());
+        FileObject testFile = FileUtil.createData(root, "Test.java");
+        copyToFile(testFile, "public class Test {}");
+
+        Directory store = new RAMDirectory();
+        IndexWriter iw = new IndexWriter(store, new KeywordAnalyzer(), IndexWriter.MaxFieldLength.UNLIMITED);
+        IndexAccessor.current = new IndexAccessor(iw, root);
+
+        iw.addDocument(fakeDocument(testFile));
+
+        doIndex(testFile, root);
+        
+        iw.close();
+        IndexReader ir = IndexReader.open(store);
+
+        int expectedDocumentsCount = ir.numDocs();
+
+        assertEquals(3 + 1, expectedDocumentsCount);
+
+        store = new RAMDirectory();
+        iw = new IndexWriter(store, new KeywordAnalyzer(), IndexWriter.MaxFieldLength.UNLIMITED);
+        IndexAccessor.current = new IndexAccessor(iw, root);
+
+        iw.addDocument(fakeDocument(testFile));
+
+        doIndex(testFile, root);
+        doIndex(testFile, root);
+
+        iw.close();
+        ir = IndexReader.open(store);
+
+        assertEquals(expectedDocumentsCount, ir.numDocs());
+    }
+
+    private void copyToFile(FileObject testFile, String code) throws IOException {
+        OutputStream out = testFile.getOutputStream();
+        
+        try {
+            out.write(code.getBytes());
+        } finally {
+            out.close();
+        }
+    }
+
+    private Document fakeDocument(FileObject testFile) {
+        //to test that unrelated document are not deleted:
+        Document doc = new Document();
+
+        doc.add(new Field("file", IndexAccessor.getCurrent().getPath(testFile), Store.YES, Index.NOT_ANALYZED));
+
+        return doc;
+    }
+
+    private void doIndex(FileObject testFile, final FileObject root) throws IOException, IllegalArgumentException {
+        final boolean[] invoked = new boolean[1];
+
+        JavaSource.forFileObject(testFile).runUserActionTask(new Task<CompilationController>() {
+            @Override public void run(CompilationController parameter) throws Exception {
+                parameter.toPhase(JavaSource.Phase.RESOLVED);
+
+                new IndexerImpl(root.toURL()).process(parameter.getCompilationUnit(), SPIAccessor.getInstance().create(new FileObjectIndexable(root, parameter.getFileObject())), Lookups.fixed(parameter.getTrees(), parameter.getElements(), parameter.getTypes()));
                 invoked[0] = true;
             }
         }, true);

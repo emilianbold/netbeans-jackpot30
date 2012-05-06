@@ -81,6 +81,11 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.TermQuery;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
@@ -98,6 +103,7 @@ import org.openide.util.Lookup;
 public class IndexerImpl implements JavaIndexerPlugin {
 
     private static final String KEY_SIGNATURES = "signatures";
+    private static final String KEY_MARKER = "usagesIndexMarker";
 
     private final URL root;
 
@@ -108,13 +114,16 @@ public class IndexerImpl implements JavaIndexerPlugin {
     @Override
     public void process(CompilationUnitTree toProcess, Indexable indexable, Lookup services) {
         try {
+            doDelete(indexable);
+            
             final String file = IndexAccessor.getCurrent().getPath(indexable.getURL());
             final Trees trees = services.lookup(Trees.class);
             final Elements elements = services.lookup(Elements.class);
             final Types types = services.lookup(Types.class);
             final Document usages = new Document();
 
-            usages.add(new Field("file", file, Store.YES, Index.NO));
+            usages.add(new Field("file", file, Store.YES, Index.NOT_ANALYZED));
+            usages.add(new Field(KEY_MARKER, "true", Store.NO, Index.NOT_ANALYZED));
 
             new TreePathScanner<Void, Void>() {
                 private final Set<String> SEEN_SIGNATURES = new HashSet<String>();
@@ -176,7 +185,8 @@ public class IndexerImpl implements JavaIndexerPlugin {
 
                                 recordSuperTypes(currentClassDocument, tel, new HashSet<String>(Arrays.asList(tel.getQualifiedName().toString())));
 
-                                currentClassDocument.add(new Field("file", file, Store.YES, Index.NO));
+                                currentClassDocument.add(new Field("file", file, Store.YES, Index.NOT_ANALYZED));
+                                currentClassDocument.add(new Field(KEY_MARKER, "true", Store.NO, Index.NOT_ANALYZED));
 
                                 IndexAccessor.getCurrent().getIndexWriter().addDocument(currentClassDocument);
                             } catch (CorruptIndexException ex) {
@@ -228,7 +238,8 @@ public class IndexerImpl implements JavaIndexerPlugin {
                             for (Modifier m : el.getModifiers()) {
                                 currentFeatureDocument.add(new Field("featureModifiers", m.name(), Store.YES, Index.NO));
                             }
-                            currentFeatureDocument.add(new Field("file", file, Store.YES, Index.NO));
+                            currentFeatureDocument.add(new Field("file", file, Store.YES, Index.NOT_ANALYZED));
+                            currentFeatureDocument.add(new Field(KEY_MARKER, "true", Store.NO, Index.NOT_ANALYZED));
 
                             if (el.getKind() == ElementKind.METHOD || el.getKind() == ElementKind.CONSTRUCTOR) {
                                 String featureSignature = methodTypeSignature(elements, (ExecutableElement) el);
@@ -252,8 +263,6 @@ public class IndexerImpl implements JavaIndexerPlugin {
             }.scan(toProcess, null);
 
             IndexAccessor.getCurrent().getIndexWriter().addDocument(usages);
-        } catch (CorruptIndexException ex) {
-            Exceptions.printStackTrace(ex);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
         }
@@ -434,11 +443,24 @@ public class IndexerImpl implements JavaIndexerPlugin {
 
     @Override
     public void delete(Indexable indexable) {
-//        assert false : indexable.getURL().toExternalForm() + "/" + indexable.getRelativePath();
+        try {
+            doDelete(indexable);
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        }
     }
 
     @Override
     public void finish() {}
+
+    private void doDelete(Indexable indexable) throws IOException {
+        BooleanQuery q = new BooleanQuery();
+
+        q.add(new BooleanClause(new TermQuery(new Term("file", IndexAccessor.getCurrent().getPath(indexable.getURL()))), Occur.MUST));
+        q.add(new BooleanClause(new TermQuery(new Term(KEY_MARKER, "true")), Occur.MUST));
+
+        IndexAccessor.getCurrent().getIndexWriter().deleteDocuments(q);
+    }
 
     @MimeRegistration(mimeType="text/x-java", service=Factory.class)
     public static final class FactoryImpl implements Factory {
