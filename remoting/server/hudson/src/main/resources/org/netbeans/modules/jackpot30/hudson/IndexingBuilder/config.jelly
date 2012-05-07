@@ -18,5 +18,8 @@
         <f:entry title="Index subdirectory" field="indexSubDirectory">
             <f:textbox />
         </f:entry>
+        <f:entry title="Ignored Directories:" field="ignorePatterns">
+            <f:textbox />
+        </f:entry>
     </f:advanced>
 </j:jelly>
