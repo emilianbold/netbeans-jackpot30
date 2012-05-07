@@ -90,16 +90,11 @@ public class IndexingBuilder extends Builder {
     }
 
     @DataBoundConstructor
-    public IndexingBuilder(String projectName, String toolName, String indexSubDirectory) {
-        this(projectName, toolName, indexSubDirectory, "");
-    }
-
-    @DataBoundConstructor
     public IndexingBuilder(String projectName, String toolName, String indexSubDirectory, String ignorePatterns) {
         this.projectName = projectName;
         this.toolName = toolName;
         this.indexSubDirectory = indexSubDirectory;
-        this.ignorePatterns = ignorePatterns;
+        this.ignorePatterns = ignorePatterns != null ? ignorePatterns : "";
     }
 
     public String getProjectName() {
