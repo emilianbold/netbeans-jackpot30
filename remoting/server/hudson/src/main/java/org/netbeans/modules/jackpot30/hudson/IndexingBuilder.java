@@ -310,7 +310,7 @@ public class IndexingBuilder extends Builder {
         public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
             Set<String> projects = new HashSet<String>();
 
-            findProjects(file, projects, Pattern.compile(markers), Pattern.compile(ignorePattern), perProjectIgnore.trim().isEmpty() ? null : Pattern.compile(perProjectIgnore), new StringBuilder());
+            findProjects(file, projects, Pattern.compile(markers), Pattern.compile(ignorePattern), perProjectIgnore == null || perProjectIgnore.trim().isEmpty() ? null : Pattern.compile(perProjectIgnore), new StringBuilder());
 
             return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
         }
