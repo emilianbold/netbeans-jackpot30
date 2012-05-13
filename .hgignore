@@ -25,3 +25,4 @@
 ^remoting/server/tests/results$
 ^remoting/server/hudson/nb-configuration.xml$
 ^remoting/ide/local/release$
+.*/target$
