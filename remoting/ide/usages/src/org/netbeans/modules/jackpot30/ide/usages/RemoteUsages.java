@@ -309,6 +309,7 @@ public final class RemoteUsages implements ActionListener {
                         if (response == null) continue;
 
                         for (String path : response) {
+                            if (path.trim().isEmpty()) continue;
                             FileObject file = localFolder.getFileObject(path);
 
                             if (file != null) {
