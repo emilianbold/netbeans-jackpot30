@@ -228,19 +228,8 @@ public class UI {
         }
 
         Map<String, Object> configurationData = new HashMap<String, Object>();
-        StringBuilder elementDisplayName = new StringBuilder();
-        String[] splitSignature = signatures.split(":");
 
-        elementDisplayName.append(splitSignature[2]);
-
-        if ("METHOD".equals(splitSignature[0])) {
-            elementDisplayName.append(decodeMethodSignature(splitSignature[3]));
-        }
-
-        elementDisplayName.append(" in ");
-        elementDisplayName.append(splitSignature[1]);
-
-        configurationData.put("elementDisplayName", elementDisplayName.toString()); //TODO
+        configurationData.put("elementDisplayName", elementDisplayName(signatures)); //TODO
 
         List<Map<String, Object>> results = new ArrayList<Map<String, Object>>(segments2Process.size());
 
@@ -261,6 +250,26 @@ public class UI {
         configurationData.put("results", results);
 
         return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/usages.html", configurationData);
+    }
+
+    private static String elementDisplayName(String signatures) {
+        StringBuilder elementDisplayName = new StringBuilder();
+        String[] splitSignature = signatures.split(":");
+
+        if (splitSignature.length == 2) {
+            return splitSignature[1];
+        }
+
+        elementDisplayName.append(splitSignature[2]);
+
+        if ("METHOD".equals(splitSignature[0])) {
+            elementDisplayName.append(decodeMethodSignature(splitSignature[3]));
+        }
+
+        elementDisplayName.append(" in ");
+        elementDisplayName.append(splitSignature[1]);
+
+        return elementDisplayName.toString();
     }
 
     private static List<Map<String, String>> list() throws URISyntaxException {
