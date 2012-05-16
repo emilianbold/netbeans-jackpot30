@@ -55,4 +55,11 @@ cp `find $NBMS_SUBPROJECTS -type f -name "*.nbm"` build/updates
 ant -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM -Ddist.base=$DIST_BASE build-auc || exit 1
 gzip <build/updates/updates.xml >build/updates/updates.xml.gz
 
+JACKPOT_ANALYSIS_SUBPROJECTS="remoting/common remoting/ide remoting/server/indexer duplicates/ide cmdline language/ide"
+JACKPOT_TOOL=`pwd`/cmdline/tool/build/jackpot
+echo "$JACKPOT_TOOL"
+for subproject in $JACKPOT_ANALYSIS_SUBPROJECTS; do
+    (cd $subproject; ant -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM -Djackpot.home="$JACKPOT_TOOL" jackpot) || exit 1
+done
+
 exit 0

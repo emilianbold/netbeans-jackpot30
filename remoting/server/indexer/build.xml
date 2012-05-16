@@ -5,4 +5,5 @@
 <project name="indexing" basedir=".">
     <description>Builds the module suite indexing.</description>
     <import file="nbproject/build-impl.xml"/>
+    <import file="../../../suite-common.xml"/>
 </project>

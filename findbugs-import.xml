@@ -100,4 +100,25 @@ made subject to such option by the copyright holder.
             <available file="test/scripted/config" />
         </condition>
     </target>
+    
+    <target name="-jackpot-check-cp-exists" depends="init">
+        <condition property="jackpot.cp.defined">
+            <isreference refid="cp"/>
+        </condition>
+    </target>
+    
+    <target name="jackpot" depends="init,-jackpot-check-cp-exists" if="jackpot.cp.defined">
+	<fail unless="jackpot.home">${jackpot.home} must be specified</fail>
+        <taskdef name="jackpot" classname="org.netbeans.modules.jackpot30.cmdline.ant.JackpotTask" classpath="${jackpot.home}/jackpot-ant.jar"/>
+
+        <echo>Running Jackpot on module: ${code.name.base.dashes}</echo>
+        <jackpot jackpotHome="${jackpot.home}" source="${javac.source}">
+            <src>
+                <pathelement path="${src.dir}" />
+            </src>
+            <classpath>
+                <path refid="cp"/>
+            </classpath>
+        </jackpot>
+    </target>
 </project>

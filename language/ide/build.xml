@@ -5,4 +5,5 @@
 <project name="language-ide" basedir=".">
     <description>Builds the module suite language.</description>
     <import file="nbproject/build-impl.xml"/>
+    <import file="../../suite-common.xml"/>
 </project>

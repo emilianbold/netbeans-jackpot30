@@ -5,4 +5,5 @@
 <project name="org.netbeans.modules.jackpot30.remoting.kit" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.remoting.kit.</description>
     <import file="nbproject/build-impl.xml"/>
+    <import file="${suite.dir}/../../findbugs-import.xml"/>
 </project>

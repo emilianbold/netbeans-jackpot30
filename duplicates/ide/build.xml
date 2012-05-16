@@ -5,4 +5,5 @@
 <project name="duplicates-ide" basedir=".">
     <description>Builds the module suite ide.</description>
     <import file="nbproject/build-impl.xml"/>
+    <import file="../../suite-common.xml"/>
 </project>
