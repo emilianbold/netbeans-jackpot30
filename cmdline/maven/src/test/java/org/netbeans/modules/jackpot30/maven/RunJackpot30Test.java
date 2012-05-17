@@ -89,7 +89,7 @@ public class RunJackpot30Test extends TestCase {
             maven,
             "-q",
             "jackpot30:analyze"
-        }, new String[0], testDir);
+        }, null, testDir);
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         Thread outCopy = new Thread(new CopyStream(p.getInputStream(), System.out, out));
