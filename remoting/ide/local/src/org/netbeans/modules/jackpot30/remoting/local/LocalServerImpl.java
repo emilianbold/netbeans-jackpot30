@@ -49,11 +49,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLConnection;
 import java.util.jar.JarInputStream;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import org.netbeans.api.extexecution.ExternalProcessBuilder;
 import org.netbeans.api.java.platform.JavaPlatform;
+import org.netbeans.api.progress.aggregate.ProgressContributor;
 import org.netbeans.modules.jackpot30.remoting.api.LocalServer;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.openide.filesystems.FileObject;
@@ -112,14 +117,35 @@ public class LocalServerImpl implements LocalServer {
         return serverPort = -1;
     }
 
+    private static final int TOTAL_WORK = 1000;
+
     @Override
-    public boolean downloadIndex(RemoteIndex idx) throws IOException {
+    public boolean downloadIndex(RemoteIndex idx, ProgressContributor progress) throws IOException {
+        try {
+            progress.progress("Downloading index from " + idx.remote.toURI() + " subindex " + idx.remoteSegment);
+        } catch (URISyntaxException ex) {
+            Exceptions.printStackTrace(ex);
+        }
+        
         URL url = new URL(idx.remote.toExternalForm() + "/downloadable/index?path=" + idx.remoteSegment);
+        URLConnection c = url.openConnection();
+        String totalUnpackedSizeString = c.getHeaderField("NB-Total-Unpacked-Size");
+        long totalUnpackedSize = -1;
+        try {
+            totalUnpackedSize = Long.parseLong(totalUnpackedSizeString);
+        } catch (NumberFormatException ex) {
+            Logger.getLogger(LocalServerImpl.class.getName()).log(Level.FINE, null, ex);
+        }
         InputStream in = url.openStream();
         JarInputStream jis = new JarInputStream(in);
         File cacheDir = Places.getCacheSubdirectory(CACHE_PATH);
         File newTarget = new File(cacheDir, idx.remoteSegment + ".new");
+        final byte[] BUFFER = new byte[4096];
+        long written = 0;
 
+        progress.start(TOTAL_WORK);
+
+        try {
         ZipEntry ze;
 
         while ((ze = jis.getNextEntry()) != null) {
@@ -131,7 +157,15 @@ public class LocalServerImpl implements LocalServer {
 
             OutputStream out = new BufferedOutputStream(new FileOutputStream(targetFile));
 
-            FileUtil.copy(jis, out);
+            int read;
+
+            while ((read = jis.read(BUFFER)) != (-1)) {
+                out.write(BUFFER, 0, read);
+                written += read;
+                if (totalUnpackedSize > 0) {
+                    progress.progress(Math.min(TOTAL_WORK, (int) (((double) written / totalUnpackedSize) * TOTAL_WORK)));
+                }
+            }
 
             out.close();
         }
@@ -150,6 +184,10 @@ public class LocalServerImpl implements LocalServer {
             new URL("http://localhost:" + serverPort + "/index/internal/indexUpdated").openStream().close();
         }
 
+        } finally {
+        progress.finish();
+        }
+        
         return true;
     }
 

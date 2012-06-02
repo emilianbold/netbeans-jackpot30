@@ -42,6 +42,7 @@
 package org.netbeans.modules.jackpot30.remoting.api;
 
 import java.io.IOException;
+import org.netbeans.api.progress.aggregate.ProgressContributor;
 
 /**
  *
@@ -50,6 +51,6 @@ import java.io.IOException;
 public interface LocalServer {
 
     public int startLocalServer();
-    public boolean downloadIndex(RemoteIndex idx) throws IOException;
+    public boolean downloadIndex(RemoteIndex idx, ProgressContributor progress) throws IOException;
 
 }

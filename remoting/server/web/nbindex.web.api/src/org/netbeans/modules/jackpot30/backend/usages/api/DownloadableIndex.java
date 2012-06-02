@@ -43,10 +43,10 @@ package org.netbeans.modules.jackpot30.backend.usages.api;
 
 import java.io.*;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 import javax.ws.rs.*;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.StreamingOutput;
@@ -89,6 +89,8 @@ public class DownloadableIndex {
         } ).build();
     }
 
+    private static final Collection<String> PARTS_TO_COPY = Arrays.asList("index", "info", "segments");
+
     @GET
     @Path("/index")
     @Produces("application/octet-stream")
@@ -98,15 +100,34 @@ public class DownloadableIndex {
 
         if (idxRoot == null || !idxRoot.canRead()) return Response.status(Response.Status.NOT_FOUND).build();
 
-        return Response.ok().entity(new StreamingOutput() {
+        long totalSize = 0;
+
+        for (String rel : PARTS_TO_COPY) {
+            FileObject relFO = idxRoot.getFileObject(rel);
+
+            if (relFO == null) continue;
+
+            Iterable<? extends FileObject> children;
+
+            if (relFO.isFolder()) children = NbCollections.iterable(relFO.getChildren(true));
+            else children = Collections.singletonList(relFO);
+
+            for (FileObject c : children) {
+                if (c.isFolder()) continue;
+
+                totalSize += c.getSize();
+            }
+        }
+
+        return Response.ok().header("NB-Total-Unpacked-Size", String.valueOf(totalSize)).entity(new StreamingOutput() {
             @Override public void write(OutputStream output) throws IOException, WebApplicationException {
                 JarOutputStream out = new JarOutputStream(output);
 
                 try {
-                    for (String rel : Arrays.asList("index", "info", "segments")) {
+                    for (String rel : PARTS_TO_COPY) {
                         FileObject relFO = idxRoot.getFileObject(rel);
 
-                        if (relFO == null) return;
+                        if (relFO == null) continue;
 
                         Iterable<? extends FileObject> children;
 

@@ -42,7 +42,6 @@
 package org.netbeans.modules.jackpot30.remotingapi.options;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -53,8 +52,9 @@ import javax.swing.JComboBox;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.AbstractTableModel;
-import org.netbeans.api.progress.ProgressHandle;
-import org.netbeans.api.progress.ProgressHandleFactory;
+import org.netbeans.api.progress.aggregate.AggregateProgressFactory;
+import org.netbeans.api.progress.aggregate.AggregateProgressHandle;
+import org.netbeans.api.progress.aggregate.ProgressContributor;
 import org.netbeans.modules.jackpot30.remoting.api.LocalServer;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex.UseLocalCache;
@@ -198,24 +198,25 @@ final class IndexPanel extends javax.swing.JPanel {
                     }
                 }
 
-                ProgressHandle h = ProgressHandleFactory.createHandle("Synchronizing remote indices");
+                ProgressContributor[] contributors = new ProgressContributor[indices.size()];
 
-                h.start(indices.size());
+                for (int i = 0; i < indices.size(); i++) {
+                    contributors[i] = AggregateProgressFactory.createProgressContributor(String.valueOf(i));
+                }
+
+                AggregateProgressHandle h = AggregateProgressFactory.createHandle("Synchronizing remote indices", contributors, null, null);
+
+                h.start();
 
                 try {
                     int i = 0;
 
                     for (RemoteIndex idx : indices) {
                         try {
-                            h.progress("Downloading index from " + idx.remote.toURI() + " subindex " + idx.remoteSegment);
-                            Lookup.getDefault().lookup(LocalServer.class).downloadIndex(idx);
-                        } catch (URISyntaxException ex) {
-                            Exceptions.printStackTrace(ex);
+                            Lookup.getDefault().lookup(LocalServer.class).downloadIndex(idx, contributors[i++]);
                         } catch (IOException ex) {
                             Exceptions.printStackTrace(ex);
                         }
-
-                        h.progress(++i);
                     }
                 } finally {
                     h.finish();
