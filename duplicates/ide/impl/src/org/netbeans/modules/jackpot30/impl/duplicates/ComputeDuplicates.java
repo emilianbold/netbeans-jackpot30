@@ -39,7 +39,10 @@
 package org.netbeans.modules.jackpot30.impl.duplicates;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.SourcePositions;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -47,6 +50,9 @@ import com.sun.source.util.Trees;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.net.URL;
 import java.security.DigestOutputStream;
 import java.security.MessageDigest;
@@ -69,7 +75,8 @@ import java.util.NoSuchElementException;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import javax.tools.JavaCompiler.CompilationTask;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiReader;
@@ -82,6 +89,7 @@ import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.annotations.common.CheckForNull;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationInfo;
@@ -89,10 +97,6 @@ import org.netbeans.api.progress.ProgressHandle;
 import org.netbeans.modules.jackpot30.common.api.LuceneHelpers.BitSetCollector;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesCustomIndexerImpl;
 import org.netbeans.modules.jackpot30.impl.duplicates.indexing.DuplicatesIndex;
-import org.netbeans.modules.java.hints.spiimpl.Utilities;
-import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch;
-import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.EncodingContext;
-import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -345,11 +349,11 @@ public class ComputeDuplicates {
     }
 
     public static Map<String, long[]> encodeGeneralized(CompilationInfo info) {
-        return encodeGeneralized(JavaSourceAccessor.getINSTANCE().getJavacTask(info), info.getCompilationUnit());
+        return encodeGeneralized(info.getTrees(), info.getCompilationUnit());
     }
 
-    public static Map<String, long[]> encodeGeneralized(final CompilationTask task, final CompilationUnitTree cut) {
-        final SourcePositions sp = Trees.instance(task).getSourcePositions();
+    public static Map<String, long[]> encodeGeneralized(final Trees trees, final CompilationUnitTree cut) {
+        final SourcePositions sp = trees.getSourcePositions();
         final Map<String, Collection<Long>> positions = new HashMap<String, Collection<Long>>();
 
         new TreePathScanner<Void, Void>() {
@@ -357,42 +361,43 @@ public class ComputeDuplicates {
             public Void scan(Tree tree, Void p) {
                 if (tree == null) return null;
                 if (getCurrentPath() != null) {
-                    Tree generalizedPattern = Utilities.generalizePattern(task, new TreePath(getCurrentPath(), tree));
-                    long value = Utilities.patternValue(generalizedPattern);
-                    if (value >= MINIMAL_VALUE) {
-                        {
-                            DigestOutputStream baos = null;
-                            try {
-                                baos = new DigestOutputStream(new ByteArrayOutputStream(), MessageDigest.getInstance("MD5"));
-                                final EncodingContext ec = new BulkSearch.EncodingContext(baos, true);
-                                BulkSearch.getDefault().encode( generalizedPattern, ec);
-                                StringBuilder text = new StringBuilder();
-                                byte[] bytes = baos.getMessageDigest().digest();
-                                for (int cntr = 0; cntr < 4; cntr++) {
-                                    text.append(String.format("%02X", bytes[cntr]));
-                                }
-                                text.append(':').append(value);
-                                String enc = text.toString();
-                                Collection<Long> spanSpecs = positions.get(enc);
-                                if (spanSpecs == null) {
-                                    positions.put(enc, spanSpecs = new LinkedList<Long>());
-//                                } else {
-//                                    spanSpecs.append(";");
-                                }
-                                long start = sp.getStartPosition(cut, tree);
-//                                spanSpecs.append(start).append(":").append(sp.getEndPosition(cut, tree) - start);
-                                spanSpecs.add(start);
-                                spanSpecs.add(sp.getEndPosition(cut, tree));
-                            } catch (NoSuchAlgorithmException ex) {
-                                Exceptions.printStackTrace(ex);
-                           } finally {
-                                try {
-                                    baos.close();
-                                } catch (IOException ex) {
-                                    Exceptions.printStackTrace(ex);
-                                }
+                    DigestOutputStream baos = null;
+                    PrintWriter out = null;
+                    try {
+                        baos = new DigestOutputStream(new ByteArrayOutputStream(), MessageDigest.getInstance("MD5"));
+                        out = new PrintWriter(new OutputStreamWriter(baos, "UTF-8"));
+                        GeneralizePattern gen = new GeneralizePattern(out, trees);
+                        gen.scan(new TreePath(getCurrentPath(), tree), null);
+                        if (gen.value >= MINIMAL_VALUE) {
+                            StringBuilder text = new StringBuilder();
+                            byte[] bytes = baos.getMessageDigest().digest();
+                            for (int cntr = 0; cntr < 4; cntr++) {
+                                text.append(String.format("%02X", bytes[cntr]));
                             }
+                            text.append(':').append(gen.value);
+                            String enc = text.toString();
+                            Collection<Long> spanSpecs = positions.get(enc);
+                            if (spanSpecs == null) {
+                                positions.put(enc, spanSpecs = new LinkedList<Long>());
+//                            } else {
+//                                spanSpecs.append(";");
+                            }
+                            long start = sp.getStartPosition(cut, tree);
+//                            spanSpecs.append(start).append(":").append(sp.getEndPosition(cut, tree) - start);
+                            spanSpecs.add(start);
+                            spanSpecs.add(sp.getEndPosition(cut, tree));
                         }
+                    } catch (UnsupportedEncodingException ex) {
+                        Exceptions.printStackTrace(ex);
+                    } catch (NoSuchAlgorithmException ex) {
+                        Exceptions.printStackTrace(ex);
+                    } finally {
+                        try {
+                            baos.close();
+                        } catch (IOException ex) {
+                            Exceptions.printStackTrace(ex);
+                        }
+                        out.close();
                     }
                 }
                 return super.scan(tree, p);
@@ -413,6 +418,90 @@ public class ComputeDuplicates {
         }
 
         return result;
+    }
+
+    private static final class GeneralizePattern extends TreePathScanner<Void, Void> {
+
+        public final Map<Tree, Tree> tree2Variable = new HashMap<Tree, Tree>();
+        private final Map<Element, String> element2Variable = new HashMap<Element, String>();
+        private final PrintWriter to;
+        private final Trees javacTrees;
+        private long value;
+
+        private int currentVariableIndex = 0;
+
+        public GeneralizePattern(PrintWriter to, Trees javacTrees) {
+            this.to = to;
+            this.javacTrees = javacTrees;
+        }
+
+        private @NonNull String getVariable(@NonNull Element el) {
+            String var = element2Variable.get(el);
+
+            if (var == null) {
+                element2Variable.put(el, var = "$" + currentVariableIndex++);
+            }
+
+            return var;
+        }
+
+        private boolean shouldBeGeneralized(@NonNull Element el) {
+            if (el.getModifiers().contains(Modifier.PRIVATE)) {
+                return true;
+            }
+
+            switch (el.getKind()) {
+                case LOCAL_VARIABLE:
+                case EXCEPTION_PARAMETER:
+                case PARAMETER:
+                    return true;
+            }
+
+            return false;
+        }
+
+        @Override
+        public Void scan(Tree tree, Void p) {
+            if (tree != null) {
+                to.append(tree.getKind().name());
+                value++;
+            }
+            return super.scan(tree, p);
+        }
+
+        @Override
+        public Void visitIdentifier(IdentifierTree node, Void p) {
+            Element e = javacTrees.getElement(getCurrentPath());
+
+            if (e != null && shouldBeGeneralized(e)) {
+                to.append(getVariable(e));
+                value--;
+                return null;
+            } else {
+                to.append(node.getName());
+            }
+
+            return super.visitIdentifier(node, p);
+        }
+
+        @Override
+        public Void visitVariable(VariableTree node, Void p) {
+            Element e = javacTrees.getElement(getCurrentPath());
+
+            if (e != null && shouldBeGeneralized(e)) {
+                to.append(getVariable(e));
+            } else {
+                to.append(node.getName());
+            }
+
+            return super.visitVariable(node, p);
+        }
+
+        @Override
+        public Void visitNewClass(NewClassTree node, Void p) {
+            return null;
+        }
+
     }
 
     private static final int MINIMAL_VALUE = 10;

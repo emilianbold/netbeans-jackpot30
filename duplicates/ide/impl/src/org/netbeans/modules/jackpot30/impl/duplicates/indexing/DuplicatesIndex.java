@@ -40,6 +40,7 @@
 package org.netbeans.modules.jackpot30.impl.duplicates.indexing;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.util.Trees;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
@@ -68,11 +69,15 @@ public class DuplicatesIndex {
 
     private final org.apache.lucene.index.IndexWriter luceneWriter;
 
-    DuplicatesIndex(URL sourceRoot, FileObject cacheRoot) throws IOException {
+    public DuplicatesIndex(URL sourceRoot, FileObject cacheRoot) throws IOException {
         luceneWriter = Lookup.getDefault().lookup(IndexAccess.class).getIndexWriter(sourceRoot, cacheRoot, NAME);
     }
 
     public void record(final CompilationInfo info, Indexable idx, final CompilationUnitTree cut) throws IOException {
+        record(info.getTrees(), idx, cut);
+    }
+
+    public void record(final Trees trees, Indexable idx, final CompilationUnitTree cut) throws IOException {
         String relative = Lookup.getDefault().lookup(IndexAccess.class).getRelativePath(idx);
 
         try {
@@ -80,7 +85,7 @@ public class DuplicatesIndex {
 
             doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
 
-            final Map<String, long[]> positions = ComputeDuplicates.encodeGeneralized(JavaSourceAccessor.getINSTANCE().getJavacTask(info), cut);
+            final Map<String, long[]> positions = ComputeDuplicates.encodeGeneralized(trees, cut);
 
             for (Entry<String, long[]> e : positions.entrySet()) {
                 doc.add(new Field("generalized", e.getKey(), Store.YES, Index.NOT_ANALYZED));
