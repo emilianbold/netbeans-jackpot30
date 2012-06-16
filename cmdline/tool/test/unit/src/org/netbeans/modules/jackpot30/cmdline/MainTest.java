@@ -87,6 +87,7 @@ public class MainTest extends NbTestCase {
                       "    }\n" +
                       "}\n",
                       null,
+                      "--apply",
                       "--hint",
                       "Usage of .size() == 0");
     }
@@ -181,10 +182,80 @@ public class MainTest extends NbTestCase {
                       "    }\n" +
                       "}\n",
                       null,
+                      "--apply",
                       "--hint",
                       "Usage of .size() == 0",
                       "--source",
                       "1.6");
+    }
+
+    public void testConfigurationFile() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b = c.isEmpty();\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      null,
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b = c.size() == 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      "settings.xml",
+                      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                      "<hints apply=\"true\">\n" +
+                      "    <settings>\n" +
+                      "        <org.netbeans.modules.java.hints.perf.SizeEqualsZero check.not.equals=\"false\" enabled=\"true\" hintSeverity=\"VERIFIER\"/>\n" +
+                      "    </settings>\n" +
+                      "</hints>\n",
+                      null,
+                      "--config-file",
+                      "${workdir}/settings.xml",
+                      "--source",
+                      "1.6");
+    }
+
+    public void testConfigurationFileCmdLineOverride() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b = c.size() == 0;\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      "${workdir}/src/test/Test.java:4: warning: Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                      "        boolean b = c.size() == 0;\n" +
+                      "                    ^\n",
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b = c.size() == 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      "settings.xml",
+                      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                      "<hints apply=\"true\">\n" +
+                      "    <settings>\n" +
+                      "        <org.netbeans.modules.java.hints.perf.SizeEqualsZero check.not.equals=\"false\" enabled=\"true\" hintSeverity=\"VERIFIER\"/>\n" +
+                      "    </settings>\n" +
+                      "</hints>\n",
+                      null,
+                      "--config-file",
+                      "${workdir}/settings.xml",
+                      "--source",
+                      "1.6",
+                      "--no-apply");
     }
 
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
@@ -220,7 +291,9 @@ public class MainTest extends NbTestCase {
 
         options.add("--cache");
         options.add("/tmp/cachex");
-        options.addAll(extraOptions);
+        for (String extraOption : extraOptions) {
+            options.add(extraOption.replace("${workdir}", wd.getAbsolutePath()));
+        }
         options.add(wd.getAbsolutePath());
 
         String[] output = new String[2];

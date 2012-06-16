@@ -72,6 +72,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
+import org.netbeans.modules.jackpot30.ui.settings.XMLHintPreferences;
 import org.netbeans.modules.java.hints.providers.spi.HintDescription;
 import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
 import org.netbeans.modules.java.hints.spiimpl.MessageImpl;
@@ -98,6 +99,7 @@ import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
+import org.openide.util.NbPreferences;
 import org.openide.util.RequestProcessor;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ProxyLookup;
@@ -109,6 +111,7 @@ import org.openide.util.lookup.ServiceProvider;
  */
 public class Main {
 
+    private static final String OPTION_APPLY = "apply";
     private static final String OPTION_NO_APPLY = "no-apply";
     private static final String SOURCE_LEVEL_DEFAULT = "1.7";
     private static final String ACCEPTABLE_SOURCE_LEVEL_PATTERN = "(1\\.)?[2-9][0-9]*";
@@ -127,6 +130,7 @@ public class Main {
         ArgumentAcceptingOptionSpec<File> sourcepath = parser.accepts("sourcepath", "sourcepath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "a cache directory to store working data").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<File> out = parser.accepts("out", "output diff").withRequiredArg().ofType(File.class);
+        ArgumentAcceptingOptionSpec<File> configFile = parser.accepts("config-file", "configuration file").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
         ArgumentAcceptingOptionSpec<String> config = parser.accepts("config", "configurations").withRequiredArg().ofType(String.class);
         ArgumentAcceptingOptionSpec<String> source = parser.accepts("source", "source level").withRequiredArg().ofType(String.class).defaultsTo(SOURCE_LEVEL_DEFAULT);
@@ -136,6 +140,7 @@ public class Main {
         parser.accepts("debug", "enable debugging loggers");
         parser.accepts("help", "prints this help");
         parser.accepts(OPTION_NO_APPLY, "do not apply changes - only print locations were the hint would be applied");
+        parser.accepts(OPTION_APPLY, "apply changes");
 
         OptionSet parsed;
 
@@ -218,10 +223,31 @@ public class Main {
                 return 0;
             }
 
-            if (parsed.has(hint)) {
-                hints = findHints(sourceCP, binaryCP, parsed.valueOf(hint));
+            Preferences settingsFromConfigFile;
+            Preferences hintSettings;
+            boolean apply;
+
+            if (parsed.has(configFile)) {
+                settingsFromConfigFile = XMLHintPreferences.from(parsed.valueOf(configFile));
+                hintSettings = settingsFromConfigFile.node("settings");
+                apply = settingsFromConfigFile.getBoolean("apply", false);
             } else {
-                hints = allHints(sourceCP, binaryCP);
+                settingsFromConfigFile = null;
+                hintSettings = NbPreferences.root().node("tempSettings");
+                apply = false;
+            }
+
+            if (parsed.has(hint)) {
+                if (settingsFromConfigFile != null) {
+                    System.err.println("cannot specify --hint and --configFile together");
+                    return 1;
+                }
+                hints = findHints(sourceCP, binaryCP, parsed.valueOf(hint), hintSettings);
+            } else if (settingsFromConfigFile == null) {
+                hints = allHints(sourceCP, binaryCP, hintSettings);
+            } else {
+                assert settingsFromConfigFile != null;
+                hints = readHints(sourceCP, binaryCP, hintSettings, settingsFromConfigFile.getBoolean("runDeclarative", true));
             }
 
             if (!hints.iterator().hasNext()) {
@@ -276,18 +302,26 @@ public class Main {
                 System.err.println("unrecognized source level specification: " + sourceLevel);
                 return 1;
             }
+
+            if (parsed.has(OPTION_NO_APPLY)) {
+                apply = false;
+            } else if (parsed.has(OPTION_APPLY)) {
+                apply = true;
+            }
             
             try {
                 MainLookup.register(new ClassPathProviderImpl(bootCP, compileCP, sourceCP));
                 MainLookup.register(new JavaPathRecognizer());
                 MainLookup.register(new SourceLevelQueryImpl(sourceCP, sourceLevel));
+
+                setHintPreferences(hintSettings);
                 
                 ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1) : new ProgressHandleWrapper(1);
 
-                if (parsed.has(OPTION_NO_APPLY)) {
-                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, parsed.valueOf(out));
-                } else {
+                if (apply) {
                     apply(hints, rootFolders.toArray(new Folder[0]), progress, parsed.valueOf(out));
+                } else {
+                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, parsed.valueOf(out));
                 }
             } catch (Throwable e) {
                 e.printStackTrace();
@@ -306,6 +340,53 @@ public class Main {
         return 0;
     }
 
+    private static void setHintPreferences(final Preferences prefs) {
+        HintsSettings.setPreferencesOverride(new Map<String, Preferences>() {
+            @Override public int size() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public boolean isEmpty() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public boolean containsKey(Object key) {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public boolean containsValue(Object value) {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public Preferences get(Object key) {
+                Preferences res = prefs.node((String) key);
+
+                if (res.get("enabled", null) == null) {
+                    res.putBoolean("enabled", false);
+                }
+                
+                return res;
+            }
+            @Override public Preferences put(String key, Preferences value) {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public Preferences remove(Object key) {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public void putAll(Map<? extends String, ? extends Preferences> m) {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public void clear() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public Set<String> keySet() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public Collection<Preferences> values() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+            @Override public Set<Entry<String, Preferences>> entrySet() {
+                throw new UnsupportedOperationException("Not supported yet.");
+            }
+        });
+    }
+
     private static Map<HintMetadata, Collection<? extends HintDescription>> listHints(ClassPath sourceFrom, ClassPath binaryFrom) {
         Map<HintMetadata, Collection<? extends HintDescription>> result = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
 
@@ -316,25 +397,46 @@ public class Main {
         return result;
     }
     
-    private static Iterable<? extends HintDescription> findHints(ClassPath sourceFrom, ClassPath binaryFrom, String name) {
+    private static Iterable<? extends HintDescription> findHints(ClassPath sourceFrom, ClassPath binaryFrom, String name, Preferences toEnableIn) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
         for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(sourceFrom, binaryFrom).entrySet()) {
             if (e.getKey().displayName.equals(name)) {
                 descs.addAll(e.getValue());
+                HintsSettings.setEnabled(toEnableIn.node(e.getKey().id), true);
             }
         }
 
         return descs;
     }
 
-    private static Iterable<? extends HintDescription> allHints(ClassPath sourceFrom, ClassPath binaryFrom) {
+    private static Iterable<? extends HintDescription> allHints(ClassPath sourceFrom, ClassPath binaryFrom, Preferences toEnableIn) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
         for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(sourceFrom, binaryFrom).entrySet()) {
             if (e.getKey().kind != Kind.INSPECTION) continue;
             if (!e.getKey().enabled) continue;
             descs.addAll(e.getValue());
+            HintsSettings.setEnabled(toEnableIn.node(e.getKey().id), true);
+        }
+
+        return descs;
+    }
+
+    private static Iterable<? extends HintDescription> readHints(ClassPath sourceFrom, ClassPath binaryFrom, Preferences toEnableIn, boolean declarative) {
+        Map<HintMetadata, ? extends Collection<? extends HintDescription>> hardcoded = RulesManager.getInstance().readHints(null, Arrays.<ClassPath>asList(), null);
+        Map<HintMetadata, ? extends Collection<? extends HintDescription>> all = declarative ? RulesManager.getInstance().readHints(null, Arrays.asList(sourceFrom, binaryFrom), null) : hardcoded;
+        List<HintDescription> descs = new LinkedList<HintDescription>();
+
+        for (Entry<HintMetadata, ? extends Collection<? extends HintDescription>> entry: all.entrySet()) {
+            if (hardcoded.containsKey(entry.getKey())) {
+                if (HintsSettings.isEnabled(toEnableIn.node(entry.getKey().id), entry.getKey().enabled)) {
+                    descs.addAll(entry.getValue());
+                }
+            } else {
+                assert declarative;
+                descs.addAll(entry.getValue());
+            }
         }
 
         return descs;
