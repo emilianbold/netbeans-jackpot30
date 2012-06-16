@@ -49,7 +49,7 @@ public class Test {
 }
 EOF
 
-    run_tool --hint "Can Use Diamond" --config enabledVariants="" src
+    run_tool --apply --hint "Can Use Diamond" --config enabledVariants="" src
 
     assert_file_content  src/test/Test.java <<EOF
 package test;
@@ -62,7 +62,7 @@ public class Test {
 }
 EOF
 
-    run_tool --hint "Can Use Diamond" --config enabledVariants="initializer" src
+    run_tool --apply --hint "Can Use Diamond" --config enabledVariants="initializer" src
 
     assert_file_content  src/test/Test.java <<EOF
 package test;

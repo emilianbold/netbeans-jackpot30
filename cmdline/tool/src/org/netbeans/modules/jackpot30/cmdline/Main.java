@@ -270,13 +270,8 @@ public class Main {
                     return 1;
                 }
 
-                Preferences prefs = HintsSettings.getPreferences(hd.getMetadata().id, HintsSettings.getCurrentProfileId());
+                Preferences prefs = hintSettings.node(hd.getMetadata().id);
 
-                if (prefs == null) {
-                    System.err.println("hint '" + parsed.valueOf(hint) + "' cannot be configured");
-                    return 1;
-                }
-                
                 boolean stop = false;
 
                 for (String c : parsed.valuesOf(config)) {

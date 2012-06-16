@@ -47,7 +47,7 @@ public class Test {
 }
 EOF
 
-    run_tool --hint "String.intern() called on constant" src
+    run_tool --apply --hint "String.intern() called on constant" src
 
     assert_file_content  src/test/Test.java <<EOF
 package test;
