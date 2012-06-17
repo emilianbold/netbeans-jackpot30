@@ -181,7 +181,7 @@ public class HintsAnnotationProcessingTest extends HintsAnnotationProcessingTest
         doRunCompiler(golden, "src/test/Test.java",
                               "package test; public class Test {private void test() {Integer i = 0; if (i == null && null == i) System.err.println(i);\n}}\n",
                               null,
-                              "-A" + HintsAnnotationProcessing.HARDCODED_HINTS_ENABLE + "=defaults");
+                              "-A" + HintsAnnotationProcessing.HARDCODED_HINTS_ENABLE + "=test-hint");
     }
 
     public void testExtraHints() throws Exception {
@@ -247,7 +247,7 @@ public class HintsAnnotationProcessingTest extends HintsAnnotationProcessingTest
         assertEquals(goldenDiff, diffText);
     }
 
-    @Hint(displayName="test", description="test", category="general")
+    @Hint(displayName="test", description="test", category="general", id="test-hint")
     @TriggerPattern("$1 == null && null == $1")
     public static ErrorDescription codeHint(HintContext ctx) {
         return ErrorDescriptionFactory.forName(ctx, ctx.getPath(), "test", JavaFixUtilities.rewriteFix(ctx, "test", ctx.getPath(), "$1 == null"));
