@@ -83,6 +83,12 @@ public class JackpotTask extends Task {
         return this.classpath = new Path(getProject());
     }
 
+    private String configFile;
+
+    public void setConfigfile(String file) {
+        this.configFile = file;
+    }
+
     @Override
     public void execute() throws BuildException {
         try {
@@ -108,6 +114,7 @@ public class JackpotTask extends Task {
             cmdLine.addArguments(new String[] {"-sourcepath", srcPath.toString()});
             cmdLine.addArguments(new String[] {"-classpath", classpath.toString()});
             if (sourcelevel != null) cmdLine.addArguments(new String[] {"--source", sourcelevel});
+            if (configFile != null) cmdLine.addArguments(new String[] {"--config-file", configFile});
             cmdLine.addArguments(srcPath.list());
 
             Execute exec = new Execute(new LogStreamHandler(this, Project.MSG_INFO, Project.MSG_WARN));
