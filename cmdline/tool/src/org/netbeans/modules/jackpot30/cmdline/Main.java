@@ -39,6 +39,9 @@
 
 package org.netbeans.modules.jackpot30.cmdline;
 
+import java.awt.BorderLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -46,6 +49,7 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.PrintStream;
 import java.io.Writer;
+import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,8 +65,14 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
+import javax.swing.JCheckBox;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeListener;
 import joptsimple.ArgumentAcceptingOptionSpec;
 import joptsimple.OptionException;
@@ -86,7 +96,9 @@ import org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities;
 import org.netbeans.modules.java.hints.spiimpl.batch.ProgressHandleWrapper;
 import org.netbeans.modules.java.hints.spiimpl.batch.ProgressHandleWrapper.ProgressHandleAbstraction;
 import org.netbeans.modules.java.hints.spiimpl.batch.Scopes;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsPanel;
 import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
+import org.netbeans.modules.java.hints.spiimpl.refactoring.Utilities.ClassPathBasedHintWrapper;
 import org.netbeans.modules.java.source.parsing.JavaPathRecognizer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
@@ -98,6 +110,7 @@ import org.netbeans.spi.java.queries.SourceLevelQueryImplementation2;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbPreferences;
 import org.openide.util.RequestProcessor;
@@ -141,6 +154,7 @@ public class Main {
         parser.accepts("help", "prints this help");
         parser.accepts(OPTION_NO_APPLY, "do not apply changes - only print locations were the hint would be applied");
         parser.accepts(OPTION_APPLY, "apply changes");
+        parser.accepts("show-gui", "show configuration dialog");
 
         OptionSet parsed;
 
@@ -155,6 +169,34 @@ public class Main {
         if (parsed.has("help")) {
             parser.printHelpOn(System.out);
             return 0;
+        }
+
+        if (parsed.has("show-gui")) {
+            if (parsed.has(configFile)) {
+                final File settingsFile = parsed.valueOf(configFile);
+                try {
+                    SwingUtilities.invokeAndWait(new Runnable() {
+                        @Override public void run() {
+                            try {
+                                showGUICustomizer(settingsFile);
+                            } catch (IOException ex) {
+                                Exceptions.printStackTrace(ex);
+                            } catch (BackingStoreException ex) {
+                                Exceptions.printStackTrace(ex);
+                            }
+                        }
+                    });
+                } catch (InterruptedException ex) {
+                    Exceptions.printStackTrace(ex);
+                } catch (InvocationTargetException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+
+                return 0;
+            } else {
+                System.err.println("show-gui requires config-file");
+                return 1;
+            }
         }
 
         if (!parsed.has("debug")) {
@@ -566,6 +608,37 @@ public class Main {
         }
 
         return ClassPathSupport.createClassPath(rootURLs.toArray(new URL[0]));
+    }
+
+    private static void showGUICustomizer(File settings) throws IOException, BackingStoreException {
+        final Preferences p = XMLHintPreferences.from(settings);
+        JPanel hintPanel = new HintsPanel(p.node("settings"), new ClassPathBasedHintWrapper());
+        final JCheckBox runDeclarativeHints = new JCheckBox("Run Declarative Rules");
+
+        runDeclarativeHints.setToolTipText("Should the declarative rules found on classpath be run?");
+        runDeclarativeHints.setSelected(p.getBoolean("runDeclarative", true));
+        runDeclarativeHints.addActionListener(new ActionListener() {
+            @Override public void actionPerformed(ActionEvent e) {
+                p.putBoolean("runDeclarative", runDeclarativeHints.isSelected());
+            }
+        });
+
+        JPanel customizer = new JPanel(new BorderLayout());
+
+        customizer.add(hintPanel, BorderLayout.CENTER);
+        customizer.add(runDeclarativeHints, BorderLayout.SOUTH);
+        JOptionPane jop = new JOptionPane(customizer, JOptionPane.PLAIN_MESSAGE);
+        JDialog dialog = jop.createDialog("Select Hints");
+
+        jop.selectInitialValue();
+        dialog.setVisible(true);
+        dialog.dispose();
+
+        Object result = jop.getValue();
+
+        if (result.equals(JOptionPane.OK_OPTION)) {
+            p.flush();
+        }
     }
 
     @ServiceProvider(service=Lookup.class)
