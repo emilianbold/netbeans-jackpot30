@@ -155,7 +155,7 @@ public class ComputeDuplicates {
 
         MultiReader r = new MultiReader(readers2Roots.keySet().toArray(new IndexReader[0]));
 
-        List<String> dd = new ArrayList<String>(getDuplicatedValues(r, "generalized", cancel));
+        List<String> dd = new ArrayList<String>(getDuplicatedValues(r, "duplicatesGeneralized", cancel));
 
         sortHashes(dd);
 
@@ -196,7 +196,7 @@ public class ComputeDuplicates {
             String longest = duplicateCandidates.next();
             List<Span> foundDuplicates = new LinkedList<Span>();
 
-            Query query = new TermQuery(new Term("generalized", longest));
+            Query query = new TermQuery(new Term("duplicatesGeneralized", longest));
 
             for (Entry<IndexReader, FileObject> e : readers2Roots.entrySet()) {
                 Searcher s = new IndexSearcher(e.getKey());
@@ -207,15 +207,14 @@ public class ComputeDuplicates {
 
                 for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum + 1)) {
                     final Document doc = e.getKey().document(docNum);
-                    int pos = Arrays.binarySearch(doc.getValues("generalized"), longest);
+                    int pos = Arrays.binarySearch(doc.getValues("duplicatesGeneralized"), longest);
 
                     if (pos < 0) {
-                        System.err.println("FOOBAR=" + pos);
                         continue;
                     }
                     
-                    String spanSpec = doc.getValues("positions")[pos];
-                    String relPath = doc.getField("path").stringValue();
+                    String spanSpec = doc.getValues("duplicatesPositions")[pos];
+                    String relPath = doc.getField("duplicatesPath").stringValue();
 
                     for (String spanPart : spanSpec.split(";")) {
                         Span span = Span.of(e.getValue().getFileObject(relPath), spanPart);

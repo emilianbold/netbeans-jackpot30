@@ -55,10 +55,8 @@ import org.apache.lucene.index.Term;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.jackpot30.common.api.IndexAccess;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates;
-import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 
 /**
@@ -83,12 +81,12 @@ public class DuplicatesIndex {
         try {
             final Document doc = new Document();
 
-            doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
+            doc.add(new Field("duplicatesPath", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
 
             final Map<String, long[]> positions = ComputeDuplicates.encodeGeneralized(trees, cut);
 
             for (Entry<String, long[]> e : positions.entrySet()) {
-                doc.add(new Field("generalized", e.getKey(), Store.YES, Index.NOT_ANALYZED));
+                doc.add(new Field("duplicatesGeneralized", e.getKey(), Store.YES, Index.NOT_ANALYZED));
 
                 StringBuilder positionsSpec = new StringBuilder();
 
@@ -97,7 +95,7 @@ public class DuplicatesIndex {
                     positionsSpec.append(e.getValue()[i]).append(':').append(e.getValue()[i + 1] - e.getValue()[i]);
                 }
 
-                doc.add(new Field("positions", positionsSpec.toString(), Store.YES, Index.NO));
+                doc.add(new Field("duplicatesPositions", positionsSpec.toString(), Store.YES, Index.NO));
             }
 
             luceneWriter.addDocument(doc);
@@ -109,7 +107,7 @@ public class DuplicatesIndex {
     }
 
     public void remove(String relativePath) throws IOException {
-        luceneWriter.deleteDocuments(new Term("path", relativePath));
+        luceneWriter.deleteDocuments(new Term("duplicatesPath", relativePath));
     }
 
     public void close() throws IOException {
