@@ -72,7 +72,8 @@ public class ComputeDuplicatesTest extends IndexTestBase {
     public void testDuplicateDuplicates() throws Exception {
         writeFilesAndWaitForScan(src,
                                  new File("test/Test1.java", "package test; public class Test1 { private void test() { java.io.File f = null; f.isDirectory(); } }"),
-                                 new File("test/Test2.java", "package test; public class Test2 { private int a; private void test() { java.io.File f = null; f.isDirectory(); } }"));
+                                 new File("test/Test2.java", "package test; public class Test2 { private int a; private void test() { java.io.File f = null; f.isDirectory(); } }"),
+                                 new File("test/Test3.java", "package test; public class Test3 { private void test() { for (int i = 0; i < 10; i++) { System.err.println(3 * i); System.err.println(4 * i); } }"));
 
         verifyDuplicates("test/Test1.java",
                          "private void test() { java.io.File f = null; f.isDirectory(); }",

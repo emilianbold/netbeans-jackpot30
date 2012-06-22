@@ -368,6 +368,7 @@ public class ComputeDuplicates {
                         out = new PrintWriter(new OutputStreamWriter(baos, "UTF-8"));
                         GeneralizePattern gen = new GeneralizePattern(out, trees);
                         gen.scan(new TreePath(getCurrentPath(), tree), null);
+                        out.close();
                         if (gen.value >= MINIMAL_VALUE) {
                             StringBuilder text = new StringBuilder();
                             byte[] bytes = baos.getMessageDigest().digest();
