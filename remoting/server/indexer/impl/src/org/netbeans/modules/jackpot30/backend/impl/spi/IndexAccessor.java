@@ -8,8 +8,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import org.apache.lucene.index.IndexWriter;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileStateInvalidException;
-import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 
 /**
