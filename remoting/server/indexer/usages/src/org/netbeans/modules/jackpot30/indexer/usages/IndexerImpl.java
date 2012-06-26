@@ -76,6 +76,7 @@ import javax.lang.model.type.WildcardType;
 import javax.lang.model.util.ElementFilter;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import org.apache.lucene.document.CompressionTools;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
@@ -102,6 +103,7 @@ import org.openide.util.Lookup;
  */
 public class IndexerImpl implements JavaIndexerPlugin {
 
+    private static final boolean NAVIGABLE = Boolean.getBoolean("jackpot.navigable.index");
     private static final String KEY_SIGNATURES = "signatures";
     private static final String KEY_MARKER = "usagesIndexMarker";
 
@@ -125,6 +127,9 @@ public class IndexerImpl implements JavaIndexerPlugin {
 
             usages.add(new Field("file", file, Store.YES, Index.NOT_ANALYZED));
             usages.add(new Field(KEY_MARKER, "true", Store.NO, Index.NOT_ANALYZED));
+
+            final StringBuilder attributedSignatures = new StringBuilder();
+            final StringBuilder attributedSubSignatures = new StringBuilder();
 
             new TreePathScanner<Void, Void>() {
                 private final Set<String> SEEN_SIGNATURES = new HashSet<String>();
@@ -150,12 +155,32 @@ public class IndexerImpl implements JavaIndexerPlugin {
                             usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
                         }
 
+                        long pos = trees.getSourcePositions().getStartPosition(getCurrentPath().getCompilationUnit(), getCurrentPath().getLeaf());
+
+                        if (NAVIGABLE) {
+                            attributedSignatures.append(Long.toString(pos));
+                            attributedSignatures.append(":");
+                            attributedSignatures.append(serialized);
+                            attributedSignatures.append(",");
+                            attributedSubSignatures.append(Long.toString(pos));
+                            attributedSubSignatures.append(":");
+                            attributedSubSignatures.append(serialized);
+                            attributedSubSignatures.append(",");
+                        }
+
                         if (el.getKind() == ElementKind.METHOD) {
                             for (ExecutableElement e : overrides(types, elements, (ExecutableElement) el)) {
                                 serialized = Common.serialize(ElementHandle.create(e));
 
                                 if (SEEN_SIGNATURES.add(serialized)) {
                                     usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
+                                }
+
+                                if (NAVIGABLE) {
+                                    attributedSubSignatures.append(Long.toString(pos));
+                                    attributedSubSignatures.append(":");
+                                    attributedSubSignatures.append(serialized);
+                                    attributedSubSignatures.append(",");
                                 }
                             }
                         }
@@ -263,6 +288,11 @@ public class IndexerImpl implements JavaIndexerPlugin {
                 }
             }.scan(toProcess, null);
 
+            if (NAVIGABLE) {
+                usages.add(new Field("attributedSignatures", CompressionTools.compressString(attributedSignatures.toString())));
+                usages.add(new Field("attributedSubSignatures", CompressionTools.compressString(attributedSubSignatures.toString())));
+            }
+            
             IndexAccessor.getCurrent().getIndexWriter().addDocument(usages);
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
