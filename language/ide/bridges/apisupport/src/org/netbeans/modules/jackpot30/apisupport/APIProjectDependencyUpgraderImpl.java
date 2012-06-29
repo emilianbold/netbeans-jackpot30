@@ -43,6 +43,7 @@ import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.modules.apisupport.project.spi.NbModuleProvider;
+import org.netbeans.modules.apisupport.project.spi.NbModuleProvider.ModuleDependency;
 import org.netbeans.modules.jackpot30.apisupport.Utilities.ParsedDependency;
 import org.netbeans.modules.java.hints.spiimpl.ipi.upgrade.ProjectDependencyUpgrader;
 import org.openide.filesystems.FileObject;
@@ -87,7 +88,7 @@ public class APIProjectDependencyUpgraderImpl extends ProjectDependencyUpgrader 
         try {
             if (!currentNbModule.hasDependency(cnb)) {
                 if (showDependencyUpgradeDialog(currentProject, displayName, null, spec, false, canShowUI)) {
-                    currentNbModule.addDependency(cnb, releaseVersion, spec, true);
+                    currentNbModule.addDependencies(new ModuleDependency[] {new ModuleDependency(cnb, releaseVersion, spec, true)});
                     ProjectManager.getDefault().saveProject(currentProject);
                 }
 
@@ -103,7 +104,7 @@ public class APIProjectDependencyUpgraderImpl extends ProjectDependencyUpgrader 
 
             if (spec != null && (currentDep == null || currentDep.compareTo(spec) < 0)) {
                 if (showDependencyUpgradeDialog(currentProject, displayName, currentDep, spec, false, canShowUI)) {
-                    currentNbModule.addDependency(cnb, releaseVersion, spec, true);
+                    currentNbModule.addDependencies(new ModuleDependency[] {new ModuleDependency(cnb, releaseVersion, spec, true)});
                     ProjectManager.getDefault().saveProject(currentProject);
                 }
 
