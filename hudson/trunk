@@ -47,6 +47,12 @@ for subproject in $SUBPROJECTS; do
     (cd $subproject; ./build.sh -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
 done
 
+for subproject in $SUBPROJECTS; do
+    if [ -x $subproject/post-build.sh ] ; then
+        (cd $subproject; ./post-build.sh -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
+    fi;
+done
+
 mkdir -p build/updates
 
 NBMS_SUBPROJECTS="remoting language duplicates";

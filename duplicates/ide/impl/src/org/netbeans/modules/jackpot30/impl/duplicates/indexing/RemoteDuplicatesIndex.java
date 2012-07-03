@@ -193,7 +193,7 @@ public class RemoteDuplicatesIndex {
     private static Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesRemote(URI remoteIndex, Iterable<? extends String> hashes) {
         try {
             String indexURL = remoteIndex.toASCIIString();
-            URI u = new URI(indexURL + "/findDuplicates?hashes=" + WebUtilities.escapeForQuery(Pojson.save(hashes)));
+            URI u = new URI(indexURL + "/duplicates/findDuplicates?hashes=" + WebUtilities.escapeForQuery(Pojson.save(hashes)));
             String hashesMap = WebUtilities.requestStringResponse(u);
 
             if (hashesMap == null) {
