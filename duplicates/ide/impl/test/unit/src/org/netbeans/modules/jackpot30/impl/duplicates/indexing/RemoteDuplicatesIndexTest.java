@@ -94,7 +94,7 @@ public class RemoteDuplicatesIndexTest extends NbTestCase {
         TestUtilities.copyStringToFile(data2.createData("T3.java"), "0123456789");
         TestUtilities.copyStringToFile(data2.createData("T4.java"), "0123456789");
         
-        TestUtils.addRemoteContent(new URL("test://test/index/findDuplicates?hashes=[%0A%20%20%20%20%2200%22,%0A%20%20%20%20%2201%22,%0A%20%20%20%20%2202%22%0A]"), "{ \"00\": { \"foo1\": [ \"T1.java\", \"T2.java\" ], \"foo2\": [ \"T3.java\", \"T4.java\" ] } }");
+        TestUtils.addRemoteContent(new URL("test://test/index/duplicates/findDuplicates?hashes=[%0A%20%20%20%20%2200%22,%0A%20%20%20%20%2201%22,%0A%20%20%20%20%2202%22%0A]"), "{ \"00\": { \"foo1\": [ \"T1.java\", \"T2.java\" ], \"foo2\": [ \"T3.java\", \"T4.java\" ] } }");
         RemoteIndex.saveIndices(Arrays.asList(RemoteIndex.create(FileUtil.toFile(data1).toURI().toURL(), new URL("test://test/index"), "foo1"),
                                               RemoteIndex.create(FileUtil.toFile(data2).toURI().toURL(), new URL("test://test/index"), "foo2")));
 
