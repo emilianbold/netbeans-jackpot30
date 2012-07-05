@@ -44,9 +44,11 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.jvm.Gen;
+import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Context.Key;
 import com.sun.tools.javac.util.Log;
 import com.sun.tools.javac.util.Options;
 import java.io.File;
@@ -73,6 +75,7 @@ import javax.tools.StandardLocation;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfoHack;
+import org.netbeans.lib.nbjavac.services.NBParserFactory;
 import org.netbeans.modules.jackpot30.compiler.AbstractHintsAnnotationProcessing.Reporter;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileUtil;
@@ -146,6 +149,10 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
         ClassPath source = computeClassPath(s, StandardLocation.SOURCE_PATH);
         Trees trees = JavacTrees.instance(c);
         final Log log = Log.instance(c);
+        final Key<ParserFactory> key = ParserFactoryKeyAccessor.getContextKey();
+        ParserFactory origParserFactory = c.get(key);
+        c.put(key, (ParserFactory) null);
+        NBParserFactory.preRegister(c);
 
         try {
             TreePath elTree = trees.getPath(type);
@@ -178,6 +185,9 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
                     p.finish();
                 }
             }
+
+            c.put(key, (ParserFactory) null);
+            c.put(key, origParserFactory);
         }
     }
 
@@ -241,6 +251,14 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
 
     }
 
+    private static final class ParserFactoryKeyAccessor extends ParserFactory {
+        ParserFactoryKeyAccessor() {
+            super(null);
+        }
+        public static Key<ParserFactory> getContextKey() {
+            return parserFactoryKey;
+        }
+    }
 
 
     static {

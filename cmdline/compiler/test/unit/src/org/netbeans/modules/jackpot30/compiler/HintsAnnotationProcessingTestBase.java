@@ -120,7 +120,10 @@ public class HintsAnnotationProcessingTestBase extends NbTestCase {
         options.add("-source");
         options.add("1.5");
         options.add("-Xjcov");
-        options.addAll(extraOptions);
+
+        for (String eo : extraOptions) {
+            options.add(eo.replace("${workdir}", workDir.getAbsolutePath()));
+        }
 
         reallyRunCompiler(workDir, options.toArray(new String[0]));
     }
