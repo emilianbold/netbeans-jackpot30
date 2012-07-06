@@ -214,7 +214,87 @@ public class UI {
     @GET
     @Path("/usages")
     @Produces("text/html")
-    public String usages(@QueryParam("path") String segment, @QueryParam("signatures") String signatures) throws URISyntaxException, IOException, TemplateException {
+    public String usages(@QueryParam("path") String segment, @QueryParam("signatures") final String signatures) throws URISyntaxException, IOException, TemplateException {
+        Map<String, Object> configurationData = usagesSubclassesImpl(segment, signatures, "files", new ComputeSegmentData() {
+            @Override public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
+                URI u = new URI(URL_BASE + "/usages/search?path=" + escapeForQuery(currentSegment) + "&signatures=" + escapeForQuery(simplify(signatures)));
+                List<String> files = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
+                Collections.sort(files);
+                return files;
+            }
+        });
+
+        return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/usages.html", configurationData);
+    }
+
+    @GET
+    @Path("/implements")
+    @Produces("text/html")
+    public String impl(@QueryParam("path") String segment, @QueryParam("type") String typeSignature, @QueryParam("method") final String methodSignature) throws URISyntaxException, IOException, TemplateException {
+        Map<String, Object> configurationData;
+
+        if (typeSignature != null) {
+            final String type = strip(typeSignature, "CLASS:", "INTERFACE:", "ENUM:", "ANNOTATION_TYPE:");
+            configurationData = usagesSubclassesImpl(segment, typeSignature, "implementors", new ComputeSegmentData() {
+                @Override
+                public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
+                    URI u = new URI(URL_BASE + "/implements/search?path=" + escapeForQuery(currentSegment) + "&type=" + escapeForQuery(type));
+                    Map<String, List<Map<String, String>>> data = Pojson.load(HashMap.class, u);
+                    List<Map<String, String>> implementors = new ArrayList<Map<String, String>>();
+                    for (Entry<String, List<Map<String, String>>> relpath2ImplementorsE : data.entrySet()) {
+                        for (Map<String, String> implementorData : relpath2ImplementorsE.getValue()) {
+                            Map<String, String> implementor = new HashMap<String, String>();
+
+                            implementor.put("file", implementorData.get("file"));
+                            implementor.put("class", implementorData.get("class"));
+                            implementors.add(implementor);
+                        }
+                    }
+                    Collections.sort(implementors, new Comparator<Map<String, String>>() {
+                        @Override
+                        public int compare(Map<String, String> o1, Map<String, String> o2) {
+                            return o1.get("class").compareTo(o2.get("class"));
+                        }
+                    });
+                    return implementors;
+                }
+            });
+
+            configurationData.put("isSubtypes", true);
+        } else {
+            final String method = methodSignature.substring(0, methodSignature.length() - 1);
+            configurationData = usagesSubclassesImpl(segment, methodSignature, "implementors", new ComputeSegmentData() {
+                @Override
+                public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
+                    URI u = new URI(URL_BASE + "/implements/search?path=" + escapeForQuery(currentSegment) + "&method=" + escapeForQuery(method));
+                    Map<String, List<Map<String, String>>> data = Pojson.load(HashMap.class, u);
+                    List<Map<String, String>> implementors = new ArrayList<Map<String, String>>();
+                    for (Entry<String, List<Map<String, String>>> relpath2ImplementorsE : data.entrySet()) {
+                        for (Map<String, String> implementorData : relpath2ImplementorsE.getValue()) {
+                            Map<String, String> implementor = new HashMap<String, String>();
+
+                            implementor.put("file", implementorData.get("file"));
+                            implementor.put("class", implementorData.get("enclosingFQN"));
+                            implementors.add(implementor);
+                        }
+                    }
+                    Collections.sort(implementors, new Comparator<Map<String, String>>() {
+                        @Override
+                        public int compare(Map<String, String> o1, Map<String, String> o2) {
+                            return o1.get("class").compareTo(o2.get("class"));
+                        }
+                    });
+                    return implementors;
+                }
+            });
+
+            configurationData.put("isSubtypes", false);
+        }
+
+        return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/implementors.html", configurationData);
+    }
+
+    private Map<String, Object> usagesSubclassesImpl(String segment, String elementSignature, String dataKey, ComputeSegmentData computeSegmentData) throws URISyntaxException, TemplateException, IOException {
         List<Map<String, String>> segments2Process = new ArrayList<Map<String, String>>();
 
         for (Map<String, String> m : list()) {
@@ -229,7 +309,7 @@ public class UI {
 
         Map<String, Object> configurationData = new HashMap<String, Object>();
 
-        configurationData.put("elementDisplayName", elementDisplayName(signatures)); //TODO
+        configurationData.put("elementDisplayName", elementDisplayName(elementSignature)); //TODO
 
         List<Map<String, Object>> results = new ArrayList<Map<String, Object>>(segments2Process.size());
 
@@ -239,17 +319,18 @@ public class UI {
 
             rootResults.put("rootDisplayName", m.get("displayName"));
             rootResults.put("rootPath", currentSegment);
-            URI u = new URI(URL_BASE + "/usages/search?path=" + escapeForQuery(currentSegment) + "&signatures=" + escapeForQuery(simplify(signatures)));
-            List<String> files = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
-            Collections.sort(files);
-            rootResults.put("files", files);
+            rootResults.put(dataKey, computeSegmentData.compute(currentSegment));
 
             results.add(rootResults);
         }
 
         configurationData.put("results", results);
 
-        return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/usages.html", configurationData);
+        return configurationData;
+    }
+
+    private interface ComputeSegmentData {
+        public Object compute(String segment) throws URISyntaxException, TemplateException, IOException;
     }
 
     private static String elementDisplayName(String signatures) {
@@ -470,5 +551,15 @@ public class UI {
         }
 
         return target.delete(target.length() - 1, target.length()).toString();
+    }
+
+    static String strip(String originalSignature, String... prefixesToStrip) {
+        for (String strip : prefixesToStrip) {
+            if (originalSignature.startsWith(strip)) {
+                return originalSignature.substring(strip.length());
+            }
+        }
+
+        return originalSignature;
     }
 }

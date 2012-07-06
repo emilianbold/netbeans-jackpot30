@@ -7,17 +7,23 @@
         function methodPopup(relativePath, resultFile, signature) {
             $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
                              '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
-                             '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>')
+                             '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>' +
+                             '<a href="/index/ui/implements?path=' + relativePath + '&method=' + signature + '">Overriders in the current project</a><br>' +
+                             '<a href="/index/ui/implements?method=' + signature + '">Overriders in all known projects</a><br>')
                             .dialog({
-                                title: 'Show'
+                                title: 'Show',
+                                width: 460 //XXX: hardcoded size
                             });
         }
         function classPopup(relativePath, resultFile, signature) {
             $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
                              '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
-                             '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>')
+                             '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>' +
+                             '<a href="/index/ui/implements?path=' + relativePath + '&type=' + signature + '">Subtypes in the current project</a><br>' +
+                             '<a href="/index/ui/implements?type=' + signature + '">Subtypes in all known projects</a><br>')
                             .dialog({
-                                title: 'Show'
+                                title: 'Show',
+                                width: 400 //XXX: hardcoded size
                             });
         }
         function otherPopup(relativePath, resultFile, signature) {
