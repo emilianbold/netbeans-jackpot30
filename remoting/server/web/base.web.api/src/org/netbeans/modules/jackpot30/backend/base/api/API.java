@@ -43,7 +43,11 @@ import java.io.IOException;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.Status;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
+import org.openide.filesystems.FileObject;
 
 /**
  *
@@ -70,13 +74,28 @@ public class API {
 
     @GET
     @Path("/internal/indexUpdated")
-    @Produces("test/plain")
+    @Produces("text/plain")
     public String indexUpdated() throws IOException {
         //XXX: should allow individual providers to do their own cleanup:
         
         CategoryStorage.internalReset();
         
         return "Done";
+    }
+
+    @GET
+    @Path("/info")
+    @Produces("text/plain")
+    public Response info(@QueryParam("path") String segment) throws IOException {
+        CategoryStorage cat = CategoryStorage.forId(segment);
+
+        if (cat == null) {
+            return Response.status(Status.NOT_FOUND).build();
+        } else {
+            FileObject info = cat.getCacheRoot().getFileObject("info");
+            String content = info != null ? info.asText("UTF-8") : "{}";
+            return Response.ok().entity(content).build();
+        }
     }
 
 }
