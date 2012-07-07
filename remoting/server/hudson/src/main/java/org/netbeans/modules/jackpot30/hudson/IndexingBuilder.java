@@ -156,6 +156,7 @@ public class IndexingBuilder extends Builder {
 
         Proc indexer = launcher.launch().pwd(base)
                                         .cmds(args)
+                                        .envs("JPT30_INFO=BUILD_ID=" + build.getNumber())
                                         .stdout(listener)
                                         .start();
 

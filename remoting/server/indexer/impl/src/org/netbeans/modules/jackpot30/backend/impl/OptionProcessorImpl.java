@@ -95,7 +95,8 @@ public class OptionProcessorImpl extends OptionProcessor {
     private final Option CATEGORY_PROJECTS = Option.additionalArguments(Option.NO_SHORT_NAME, "category-projects");
     private final Option CATEGORY_ROOT_DIR = Option.requiredArgument(Option.NO_SHORT_NAME, "category-root-dir");
     private final Option CACHE_TARGET = Option.requiredArgument(Option.NO_SHORT_NAME, "cache-target");
-    private final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(CATEGORY_ID, CATEGORY_NAME, CATEGORY_PROJECTS, CATEGORY_ROOT_DIR, CACHE_TARGET));
+    private final Option INFO = Option.requiredArgument(Option.NO_SHORT_NAME, "info");
+    private final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(CATEGORY_ID, CATEGORY_NAME, CATEGORY_PROJECTS, CATEGORY_ROOT_DIR, CACHE_TARGET, INFO));
     
     @Override
     protected Set<Option> getOptions() {
@@ -208,7 +209,15 @@ public class OptionProcessorImpl extends OptionProcessor {
 
             out.putNextEntry(new ZipEntry(categoryId + "/info"));
 
-            out.write(("{ \"displayName\": \"" + categoryName + "\" }").getBytes("UTF-8"));
+            out.write("{\n".getBytes("UTF-8"));
+            out.write(("\"displayName\": \"" + categoryName + "\"").getBytes("UTF-8"));
+            if (optionValues.containsKey(INFO)) {
+                for (String infoValue : optionValues.get(INFO)[0].split(";")) {
+                    int eqSign = infoValue.indexOf('=');
+                    out.write((",\n\"" + infoValue.substring(0, eqSign) + "\": \"" + infoValue.substring(eqSign + 1) + "\"").getBytes("UTF-8"));
+                }
+            }
+            out.write("\n}\n".getBytes("UTF-8"));
 
             for (FileObject s : cacheFolder.getChildren()) {
                 if (!s.isFolder() || !s.getNameExt().startsWith("s") || s.getChildren().length == 0) continue;
