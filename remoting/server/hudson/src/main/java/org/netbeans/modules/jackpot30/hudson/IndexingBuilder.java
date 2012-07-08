@@ -45,6 +45,7 @@ import hudson.FilePath.FileCallable;
 import hudson.Launcher;
 import hudson.Proc;
 import hudson.model.AbstractBuild;
+import hudson.model.AbstractProject;
 import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.model.Descriptor.FormException;
@@ -52,6 +53,7 @@ import hudson.model.Hudson;
 import hudson.remoting.VirtualChannel;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
+import hudson.util.FormValidation;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -67,8 +69,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 import net.sf.json.JSONObject;
+import org.kohsuke.stapler.AncestorInPath;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerRequest;
 
 /**
@@ -137,7 +142,7 @@ public class IndexingBuilder extends Builder {
 
         listener.getLogger().println("Looking for projects in: " + build.getWorkspace().getRemote());
 
-        FilePath base = indexSubDirectory == null || indexSubDirectory.isEmpty() ? build.getWorkspace() : build.getWorkspace().child(indexSubDirectory);
+        FilePath base = indexSubDirectory == null || indexSubDirectory.isEmpty() ? build.getWorkspace() : build.getWorkspace().child(indexSubDirectory); //XXX: child also supports absolute paths! absolute paths should not be allowed here (for security)
         RemoteResult res = base.act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern(), getIgnorePatterns()));
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
@@ -297,6 +302,30 @@ public class IndexingBuilder extends Builder {
         public boolean hasNonStandardIndexingTool() {
             return getIndexingTools().size() > 1;
         }
+
+        public FormValidation doCheckIndexSubDirectory(@AncestorInPath AbstractProject project, @QueryParameter String value) throws IOException, InterruptedException {
+            FilePath workspace = project.getSomeWorkspace();
+            if (workspace == null || !workspace.exists() || value == null || value.isEmpty() || workspace.child(value).isDirectory()) {
+                return FormValidation.ok();
+            } else {
+                return workspace.validateRelativeDirectory(value);
+            }
+        }
+
+        public FormValidation doCheckIgnorePatterns(@AncestorInPath AbstractProject project, @QueryParameter String ignorePatterns) throws IOException, InterruptedException {
+            FilePath workspace = project.getSomeWorkspace();
+            if (workspace == null || !workspace.exists() || ignorePatterns == null || ignorePatterns.isEmpty()) {
+                return FormValidation.ok();
+            } else {
+                try {
+                    Pattern.compile(ignorePatterns);
+                    return FormValidation.ok();
+                } catch (PatternSyntaxException ex) {
+                    return FormValidation.error("Not a valid regular expression (" + ex.getDescription() + ")");
+                }
+            }
+        }
+
     }
 
     private static class FindProjects implements FileCallable<RemoteResult> {
