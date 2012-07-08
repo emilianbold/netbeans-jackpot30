@@ -54,19 +54,24 @@ import hudson.remoting.VirtualChannel;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
 import hudson.util.FormValidation;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Serializable;
 import java.io.Writer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -143,7 +148,7 @@ public class IndexingBuilder extends Builder {
         listener.getLogger().println("Looking for projects in: " + build.getWorkspace().getRemote());
 
         FilePath base = indexSubDirectory == null || indexSubDirectory.isEmpty() ? build.getWorkspace() : build.getWorkspace().child(indexSubDirectory); //XXX: child also supports absolute paths! absolute paths should not be allowed here (for security)
-        RemoteResult res = base.act(new FindProjects(getDescriptor().getProjectMarkers(), getDescriptor().getIgnorePattern(), getIgnorePatterns()));
+        RemoteResult res = base.act(new FindProjects(t.getHome(), getIgnorePatterns()));
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
 
@@ -200,15 +205,18 @@ public class IndexingBuilder extends Builder {
         return null;
     }
 
-    private static void findProjects(File root, Collection<String> result, Pattern markers, Pattern ignore, Pattern perProjectIgnore, StringBuilder relPath) {
+    private static void findProjects(File root, Collection<String> result, Iterable<Pattern> markers, Iterable<Pattern> ignores, Pattern perProjectIgnore, StringBuilder relPath) {
         int len = relPath.length();
         boolean first = relPath.length() == 0;
 
-        Matcher m = markers.matcher(relPath);
+        for (Pattern marker : markers) {
+            Matcher m = marker.matcher(relPath);
 
-        if (m.matches()) {
-            if (perProjectIgnore == null || !perProjectIgnore.matcher(relPath).matches()) {
-                result.add(m.group(1));
+            if (m.matches()) {
+                if (perProjectIgnore == null || !perProjectIgnore.matcher(relPath).matches()) {
+                    result.add(m.group(1));
+                }
+                break;
             }
         }
 
@@ -220,12 +228,14 @@ public class IndexingBuilder extends Builder {
                     return o1.getName().compareTo(o2.getName());
                 }
             });
-            for (File c : children) {
-                if (ignore.matcher(c.getName()).matches()) continue;
+            OUTER: for (File c : children) {
+                for (Pattern ignore : ignores) {
+                    if (ignore.matcher(c.getName()).matches()) continue OUTER;
+                }
                 if (!first)
                     relPath.append("/");
                 relPath.append(c.getName());
-                findProjects(c, result, markers, ignore, perProjectIgnore, relPath);
+                findProjects(c, result, markers, ignores, perProjectIgnore, relPath);
                 relPath.delete(len, relPath.length());
             }
         }
@@ -244,10 +254,6 @@ public class IndexingBuilder extends Builder {
     public static final class DescriptorImpl extends Descriptor<Builder> {
 
         private File cacheDir;
-        private static final String DEFAULT_PROJECT_MARKERS = "(.*)/(nbproject/project.xml|pom.xml)";
-        private String projectMarkers = DEFAULT_PROJECT_MARKERS;
-        private static final String DEFAULT_IGNORE_PATTERN = "CVS|\\.hg|\\.svn";
-        private String ignorePattern = DEFAULT_IGNORE_PATTERN;
 
         public DescriptorImpl() {
             Cache.setStandaloneCacheRoot(cacheDir = new File(Hudson.getInstance().getRootDir(), "index").getAbsoluteFile());
@@ -258,22 +264,6 @@ public class IndexingBuilder extends Builder {
             return cacheDir;
         }
 
-        public String getProjectMarkers() {
-            return projectMarkers;
-        }
-
-        public  void setProjectMarkers(String projectMarkers) {
-            this.projectMarkers = projectMarkers;
-        }
-
-        public String getIgnorePattern() {
-            return ignorePattern;
-        }
-
-        public  void setIgnorePattern(String ignorePattern) {
-            this.ignorePattern = ignorePattern;
-        }
-
         @Override
         public Builder newInstance(StaplerRequest req, JSONObject formData) throws FormException {
             return new IndexingBuilder(req, formData);
@@ -282,8 +272,6 @@ public class IndexingBuilder extends Builder {
         @Override
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
             cacheDir = new File(json.getString("cacheDir"));
-            projectMarkers = json.optString("projectMarkers", DEFAULT_PROJECT_MARKERS);
-            ignorePattern = json.optString("ignorePattern", DEFAULT_IGNORE_PATTERN);
 
             save();
             
@@ -329,21 +317,63 @@ public class IndexingBuilder extends Builder {
     }
 
     private static class FindProjects implements FileCallable<RemoteResult> {
-        private final String ignorePattern;
-        private final String markers;
+        private final String toolHome;
         private final String perProjectIgnore;
-        public FindProjects(String markers, String ignorePattern, String perProjectIgnore) {
-            this.markers = markers;
-            this.ignorePattern = ignorePattern;
+        public FindProjects(String toolHome, String perProjectIgnore) {
+            this.toolHome = toolHome;
             this.perProjectIgnore = perProjectIgnore;
         }
         public RemoteResult invoke(File file, VirtualChannel vc) throws IOException, InterruptedException {
+            List<Pattern> projectMarkers = new ArrayList<Pattern>();
+            List<Pattern> ignorePatterns = new ArrayList<Pattern>();
+            FilePath indexerPath = new FilePath(new File(toolHome, "indexer"));
+            for (FilePath clusters : indexerPath.listDirectories()) {
+                FilePath patternsDirectory = clusters.child("patterns");
+                if (!patternsDirectory.isDirectory()) continue;
+                for (FilePath patterns : patternsDirectory.list()) {
+                    if (patterns.getName().startsWith("project-marker-")) {
+                        projectMarkers.addAll(readPatterns(patterns));
+                    } else if (patterns.getName().startsWith("ignore-")) {
+                        ignorePatterns.addAll(readPatterns(patterns));
+                    }
+                }
+            }
+            
             Set<String> projects = new HashSet<String>();
 
-            findProjects(file, projects, Pattern.compile(markers), Pattern.compile(ignorePattern), perProjectIgnore == null || perProjectIgnore.trim().isEmpty() ? null : Pattern.compile(perProjectIgnore), new StringBuilder());
+            findProjects(file, projects, projectMarkers, ignorePatterns, perProjectIgnore == null || perProjectIgnore.trim().isEmpty() ? null : Pattern.compile(perProjectIgnore), new StringBuilder());
 
             return new RemoteResult(projects, file.getCanonicalPath()/*XXX: will resolve symlinks!!!*/);
         }
+    }
+
+    private static List<Pattern> readPatterns(FilePath source) {
+        BufferedReader in = null;
+
+        List<Pattern> result = new ArrayList<Pattern>();
+        try {
+            in = new BufferedReader(new InputStreamReader(source.read(), "UTF-8"));
+            String line;
+
+            while ((line = in.readLine()) != null) {
+                line = line.trim();
+                if (!line.isEmpty()) {
+                    result.add(Pattern.compile(line));
+                }
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(IndexingBuilder.class.getName()).log(Level.SEVERE, null, ex);
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(IndexingBuilder.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+        return result;
     }
 
 }
