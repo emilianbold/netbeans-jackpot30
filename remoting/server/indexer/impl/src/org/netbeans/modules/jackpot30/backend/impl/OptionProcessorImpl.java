@@ -214,6 +214,10 @@ public class OptionProcessorImpl extends OptionProcessor {
             if (optionValues.containsKey(INFO)) {
                 for (String infoValue : optionValues.get(INFO)[0].split(";")) {
                     int eqSign = infoValue.indexOf('=');
+                    if (eqSign == (-1)) {
+                        LOG.log(Level.INFO, "No ''='' sign in: {0}", infoValue);
+                        continue;
+                    }
                     out.write((",\n\"" + infoValue.substring(0, eqSign) + "\": \"" + infoValue.substring(eqSign + 1) + "\"").getBytes("UTF-8"));
                 }
             }
