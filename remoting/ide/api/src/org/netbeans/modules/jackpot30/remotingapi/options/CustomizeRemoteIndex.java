@@ -483,7 +483,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                     boolean found = matches(folder, random);
 
                     if (!found) {
-                        if (matches(folder.getParent(), random)) {
+                        if (folder.getParent() != null && matches(folder.getParent(), random)) {
                             checkingIndexURLWarning.set("The given folder is unlikely to match the index content, parent folder does.");
                         } else {
                             StringBuilder matchingChildren = new StringBuilder();
