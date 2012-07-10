@@ -74,6 +74,8 @@ public class WebUtilities {
 
     public static @CheckForNull String requestStringResponse (final URI uri, AtomicBoolean cancel) {
         final String[] result = new String[1];
+        final RuntimeException[] re = new RuntimeException[1];
+        final Error[] err = new Error[1];
         Task task = LOADER.create(new Runnable() {
             @Override
             public void run() {
@@ -99,6 +101,10 @@ public class WebUtilities {
             result[0] = sb.toString();
         } catch (IOException e) {
             Logger.getLogger(WebUtilities.class.getName()).log(Level.INFO, uri.toASCIIString(), e);
+        } catch (RuntimeException ex) {
+            re[0] = ex;
+        } catch (Error ex) {
+            err[0] = ex;
         }
             }
         });
@@ -107,7 +113,11 @@ public class WebUtilities {
         
         while (!cancel.get()) {
             try {
-                if (task.waitFinished(1000)) return result[0];
+                if (task.waitFinished(1000)) {
+                    if (re[0] != null) throw re[0];
+                    else if (err[0] != null) throw err[0];
+                    else return result[0];
+                }
             } catch (InterruptedException ex) {
                 Logger.getLogger(WebUtilities.class.getName()).log(Level.FINE, null, ex);
             }
