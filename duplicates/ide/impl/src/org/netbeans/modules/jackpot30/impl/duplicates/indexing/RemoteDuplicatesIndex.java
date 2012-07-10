@@ -228,6 +228,7 @@ public class RemoteDuplicatesIndex {
                 Object buildId = Pojson.load(LinkedHashMap.class, infoContent).get("BUILD_ID");
 
                 if (buildId != null && !(buildId = buildId.toString()).equals(previousVersion)) {
+                    remoteVersion.getParentFile().mkdirs();
                     OutputStream out = new FileOutputStream(remoteVersion);
                     try {
                         out.write(buildId.toString().getBytes("UTF-8"));
