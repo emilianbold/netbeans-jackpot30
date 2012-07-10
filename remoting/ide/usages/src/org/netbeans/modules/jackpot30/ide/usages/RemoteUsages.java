@@ -104,7 +104,7 @@ import org.openide.util.RequestProcessor;
 id = "org.netbeans.modules.jackpot30.ide.usages.RemoteUsages")
 @ActionRegistration(displayName = "#CTL_RemoteUsages")
 @ActionReferences({
-    @ActionReference(path = "Menu/Edit", position = 2350)
+    @ActionReference(path = "Menu/Edit", position = 2250)
 })
 @Messages("CTL_RemoteUsages=Find Remote Usages...")
 public final class RemoteUsages implements ActionListener {
