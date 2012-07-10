@@ -193,7 +193,10 @@ public final class RemoteUsages implements ActionListener {
             case CLASS:
             case INTERFACE:
             case ANNOTATION_TYPE: searchKind = new ClassOptions(options); break;
-            default: searchKind = new JPanel(); break;
+            default:
+                options.add(RemoteUsages.SearchOptions.USAGES);
+                searchKind = new JPanel();
+                break;
         }
         
         final JPanel progress = new JPanel();
