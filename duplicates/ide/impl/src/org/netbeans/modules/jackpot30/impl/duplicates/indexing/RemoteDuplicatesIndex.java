@@ -43,15 +43,19 @@
 package org.netbeans.modules.jackpot30.impl.duplicates.indexing;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -95,15 +99,17 @@ import org.openide.util.Exceptions;
  *
  * @author lahvac
  */
+@SuppressWarnings("ClassWithMultipleLoggers")
 public class RemoteDuplicatesIndex {
 
+    private static final Logger LOG = Logger.getLogger(RemoteDuplicatesIndex.class.getName());
     private static final Logger TIMER = Logger.getLogger("TIMER");
 
-    public static List<DuplicateDescription> findDuplicates(Map<String, long[]> hashes, FileObject currentFile) throws IOException {
+    public static List<DuplicateDescription> findDuplicates(Map<String, long[]> hashes, FileObject currentFile) throws IOException, URISyntaxException {
         return translate(hashes, findHashOccurrences(hashes.keySet(), currentFile), currentFile);
     }
 
-    private static Map<String, Map<RemoteIndex, Collection<String>>> findHashOccurrences(Collection<? extends String> hashes, FileObject currentFile) throws IOException {
+    private static Map<String, Map<RemoteIndex, Collection<String>>> findHashOccurrences(Collection<? extends String> hashes, FileObject currentFile) throws IOException, URISyntaxException {
         Map<URI, Collection<RemoteIndex>> indices = new LinkedHashMap<URI, Collection<RemoteIndex>>();
 
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
@@ -125,7 +131,7 @@ public class RemoteDuplicatesIndex {
         long localTime = 0;
         long remoteTime = 0;
 
-        for (URI ri : indices.keySet()) {
+        for (RemoteIndex ri : RemoteIndex.loadIndices()) {
             Set<String> toProcess = new LinkedHashSet<String>(hashes);
             Map<String, Map<String, Collection<? extends String>>> indexResult = new LinkedHashMap<String, Map<String, Collection<? extends String>>>();
 
@@ -133,11 +139,11 @@ public class RemoteDuplicatesIndex {
             indexResult.putAll(findHashOccurrencesInLocalCache(ri, toProcess));
             localTime += System.currentTimeMillis() - locS;
 
-            toProcess.removeAll(result.keySet());
+            toProcess.removeAll(indexResult.keySet());
 
             if (!toProcess.isEmpty()) {
                 long remS = System.currentTimeMillis();
-                Map<String, Map<String, Collection<? extends String>>> remoteResults = findHashOccurrencesRemote(ri, toProcess);
+                Map<String, Map<String, Collection<? extends String>>> remoteResults = findHashOccurrencesRemote(ri.remote.toURI(), toProcess);
                 remoteTime += System.currentTimeMillis() - remS;
 
                 Map<String, Map<String, Collection<? extends String>>> toSave = new LinkedHashMap<String, Map<String, Collection<? extends String>>>(remoteResults);
@@ -161,23 +167,10 @@ public class RemoteDuplicatesIndex {
                 }
 
                 for (Entry<String, Collection<? extends String>> insideHash : e.getValue().entrySet()) {
-                    RemoteIndex current = null;
-
-                    for (RemoteIndex r : indices.get(ri)) {
-                        if (r.remoteSegment.equals(insideHash.getKey())) {
-                            current = r;
-                            break;
-                        }
-                    }
-
-                    if (current == null) {
-                        continue;
-                    }
-
-                    Collection<String> dupes = hashResult.get(current);
+                    Collection<String> dupes = hashResult.get(ri);
 
                     if (dupes == null) {
-                        hashResult.put(current, dupes = new HashSet<String>());
+                        hashResult.put(ri, dupes = new HashSet<String>());
                     }
 
                     dupes.addAll(insideHash.getValue());
@@ -209,20 +202,59 @@ public class RemoteDuplicatesIndex {
         }
     }
 
-    private static volatile IndexReader readerCache;
+    private static final Map<URI, IndexReader> readerCache = new HashMap<URI, IndexReader>();
 
-    private static File findLocalCacheDir(URI uri) throws IOException {
-        return FileUtil.toFile(FileUtil.createFolder(CacheFolder.getDataFolder(uri.toURL()), "remote-duplicates"));
+    private static File findLocalCacheDir(RemoteIndex ri) throws IOException {
+        return new File(FileUtil.toFile(FileUtil.createFolder(CacheFolder.getDataFolder(ri.remote), "remote-duplicates")), ri.remoteSegment);
     }
 
-    private static Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesInLocalCache(URI uri, Iterable<? extends String> hashes) throws IOException {
-        IndexReader reader = readerCache;
+    private static final long VERSION_CHECK_PERIOD = 60 * 60 * 1000;
+    private static final Map<Entry<URI, String>, Long> lastVersionCheck = new HashMap<Entry<URI, String>, Long>();
+    
+    private static synchronized Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesInLocalCache(RemoteIndex ri, Iterable<? extends String> hashes) throws IOException, URISyntaxException {
+        URI uri = ri.remote.toURI();
+        SimpleEntry<URI, String> versionCheckKey = new SimpleEntry<URI, String>(uri, ri.remoteSegment);
+        Long lastCheck = lastVersionCheck.get(versionCheckKey);
+
+        if (lastCheck == null || (System.currentTimeMillis() - lastCheck) > VERSION_CHECK_PERIOD) {
+            File dir = findLocalCacheDir(ri);
+            File remoteVersion = new File(dir, "remoteVersion");
+            FileObject remoteVersionFO = FileUtil.toFileObject(remoteVersion);
+            String previousVersion = remoteVersionFO != null ? remoteVersionFO.asText("UTF-8") : null;
+            URI infoURI = new URI(ri.remote.toExternalForm() + "/info?path=" + WebUtilities.escapeForQuery(ri.remoteSegment));
+            String infoContent = WebUtilities.requestStringResponse(infoURI);
+
+            if (infoContent != null) {
+                Object buildId = Pojson.load(LinkedHashMap.class, infoContent).get("BUILD_ID");
+
+                if (buildId != null && !(buildId = buildId.toString()).equals(previousVersion)) {
+                    OutputStream out = new FileOutputStream(remoteVersion);
+                    try {
+                        out.write(buildId.toString().getBytes("UTF-8"));
+                    } finally {
+                        out.close();
+                    }
+
+                    LOG.log(Level.FINE, "Deleting local cache");
+                    delete(new File(dir, "index"));
+
+                    IndexReader reader = readerCache.remove(uri);
+                    if (reader != null)
+                        reader.close();
+                    
+                }
+            }
+
+            lastVersionCheck.put(versionCheckKey, System.currentTimeMillis());
+        }
+
+        IndexReader reader = readerCache.get(uri);
 
         if (reader == null) {
-            File dir = findLocalCacheDir(uri);
+            File dir = new File(findLocalCacheDir(ri), "index");
 
             if (dir.listFiles() != null && dir.listFiles().length > 0) {
-                readerCache = reader = IndexReader.open(FSDirectory.open(dir), true);
+                readerCache.put(uri, reader = IndexReader.open(FSDirectory.open(dir), true));
             }
         }
 
@@ -257,15 +289,14 @@ public class RemoteDuplicatesIndex {
         return (Map)result; //XXX
     }
 
-    private static void saveToLocalCache(URI uri, Map<String, Map<String, Collection<? extends String>>> what) throws IOException {
-        IndexReader r = readerCache;
+    private static synchronized void saveToLocalCache(RemoteIndex ri, Map<String, Map<String, Collection<? extends String>>> what) throws IOException, URISyntaxException {
+        IndexReader r = readerCache.remove(ri.remote.toURI());
 
         if (r != null) {
             r.close();
-            readerCache = null;
         }
         
-        IndexWriter w = new IndexWriter(FSDirectory.open(findLocalCacheDir(uri)), new NoAnalyzer(), MaxFieldLength.UNLIMITED);
+        IndexWriter w = new IndexWriter(FSDirectory.open(new File(findLocalCacheDir(ri), "index")), new NoAnalyzer(), MaxFieldLength.UNLIMITED);
 
         for (Entry<String, Map<String, Collection<? extends String>>> e : what.entrySet()) {
             Document doc = new Document();
@@ -409,5 +440,17 @@ public class RemoteDuplicatesIndex {
         }
 
         return result;
+    }
+
+    private static void delete(File file) {
+        File[] c = file.listFiles();
+
+        if (c != null) {
+            for (File cc : c) {
+                delete(cc);
+            }
+        }
+
+        file.delete();
     }
 }
