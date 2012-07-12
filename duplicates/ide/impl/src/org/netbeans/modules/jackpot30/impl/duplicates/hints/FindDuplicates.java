@@ -98,7 +98,7 @@ public class FindDuplicates implements CancellableTask<CompilationInfo> {
         List<ErrorDescription> result = new LinkedList<ErrorDescription>();
 
         Map<String, long[]> encoded = ComputeDuplicates.encodeGeneralized(info);
-        Iterator<? extends DuplicateDescription> duplicates = RemoteDuplicatesIndex.findDuplicates(encoded, info.getFileObject()).iterator();
+        Iterator<? extends DuplicateDescription> duplicates = RemoteDuplicatesIndex.findDuplicates(encoded, info.getFileObject(), cancel).iterator();
 
         for (DuplicateDescription dd : NbCollections.iterable(duplicates)) {
             long[] spans = encoded.get(dd.hash);

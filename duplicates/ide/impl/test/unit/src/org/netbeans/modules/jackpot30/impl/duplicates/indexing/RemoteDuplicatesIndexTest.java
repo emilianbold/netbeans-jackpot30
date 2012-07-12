@@ -48,6 +48,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.TestUtilities;
 import static org.junit.Assert.*;
 import org.netbeans.api.java.source.SourceUtilsTestUtil;
@@ -108,7 +109,7 @@ public class RemoteDuplicatesIndexTest extends NbTestCase {
         hashes.put("01", new long[] {8, 9});
         hashes.put("02", new long[] {3, 4});
         
-        List<DuplicateDescription> duplicates = RemoteDuplicatesIndex.findDuplicates(hashes, source);
+        List<DuplicateDescription> duplicates = RemoteDuplicatesIndex.findDuplicates(hashes, source, new AtomicBoolean());
         List<String> duplicatesReal = new ArrayList<String>();
 
         for (DuplicateDescription dd : duplicates) {
@@ -120,7 +121,7 @@ public class RemoteDuplicatesIndexTest extends NbTestCase {
         assertEquals(Arrays.asList("T2", "T1", "T4", "T3"), duplicatesReal);
 
         //check local cache:
-        duplicates = RemoteDuplicatesIndex.findDuplicates(hashes, source);
+        duplicates = RemoteDuplicatesIndex.findDuplicates(hashes, source, new AtomicBoolean());
         duplicatesReal = new ArrayList<String>();
 
         for (DuplicateDescription dd : duplicates) {

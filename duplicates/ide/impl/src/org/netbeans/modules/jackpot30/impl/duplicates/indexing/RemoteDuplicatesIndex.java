@@ -66,6 +66,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.lucene.document.Document;
@@ -105,11 +106,11 @@ public class RemoteDuplicatesIndex {
     private static final Logger LOG = Logger.getLogger(RemoteDuplicatesIndex.class.getName());
     private static final Logger TIMER = Logger.getLogger("TIMER");
 
-    public static List<DuplicateDescription> findDuplicates(Map<String, long[]> hashes, FileObject currentFile) throws IOException, URISyntaxException {
-        return translate(hashes, findHashOccurrences(hashes.keySet(), currentFile), currentFile);
+    public static List<DuplicateDescription> findDuplicates(Map<String, long[]> hashes, FileObject currentFile, AtomicBoolean cancel) throws IOException, URISyntaxException {
+        return translate(hashes, findHashOccurrences(hashes.keySet(), currentFile, cancel), currentFile);
     }
 
-    private static Map<String, Map<RemoteIndex, Collection<String>>> findHashOccurrences(Collection<? extends String> hashes, FileObject currentFile) throws IOException, URISyntaxException {
+    private static Map<String, Map<RemoteIndex, Collection<String>>> findHashOccurrences(Collection<? extends String> hashes, FileObject currentFile, AtomicBoolean cancel) throws IOException, URISyntaxException {
         Map<URI, Collection<RemoteIndex>> indices = new LinkedHashMap<URI, Collection<RemoteIndex>>();
 
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
@@ -132,18 +133,20 @@ public class RemoteDuplicatesIndex {
         long remoteTime = 0;
 
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
+            if (cancel.get()) return Collections.emptyMap();
+            
             Set<String> toProcess = new LinkedHashSet<String>(hashes);
             Map<String, Map<String, Collection<? extends String>>> indexResult = new LinkedHashMap<String, Map<String, Collection<? extends String>>>();
 
             long locS = System.currentTimeMillis();
-            indexResult.putAll(findHashOccurrencesInLocalCache(ri, toProcess));
+            indexResult.putAll(findHashOccurrencesInLocalCache(ri, toProcess, cancel));
             localTime += System.currentTimeMillis() - locS;
 
             toProcess.removeAll(indexResult.keySet());
 
             if (!toProcess.isEmpty()) {
                 long remS = System.currentTimeMillis();
-                Map<String, Map<String, Collection<? extends String>>> remoteResults = findHashOccurrencesRemote(ri.remote.toURI(), toProcess);
+                Map<String, Map<String, Collection<? extends String>>> remoteResults = findHashOccurrencesRemote(ri.remote.toURI(), toProcess, cancel);
                 remoteTime += System.currentTimeMillis() - remS;
 
                 Map<String, Map<String, Collection<? extends String>>> toSave = new LinkedHashMap<String, Map<String, Collection<? extends String>>>(remoteResults);
@@ -154,6 +157,8 @@ public class RemoteDuplicatesIndex {
                     }
                 }
 
+                if (cancel.get()) return Collections.emptyMap();
+                
                 saveToLocalCache(ri, toSave);
 
                 indexResult.putAll(remoteResults);
@@ -167,6 +172,8 @@ public class RemoteDuplicatesIndex {
                 }
 
                 for (Entry<String, Collection<? extends String>> insideHash : e.getValue().entrySet()) {
+                    if (cancel.get()) return Collections.emptyMap();
+
                     Collection<String> dupes = hashResult.get(ri);
 
                     if (dupes == null) {
@@ -183,13 +190,13 @@ public class RemoteDuplicatesIndex {
         return result;
     }
 
-    private static Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesRemote(URI remoteIndex, Iterable<? extends String> hashes) {
+    private static Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesRemote(URI remoteIndex, Iterable<? extends String> hashes, AtomicBoolean cancel) {
         try {
             String indexURL = remoteIndex.toASCIIString();
             URI u = new URI(indexURL + "/duplicates/findDuplicates?hashes=" + WebUtilities.escapeForQuery(Pojson.save(hashes)));
-            String hashesMap = WebUtilities.requestStringResponse(u);
+            String hashesMap = WebUtilities.requestStringResponse(u, cancel);
 
-            if (hashesMap == null) {
+            if (hashesMap == null || cancel.get()) {
                 //some kind of error while getting the duplicates (cannot access remote server)?
                 //ignore:
                 return Collections.emptyMap();
@@ -211,7 +218,7 @@ public class RemoteDuplicatesIndex {
     private static final long VERSION_CHECK_PERIOD = 60 * 60 * 1000;
     private static final Map<Entry<URI, String>, Long> lastVersionCheck = new HashMap<Entry<URI, String>, Long>();
     
-    private static synchronized Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesInLocalCache(RemoteIndex ri, Iterable<? extends String> hashes) throws IOException, URISyntaxException {
+    private static synchronized Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesInLocalCache(RemoteIndex ri, Iterable<? extends String> hashes, AtomicBoolean cancel) throws IOException, URISyntaxException {
         URI uri = ri.remote.toURI();
         SimpleEntry<URI, String> versionCheckKey = new SimpleEntry<URI, String>(uri, ri.remoteSegment);
         Long lastCheck = lastVersionCheck.get(versionCheckKey);
@@ -222,8 +229,10 @@ public class RemoteDuplicatesIndex {
             FileObject remoteVersionFO = FileUtil.toFileObject(remoteVersion);
             String previousVersion = remoteVersionFO != null ? remoteVersionFO.asText("UTF-8") : null;
             URI infoURI = new URI(ri.remote.toExternalForm() + "/info?path=" + WebUtilities.escapeForQuery(ri.remoteSegment));
-            String infoContent = WebUtilities.requestStringResponse(infoURI);
+            String infoContent = WebUtilities.requestStringResponse(infoURI, cancel);
 
+            if (cancel.get()) return Collections.emptyMap();
+            
             if (infoContent != null) {
                 Object buildId = Pojson.load(LinkedHashMap.class, infoContent).get("BUILD_ID");
 
@@ -251,7 +260,7 @@ public class RemoteDuplicatesIndex {
 
         IndexReader reader = readerCache.get(uri);
 
-        if (reader == null) {
+        if (reader == null && !cancel.get()) {
             File dir = new File(findLocalCacheDir(ri), "index");
 
             if (dir.listFiles() != null && dir.listFiles().length > 0) {
@@ -259,13 +268,15 @@ public class RemoteDuplicatesIndex {
             }
         }
 
-        if (reader == null) {
+        if (reader == null || cancel.get()) {
             return Collections.emptyMap();
         }
 
         Map<String, Map<String, Collection<String>>> result = new LinkedHashMap<String, Map<String, Collection<String>>>();
 
-        for (Entry<String, Collection<? extends String>> e : containsHash(reader, hashes).entrySet()) {
+        for (Entry<String, Collection<? extends String>> e : containsHash(reader, hashes, cancel).entrySet()) {
+            if (cancel.get()) return Collections.emptyMap();
+
             Map<String, Collection<String>> forHash = result.get(e.getKey());
 
             if (forHash == null) {
@@ -414,10 +425,12 @@ public class RemoteDuplicatesIndex {
         return false;
     }
 
-    public static Map<String, Collection<? extends String>> containsHash(IndexReader reader, Iterable<? extends String> hashes) throws IOException {
+    private static Map<String, Collection<? extends String>> containsHash(IndexReader reader, Iterable<? extends String> hashes, AtomicBoolean cancel) throws IOException {
         Map<String, Collection<? extends String>> result = new LinkedHashMap<String, Collection<? extends String>>();
 
         for (String hash : hashes) {
+            if (cancel.get()) return Collections.emptyMap();
+
             Collection<String> found = new LinkedList<String>();
             Query query = new TermQuery(new Term("hash", hash));
             Searcher s = new IndexSearcher(reader);
@@ -429,6 +442,8 @@ public class RemoteDuplicatesIndex {
             boolean wasFound = false;
 
             for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum + 1)) {
+                if (cancel.get()) return Collections.emptyMap();
+
                 final Document doc = reader.document(docNum);
 
                 found.addAll(Arrays.asList(doc.getValues("path")));
