@@ -2,6 +2,7 @@
 cp -r ../duplicates/server/indexer/build/cluster/* build/indexing-backend/indexer/indexer
 cp -r ../duplicates/ide/build/cluster/* build/indexing-backend/indexer/indexer
 cp -r ../remoting/ide/build/cluster/* build/indexing-backend/indexer/indexer
+cp -r ../language/ide/build/cluster/* build/indexing-backend/indexer/indexer
 cp -r ../duplicates/server/web/duplicates.web.api/dist/*.jar build/indexing-backend/web/lib
 
 (cd build; zip -r indexing-backend-feature-packed.zip indexing-backend) || exit 1
