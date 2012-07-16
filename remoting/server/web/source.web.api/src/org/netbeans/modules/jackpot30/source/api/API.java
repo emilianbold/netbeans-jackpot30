@@ -80,6 +80,11 @@ public class API {
     @Produces("text/plain")
     public String cat(@QueryParam("path") String segment, @QueryParam("relative") String relative) throws IOException, InterruptedException {
         CategoryStorage category = CategoryStorage.forId(segment);
+
+        return readFileContent(category, relative);
+    }
+
+    public static String readFileContent(CategoryStorage category, String relative) throws IOException, InterruptedException {
         Index idx = category.getIndex();
         Query query = Queries.createQuery("relativePath", "does-not-exist", relative, QueryKind.EXACT);
         List<String> found = new ArrayList<String>();
