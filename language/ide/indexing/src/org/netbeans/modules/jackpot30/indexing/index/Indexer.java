@@ -98,11 +98,6 @@ public final class Indexer implements JavaIndexerPlugin {
     
     @Override
     public void process (@NonNull CompilationUnitTree toProcess, @NonNull Indexable indexable, @NonNull Lookup services) {
-        if (   !"org.netbeans.modules.jackpot30.common.api.IndexAccess".equals(access.getClass().getName())
-            && !Boolean.getBoolean("jackpot30.language.index")) {
-            return ;
-        }
-        
         IndexWriter luceneWriter = access.getIndexWriter(root, cacheRoot, INDEX_NAME);
         String relative = access.getRelativePath(indexable);
         ByteArrayOutputStream out = null;
