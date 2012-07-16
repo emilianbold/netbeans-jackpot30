@@ -115,14 +115,14 @@ public final class Indexer implements JavaIndexerPlugin {
 
             BulkSearch.getDefault().encode(toProcess, ec);
 
-            luceneWriter.deleteDocuments(new Term("path", relative));
+            luceneWriter.deleteDocuments(new Term("languagePath", relative));
 
             Document doc = new Document();
 
-            doc.add(new Field("content", new TokenStreamImpl(ec.getContent())));
+            doc.add(new Field("languageContent", new TokenStreamImpl(ec.getContent())));
             out.close();
-            doc.add(new Field("encoded", CompressionTools.compress(out.toByteArray()), Field.Store.YES));
-            doc.add(new Field("path", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
+            doc.add(new Field("languageEncoded", CompressionTools.compress(out.toByteArray()), Field.Store.YES));
+            doc.add(new Field("languagePath", relative, Field.Store.YES, Field.Index.NOT_ANALYZED));
 
             if (services != null) {
                 final Set<String> erased = new HashSet<String>();
@@ -153,7 +153,7 @@ public final class Indexer implements JavaIndexerPlugin {
                     }
                 }.scan(toProcess, null);
 
-                doc.add(new Field("erasedTypes", new TokenStreamImpl(erased)));
+                doc.add(new Field("languageErasedTypes", new TokenStreamImpl(erased)));
             }
             
             luceneWriter.addDocument(doc);
@@ -179,7 +179,7 @@ public final class Indexer implements JavaIndexerPlugin {
         String relative = access.getRelativePath(indexable);
         
         try {
-            luceneWriter.deleteDocuments(new Term("path", relative));
+            luceneWriter.deleteDocuments(new Term("languagePath", relative));
         } catch (CorruptIndexException ex) {
             Logger.getLogger(Indexer.class.getName()).log(Level.WARNING, null, ex);
         } catch (IOException ex) {

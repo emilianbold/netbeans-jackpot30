@@ -94,7 +94,7 @@ public abstract class IndexQuery {
         index.query(new ArrayList<Object>(), new Convertor<Document, Object>() {
             @Override public Object convert(Document doc) {
                 try {
-                    ByteArrayInputStream in = new ByteArrayInputStream(CompressionTools.decompress(doc.getField("encoded").getBinaryValue()));
+                    ByteArrayInputStream in = new ByteArrayInputStream(CompressionTools.decompress(doc.getField("languageEncoded").getBinaryValue()));
 
                     try {
                         Map<String, Integer> freqs;
@@ -109,7 +109,7 @@ public abstract class IndexQuery {
                         }
 
                         if (matches) {
-                            result.put(doc.getField("path").stringValue(), freqs);
+                            result.put(doc.getField("languagePath").stringValue(), freqs);
                         }
                     } finally {
                         in.close();
@@ -124,7 +124,7 @@ public abstract class IndexQuery {
             }
         }, new FieldSelector() {
             public FieldSelectorResult accept(String string) {
-                return "encoded".equals(string) || "path".equals(string) ? FieldSelectorResult.LOAD : FieldSelectorResult.NO_LOAD;
+                return "languageEncoded".equals(string) || "languagePath".equals(string) ? FieldSelectorResult.LOAD : FieldSelectorResult.NO_LOAD;
             }
         }, null, query(pattern));
 
@@ -145,7 +145,7 @@ public abstract class IndexQuery {
                 PhraseQuery pq = new PhraseQuery();
 
                 for (String s : c) {
-                    pq.add(new Term("content", s));
+                    pq.add(new Term("languageContent", s));
                 }
 
                 emb.add(pq, BooleanClause.Occur.MUST);
@@ -156,12 +156,12 @@ public abstract class IndexQuery {
             if (additionalConstraints != null && !additionalConstraints.requiredErasedTypes.isEmpty()) {
                 BooleanQuery constraintsQuery = new BooleanQuery();
 
-                constraintsQuery.add(new TermQuery(new Term("attributed", "false")), BooleanClause.Occur.SHOULD);
+                constraintsQuery.add(new TermQuery(new Term("languageAttributed", "false")), BooleanClause.Occur.SHOULD);
 
                 BooleanQuery constr = new BooleanQuery();
 
                 for (String tc : additionalConstraints.requiredErasedTypes) {
-                    constr.add(new TermQuery(new Term("erasedTypes", tc)), BooleanClause.Occur.MUST);
+                    constr.add(new TermQuery(new Term("languageErasedTypes", tc)), BooleanClause.Occur.MUST);
                 }
 
                 constraintsQuery.add(constr, BooleanClause.Occur.SHOULD);
