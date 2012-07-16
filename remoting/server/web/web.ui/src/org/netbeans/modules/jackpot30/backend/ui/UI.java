@@ -56,6 +56,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -165,49 +166,95 @@ public class UI {
     @GET
     @Path("/show")
     @Produces("text/html")
-    public String show(@QueryParam("path") String segment, @QueryParam("relative") String relative) throws URISyntaxException, IOException, TemplateException {
+    public String show(@QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("highlight") @DefaultValue("[]") String highlightSpec) throws URISyntaxException, IOException, TemplateException {
         URI u = new URI(URL_BASE + "/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
         String content = WebUtilities.requestStringResponse(u);
-        TokenSequence<?> ts = TokenHierarchy.create(content, JavaTokenId.language()).tokenSequence();
-        StringBuilder spans = new StringBuilder();
-        StringBuilder cats  = new StringBuilder();
-        int currentOffset = 0;
-
-        while (ts.moveNext()) {
-            if (spans.length() > 0) spans.append(", ");
-            int endOffset = ts.offset() + ts.token().length();
-            spans.append(endOffset - currentOffset);
-            currentOffset = endOffset;
-            String category = ts.token().id().primaryCategory();
-
-            if ("keyword".equals(category)) {
-                cats.append("K");
-            } else if ("keyword-directive".equals(category)) {
-                cats.append("K");
-            } else if ("literal".equals(category)) {
-                cats.append("K");
-            } else if ("whitespace".equals(category)) {
-                cats.append("W");
-            } else if ("comment".equals(category)) {
-                cats.append("C");
-            } else if ("character".equals(category)) {
-                cats.append("H");
-            } else if ("number".equals(category)) {
-                cats.append("N");
-            } else if ("string".equals(category)) {
-                cats.append("S");
-            } else {
-                cats.append("E");
-            }
-        }
-
+        List<Long> highlightSpans = Pojson.load(ArrayList.class, highlightSpec);
         Map<String, Object> configurationData = new HashMap<String, Object>();
+        String[] highlights = colorTokens(content, highlightSpans);
 
-        configurationData.put("spans", spans.toString());
-        configurationData.put("categories", cats.toString());
+        configurationData.put("spans", highlights[0]);
+        configurationData.put("categories", highlights[1]);
         configurationData.put("code", translate(content));
 
         return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/showCode.html", configurationData);
+    }
+
+    static String[] colorTokens(String content, List<Long> highlight) {
+        TokenSequence<?> ts = TokenHierarchy.create(content, JavaTokenId.language()).tokenSequence();
+        StringBuilder spans = new StringBuilder();
+        StringBuilder cats  = new StringBuilder();
+        long currentOffset = 0;
+        boolean cont = false;
+
+        while (cont || ts.moveNext()) {
+            if (spans.length() > 0) spans.append(", ");
+
+            long endOffset = ts.offset() + ts.token().length();
+            boolean foundHighlight = false;
+
+            cont = false;
+            
+            for (int i = 0; i < highlight.size(); i += 2) {
+                if (   currentOffset <= highlight.get(i)
+                    && endOffset >= highlight.get(i)) {
+                    if (currentOffset < highlight.get(i)) {
+                        endOffset = highlight.get(i);
+                        cont = true;
+                    } else  if ((highlight.get(i + 1) + 1) < endOffset) {
+                        endOffset = highlight.get(i + 1) + 1;
+                        cont = true;
+                        foundHighlight = true;
+                    } else {
+                        foundHighlight = true;
+                    }
+                } else if (   highlight.get(i) <= currentOffset
+                           && (highlight.get(i + 1) + 1) > endOffset) {
+                    foundHighlight = true;
+                } else if (   currentOffset < (highlight.get(i + 1) + 1)
+                           && (highlight.get(i + 1) + 1) < endOffset) {
+                    endOffset = highlight.get(i + 1) + 1;
+                    cont = true;
+                    foundHighlight = true;
+                }
+            }
+
+            spans.append(endOffset - currentOffset);
+            String category = ts.token().id().primaryCategory();
+
+            char cat;
+
+            if ("keyword".equals(category)) {
+                cat = 'K';
+            } else if ("keyword-directive".equals(category)) {
+                cat = 'K';
+            } else if ("literal".equals(category)) {
+                cat = 'K';
+            } else if ("whitespace".equals(category)) {
+                cat = 'W';
+            } else if ("comment".equals(category)) {
+                cat = 'C';
+            } else if ("character".equals(category)) {
+                cat = 'H';
+            } else if ("number".equals(category)) {
+                cat = 'N';
+            } else if ("string".equals(category)) {
+                cat = 'S';
+            } else {
+                cat = 'E';
+            }
+
+            if (foundHighlight) cat++;
+
+            cats.append(cat);
+
+            currentOffset = endOffset;
+        }
+
+        return new String[] {
+            spans.toString(),
+            cats.toString()
+        };
     }
 
     //XXX: usages on fields do not work because the field signature in the index contain also the field type

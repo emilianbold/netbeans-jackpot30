@@ -42,6 +42,8 @@
 
 package org.netbeans.modules.jackpot30.backend.ui;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import junit.framework.TestCase;
 
 /**
@@ -70,5 +72,23 @@ public class UITest extends TestCase {
                      UI.simplify("METHOD:org.netbeans.spi.java.hints.JavaFixUtilities:rewriteFix:(Lorg/netbeans/api/java/source/CompilationInfo;Ljava/lang/String;Lcom/sun/source/util/TreePath;Ljava/lang/String;Ljava/util/Map<Ljava/lang/String;Lcom/sun/source/util/TreePath;>;Ljava/util/Map<Ljava/lang/String;Ljava/util/Collection<Lcom/sun/source/util/TreePath;>;>;Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;Ljava/util/Map<Ljava/lang/String;Ljavax/lang/model/type/TypeMirror;>;Ljava/util/Map<Ljava/lang/String;Ljava/lang/String;>;[Ljava/lang/String;)Lorg/netbeans/spi/editor/hints/Fix;;"));
         assertEquals("METHOD:org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities:fixDependencies:(Lorg/openide/filesystems/FileObject;Ljava/util/List;Ljava/util/Map;)Z",
                      UI.simplify("METHOD:org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities:fixDependencies:(Lorg/openide/filesystems/FileObject;Ljava/util/List<Lorg/netbeans/spi/java/hints/JavaFix;>;Ljava/util/Map<Lorg/netbeans/api/project/Project;Ljava/util/Set<Ljava/lang/String;>;>;)Z;"));
+    }
+
+    public void testSpansColoring() {
+        String[] coloring = UI.colorTokens("package test; public class Test { }", new ArrayList<Long>());
+        assertEquals("7, 1, 4, 1, 1, 6, 1, 5, 1, 4, 1, 1, 1, 1", coloring[0]);
+        assertEquals("KWEEWKWKWEWEWE", coloring[1]);
+        coloring = UI.colorTokens("package test; public class Test { }", Arrays.asList(0L, 6L));
+        assertEquals("7, 1, 4, 1, 1, 6, 1, 5, 1, 4, 1, 1, 1, 1", coloring[0]);
+        assertEquals("LWEEWKWKWEWEWE", coloring[1]);
+        coloring = UI.colorTokens("package test; public class Test { }", Arrays.asList(1L, 3L));
+        assertEquals("1, 3, 3, 1, 4, 1, 1, 6, 1, 5, 1, 4, 1, 1, 1, 1", coloring[0]);
+        assertEquals("KLKWEEWKWKWEWEWE", coloring[1]);
+        coloring = UI.colorTokens("package test; public class Test { }", Arrays.asList(16L, 17L));
+        assertEquals("7, 1, 4, 1, 1, 2, 2, 2, 1, 5, 1, 4, 1, 1, 1, 1", coloring[0]);
+        assertEquals("KWEEWKLKWKWEWEWE", coloring[1]);
+        coloring = UI.colorTokens("package test; public class Test { }", Arrays.asList(3L, 17L));
+        assertEquals("3, 4, 1, 4, 1, 1, 4, 2, 1, 5, 1, 4, 1, 1, 1, 1", coloring[0]);
+        assertEquals("KLXFFXLKWKWEWEWE", coloring[1]);
     }
 }
