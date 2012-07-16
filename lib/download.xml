@@ -88,5 +88,6 @@
         <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-lexer.jar" todir="." />
         <copy file="${nbplatform.active.dir}/ide/modules/org-netbeans-modules-editor-util.jar" todir="." />
         <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-spi-java-hints.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-lib-nbjavac.jar" todir="." />
     </target>
 </project>
