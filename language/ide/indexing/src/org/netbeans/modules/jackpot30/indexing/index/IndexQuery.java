@@ -46,36 +46,34 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.DataFormatException;
+import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.document.CompressionTools;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.FieldSelector;
 import org.apache.lucene.document.FieldSelectorResult;
-import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.queryParser.ParseException;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.Collector;
-import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.PhraseQuery;
 import org.apache.lucene.search.Query;
-import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.annotations.common.NullAllowed;
-import org.netbeans.modules.jackpot30.common.api.LuceneHelpers.BitSetCollector;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.modules.java.hints.providers.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch;
 import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.BulkPattern;
+import org.netbeans.modules.parsing.lucene.support.Convertor;
+import org.netbeans.modules.parsing.lucene.support.Index;
+import org.netbeans.modules.parsing.lucene.support.Index.Status;
+import org.netbeans.modules.parsing.lucene.support.IndexManager;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
@@ -89,50 +87,13 @@ public abstract class IndexQuery {
     public abstract Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException;
 
     public abstract Map<String, Map<String, Integer>> findCandidatesWithFrequencies(BulkPattern pattern) throws IOException;
-    
-    private static final class LocalIndexQuery extends IndexQuery {
-        private final @NullAllowed File cacheDir;
 
-        public LocalIndexQuery(@NullAllowed File cacheDir) {
-            this.cacheDir = cacheDir;
-        }
+    public static Map<String, Map<String, Integer>> performLocalQuery(Index index, final BulkPattern pattern, final boolean withFrequencies) throws IOException, InterruptedException, ParseException {
+        final Map<String, Map<String, Integer>> result = new HashMap<String, Map<String, Integer>>();
 
-        public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
-            return findCandidates(pattern, false).keySet();
-        }
-
-        public Map<String, Map<String, Integer>> findCandidatesWithFrequencies(BulkPattern pattern) throws IOException {
-            return findCandidates(pattern, true);
-        }
-
-        private Map<String, Map<String, Integer>> findCandidates(BulkPattern pattern, boolean withFrequencies) throws IOException {
-            IndexReader reader = cacheDir != null ? IndexReader.open(FSDirectory.open(cacheDir)) : null;
-
-            if (reader == null) {
-                 return Collections.emptyMap();
-            }
-
-            try {
-            Searcher s = new IndexSearcher(reader);
-            BitSet matchingDocuments = new BitSet(reader.maxDoc());
-            Collector c = new BitSetCollector(matchingDocuments);
-
-            try {
-                s.search(query(pattern), c);
-            } catch (ParseException ex) {
-                throw new IOException(ex);
-            }
-
-            Map<String, Map<String, Integer>> result = new HashMap<String, Map<String, Integer>>();
-
-            for (int docNum = matchingDocuments.nextSetBit(0); docNum >= 0; docNum = matchingDocuments.nextSetBit(docNum+1)) {
+        index.query(new ArrayList<Object>(), new Convertor<Document, Object>() {
+            @Override public Object convert(Document doc) {
                 try {
-                    final Document doc = reader.document(docNum, new FieldSelector() {
-                        public FieldSelectorResult accept(String string) {
-                            return "encoded".equals(string) || "path".equals(string) ? FieldSelectorResult.LOAD : FieldSelectorResult.NO_LOAD;
-                        }
-                    });
-
                     ByteArrayInputStream in = new ByteArrayInputStream(CompressionTools.decompress(doc.getField("encoded").getBinaryValue()));
 
                     try {
@@ -149,64 +110,103 @@ public abstract class IndexQuery {
 
                         if (matches) {
                             result.put(doc.getField("path").stringValue(), freqs);
-                            continue;
                         }
                     } finally {
                         in.close();
                     }
                 } catch (DataFormatException ex) {
-                    throw new IOException(ex);
+                    throw new IllegalStateException(ex);
+                } catch (IOException ex) {
+                    throw new IllegalStateException(ex);
                 }
+
+                return null;
+            }
+        }, new FieldSelector() {
+            public FieldSelectorResult accept(String string) {
+                return "encoded".equals(string) || "path".equals(string) ? FieldSelectorResult.LOAD : FieldSelectorResult.NO_LOAD;
+            }
+        }, null, query(pattern));
+
+        return result;
+    }
+
+    private static Query query(BulkPattern pattern) throws ParseException {
+        BooleanQuery result = new BooleanQuery();
+
+        for (int cntr = 0; cntr < pattern.getIdentifiers().size(); cntr++) {
+            assert !pattern.getRequiredContent().get(cntr).isEmpty();
+
+            BooleanQuery emb = new BooleanQuery();
+
+            for (List<String> c : pattern.getRequiredContent().get(cntr)) {
+                if (c.isEmpty()) continue;
+
+                PhraseQuery pq = new PhraseQuery();
+
+                for (String s : c) {
+                    pq.add(new Term("content", s));
+                }
+
+                emb.add(pq, BooleanClause.Occur.MUST);
             }
 
-            return result;
+            AdditionalQueryConstraints additionalConstraints = pattern.getAdditionalConstraints().get(cntr);
+
+            if (additionalConstraints != null && !additionalConstraints.requiredErasedTypes.isEmpty()) {
+                BooleanQuery constraintsQuery = new BooleanQuery();
+
+                constraintsQuery.add(new TermQuery(new Term("attributed", "false")), BooleanClause.Occur.SHOULD);
+
+                BooleanQuery constr = new BooleanQuery();
+
+                for (String tc : additionalConstraints.requiredErasedTypes) {
+                    constr.add(new TermQuery(new Term("erasedTypes", tc)), BooleanClause.Occur.MUST);
+                }
+
+                constraintsQuery.add(constr, BooleanClause.Occur.SHOULD);
+                emb.add(constraintsQuery, BooleanClause.Occur.MUST);
+            }
+
+            result.add(emb, BooleanClause.Occur.SHOULD);
+        }
+
+        return result;
+    }
+
+    private static final class LocalIndexQuery extends IndexQuery {
+        private final @NullAllowed File cacheDir;
+
+        public LocalIndexQuery(@NullAllowed File cacheDir) {
+            this.cacheDir = cacheDir;
+        }
+
+        public Collection<? extends String> findCandidates(BulkPattern pattern) throws IOException {
+            return findCandidates(pattern, false).keySet();
+        }
+
+        public Map<String, Map<String, Integer>> findCandidatesWithFrequencies(BulkPattern pattern) throws IOException {
+            return findCandidates(pattern, true);
+        }
+
+        private Map<String, Map<String, Integer>> findCandidates(BulkPattern pattern, boolean withFrequencies) throws IOException {
+            Index index = IndexManager.createIndex(cacheDir, new KeywordAnalyzer());
+
+            if (index.getStatus(true) != Status.VALID) {
+                 return Collections.emptyMap();
+            }
+
+            try {
+                return performLocalQuery(index, pattern, withFrequencies);
+            } catch (InterruptedException ex) {
+                throw new IOException(ex);
+            } catch (ParseException ex) {
+                throw new IOException(ex);
             } finally {
-                reader.close();
+                index.close();
             }
         }
 
-        private Query query(BulkPattern pattern) throws ParseException {
-            BooleanQuery result = new BooleanQuery();
-
-            for (int cntr = 0; cntr < pattern.getIdentifiers().size(); cntr++) {
-                assert !pattern.getRequiredContent().get(cntr).isEmpty();
-
-                BooleanQuery emb = new BooleanQuery();
-
-                for (List<String> c : pattern.getRequiredContent().get(cntr)) {
-                    if (c.isEmpty()) continue;
-
-                    PhraseQuery pq = new PhraseQuery();
-
-                    for (String s : c) {
-                        pq.add(new Term("content", s));
-                    }
-
-                    emb.add(pq, BooleanClause.Occur.MUST);
-                }
-
-                AdditionalQueryConstraints additionalConstraints = pattern.getAdditionalConstraints().get(cntr);
-
-                if (additionalConstraints != null && !additionalConstraints.requiredErasedTypes.isEmpty()) {
-                    BooleanQuery constraintsQuery = new BooleanQuery();
-
-                    constraintsQuery.add(new TermQuery(new Term("attributed", "false")), BooleanClause.Occur.SHOULD);
-
-                    BooleanQuery constr = new BooleanQuery();
-
-                    for (String tc : additionalConstraints.requiredErasedTypes) {
-                        constr.add(new TermQuery(new Term("erasedTypes", tc)), BooleanClause.Occur.MUST);
-                    }
-
-                    constraintsQuery.add(constr, BooleanClause.Occur.SHOULD);
-                    emb.add(constraintsQuery, BooleanClause.Occur.MUST);
-                }
-
-                result.add(emb, BooleanClause.Occur.SHOULD);
-            }
-
-            return result;
-        }
     }
     
     private static final class RemoteIndexQuery extends IndexQuery {
