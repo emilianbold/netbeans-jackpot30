@@ -86,16 +86,10 @@ public class API {
     @GET
     @Path("/info")
     @Produces("text/plain")
-    public Response info(@QueryParam("path") String segment) throws IOException {
+    public String info(@QueryParam("path") String segment) throws IOException {
         CategoryStorage cat = CategoryStorage.forId(segment);
 
-        if (cat == null) {
-            return Response.status(Status.NOT_FOUND).build();
-        } else {
-            FileObject info = cat.getCacheRoot().getFileObject("info");
-            String content = info != null ? info.asText("UTF-8") : "{}";
-            return Response.ok().entity(content).build();
-        }
+        return cat.getInfo();
     }
 
 }
