@@ -42,20 +42,15 @@
 
 package org.netbeans.modules.jackpot30.impl.duplicates.indexing;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.OutputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -75,24 +70,21 @@ import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriter.MaxFieldLength;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.Collector;
 import org.apache.lucene.search.IndexSearcher;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.Searcher;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.store.FSDirectory;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.modules.jackpot30.common.api.IndexAccess.NoAnalyzer;
 import org.netbeans.modules.jackpot30.common.api.LuceneHelpers.BitSetCollector;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.DuplicateDescription;
 import org.netbeans.modules.jackpot30.impl.duplicates.ComputeDuplicates.Span;
+import org.netbeans.modules.jackpot30.remoting.api.LocalCache;
+import org.netbeans.modules.jackpot30.remoting.api.LocalCache.Task;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
-import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 
@@ -103,7 +95,6 @@ import org.openide.util.Exceptions;
 @SuppressWarnings("ClassWithMultipleLoggers")
 public class RemoteDuplicatesIndex {
 
-    private static final Logger LOG = Logger.getLogger(RemoteDuplicatesIndex.class.getName());
     private static final Logger TIMER = Logger.getLogger("TIMER");
 
     public static List<DuplicateDescription> findDuplicates(Map<String, long[]> hashes, FileObject currentFile, AtomicBoolean cancel) throws IOException, URISyntaxException {
@@ -209,123 +200,60 @@ public class RemoteDuplicatesIndex {
         }
     }
 
-    private static final Map<URI, IndexReader> readerCache = new HashMap<URI, IndexReader>();
+    private static Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesInLocalCache(RemoteIndex ri, final Iterable<? extends String> hashes, AtomicBoolean cancel) throws IOException, URISyntaxException {
+        return LocalCache.runOverLocalCache(ri, new Task<IndexReader, Map<String, Map<String, Collection<? extends String>>>>() {
+            @Override public Map<String, Map<String, Collection<? extends String>>> run(IndexReader reader, AtomicBoolean cancel) throws IOException {
+                Map<String, Map<String, Collection<String>>> result = new LinkedHashMap<String, Map<String, Collection<String>>>();
 
-    private static File findLocalCacheDir(RemoteIndex ri) throws IOException {
-        return new File(FileUtil.toFile(FileUtil.createFolder(CacheFolder.getDataFolder(ri.remote), "remote-duplicates")), ri.remoteSegment);
-    }
+                for (Entry<String, Collection<? extends String>> e : containsHash(reader, hashes, cancel).entrySet()) {
+                    if (cancel.get()) return Collections.emptyMap();
 
-    private static final long VERSION_CHECK_PERIOD = 60 * 60 * 1000;
-    private static final Map<Entry<URI, String>, Long> lastVersionCheck = new HashMap<Entry<URI, String>, Long>();
-    
-    private static synchronized Map<String, Map<String, Collection<? extends String>>> findHashOccurrencesInLocalCache(RemoteIndex ri, Iterable<? extends String> hashes, AtomicBoolean cancel) throws IOException, URISyntaxException {
-        URI uri = ri.remote.toURI();
-        SimpleEntry<URI, String> versionCheckKey = new SimpleEntry<URI, String>(uri, ri.remoteSegment);
-        Long lastCheck = lastVersionCheck.get(versionCheckKey);
+                    Map<String, Collection<String>> forHash = result.get(e.getKey());
 
-        if (lastCheck == null || (System.currentTimeMillis() - lastCheck) > VERSION_CHECK_PERIOD) {
-            File dir = findLocalCacheDir(ri);
-            File remoteVersion = new File(dir, "remoteVersion");
-            FileObject remoteVersionFO = FileUtil.toFileObject(remoteVersion);
-            String previousVersion = remoteVersionFO != null ? remoteVersionFO.asText("UTF-8") : null;
-            URI infoURI = new URI(ri.remote.toExternalForm() + "/info?path=" + WebUtilities.escapeForQuery(ri.remoteSegment));
-            String infoContent = WebUtilities.requestStringResponse(infoURI, cancel);
-
-            if (cancel.get()) return Collections.emptyMap();
-            
-            if (infoContent != null) {
-                Object buildId = Pojson.load(LinkedHashMap.class, infoContent).get("BUILD_ID");
-
-                if (buildId != null && !(buildId = buildId.toString()).equals(previousVersion)) {
-                    remoteVersion.getParentFile().mkdirs();
-                    OutputStream out = new FileOutputStream(remoteVersion);
-                    try {
-                        out.write(buildId.toString().getBytes("UTF-8"));
-                    } finally {
-                        out.close();
+                    if (forHash == null) {
+                        result.put(e.getKey(), forHash = new LinkedHashMap<String, Collection<String>>());
                     }
 
-                    LOG.log(Level.FINE, "Deleting local cache");
-                    delete(new File(dir, "index"));
+                    for (String path : e.getValue()) {
+                        String segment = path.substring(0, path.indexOf('/'));
 
-                    IndexReader reader = readerCache.remove(uri);
-                    if (reader != null)
-                        reader.close();
-                    
-                }
-            }
+                        path = path.substring(path.indexOf('/') + 1);
 
-            lastVersionCheck.put(versionCheckKey, System.currentTimeMillis());
-        }
+                        Collection<String> list = forHash.get(segment);
 
-        IndexReader reader = readerCache.get(uri);
+                        if (list == null) {
+                            forHash.put(segment, list = new LinkedList<String>());
+                        }
 
-        if (reader == null && !cancel.get()) {
-            File dir = new File(findLocalCacheDir(ri), "index");
-
-            if (dir.listFiles() != null && dir.listFiles().length > 0) {
-                readerCache.put(uri, reader = IndexReader.open(FSDirectory.open(dir), true));
-            }
-        }
-
-        if (reader == null || cancel.get()) {
-            return Collections.emptyMap();
-        }
-
-        Map<String, Map<String, Collection<String>>> result = new LinkedHashMap<String, Map<String, Collection<String>>>();
-
-        for (Entry<String, Collection<? extends String>> e : containsHash(reader, hashes, cancel).entrySet()) {
-            if (cancel.get()) return Collections.emptyMap();
-
-            Map<String, Collection<String>> forHash = result.get(e.getKey());
-
-            if (forHash == null) {
-                result.put(e.getKey(), forHash = new LinkedHashMap<String, Collection<String>>());
-            }
-
-            for (String path : e.getValue()) {
-                String segment = path.substring(0, path.indexOf('/'));
-
-                path = path.substring(path.indexOf('/') + 1);
-
-                Collection<String> list = forHash.get(segment);
-
-                if (list == null) {
-                    forHash.put(segment, list = new LinkedList<String>());
+                        list.add(path);
+                    }
                 }
 
-                list.add(path);
+                return (Map)result; //XXX
             }
-        }
-
-        return (Map)result; //XXX
+        }, Collections.<String, Map<String, Collection<? extends String>>>emptyMap(), cancel);
     }
 
-    private static synchronized void saveToLocalCache(RemoteIndex ri, Map<String, Map<String, Collection<? extends String>>> what) throws IOException, URISyntaxException {
-        IndexReader r = readerCache.remove(ri.remote.toURI());
+    private static synchronized void saveToLocalCache(RemoteIndex ri, final Map<String, Map<String, Collection<? extends String>>> what) throws IOException, URISyntaxException {
+        LocalCache.saveToLocalCache(ri, new Task<IndexWriter, Void>() {
+            @Override public Void run(IndexWriter w, AtomicBoolean cancel) throws IOException {
+                for (Entry<String, Map<String, Collection<? extends String>>> e : what.entrySet()) {
+                    Document doc = new Document();
 
-        if (r != null) {
-            r.close();
-        }
-        
-        IndexWriter w = new IndexWriter(FSDirectory.open(new File(findLocalCacheDir(ri), "index")), new NoAnalyzer(), MaxFieldLength.UNLIMITED);
+                    doc.add(new Field("hash", e.getKey(), Store.YES, Index.NOT_ANALYZED));
 
-        for (Entry<String, Map<String, Collection<? extends String>>> e : what.entrySet()) {
-            Document doc = new Document();
+                    for (Entry<String, Collection<? extends String>> pe : e.getValue().entrySet()) {
+                        for (String path : pe.getValue()) {
+                            doc.add(new Field("path", pe.getKey() + "/" + path, Store.YES, Index.NO));
+                        }
+                    }
 
-            doc.add(new Field("hash", e.getKey(), Store.YES, Index.NOT_ANALYZED));
-
-            for (Entry<String, Collection<? extends String>> pe : e.getValue().entrySet()) {
-                for (String path : pe.getValue()) {
-                    doc.add(new Field("path", pe.getKey() + "/" + path, Store.YES, Index.NO));
+                    w.addDocument(doc);
                 }
+
+                return null;
             }
-
-            w.addDocument(doc);
-        }
-
-        w.optimize();
-        w.close();
+        });
     }
     
     private static List<DuplicateDescription> translate(Map<String, long[]> hashes, Map<String, Map<RemoteIndex, Collection<String>>> occ, FileObject currentFile) {
@@ -396,35 +324,6 @@ public class RemoteDuplicatesIndex {
         });
     }
 
-    private static boolean subsumes(DuplicateDescription bigger, DuplicateDescription smaller) {
-        Set<FileObject> bFiles = new HashSet<FileObject>();
-
-        for (Span s : bigger.dupes) {
-            bFiles.add(s.file);
-        }
-
-        Set<FileObject> sFiles = new HashSet<FileObject>();
-
-        for (Span s : smaller.dupes) {
-            sFiles.add(s.file);
-        }
-
-        if (!bFiles.equals(sFiles)) return false;
-
-        Span testAgainst = bigger.dupes.get(0);
-
-        for (Span s : smaller.dupes) {
-            if (s.file == testAgainst.file) {
-                if (   (testAgainst.startOff <= s.startOff && testAgainst.endOff > s.endOff)
-                    || (testAgainst.startOff < s.startOff && testAgainst.endOff >= s.endOff)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
     private static Map<String, Collection<? extends String>> containsHash(IndexReader reader, Iterable<? extends String> hashes, AtomicBoolean cancel) throws IOException {
         Map<String, Collection<? extends String>> result = new LinkedHashMap<String, Collection<? extends String>>();
 
@@ -458,15 +357,4 @@ public class RemoteDuplicatesIndex {
         return result;
     }
 
-    private static void delete(File file) {
-        File[] c = file.listFiles();
-
-        if (c != null) {
-            for (File cc : c) {
-                delete(cc);
-            }
-        }
-
-        file.delete();
-    }
 }
