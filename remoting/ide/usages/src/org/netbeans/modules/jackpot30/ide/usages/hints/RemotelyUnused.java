@@ -81,7 +81,7 @@ import org.openide.util.NbBundle.Messages;
  *
  * @author lahvac
  */
-@Hint(displayName="DN_RemotelyUnused", description="DESC_RemotelyUnused", category="general", enabled=false)
+@Hint(displayName="#DN_RemotelyUnused", description="#DESC_RemotelyUnused", category="general", enabled=false)
 @Messages({"DN_RemotelyUnused=Unused in Remote Projects",
            "DESC_RemotelyUnused=Not used in any known remote project",
            "ERR_NoUsages=No usages found in any know projects"})
