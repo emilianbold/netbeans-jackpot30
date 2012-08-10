@@ -96,7 +96,7 @@ public class LocalCache {
 
             if (cancel.get()) return empty;
 
-            if (infoContent != null) {
+            if (infoContent != null && !infoContent.trim().isEmpty()) {
                 Object buildId = Pojson.load(LinkedHashMap.class, infoContent).get("BUILD_ID");
 
                 if (buildId != null && !(buildId = buildId.toString()).equals(previousVersion)) {
