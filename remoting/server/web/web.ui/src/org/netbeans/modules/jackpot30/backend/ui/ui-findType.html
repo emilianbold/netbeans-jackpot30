@@ -40,7 +40,7 @@
 <form method="get">
 <label>Projects:</label>
 <#list paths as path>
-    <input type="checkbox" name="path" value="${path.segment}" <#if selectedPath?seq_contains(path.segment)> checked="yes"</#if>>${path.displayName}</input>
+    <input type="checkbox" name="path" value="${path.segment}" <#if selectedPath?? && selectedPath?seq_contains(path.segment)> checked="yes"</#if>>${path.displayName}</input>
 </#list>
 <br>
 <label for="prefix">Symbol Prefix:</label><input type="text" name="prefix"<#if prefix??>value="${prefix}"</#if>/><br>
