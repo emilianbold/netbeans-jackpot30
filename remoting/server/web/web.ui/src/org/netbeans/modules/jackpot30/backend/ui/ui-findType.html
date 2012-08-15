@@ -34,16 +34,35 @@
                                 title: 'Show'
                             });
         }
+        function checkAllProjectsCheckBox() {
+            allChecked = $('.projectCheckBox').filter(function(index) {
+                return !this.checked;
+            }).length == 0;
+            if (!allChecked) $('#allProjectsCheckBox')[0].checked = false;
+        }
+        function checkCheckBoxes() {
+            if (!$('#allProjectsCheckBox')[0].checked) return;
+            allChecked = $('.projectCheckBox').each(function(index) {
+                this.checked = true;
+            }).length == 0;
+        }
+        $(document).ready(function() {
+            checkAllProjectsCheckBox();
+        })
     </script>
 </head>
 <body>
 <form method="get">
+<label for="prefix">Search for:</label><input type="text" name="prefix"<#if prefix??>value="${prefix}"</#if>/><br>
 <label>Projects:</label>
+<table><tr>
+        <td>    <input id="allProjectsCheckBox" type="checkbox" onclick="checkCheckBoxes();" checked="yes">All</input>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
 <#list paths as path>
-    <input type="checkbox" name="path" value="${path.segment}" <#if selectedPath?? && selectedPath?seq_contains(path.segment)> checked="yes"</#if>>${path.displayName}</input>
+<td><input class="projectCheckBox" type="checkbox" name="path" onclick="checkAllProjectsCheckBox();" value="${path.segment}" <#if !selectedPath?? || selectedPath?seq_contains(path.segment)> checked="yes"</#if>>${path.displayName}</input>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</td>
+<#if path_index % 5 == 3></tr><tr></#if>
 </#list>
+    </tr></table>
 <br>
-<label for="prefix">Symbol Prefix:</label><input type="text" name="prefix"<#if prefix??>value="${prefix}"</#if>/><br>
 <input type="submit" name="Find Candidates"/>
 </form>
 
