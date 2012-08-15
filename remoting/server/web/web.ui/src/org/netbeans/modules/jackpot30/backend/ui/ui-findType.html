@@ -6,9 +6,9 @@
     <script type="text/javascript">
         function methodPopup(relativePath, resultFile, signature) {
             $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
-                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
+                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the defining project</a><br>' +
                              '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>' +
-                             '<a href="/index/ui/implements?path=' + relativePath + '&method=' + signature + '">Overriders in the current project</a><br>' +
+                             '<a href="/index/ui/implements?path=' + relativePath + '&method=' + signature + '">Overriders in the defining project</a><br>' +
                              '<a href="/index/ui/implements?method=' + signature + '">Overriders in all known projects</a><br>')
                             .dialog({
                                 title: 'Show',
@@ -17,9 +17,9 @@
         }
         function classPopup(relativePath, resultFile, signature) {
             $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
-                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
+                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the defining project</a><br>' +
                              '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>' +
-                             '<a href="/index/ui/implements?path=' + relativePath + '&type=' + signature + '">Subtypes in the current project</a><br>' +
+                             '<a href="/index/ui/implements?path=' + relativePath + '&type=' + signature + '">Subtypes in the defining project</a><br>' +
                              '<a href="/index/ui/implements?type=' + signature + '">Subtypes in all known projects</a><br>')
                             .dialog({
                                 title: 'Show',
@@ -28,7 +28,7 @@
         }
         function otherPopup(relativePath, resultFile, signature) {
             $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
-                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the current project</a><br>' +
+                             '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the defining project</a><br>' +
                              '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>')
                             .dialog({
                                 title: 'Show'
@@ -38,14 +38,10 @@
 </head>
 <body>
 <form method="get">
-<label for="path">Project:</label>
-<select size="1" name="path">");
-    <#list paths as path>
-        <option <#if selectedPath?? && path.segment == selectedPath>selected</#if> value="${path.segment}">
-            ${path.displayName}
-        </option>
-    </#list>
-</select>
+<label>Projects:</label>
+<#list paths as path>
+    <input type="checkbox" name="path" value="${path.segment}" <#if selectedPath?seq_contains(path.segment)> checked="yes"</#if>>${path.displayName}</input>
+</#list>
 <br>
 <label for="prefix">Symbol Prefix:</label><input type="text" name="prefix"<#if prefix??>value="${prefix}"</#if>/><br>
 <input type="submit" name="Find Candidates"/>
@@ -53,17 +49,24 @@
 
 <#if results??>
     Found symbols:<br>
+    <table>
         <#list results as result>
+        <tr>
+            <td>
+                <nobr>
                 <img src="/index/icons/${result.icon}" alt="${result.kind}"/>
                 <#if result.kind == "METHOD">
-                    <a href="javascript: methodPopup('${selectedPath}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}:${result.signature}')">
+                    <a href="javascript: methodPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}:${result.signature}')">
                 <#elseif result.kind == "CLASS" || result.kind == "INTERFACE" || result.kind == "ENUM" || result.kind == "ANNOTATION_TYPE">
-                    <a href="javascript: classPopup('${selectedPath}', '${result.file}', '${result.kind}:${result.fqn}')">
+                    <a href="javascript: classPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.fqn}')">
                 <#else>
-                    <a href="javascript: otherPopup('${selectedPath}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}')">
+                    <a href="javascript: otherPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}')">
                 </#if>
                 ${result.displayName?replace("&", "&amp;")?replace("<", "&lt;")}</a> in ${result.enclosingFQN?replace("&", "&amp;")?replace("<", "&lt;")}
-                <br>
+                </nobr>
+            </td>
+            <td width="100%" align="right">${result.segment.displayName?replace("&", "&amp;")?replace("<", "&lt;")}</td>
+        </tr>
         </#list>
 </#if>
 
