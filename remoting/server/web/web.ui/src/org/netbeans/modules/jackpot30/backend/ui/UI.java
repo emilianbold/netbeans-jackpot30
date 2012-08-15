@@ -354,7 +354,7 @@ public class UI {
     private Map<String, Object> usagesSubclassesImpl(String segment, String elementSignature, String dataKey, ComputeSegmentData computeSegmentData) throws URISyntaxException, TemplateException, IOException {
         List<Map<String, String>> segments2Process = new ArrayList<Map<String, String>>();
 
-        for (Map<String, String> m : list()) {
+        for (Map<String, String> m : list().values()) {
             if (segment != null) {
                 if (segment.equals(m.get("segment"))) {
                     segments2Process.add(m);
@@ -410,8 +410,8 @@ public class UI {
         return elementDisplayName.toString();
     }
 
-    private static List<Map<String, String>> list() throws URISyntaxException {
-        List<Map<String, String>> result = new LinkedList<Map<String, String>>();
+    private static Map<String, Map<String, String>> list() throws URISyntaxException {
+        Map<String, Map<String, String>> result = new LinkedHashMap<String, Map<String, String>>();
 
         for (String enc : WebUtilities.requestStringArrayResponse(new URI(URL_BASE + "/list"))) {
             Map<String, String> rootDesc = new HashMap<String, String>();
@@ -419,7 +419,7 @@ public class UI {
 
             rootDesc.put("segment", col[0]);
             rootDesc.put("displayName", col[1]);
-            result.add(rootDesc);
+            result.put(col[0], rootDesc);
         }
 
         return result;
