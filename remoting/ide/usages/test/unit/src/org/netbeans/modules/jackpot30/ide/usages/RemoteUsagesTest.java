@@ -53,6 +53,7 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
+import org.netbeans.modules.refactoring.spi.ui.TreeElement;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.nodes.Node;
@@ -61,9 +62,9 @@ import org.openide.nodes.Node;
  *
  * @author lahvac
  */
-public class NodesTest extends NbTestCase {
+public class RemoteUsagesTest extends NbTestCase {
 
-    public NodesTest(String testName) {
+    public RemoteUsagesTest(String testName) {
         super(testName);
     }
 
@@ -76,13 +77,13 @@ public class NodesTest extends NbTestCase {
                                              "}\n");
         CompilationInfo info = SourceUtilsTestUtil.getCompilationInfo(JavaSource.forFileObject(data), Phase.RESOLVED);
         ElementHandle<?> eh = ElementHandle.create(info.getTopLevelElements().get(0).getEnclosedElements().get(0));
-        List<Node> constructed = new ArrayList<Node>();
+        List<TreeElement> constructed = new ArrayList<TreeElement>();
 
-        Nodes.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.USAGES), constructed);
+        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.USAGES), null, constructed);
 
-        Node n = constructed.get(0);
+        TreeElement n = constructed.get(0);
 
-        assertEquals("    private void test() { new <b>Test</b>(); }<br>", n.getHtmlDisplayName());
+        assertEquals("private void test() { new <b>Test</b>(); }", n.getText(true));
     }
 
     public void testMethodImplementations() throws Exception {
@@ -100,15 +101,15 @@ public class NodesTest extends NbTestCase {
         assertNotNull(runnable);
 
         ElementHandle<?> eh = ElementHandle.create(runnable.getEnclosedElements().get(0));
-        List<Node> constructed = new ArrayList<Node>();
+        List<TreeElement> constructed = new ArrayList<TreeElement>();
 
-        Nodes.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), constructed);
+        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), null, constructed);
 
         assertEquals(1, constructed.size());
         
-        Node n = constructed.get(0);
+        TreeElement n = constructed.get(0);
 
-        assertEquals("    public void <b>run</b>() {<br>", n.getHtmlDisplayName());
+        assertEquals("public void <b>run</b>() {", n.getText(true));
     }
 
     public void testSubtypes() throws Exception {
@@ -126,15 +127,15 @@ public class NodesTest extends NbTestCase {
         assertNotNull(runnable);
 
         ElementHandle<?> eh = ElementHandle.create(runnable);
-        List<Node> constructed = new ArrayList<Node>();
+        List<TreeElement> constructed = new ArrayList<TreeElement>();
 
-        Nodes.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), constructed);
+        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), null, constructed);
 
         assertEquals(1, constructed.size());
 
-        Node n = constructed.get(0);
+        TreeElement n = constructed.get(0);
 
-        assertEquals("public class <b>Test</b> implements Runnable {<br>", n.getHtmlDisplayName());
+        assertEquals("public class <b>Test</b> implements Runnable {", n.getText(true));
     }
 
     @Override
