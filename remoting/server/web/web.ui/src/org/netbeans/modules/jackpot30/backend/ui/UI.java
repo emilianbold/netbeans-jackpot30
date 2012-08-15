@@ -82,80 +82,90 @@ public class UI {
     @GET
     @Path("/search")
     @Produces("text/html")
-    public String searchType(@QueryParam("path") String path, @QueryParam("prefix") String prefix) throws URISyntaxException, IOException, TemplateException {
+    public String searchType(@QueryParam("path") List<String> paths, @QueryParam("prefix") String prefix) throws URISyntaxException, IOException, TemplateException {
         Map<String, Object> configurationData = new HashMap<String, Object>();
+        Map<String,Map<String, String>> pathsList = list();
 
-        configurationData.put("paths", list());
-        configurationData.put("selectedPath", path);
+        configurationData.put("paths", pathsList.values());
+        configurationData.put("selectedPath", paths);
         configurationData.put("prefix", prefix);
 
-        if (prefix != null && path != null) {
-            URI u = new URI(URL_BASE + "/symbol/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
-            @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
-            Map<String, List<Map<String, Object>>> symbols = Pojson.load(LinkedHashMap.class, u);
+        if (prefix != null && paths != null) {
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
 
-            for (Entry<String, List<Map<String, Object>>> e : symbols.entrySet()) {
-                for (Map<String, Object> found : e.getValue()) {
-                    found.put("icon", getElementIcon((String) found.get("kind"), (Collection<String>) found.get("modifiers")));
-                    if ("METHOD".equals(found.get("kind")) || "CONSTRUCTOR".equals(found.get("kind"))) {
-                        found.put("displayName", found.get("simpleName") + decodeMethodSignature((String) found.get("signature")));
-                    } else {
-                        found.put("displayName", found.get("simpleName"));
-                    }
+            for (String path : paths) {
+                URI u = new URI(URL_BASE + "/symbol/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
+                @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+                Map<String, List<Map<String, Object>>> symbols = Pojson.load(LinkedHashMap.class, u);
+                Map<String, ?> segmentDescription = pathsList.get(path);
 
-                    results.add(found);
+                for (Entry<String, List<Map<String, Object>>> e : symbols.entrySet()) {
+                    for (Map<String, Object> found : e.getValue()) {
+                        found.put("icon", getElementIcon((String) found.get("kind"), (Collection<String>) found.get("modifiers")));
+                        if ("METHOD".equals(found.get("kind")) || "CONSTRUCTOR".equals(found.get("kind"))) {
+                            found.put("displayName", found.get("simpleName") + decodeMethodSignature((String) found.get("signature")));
+                        } else {
+                            found.put("displayName", found.get("simpleName"));
+                        }
+
+                        found.put("segment", segmentDescription);
+
+                        results.add(found);
+                    }
                 }
+
+                URI typeSearch = new URI(URL_BASE + "/type/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
+                @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+                Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, typeSearch);
+
+                for (Entry<String, List<String>> e : types.entrySet()) {
+                    for (String fqn : e.getValue()) {
+                        Map<String, Object> result = new HashMap<String, Object>();
+
+                        result.put("icon", getElementIcon("CLASS", Collections.<String>emptyList()));
+                        result.put("kind", "CLASS");
+                        result.put("fqn", fqn);
+
+                        String displayName = fqn;
+                        String enclosingFQN = "";
+
+                        if (displayName.lastIndexOf('.') > 0) {
+                            displayName = displayName.substring(displayName.lastIndexOf('.') + 1);
+                            enclosingFQN = fqn.substring(0, fqn.lastIndexOf('.'));
+                        }
+
+                        if (displayName.lastIndexOf('$') > 0) {
+                            displayName = displayName.substring(displayName.lastIndexOf('$') + 1);
+                            enclosingFQN = fqn.substring(0, fqn.lastIndexOf('$'));
+                        }
+
+                        result.put("displayName", displayName);
+                        result.put("enclosingFQN", enclosingFQN);
+
+                        if (fqn.contains("$")) {
+                            fqn = fqn.substring(0, fqn.indexOf("$"));
+                        }
+
+                        result.put("file", e.getKey() + fqn.replace('.', '/') + ".java");
+
+                        result.put("segment", segmentDescription);
+
+                        results.add(result);
+                    }
+                }
+
+                Collections.sort(results, new Comparator<Map<String, Object>>() {
+                    @Override public int compare(Map<String, Object> o1, Map<String, Object> o2) {
+                        int r = ((String) o1.get("displayName")).compareTo((String) o2.get("displayName"));
+
+                        if (r == 0) {
+                            r = ((String) o1.get("enclosingFQN")).compareTo((String) o2.get("enclosingFQN"));
+                        }
+                        return r;
+                    }
+                });
+
             }
-
-            URI typeSearch = new URI(URL_BASE + "/type/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
-            @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
-            Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, typeSearch);
-
-            for (Entry<String, List<String>> e : types.entrySet()) {
-                for (String fqn : e.getValue()) {
-                    Map<String, Object> result = new HashMap<String, Object>();
-
-                    result.put("icon", getElementIcon("CLASS", Collections.<String>emptyList()));
-                    result.put("kind", "CLASS");
-                    result.put("fqn", fqn);
-
-                    String displayName = fqn;
-                    String enclosingFQN = "";
-
-                    if (displayName.lastIndexOf('.') > 0) {
-                        displayName = displayName.substring(displayName.lastIndexOf('.') + 1);
-                        enclosingFQN = fqn.substring(0, fqn.lastIndexOf('.'));
-                    }
-
-                    if (displayName.lastIndexOf('$') > 0) {
-                        displayName = displayName.substring(displayName.lastIndexOf('$') + 1);
-                        enclosingFQN = fqn.substring(0, fqn.lastIndexOf('$'));
-                    }
-
-                    result.put("displayName", displayName);
-                    result.put("enclosingFQN", enclosingFQN);
-
-                    if (fqn.contains("$")) {
-                        fqn = fqn.substring(0, fqn.indexOf("$"));
-                    }
-
-                    result.put("file", e.getKey() + fqn.replace('.', '/') + ".java");
-
-                    results.add(result);
-                }
-            }
-
-            Collections.sort(results, new Comparator<Map<String, Object>>() {
-                @Override public int compare(Map<String, Object> o1, Map<String, Object> o2) {
-                    int r = ((String) o1.get("displayName")).compareTo((String) o2.get("displayName"));
-
-                    if (r == 0) {
-                        r = ((String) o1.get("enclosingFQN")).compareTo((String) o2.get("enclosingFQN"));
-                    }
-                    return r;
-                }
-            });
 
             configurationData.put("results", results);
         }
