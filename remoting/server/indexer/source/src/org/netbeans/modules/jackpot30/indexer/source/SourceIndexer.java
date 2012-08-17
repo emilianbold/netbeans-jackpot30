@@ -45,7 +45,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
-import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.lucene.document.CompressionTools;
@@ -54,11 +54,14 @@ import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
+import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
 import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexer;
 import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.URLMapper;
 
 /**
  *
@@ -76,11 +79,20 @@ public class SourceIndexer extends CustomIndexer {
                 String relPath = IndexAccessor.getCurrent().getPath(i.getURL());
 
                 if (relPath == null) continue;
+
+                FileObject file = URLMapper.findFileObject(i.getURL());
+
+                if (file == null) {
+                    //TODO: log
+                    continue;
+                }
                 
                 Document doc = new Document();
 
                 doc.add(new Field("relativePath", relPath, Store.YES, Index.NOT_ANALYZED));
-                doc.add(new Field(KEY_CONTENT, CompressionTools.compressString(readFully(i.getURL())), Store.YES));
+                doc.add(new Field(KEY_CONTENT, CompressionTools.compressString(readFully(file)), Store.YES));
+                doc.add(new Field("fileMimeType", file.getMIMEType(), Store.YES, Index.NO));
+                doc.add(new Field("sizeInBytes", Long.toString(file.getSize()), Store.YES, Index.NO));
 
                 IndexAccessor.getCurrent().getIndexWriter().addDocument(doc);
             }
@@ -89,12 +101,13 @@ public class SourceIndexer extends CustomIndexer {
         }
     }
 
-    private static String readFully(URL source) throws IOException {
+    private static String readFully(FileObject source) throws IOException {
         Reader in = null;
         StringBuilder result = new StringBuilder();
 
         try {
-            in = new BufferedReader(new InputStreamReader(source.openStream(), "UTF-8"));
+            Charset charset = FileEncodingQuery.getEncoding(source);
+            in = new BufferedReader(new InputStreamReader(source.getInputStream(), charset));
 
             int read;
 

@@ -46,10 +46,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.jar.JarOutputStream;
@@ -58,6 +59,7 @@ import java.util.logging.Logger;
 import java.util.zip.ZipEntry;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -70,6 +72,7 @@ import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
+import org.netbeans.modules.jackpot30.backend.impl.spi.StatisticsGenerator;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.support.ant.PropertyUtils;
@@ -174,6 +177,27 @@ public class OptionProcessorImpl extends OptionProcessor {
             }
         }
 
+        Map<String, Long> statistics = Collections.emptyMap();
+        IndexReader r = null;
+
+        try {
+            r = IndexReader.open(FSDirectory.open(FileUtil.toFile(cacheTemp)), true);
+
+            statistics = StatisticsGenerator.generateStatistics(r);
+        } catch (CorruptIndexException ex) {
+            Exceptions.printStackTrace(ex);
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        } finally {
+            if (r != null) {
+                try {
+                    r.close();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+        }
+
         JarOutputStream out = null;
         InputStream segments = null;
 
@@ -221,6 +245,14 @@ public class OptionProcessorImpl extends OptionProcessor {
                     out.write((",\n\"" + infoValue.substring(0, eqSign) + "\": \"" + infoValue.substring(eqSign + 1) + "\"").getBytes("UTF-8"));
                 }
             }
+            out.write(",\n \"statistics\" : {\n".getBytes("UTF-8"));
+            boolean wasEntry = false;
+            for (Entry<String, Long> e : statistics.entrySet()) {
+                if (wasEntry) out.write(", \n".getBytes("UTF-8"));
+                out.write(("\"" + e.getKey() + "\" : " + e.getValue()).getBytes("UTF-8"));
+                wasEntry = true;
+            }
+            out.write("\n}\n".getBytes("UTF-8"));
             out.write("\n}\n".getBytes("UTF-8"));
 
             for (FileObject s : cacheFolder.getChildren()) {
