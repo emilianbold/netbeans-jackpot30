@@ -248,6 +248,44 @@ public class IndexerImplTest extends NbTestCase {
         assertTrue(foundA);
     }
 
+    public void testTreePositions() throws IOException {
+        doPositionTests("package test; public class Test { private Test() { ^Sy|stem.err.println(1); } }");
+        doPositionTests("package test; public class Test { private Test() { System.^e|rr.println(1); } }");
+        doPositionTests("package test; public class Test { private Test() { System.err.^p|rintln(1); } }");
+    }
+
+    private void doPositionTests(String code) throws IOException {
+        final int caret = code.replace("^", "").indexOf('|');
+
+        assertTrue("" + caret, caret != (-1));
+
+        code = code.replace("|", "");
+
+        final int expected = code.indexOf('^');
+
+        assertTrue("" + expected, expected != (-1));
+
+        FileObject testFile = FileUtil.createData(new File(getWorkDir(), "Test.java"));
+
+        copyToFile(testFile, code.replace("^", ""));
+
+        final boolean[] invoked = new boolean[1];
+
+        JavaSource.forFileObject(testFile).runUserActionTask(new Task<CompilationController>() {
+            @Override public void run(CompilationController parameter) throws Exception {
+                parameter.toPhase(JavaSource.Phase.RESOLVED);
+
+                TreePath tp = parameter.getTreeUtilities().pathFor(caret);
+
+                assertEquals(expected, IndexerImpl.treePosition(parameter.getTrees(), tp));
+
+                invoked[0] = true;
+            }
+        }, true);
+
+        assertTrue(invoked[0]);
+    }
+
     private void copyToFile(FileObject testFile, String code) throws IOException {
         OutputStream out = testFile.getOutputStream();
         

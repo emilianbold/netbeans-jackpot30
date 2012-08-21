@@ -47,7 +47,9 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import java.io.IOException;
@@ -113,6 +115,15 @@ public class IndexerImpl implements JavaIndexerPlugin {
         this.root = root;
     }
 
+    static long treePosition(Trees trees, TreePath tree) {
+        switch (tree.getLeaf().getKind()) {
+            case MEMBER_SELECT:
+                return trees.getSourcePositions().getEndPosition(tree.getCompilationUnit(), tree.getLeaf()) - ((MemberSelectTree) tree.getLeaf()).getIdentifier().length();
+        }
+
+        return trees.getSourcePositions().getStartPosition(tree.getCompilationUnit(), tree.getLeaf());
+    }
+
     @Override
     public void process(CompilationUnitTree toProcess, Indexable indexable, Lookup services) {
         if (!IndexAccessor.getCurrent().isAcceptable(indexable.getURL())) return;
@@ -155,7 +166,7 @@ public class IndexerImpl implements JavaIndexerPlugin {
                             usages.add(new Field(KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
                         }
 
-                        long pos = trees.getSourcePositions().getStartPosition(getCurrentPath().getCompilationUnit(), getCurrentPath().getLeaf());
+                        long pos = treePosition(trees, getCurrentPath());
 
                         if (NAVIGABLE) {
                             attributedSignatures.append(Long.toString(pos));
@@ -213,6 +224,10 @@ public class IndexerImpl implements JavaIndexerPlugin {
 
                                 currentClassDocument.add(new Field("file", file, Store.YES, Index.NOT_ANALYZED));
                                 currentClassDocument.add(new Field(KEY_MARKER, "true", Store.NO, Index.NOT_ANALYZED));
+
+                                if (NAVIGABLE) {
+                                    currentClassDocument.add(new Field("declarationSignature", Common.serialize(ElementHandle.create(el)), Store.YES, Index.NOT_ANALYZED));
+                                }
 
                                 IndexAccessor.getCurrent().getIndexWriter().addDocument(currentClassDocument);
                             } catch (CorruptIndexException ex) {
@@ -276,6 +291,10 @@ public class IndexerImpl implements JavaIndexerPlugin {
                                 for (ExecutableElement e : overrides(types, elements, (ExecutableElement) el)) {
                                     currentFeatureDocument.add(new Field("featureOverrides", Common.serialize(ElementHandle.create(e)), Store.YES, Index.NOT_ANALYZED));
                                 }
+                            }
+
+                            if (NAVIGABLE) {
+                                currentFeatureDocument.add(new Field("declarationSignature", Common.serialize(ElementHandle.create(el)), Store.YES, Index.NOT_ANALYZED));
                             }
 
                             IndexAccessor.getCurrent().getIndexWriter().addDocument(currentFeatureDocument);
