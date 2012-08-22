@@ -227,6 +227,7 @@ public class IndexerImpl implements JavaIndexerPlugin {
 
                                 if (NAVIGABLE) {
                                     currentClassDocument.add(new Field("declarationSignature", Common.serialize(ElementHandle.create(el)), Store.YES, Index.NOT_ANALYZED));
+                                    currentClassDocument.add(new Field("declarationPosition", Long.toString(trees.getSourcePositions().getStartPosition(getCurrentPath().getCompilationUnit(), node)), Store.YES, Index.NO));
                                 }
 
                                 IndexAccessor.getCurrent().getIndexWriter().addDocument(currentClassDocument);
@@ -295,6 +296,7 @@ public class IndexerImpl implements JavaIndexerPlugin {
 
                             if (NAVIGABLE) {
                                 currentFeatureDocument.add(new Field("declarationSignature", Common.serialize(ElementHandle.create(el)), Store.YES, Index.NOT_ANALYZED));
+                                currentFeatureDocument.add(new Field("declarationPosition", Long.toString(trees.getSourcePositions().getStartPosition(getCurrentPath().getCompilationUnit(), getCurrentPath().getLeaf())), Store.YES, Index.NO));
                             }
 
                             IndexAccessor.getCurrent().getIndexWriter().addDocument(currentFeatureDocument);
