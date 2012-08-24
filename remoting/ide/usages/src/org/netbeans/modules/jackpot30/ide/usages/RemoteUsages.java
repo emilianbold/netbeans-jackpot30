@@ -221,7 +221,7 @@ public final class RemoteUsages {
                             OUTER: while (true) {
                                 switch (name.getLeaf().getKind()) {
                                     case PARAMETERIZED_TYPE: name = new TreePath(name, ((ParameterizedTypeTree) name.getLeaf()).getType()); break;
-                                    case MEMBER_SELECT: simpleName = ((MemberSelectTree) name).getIdentifier(); break OUTER;
+                                    case MEMBER_SELECT: simpleName = ((MemberSelectTree) name.getLeaf()).getIdentifier(); break OUTER;
                                     case IDENTIFIER: simpleName = ((IdentifierTree) name.getLeaf()).getName(); break OUTER;
                                     default: name = getCurrentPath(); break OUTER;
                                 }
