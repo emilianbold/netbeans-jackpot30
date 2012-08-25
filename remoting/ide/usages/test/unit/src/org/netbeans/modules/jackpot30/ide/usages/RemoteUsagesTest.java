@@ -44,6 +44,7 @@ package org.netbeans.modules.jackpot30.ide.usages;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.TypeElement;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.ElementHandle;
@@ -56,7 +57,6 @@ import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.refactoring.spi.ui.TreeElement;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.nodes.Node;
 
 /**
  *
@@ -79,7 +79,7 @@ public class RemoteUsagesTest extends NbTestCase {
         ElementHandle<?> eh = ElementHandle.create(info.getTopLevelElements().get(0).getEnclosedElements().get(0));
         List<TreeElement> constructed = new ArrayList<TreeElement>();
 
-        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.USAGES), null, constructed);
+        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.USAGES), null, new AtomicBoolean(), constructed);
 
         TreeElement n = constructed.get(0);
 
@@ -103,7 +103,7 @@ public class RemoteUsagesTest extends NbTestCase {
         ElementHandle<?> eh = ElementHandle.create(runnable.getEnclosedElements().get(0));
         List<TreeElement> constructed = new ArrayList<TreeElement>();
 
-        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), null, constructed);
+        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), null, new AtomicBoolean(), constructed);
 
         assertEquals(1, constructed.size());
         
@@ -129,7 +129,7 @@ public class RemoteUsagesTest extends NbTestCase {
         ElementHandle<?> eh = ElementHandle.create(runnable);
         List<TreeElement> constructed = new ArrayList<TreeElement>();
 
-        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), null, constructed);
+        RemoteUsages.computeOccurrences(data, eh, EnumSet.of(RemoteUsages.SearchOptions.SUB), null, new AtomicBoolean(), constructed);
 
         assertEquals(1, constructed.size());
 

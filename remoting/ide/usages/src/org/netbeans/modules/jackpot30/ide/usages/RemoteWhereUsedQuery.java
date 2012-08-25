@@ -21,14 +21,16 @@ import org.netbeans.modules.refactoring.api.AbstractRefactoring;
 import org.netbeans.modules.refactoring.api.Problem;
 import org.netbeans.modules.refactoring.api.RefactoringElement;
 import org.netbeans.modules.refactoring.api.Scope;
-import org.netbeans.modules.refactoring.api.ScopeDescription;
-import org.netbeans.modules.refactoring.api.ScopeProvider;
 import org.netbeans.modules.refactoring.api.WhereUsedQuery;
+import org.netbeans.modules.refactoring.java.api.WhereUsedQueryConstants;
 import org.netbeans.modules.refactoring.spi.RefactoringElementsBag;
 import org.netbeans.modules.refactoring.spi.RefactoringPlugin;
 import org.netbeans.modules.refactoring.spi.RefactoringPluginFactory;
 import org.netbeans.modules.refactoring.spi.SimpleRefactoringElementImplementation;
 import org.netbeans.modules.refactoring.spi.ui.ExpandableTreeElement;
+import org.netbeans.modules.refactoring.spi.ui.ScopeDescription;
+import org.netbeans.modules.refactoring.spi.ui.ScopeProvider;
+import org.netbeans.modules.refactoring.spi.ui.ScopeReference;
 import org.netbeans.modules.refactoring.spi.ui.TreeElement;
 import org.netbeans.modules.refactoring.spi.ui.TreeElementFactory;
 import org.netbeans.modules.refactoring.spi.ui.TreeElementFactoryImplementation;
@@ -75,6 +77,15 @@ public class RemoteWhereUsedQuery implements RefactoringPlugin {
         TreePathHandle handle = what.getRefactoringSource().lookup(TreePathHandle.class);
         ElementHandle<?> toSearch = handle.getElementHandle();
         Set<SearchOptions> searchOptions = EnumSet.noneOf(SearchOptions.class);
+        if(what.getBooleanValue(WhereUsedQuery.FIND_REFERENCES)) {
+            searchOptions.add(SearchOptions.USAGES);
+        }
+        if(what.getBooleanValue(WhereUsedQueryConstants.FIND_SUBCLASSES)) {
+            searchOptions.add(SearchOptions.SUB);
+        }
+        if(what.getBooleanValue(WhereUsedQueryConstants.SEARCH_FROM_BASECLASS)) {
+            searchOptions.add(SearchOptions.FROM_BASE);
+        }
 
         for (FileObject found : RemoteUsages.findUsages(toSearch, searchOptions, /*XXX*/new AtomicBoolean())) {
             Impl i = new Impl(found, toSearch, searchOptions);
@@ -173,6 +184,7 @@ public class RemoteWhereUsedQuery implements RefactoringPlugin {
 
         private final Impl impl;
         private final TreeElement delegateTo;
+        private final AtomicBoolean cancel = new AtomicBoolean();
 
         public TreeElementImpl(Impl impl, TreeElement delegateTo) {
             this.impl = impl;
@@ -201,38 +213,42 @@ public class RemoteWhereUsedQuery implements RefactoringPlugin {
 
         @Override
         public Iterator<TreeElement> iterator() {
+            cancel.set(false);
+
             final List<TreeElement> result = new ArrayList<TreeElement>();
 
-            RemoteUsages.computeOccurrences(impl.file, impl.eh, impl.searchOptions, this, result);
+            RemoteUsages.computeOccurrences(impl.file, impl.eh, impl.searchOptions, this, cancel, result);
             
             return result.iterator();
         }
 
         @Override
-        public int estimateSubNodesCount() {
+        public int estimateChildCount() {
             return 1;
+        }
+
+        @Override
+        public boolean cancel() {
+            cancel.set(true);
+
+            return true;
         }
     }
 
     private static final Scope REMOTE_SCOPE = Scope.create(Collections.<FileObject>emptyList(), Collections.<NonRecursiveFolder>emptyList(), Collections.<FileObject>emptyList());
-    private static final ScopeDescription REMOTE_SCOPE_DESCRIPTION = new ScopeDescription("remote-scope", "Remote Scope", null, "A") {
-        @Override public Scope getScope() {
-            return REMOTE_SCOPE;
-        }
-    };
-
-    @ServiceProvider(service=ScopeProvider.class)
-    public static final class ScopeProviderImpl implements ScopeProvider {
+    
+    @ScopeDescription(id="remote-scope", displayName="Remote Scope", position=-300)
+    @ScopeReference(path="org-netbeans-modules-refactoring-java-ui-WhereUsedPanel")
+    public static class RemoteScopeProvider extends ScopeProvider {
 
         @Override
-        public Iterable<ScopeDescription> scopesFor(Lookup source) {
-            if (RemoteIndex.loadIndices().iterator().hasNext()) {
-                return Collections.singletonList(REMOTE_SCOPE_DESCRIPTION);
-            } else {
-                return Collections.emptyList();
-            }
+        public boolean initialize(Lookup context, AtomicBoolean cancel) {
+            return RemoteIndex.loadIndices().iterator().hasNext();
         }
 
+        @Override
+        public Scope getScope() {
+            return REMOTE_SCOPE;
+        }
     }
-
 }

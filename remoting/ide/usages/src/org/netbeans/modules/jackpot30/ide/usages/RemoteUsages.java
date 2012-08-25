@@ -189,12 +189,14 @@ public final class RemoteUsages {
         FROM_BASE;
     }
 
-    public static boolean computeOccurrences(FileObject file, final ElementHandle<?> eh, final Set<RemoteUsages.SearchOptions> options, final TreeElement parent, final List<TreeElement> toPopulate) {
+    public static boolean computeOccurrences(FileObject file, final ElementHandle<?> eh, final Set<RemoteUsages.SearchOptions> options, final TreeElement parent, final AtomicBoolean stop, final List<TreeElement> toPopulate) {
         final boolean[] success = new boolean[] {true};
 
         try {
             JavaSource.forFileObject(file).runUserActionTask(new Task<CompilationController>() {
                 @Override public void run(final CompilationController parameter) throws Exception {
+                    if (stop.get()) return ;
+
                     parameter.toPhase(Phase.RESOLVED);
 
                     final Element toFind = eh.resolve(parameter);
@@ -202,8 +204,6 @@ public final class RemoteUsages {
                     if (toFind == null) {
                         return;
                     }
-
-                    final AtomicBoolean stop = new AtomicBoolean();
 
                     new CancellableTreePathScanner<Void, Void>(stop) {
                         @Override public Void visitIdentifier(IdentifierTree node, Void p) {
@@ -221,7 +221,7 @@ public final class RemoteUsages {
                             OUTER: while (true) {
                                 switch (name.getLeaf().getKind()) {
                                     case PARAMETERIZED_TYPE: name = new TreePath(name, ((ParameterizedTypeTree) name.getLeaf()).getType()); break;
-                                    case MEMBER_SELECT: simpleName = ((MemberSelectTree) name).getIdentifier(); break OUTER;
+                                    case MEMBER_SELECT: simpleName = ((MemberSelectTree) name.getLeaf()).getIdentifier(); break OUTER;
                                     case IDENTIFIER: simpleName = ((IdentifierTree) name.getLeaf()).getName(); break OUTER;
                                     default: name = getCurrentPath(); break OUTER;
                                 }
