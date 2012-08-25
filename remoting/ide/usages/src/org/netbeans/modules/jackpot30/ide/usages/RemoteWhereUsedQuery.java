@@ -184,6 +184,7 @@ public class RemoteWhereUsedQuery implements RefactoringPlugin {
 
         private final Impl impl;
         private final TreeElement delegateTo;
+        private final AtomicBoolean cancel = new AtomicBoolean();
 
         public TreeElementImpl(Impl impl, TreeElement delegateTo) {
             this.impl = impl;
@@ -212,9 +213,11 @@ public class RemoteWhereUsedQuery implements RefactoringPlugin {
 
         @Override
         public Iterator<TreeElement> iterator() {
+            cancel.set(false);
+
             final List<TreeElement> result = new ArrayList<TreeElement>();
 
-            RemoteUsages.computeOccurrences(impl.file, impl.eh, impl.searchOptions, this, result);
+            RemoteUsages.computeOccurrences(impl.file, impl.eh, impl.searchOptions, this, cancel, result);
             
             return result.iterator();
         }
@@ -226,7 +229,8 @@ public class RemoteWhereUsedQuery implements RefactoringPlugin {
 
         @Override
         public boolean cancel() {
-            // TODO: XXX
+            cancel.set(true);
+
             return true;
         }
     }
