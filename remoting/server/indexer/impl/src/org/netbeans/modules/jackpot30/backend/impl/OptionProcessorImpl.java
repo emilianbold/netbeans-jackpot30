@@ -295,26 +295,26 @@ public class OptionProcessorImpl extends OptionProcessor {
         LifecycleManager.getDefault().exit();
     }
 
-    private Set<FileObject> getRoots(String[] projects, Env env) throws IllegalArgumentException, InterruptedException {
+    private Set<FileObject> getRoots(String[] projects, Env env) {
         Set<FileObject> sourceRoots = new HashSet<FileObject>(projects.length * 4 / 3 + 1);
 
         for (String p : projects) {
-            LOG.log(Level.FINE, "Processing project specified as: {0}", p);
-            File f = PropertyUtils.resolveFile(env.getCurrentDirectory(), p);
-            File normalized = FileUtil.normalizeFile(f);
-            FileObject prjFO = FileUtil.toFileObject(normalized);
-
-            if (prjFO == null) {
-                env.getErrorStream().println("Project location cannot be found: " + p);
-                continue;
-            }
-
-            if (!prjFO.isFolder()) {
-                env.getErrorStream().println("Project specified as: " + p + " does not point to a directory (" + FileUtil.getFileDisplayName(prjFO));
-                continue;
-            }
-
             try {
+                LOG.log(Level.FINE, "Processing project specified as: {0}", p);
+                File f = PropertyUtils.resolveFile(env.getCurrentDirectory(), p);
+                File normalized = FileUtil.normalizeFile(f);
+                FileObject prjFO = FileUtil.toFileObject(normalized);
+
+                if (prjFO == null) {
+                    env.getErrorStream().println("Project location cannot be found: " + p);
+                    continue;
+                }
+
+                if (!prjFO.isFolder()) {
+                    env.getErrorStream().println("Project specified as: " + p + " does not point to a directory (" + FileUtil.getFileDisplayName(prjFO));
+                    continue;
+                }
+
                 Project prj = ProjectManager.getDefault().findProject(prjFO);
 
                 if (prj == null) {
@@ -334,12 +334,12 @@ public class OptionProcessorImpl extends OptionProcessor {
                     LOG.log(Level.FINE, "Found source group: {0}", FileUtil.getFileDisplayName(sg.getRootFolder()));
                     sourceRoots.add(sg.getRootFolder());
                 }
-            } catch (IOException ex) {
+            } catch (ThreadDeath td) {
+                throw td;
+            } catch (Throwable ex) {
                 LOG.log(Level.FINE, null, ex);
                 Exceptions.printStackTrace(ex);
-            } catch (IllegalArgumentException ex) {
-                LOG.log(Level.FINE, null, ex);
-                Exceptions.printStackTrace(ex);
+                env.getErrorStream().println("Cannot work with project specified as: " + p + " (" + ex.getLocalizedMessage() + ")");
             }
         }
 
