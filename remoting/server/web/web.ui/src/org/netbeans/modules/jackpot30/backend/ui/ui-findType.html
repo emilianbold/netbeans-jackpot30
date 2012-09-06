@@ -75,7 +75,7 @@
                 <nobr>
                 <img src="/index/icons/${result.icon}" alt="${result.kind}"/>
                 <#if result.kind == "METHOD">
-                    <a href="javascript: methodPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}:${result.signature}')">
+                    <a href="javascript: methodPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}:${result.vmsignature};')">
                 <#elseif result.kind == "CLASS" || result.kind == "INTERFACE" || result.kind == "ENUM" || result.kind == "ANNOTATION_TYPE">
                     <a href="javascript: classPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.fqn}')">
                 <#else>
@@ -84,7 +84,7 @@
                 ${result.displayName?replace("&", "&amp;")?replace("<", "&lt;")}</a> in ${result.enclosingFQN?replace("&", "&amp;")?replace("<", "&lt;")}
                 </nobr>
             </td>
-            <td width="100%" align="right">${result.segment.displayName?replace("&", "&amp;")?replace("<", "&lt;")}</td>
+            <td width="100%" align="right">${result.segment.displayName?replace("&", "&amp;")?replace("<", "&lt;")?replace(" ", "&nbsp;")}</td>
         </tr>
         </#list>
 </#if>
