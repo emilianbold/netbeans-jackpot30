@@ -38,7 +38,12 @@
  */
 package org.netbeans.modules.jackpot30.hudson;
 
+import hudson.Extension;
 import hudson.Plugin;
+import hudson.model.listeners.ItemListener;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**https://issues.jenkins-ci.org/browse/JENKINS-5427
  *
@@ -47,16 +52,25 @@ import hudson.Plugin;
 public class PluginImpl extends Plugin {
 
     @Override
-    public void postInitialize() throws Exception {
-        super.postInitialize();
-        InstallIndexingTool.prepareUpdates();
-        WebFrontEnd.ensureStarted();
-    }
-
-    @Override
     public void stop() throws Exception {
         super.stop();
         WebFrontEnd.stop();
+    }
+
+    @Extension
+    public static class OnLoadListener extends ItemListener {
+        @Override
+        public void onLoaded() {
+            try {
+                super.onLoaded();
+                InstallIndexingTool.prepareUpdates();
+                WebFrontEnd.ensureStarted();
+            } catch (IOException ex) {
+                Logger.getLogger(PluginImpl.class.getName()).log(Level.SEVERE, null, ex);
+            } catch (InterruptedException ex) {
+                Logger.getLogger(PluginImpl.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
     }
 
 }
