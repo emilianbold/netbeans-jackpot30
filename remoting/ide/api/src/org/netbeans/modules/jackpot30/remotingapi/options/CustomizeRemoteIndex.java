@@ -257,11 +257,22 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     // End of variables declaration//GEN-END:variables
 
     private void showFileChooser(JTextField folder) {
-        URL result = FSChooser.select("Select folder", "Select", Utils.fromDisplayName(folder.getText()));
+        JFileChooser c = new JFileChooser();
 
-        if (result != null) {
-            folder.setText(Utils.toDisplayName(result));
+        c.setSelectedFile(new File(folder.getText()));
+        c.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        c.setMultiSelectionEnabled(false);
+        c.setApproveButtonText("Select");
+
+        if (c.showDialog(this, null) == JFileChooser.APPROVE_OPTION) {
+            folder.setText(c.getSelectedFile().getAbsolutePath());
         }
+//
+//        URL result = FSChooser.select("Select folder", "Select", Utils.fromDisplayName(folder.getText()));
+//
+//        if (result != null) {
+//            folder.setText(Utils.toDisplayName(result));
+//        }
     }
 
     private String tempSubIndexSelection;
