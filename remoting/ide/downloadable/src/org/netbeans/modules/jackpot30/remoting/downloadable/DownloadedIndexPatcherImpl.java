@@ -17,13 +17,9 @@ import org.netbeans.api.java.classpath.JavaClassPathConstants;
 import org.netbeans.api.java.queries.AnnotationProcessingQuery;
 import org.netbeans.api.java.queries.AnnotationProcessingQuery.Result;
 import org.netbeans.api.java.queries.SourceLevelQuery;
-import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
-import org.netbeans.modules.java.source.indexing.JavaIndex;
-import org.netbeans.modules.parsing.impl.indexing.SPIAccessor;
 import org.netbeans.modules.parsing.impl.indexing.friendapi.DownloadedIndexPatcher;
-import org.netbeans.modules.parsing.spi.indexing.Context;
 import org.openide.filesystems.FileObject;
-import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 
@@ -38,10 +34,13 @@ public class DownloadedIndexPatcherImpl implements DownloadedIndexPatcher {
     public boolean updateIndex(URL sourceRoot, URL indexFolder) {
         try {
             File cache = new File(indexFolder.toURI());
-            File srcRoot = new File(sourceRoot.toURI());
             File checksums = new File(cache, "java/14/checksums.properties");
 
             if (!checksums.canRead()) return true; //nothing to fix
+
+            FileObject srcFolderFO = URLMapper.findFileObject(sourceRoot);
+
+            if (srcFolderFO == null) return false;
 
             Properties cs = loadProperties(checksums);
 
@@ -54,7 +53,8 @@ public class DownloadedIndexPatcherImpl implements DownloadedIndexPatcher {
             int idx = Integer.MAX_VALUE;
 
             while ((idx = in.lastIndexOf('/', idx - 1)) != (-1)) {
-                if (new File(srcRoot, in.substring(idx + 1)).canRead()) {
+                FileObject foundChild = srcFolderFO.getFileObject(in.substring(idx + 1));
+                if (foundChild != null && foundChild.canRead()) {
                     origPrefix = in.substring(0, idx + 1);
                     break;
                 }
@@ -65,12 +65,10 @@ public class DownloadedIndexPatcherImpl implements DownloadedIndexPatcher {
                 return false;
             }
 
-            String newPrefix = srcRoot.toURI().toURL().toString();
+            String newPrefix = srcFolderFO.toURL().toString();
 
             fixAbsolutePath(checksums, origPrefix, newPrefix);
             fixAbsolutePath(new File(cache, "java/14/fqn2files.properties"), origPrefix, newPrefix);
-
-            FileObject srcFolderFO = FileUtil.toFileObject(srcRoot);
 
             if (srcFolderFO != null) {
                 verifyAttributes(srcFolderFO, indexFolder, false);
