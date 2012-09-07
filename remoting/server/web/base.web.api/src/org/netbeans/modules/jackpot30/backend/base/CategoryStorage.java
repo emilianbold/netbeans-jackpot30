@@ -45,6 +45,7 @@ import com.sun.jersey.api.NotFoundException;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
 import java.lang.reflect.Field;
@@ -56,6 +57,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -219,18 +222,17 @@ public class CategoryStorage {
     public File getSegment(String relPath) {
         try {
             FileObject root = getCacheRoot();
-            CacheFolder.setCacheFolder(root);
-            Set<URL> result = new HashSet<URL>();
+            FileObject segments = root.getFileObject("segments");
 
-            CacheFolder.getDataFolder(new URL("file:/"), true);
+            if (segments == null) return null;
 
-            //XXX:
-            Field invertedSegmentsField = CacheFolder.class.getDeclaredField("invertedSegments");
+            Properties segmentsMap = loadProperties(segments);
+            Map<String, String> invertedSegments = new HashMap<String, String>();
 
-            invertedSegmentsField.setAccessible(true);
+            for (Entry<Object, Object> e : segmentsMap.entrySet()) {
+                invertedSegments.put((String) e.getValue(), (String) e.getKey());
+            }
 
-            @SuppressWarnings("unchecked")
-            Map<String, String> invertedSegments = (Map<String, String>) invertedSegmentsField.get(null);
             String segment = invertedSegments.get(relPath);
 
             if (segment == null) {
@@ -246,20 +248,22 @@ public class CategoryStorage {
             } else {
                 return null;
             }
-        } catch (IllegalArgumentException ex) {
-            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchFieldException ex) {
-            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (SecurityException ex) {
-            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
         } catch (IOException ex) {
             Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
         }
         return null;
     }
 
+    private static Properties loadProperties(FileObject properties) throws IOException {
+        Properties inProps = new Properties();
+        InputStream inPropsIS = properties.getInputStream();
+        try {
+            inProps.load(inPropsIS);
+        } finally {
+            inPropsIS.close();
+        }
+        return inProps;
+    }
 
     private long getSize() {
         long result = 0;
