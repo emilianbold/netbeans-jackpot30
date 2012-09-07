@@ -104,7 +104,6 @@ public class IndexDownloaderImpl implements IndexDownloader {
             }
         }
 
-        RepositoryUpdater r;
         return null;
     }
 
