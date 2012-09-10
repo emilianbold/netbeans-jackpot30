@@ -39,14 +39,18 @@
 package org.netbeans.modules.jackpot30.maven;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
+import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
+import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.netbeans.modules.jackpot30.cmdline.Main;
 
 /**
@@ -64,13 +68,29 @@ public class RunJackpot30 extends AbstractMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
+            String sourceLevel = "1.5";
+            for (Object o : project.getBuild().getPlugins()) {
+                if (!(o instanceof Plugin)) continue;
+                Plugin p = (Plugin) o;
+                if (!"org.apache.maven.plugins".equals(p.getGroupId())) continue;
+                if (!"maven-compiler-plugin".equals(p.getArtifactId())) continue;
+                if (p.getConfiguration() instanceof Xpp3Dom) {
+                    Xpp3Dom configuration = (Xpp3Dom) p.getConfiguration();
+                    Xpp3Dom source = configuration.getChild("source");
+
+                    if (source != null) {
+                        sourceLevel = source.getValue();
+                    }
+                }
+            }
             List<String> cmdLine = new ArrayList<String>();
             cmdLine.add("-no-apply");
             cmdLine.add("-sourcepath");
             cmdLine.add(toClassPathString((List<String>) project.getCompileSourceRoots()));
             cmdLine.add("-classpath");
             cmdLine.add(toClassPathString((List<String>) project.getCompileClasspathElements()));
-//            if (sourcelevel != null) cmdLine.addArguments(new String[] {"--source", sourcelevel});
+            cmdLine.add("-source");
+            cmdLine.add(sourceLevel);
 
             for (String sr : (List<String>) project.getCompileSourceRoots()) {
                 cmdLine.add(sr);
