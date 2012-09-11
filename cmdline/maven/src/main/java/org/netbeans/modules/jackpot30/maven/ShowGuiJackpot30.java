@@ -38,24 +38,20 @@
  */
 package org.netbeans.modules.jackpot30.maven;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import org.apache.maven.artifact.DependencyResolutionRequiredException;
-import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.project.MavenProject;
-import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.netbeans.modules.jackpot30.cmdline.Main;
 
 /**
- * @goal analyze
+ * @goal showgui
  * @author Jan Lahoda
  */
-public class RunJackpot30 extends AbstractMojo {
+public class ShowGuiJackpot30 extends AbstractMojo {
 
     /**
      * @parameter expression="${project}"
@@ -66,56 +62,23 @@ public class RunJackpot30 extends AbstractMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
-            String sourceLevel = "1.5";
-            Xpp3Dom sourceLevelConfiguration = Utils.getPluginConfiguration(project, "org.apache.maven.plugins", "maven-compiler-plugin");
-
-            if (sourceLevelConfiguration != null) {
-                Xpp3Dom source = sourceLevelConfiguration.getChild("source");
-
-                if (source != null) {
-                    sourceLevel = source.getValue();
-                }
-            }
-
             String configurationFile = Utils.getJackpotConfigurationFile(project);
 
+            if (configurationFile == null)
+                throw new MojoExecutionException("No configuration file specified, cannot show configuration GUI");
+
             List<String> cmdLine = new ArrayList<String>();
-            cmdLine.add("--no-apply");
-            cmdLine.add("--sourcepath");
-            cmdLine.add(toClassPathString((List<String>) project.getCompileSourceRoots()));
-            cmdLine.add("--classpath");
-            cmdLine.add(toClassPathString((List<String>) project.getCompileClasspathElements()));
-            cmdLine.add("--source");
-            cmdLine.add(sourceLevel);
 
-            if (configurationFile != null) {
-                cmdLine.add("--config-file");
-                cmdLine.add(configurationFile);
-            }
-
-            for (String sr : (List<String>) project.getCompileSourceRoots()) {
-                cmdLine.add(sr);
-            }
+            cmdLine.add("--config-file");
+            cmdLine.add(configurationFile);
+            cmdLine.add("--show-gui");
 
             Main.compile(cmdLine.toArray(new String[0]));
         } catch (IOException ex) {
             throw new MojoExecutionException(ex.getMessage(), ex);
         } catch (ClassNotFoundException ex) {
             throw new MojoExecutionException(ex.getMessage(), ex);
-        } catch (DependencyResolutionRequiredException ex) {
-            throw new MojoExecutionException(ex.getMessage(), ex);
         }
-    }
-
-    private static String toClassPathString(List<String> entries) {
-        StringBuilder classPath = new StringBuilder();
-
-        for (String root : entries) {
-            if (classPath.length() > 0) classPath.append(File.pathSeparatorChar);
-            classPath.append(root);
-        }
-
-        return classPath.toString();
     }
 
 }
