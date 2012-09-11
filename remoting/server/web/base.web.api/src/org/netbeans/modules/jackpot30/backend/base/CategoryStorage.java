@@ -48,7 +48,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.ref.Reference;
 import java.lang.ref.SoftReference;
-import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -65,7 +64,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.codeviation.pojson.Pojson;
-import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.lucene.support.Index;
 import org.netbeans.modules.parsing.lucene.support.IndexManager;
 import org.openide.filesystems.FileObject;
@@ -138,19 +136,8 @@ public class CategoryStorage {
 
     private Iterable<? extends URL> getCategoryIndexFolders() {
         try {
-            FileObject root = getCacheRoot();
-            CacheFolder.setCacheFolder(root);
             Set<URL> result = new HashSet<URL>();
-
-            CacheFolder.getDataFolder(new URL("file:/"), true);
-            
-            //XXX:
-            Field invertedSegmentsField = CacheFolder.class.getDeclaredField("invertedSegments");
-
-            invertedSegmentsField.setAccessible(true);
-            
-            @SuppressWarnings("unchecked")
-            Map<String, String> invertedSegments = (Map<String, String>) invertedSegmentsField.get(null);
+            Map<String, String> invertedSegments = getInvertedSegments();
 
             for (String c : invertedSegments.keySet()) {
                 if (!c.startsWith("rel:")) continue;
@@ -159,10 +146,6 @@ public class CategoryStorage {
 
             return result;
         } catch (IllegalArgumentException ex) {
-            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IllegalAccessException ex) {
-            Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (NoSuchFieldException ex) {
             Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
         } catch (SecurityException ex) {
             Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
@@ -219,20 +202,25 @@ public class CategoryStorage {
         }
     }
 
+    private Map<String, String> getInvertedSegments() throws IOException {
+        FileObject root = getCacheRoot();
+        FileObject segments = root.getFileObject("segments");
+
+        if (segments == null) return null;
+
+        Properties segmentsMap = loadProperties(segments);
+        Map<String, String> invertedSegments = new HashMap<String, String>();
+
+        for (Entry<Object, Object> e : segmentsMap.entrySet()) {
+            invertedSegments.put((String) e.getValue(), (String) e.getKey());
+        }
+
+        return invertedSegments;
+    }
+
     public File getSegment(String relPath) {
         try {
-            FileObject root = getCacheRoot();
-            FileObject segments = root.getFileObject("segments");
-
-            if (segments == null) return null;
-
-            Properties segmentsMap = loadProperties(segments);
-            Map<String, String> invertedSegments = new HashMap<String, String>();
-
-            for (Entry<Object, Object> e : segmentsMap.entrySet()) {
-                invertedSegments.put((String) e.getValue(), (String) e.getKey());
-            }
-
+            Map<String, String> invertedSegments = getInvertedSegments();
             String segment = invertedSegments.get(relPath);
 
             if (segment == null) {
