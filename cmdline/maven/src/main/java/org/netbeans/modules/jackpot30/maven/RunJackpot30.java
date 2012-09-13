@@ -66,6 +66,7 @@ public class RunJackpot30 extends AbstractMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
+            List<String> compileSourceRoots = (List<String>) project.getCompileSourceRoots();
             String sourceLevel = "1.5";
             Xpp3Dom sourceLevelConfiguration = Utils.getPluginConfiguration(project, "org.apache.maven.plugins", "maven-compiler-plugin");
 
@@ -82,7 +83,7 @@ public class RunJackpot30 extends AbstractMojo {
             List<String> cmdLine = new ArrayList<String>();
             cmdLine.add("--no-apply");
             cmdLine.add("--sourcepath");
-            cmdLine.add(toClassPathString((List<String>) project.getCompileSourceRoots()));
+            cmdLine.add(toClassPathString(compileSourceRoots));
             cmdLine.add("--classpath");
             cmdLine.add(toClassPathString((List<String>) project.getCompileClasspathElements()));
             cmdLine.add("--source");
@@ -93,8 +94,18 @@ public class RunJackpot30 extends AbstractMojo {
                 cmdLine.add(configurationFile);
             }
 
-            for (String sr : (List<String>) project.getCompileSourceRoots()) {
+            boolean hasSourceRoots = false;
+
+            for (String sr : compileSourceRoots) {
+                if (!hasSourceRoots && new File(sr).isDirectory()) {
+                    hasSourceRoots = true;
+                }
                 cmdLine.add(sr);
+            }
+
+            if (!hasSourceRoots) {
+                getLog().debug("jackpot30 analyze: Not source roots to operate on");
+                return ;
             }
 
             Main.compile(cmdLine.toArray(new String[0]));
