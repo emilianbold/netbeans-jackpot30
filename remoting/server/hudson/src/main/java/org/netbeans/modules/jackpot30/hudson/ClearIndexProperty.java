@@ -54,6 +54,7 @@ import javax.servlet.ServletException;
 import net.sf.json.JSONObject;
 import org.kohsuke.stapler.StaplerRequest;
 import org.kohsuke.stapler.StaplerResponse;
+import org.netbeans.modules.jackpot30.hudson.IndexingBuilder.DescriptorImpl;
 
 /**
  *
@@ -79,7 +80,7 @@ public class ClearIndexProperty extends JobProperty<Job<?, ?>> {
         }
 
         public String getDisplayName() {
-            return "Clear Indices";
+            return "Clear Job Index";
         }
 
         public String getUrlName() {
@@ -87,11 +88,10 @@ public class ClearIndexProperty extends JobProperty<Job<?, ?>> {
         }
 
         public void doDynamic(StaplerRequest req, StaplerResponse rsp) throws IOException, ServletException, InterruptedException {
-            String jobName = job.getName();
-            Project<?, ?> prj = Hudson.getInstance().getItemByFullName(jobName, Project.class);
-            File cacheRoot = Cache.findCache("clear-workspace", 0).findCacheRoot(prj.getSomeWorkspace().toURI().toURL()).getParentFile().getParentFile();
+            File cacheDir = ((DescriptorImpl) DescriptorImpl.find(DescriptorImpl.class.getName())).getCacheDir();
+            File jobCacheDir = new File(cacheDir, IndexingBuilder.codeNameForJob(job));
 
-            deleteRecursivelly(cacheRoot);
+            deleteRecursivelly(jobCacheDir);
             
             rsp.forwardToPreviousPage(req);
         }

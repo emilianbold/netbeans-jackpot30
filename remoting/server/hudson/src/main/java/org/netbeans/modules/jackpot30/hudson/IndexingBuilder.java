@@ -50,6 +50,7 @@ import hudson.model.BuildListener;
 import hudson.model.Descriptor;
 import hudson.model.Descriptor.FormException;
 import hudson.model.Hudson;
+import hudson.model.Job;
 import hudson.remoting.VirtualChannel;
 import hudson.tasks.Builder;
 import hudson.util.ArgumentListBuilder;
@@ -152,7 +153,7 @@ public class IndexingBuilder extends Builder {
 
         listener.getLogger().println("Running: " + toolName + " on projects: " + res);
 
-        String codeName = build.getParent().getName();
+        String codeName = codeNameForJob(build.getParent());
         ArgumentListBuilder args = new ArgumentListBuilder();
         FilePath targetZip = build.getBuiltOn().getRootPath().createTempFile(codeName, "zip");
 
@@ -241,6 +242,10 @@ public class IndexingBuilder extends Builder {
         }
     }
 
+    public static String codeNameForJob(Job<?, ?> job) {
+        return job.getName();
+    }
+
     private static final class RemoteResult implements Serializable {
         private final Collection<String> foundProjects;
         private final String root;
@@ -256,7 +261,7 @@ public class IndexingBuilder extends Builder {
         private File cacheDir;
 
         public DescriptorImpl() {
-            Cache.setStandaloneCacheRoot(cacheDir = new File(Hudson.getInstance().getRootDir(), "index").getAbsoluteFile());
+            cacheDir = new File(Hudson.getInstance().getRootDir(), "index").getAbsoluteFile();
             load();
         }
 
