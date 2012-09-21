@@ -487,6 +487,14 @@ public class Main {
     }
     
     private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
+        final Map<String, String> id2DisplayName = new HashMap<String, String>();
+
+        for (HintDescription hd : descs) {
+            if (hd.getMetadata() != null) {
+                id2DisplayName.put(hd.getMetadata().id, hd.getMetadata().displayName);
+            }
+        }
+
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w);
 
@@ -495,7 +503,7 @@ public class Main {
             @Override public void groupStarted() {}
             @Override public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
                 for (ErrorDescription ed : hints) {
-                    print(ed);
+                    print(ed, id2DisplayName);
                 }
                 return true;
             }
@@ -506,7 +514,7 @@ public class Main {
         }, problems, new AtomicBoolean());
     }
 
-    private static void print(ErrorDescription error) throws IOException {
+    private static void print(ErrorDescription error, Map<String, String> id2DisplayName) throws IOException {
         int lineNumber = error.getRange().getBegin().getLine();
         String line = error.getFile().asLines().get(lineNumber);
         int column = error.getRange().getBegin().getColumn();
@@ -522,7 +530,21 @@ public class Main {
 
         b.append('^');
 
-        System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + (lineNumber + 1) + ": warning: " + error.getDescription());
+        String id = error.getId();
+
+        if (id != null && id.startsWith("text/x-java:")) {
+            id = id.substring("text/x-java:".length());
+        }
+
+        String idDisplayName = id2DisplayName.get(id);
+
+        if (idDisplayName == null) {
+            idDisplayName = "unknown";
+        }
+
+        idDisplayName = "[" + idDisplayName.replace(' ', '_').replace('.', '_').replace("(", "").replace(")", "") + "] ";
+
+        System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + (lineNumber + 1) + ": warning: " + idDisplayName + error.getDescription());
         System.out.println(line);
         System.out.println(b);
     }
