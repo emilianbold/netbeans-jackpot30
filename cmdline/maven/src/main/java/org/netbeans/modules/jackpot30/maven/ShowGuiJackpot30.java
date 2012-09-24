@@ -62,6 +62,8 @@ public class ShowGuiJackpot30 extends AbstractMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
+            if (!project.isExecutionRoot()) return;
+            
             String configurationFile = Utils.getJackpotConfigurationFile(project);
 
             if (configurationFile == null)
