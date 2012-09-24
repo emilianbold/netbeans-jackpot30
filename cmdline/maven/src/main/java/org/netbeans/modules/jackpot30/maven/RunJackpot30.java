@@ -43,7 +43,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
-import org.apache.maven.model.Plugin;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -53,6 +52,7 @@ import org.netbeans.modules.jackpot30.cmdline.Main;
 
 /**
  * @goal analyze
+ * @requiresDependencyResolution compile
  * @author Jan Lahoda
  */
 public class RunJackpot30 extends AbstractMojo {
