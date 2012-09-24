@@ -88,6 +88,7 @@ import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.netbeans.spi.java.hints.Hint;
 import org.openide.filesystems.MIMEResolver;
+import org.openide.util.NbCollections;
 import org.openide.util.NbPreferences.Provider;
 import org.openide.xml.EntityCatalog;
 import org.openide.xml.XMLUtil;
@@ -215,14 +216,25 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         }
 
         bundlesToCopy.addAll(RESOURCES);
+        bundlesToCopy.addAll(info.additionalResources);
         copyResources(out, info, bundlesToCopy);
 
         //generated-layer.xml:
-        Enumeration<URL> resources = this.getClass().getClassLoader().getResources("META-INF/generated-layer.xml");
+        List<URL> layers2Merge = new ArrayList<URL>();
+        List<String> layerNames = new ArrayList<String>();
+
+        layerNames.add("META-INF/generated-layer.xml");
+        layerNames.addAll(info.additionalLayers);
+
+        for (String layerName : layerNames) {
+            for (URL layerURL : NbCollections.iterable(this.getClass().getClassLoader().getResources(layerName))) {
+                layers2Merge.add(layerURL);
+            }
+        }
+
         Document main = null;
 
-        while (resources.hasMoreElements()) {
-            URL res = resources.nextElement();
+        for (URL res : layers2Merge) {
             Document current = XMLUtil.parse(new InputSource(res.openStream()), false, false, null, new EntityCatalog() {
                 @Override
                 public InputSource resolveEntity(String publicId, String systemId) throws SAXException, IOException {
@@ -281,6 +293,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
 
     public static final class Info {
         private final Set<String> additionalRoots = new HashSet<String>();
+        private final Set<String> additionalResources = new HashSet<String>();
+        private final Set<String> additionalLayers = new HashSet<String>();
         private final List<MetaInfRegistration> metaInf = new LinkedList<MetaInfRegistration>();
         private final Set<String> copyMetaInfRegistration = new HashSet<String>();
         private       boolean escapeJavaxLang;
@@ -288,6 +302,14 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         public Info() {}
         public Info addAdditionalRoots(String... fqns) {
             additionalRoots.addAll(Arrays.asList(fqns));
+            return this;
+        }
+        public Info addAdditionalResources(String... paths) {
+            additionalResources.addAll(Arrays.asList(paths));
+            return this;
+        }
+        public Info addAdditionalLayers(String... paths) {
+            additionalLayers.addAll(Arrays.asList(paths));
             return this;
         }
         public Info addMetaInfRegistrations(MetaInfRegistration... registrations) {
