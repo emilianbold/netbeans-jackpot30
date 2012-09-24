@@ -285,16 +285,8 @@ public class Main {
                     return 1;
                 }
                 hints = findHints(sourceCP, binaryCP, parsed.valueOf(hint), hintSettings);
-            } else if (settingsFromConfigFile == null) {
-                hints = allHints(sourceCP, binaryCP, hintSettings);
             } else {
-                assert settingsFromConfigFile != null;
-                hints = readHints(sourceCP, binaryCP, hintSettings, settingsFromConfigFile.getBoolean("runDeclarative", true));
-            }
-
-            if (!hints.iterator().hasNext()) {
-                System.err.println("no hints specified");
-                return 1;
+                hints = readHints(sourceCP, binaryCP, hintSettings, settingsFromConfigFile != null ? settingsFromConfigFile.getBoolean("runDeclarative", true) : true);
             }
 
             if (parsed.has(config) && !parsed.has(hint)) {
@@ -346,6 +338,11 @@ public class Main {
                 apply = true;
             }
             
+            if (apply && !hints.iterator().hasNext()) {
+                System.err.println("no hints specified");
+                return 1;
+            }
+
             try {
                 MainLookup.register(new ClassPathProviderImpl(bootCP, compileCP, sourceCP));
                 MainLookup.register(new JavaPathRecognizer());
