@@ -343,10 +343,16 @@ public class Main {
                 return 1;
             }
 
+            Object[] register2Lookup = new Object[] {
+                new ClassPathProviderImpl(bootCP, compileCP, sourceCP),
+                new JavaPathRecognizer(),
+                new SourceLevelQueryImpl(sourceCP, sourceLevel)
+            };
+
             try {
-                MainLookup.register(new ClassPathProviderImpl(bootCP, compileCP, sourceCP));
-                MainLookup.register(new JavaPathRecognizer());
-                MainLookup.register(new SourceLevelQueryImpl(sourceCP, sourceLevel));
+                for (Object toRegister : register2Lookup) {
+                    MainLookup.register(toRegister);
+                }
 
                 setHintPreferences(hintSettings);
                 
@@ -359,6 +365,10 @@ public class Main {
                 }
             } catch (Throwable e) {
                 e.printStackTrace();
+            } finally {
+                for (Object toUnRegister : register2Lookup) {
+                    MainLookup.unregister(toUnRegister);
+                }
             }
         } finally {
             if (deleteCacheDir) {
