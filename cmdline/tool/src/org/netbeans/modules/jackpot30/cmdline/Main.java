@@ -549,12 +549,26 @@ public class Main {
             idDisplayName = "unknown";
         }
 
-        idDisplayName = "[" + idDisplayName.replace(' ', '_').replace('.', '_').replace("(", "").replace(")", "") + "] ";
+        for (Entry<String, String> remap : toIdRemap.entrySet()) {
+            idDisplayName.replace(remap.getKey(), remap.getValue());
+        }
+
+        idDisplayName = "[" + idDisplayName.replaceAll("_+", "_") + "] ";
 
         System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + (lineNumber + 1) + ": warning: " + idDisplayName + error.getDescription());
         System.out.println(line);
         System.out.println(b);
     }
+
+    private static final Map<String, String> toIdRemap = new HashMap<String, String>() {{
+        put(" ", "_");
+        put("-", "_");
+        put(".", "_");
+        put("(", "");
+        put(")", "");
+        put("==", "equals");
+        put("!=", "not_equals");
+    }};
 
     private static void apply(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
