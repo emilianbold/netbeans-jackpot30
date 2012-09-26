@@ -60,7 +60,9 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
+import javax.ws.rs.core.UriInfo;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.backend.base.WebUtilities;
 import static org.netbeans.modules.jackpot30.backend.base.WebUtilities.escapeForQuery;
@@ -75,16 +77,17 @@ public class UI {
     @GET
     @Path("/search")
     @Produces("text/html")
-    public String search(@QueryParam("path") String path, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
+    public String search(@Context UriInfo uriInfo, @QueryParam("path") String path, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
+        String urlBase = uriInfo.getBaseUri().toString();
         Map<String, Object> configurationData = new HashMap<String, Object>();
 
-        configurationData.put("paths", list());
+        configurationData.put("paths", list(urlBase));
         configurationData.put("selectedPath", path);
         configurationData.put("pattern", pattern);
         configurationData.put("patternEscaped", escapeForQuery(pattern));
 
         if (pattern != null && path != null) {
-            URI u = new URI("http://localhost:9998/index/language/search?path=" + escapeForQuery(path) + "&pattern=" + escapeForQuery(pattern));
+            URI u = new URI(urlBase + "index/language/search?path=" + escapeForQuery(path) + "&pattern=" + escapeForQuery(pattern));
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
             long queryTime = System.currentTimeMillis();
             List<String> candidates = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
@@ -117,20 +120,22 @@ public class UI {
     @GET
     @Path("/show")
     @Produces("text/html")
-    public Response show(@QueryParam("path") String path, @QueryParam("relative") String relativePath, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
-        URI spansURL = new URI("http://localhost:9998/index/language/searchSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
+    public Response show(@Context UriInfo uriInfo, @QueryParam("path") String path, @QueryParam("relative") String relativePath, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
+        String urlBase = uriInfo.getBaseUri().toString();
+        URI spansURL = new URI(urlBase + "index/language/searchSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
         return Response.temporaryRedirect(new URI("/index/ui/show?path=" + escapeForQuery(path) + "&relative=" + escapeForQuery(relativePath) + "&highlight=" + escapeForQuery(Pojson.save(parseSpans2(WebUtilities.requestStringResponse(spansURL)))))).build();
     }
     
     @GET
     @Path("/snippet")
     @Produces("text/html")
-    public String snippet(@QueryParam("path") String path, @QueryParam("relative") String relativePath, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
+    public String snippet(@Context UriInfo uriInfo, @QueryParam("path") String path, @QueryParam("relative") String relativePath, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
+        String urlBase = uriInfo.getBaseUri().toString();
         List<Map<String, String>> snippets = new LinkedList<Map<String, String>>();
 
-        URI codeURL = new URI("http://localhost:9998/index/source/cat?path=" + escapeForQuery(path) + "&relative=" + escapeForQuery(relativePath));
+        URI codeURL = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(path) + "&relative=" + escapeForQuery(relativePath));
         String code = WebUtilities.requestStringResponse(codeURL);
-        URI spansURL = new URI("http://localhost:9998/index/language/searchSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
+        URI spansURL = new URI(urlBase + "index/language/searchSpans?path=" + escapeForQuery(path) + "&relativePath=" + escapeForQuery(relativePath) + "&pattern=" + escapeForQuery(pattern));
 
         for (int[] span : parseSpans(WebUtilities.requestStringResponse(spansURL))) {
             snippets.add(prepareSnippet(code, span));
@@ -139,10 +144,10 @@ public class UI {
         return processTemplate("/org/netbeans/modules/jackpot30/backend/language/api/ui-snippet.html", Collections.<String, Object>singletonMap("snippets", snippets));
     }
 
-    private static List<Map<String, String>> list() throws URISyntaxException {
+    private static List<Map<String, String>> list(String urlBase) throws URISyntaxException {
         List<Map<String, String>> result = new LinkedList<Map<String, String>>();
 
-        for (String enc : WebUtilities.requestStringArrayResponse(new URI("http://localhost:9998/index/list"))) {
+        for (String enc : WebUtilities.requestStringArrayResponse(new URI(urlBase + "index/list"))) {
             Map<String, String> rootDesc = new HashMap<String, String>();
             String[] col = enc.split(":", 2);
 

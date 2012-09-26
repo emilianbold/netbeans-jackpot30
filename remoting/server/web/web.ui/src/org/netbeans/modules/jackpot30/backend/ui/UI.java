@@ -61,6 +61,8 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.UriInfo;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.lexer.TokenHierarchy;
@@ -76,15 +78,16 @@ import static org.netbeans.modules.jackpot30.backend.base.WebUtilities.escapeFor
 @Path("/index/ui")
 public class UI {
 
-    private static final String URL_BASE = "http://localhost:9998/index";
-//    private static final String URL_BASE = "http://lahoda.info/index";
+    private static final String URL_BASE_OVERRIDE = null;
+//    private static final String URL_BASE_OVERRIDE = "http://lahoda.info/";
 
     @GET
     @Path("/search")
     @Produces("text/html")
-    public String searchType(@QueryParam("path") List<String> paths, @QueryParam("prefix") String prefix) throws URISyntaxException, IOException, TemplateException {
+    public String searchType(@Context UriInfo uriInfo, @QueryParam("path") List<String> paths, @QueryParam("prefix") String prefix) throws URISyntaxException, IOException, TemplateException {
+        String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
         Map<String, Object> configurationData = new HashMap<String, Object>();
-        Map<String,Map<String, String>> pathsList = list();
+        Map<String,Map<String, String>> pathsList = list(urlBase);
 
         configurationData.put("paths", pathsList.values());
         configurationData.put("selectedPath", paths);
@@ -94,7 +97,7 @@ public class UI {
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
 
             for (String path : paths) {
-                URI u = new URI(URL_BASE + "/symbol/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
+                URI u = new URI(urlBase + "index/symbol/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
                 @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
                 Map<String, List<Map<String, Object>>> symbols = Pojson.load(LinkedHashMap.class, u);
                 Map<String, ?> segmentDescription = pathsList.get(path);
@@ -114,7 +117,7 @@ public class UI {
                     }
                 }
 
-                URI typeSearch = new URI(URL_BASE + "/type/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
+                URI typeSearch = new URI(urlBase + "index/type/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
                 @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
                 Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, typeSearch);
 
@@ -176,8 +179,9 @@ public class UI {
     @GET
     @Path("/show")
     @Produces("text/html")
-    public String show(@QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("highlight") @DefaultValue("[]") String highlightSpec) throws URISyntaxException, IOException, TemplateException {
-        URI u = new URI(URL_BASE + "/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
+    public String show(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("highlight") @DefaultValue("[]") String highlightSpec) throws URISyntaxException, IOException, TemplateException {
+        String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
+        URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
         String content = WebUtilities.requestStringResponse(u);
         List<Long> highlightSpans = Pojson.load(ArrayList.class, highlightSpec);
         Map<String, Object> configurationData = new HashMap<String, Object>();
@@ -271,10 +275,11 @@ public class UI {
     @GET
     @Path("/usages")
     @Produces("text/html")
-    public String usages(@QueryParam("path") String segment, @QueryParam("signatures") final String signatures) throws URISyntaxException, IOException, TemplateException {
-        Map<String, Object> configurationData = usagesSubclassesImpl(segment, signatures, "files", new ComputeSegmentData() {
+    public String usages(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("signatures") final String signatures) throws URISyntaxException, IOException, TemplateException {
+        final String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
+        Map<String, Object> configurationData = usagesSubclassesImpl(urlBase, segment, signatures, "files", new ComputeSegmentData() {
             @Override public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
-                URI u = new URI(URL_BASE + "/usages/search?path=" + escapeForQuery(currentSegment) + "&signatures=" + escapeForQuery(simplify(signatures)));
+                URI u = new URI(urlBase + "index/usages/search?path=" + escapeForQuery(currentSegment) + "&signatures=" + escapeForQuery(simplify(signatures)));
                 List<String> files = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
                 Collections.sort(files);
                 return files;
@@ -287,15 +292,16 @@ public class UI {
     @GET
     @Path("/implements")
     @Produces("text/html")
-    public String impl(@QueryParam("path") String segment, @QueryParam("type") String typeSignature, @QueryParam("method") final String methodSignature) throws URISyntaxException, IOException, TemplateException {
+    public String impl(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("type") String typeSignature, @QueryParam("method") final String methodSignature) throws URISyntaxException, IOException, TemplateException {
+        final String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
         Map<String, Object> configurationData;
 
         if (typeSignature != null) {
             final String type = strip(typeSignature, "CLASS:", "INTERFACE:", "ENUM:", "ANNOTATION_TYPE:");
-            configurationData = usagesSubclassesImpl(segment, typeSignature, "implementors", new ComputeSegmentData() {
+            configurationData = usagesSubclassesImpl(urlBase, segment, typeSignature, "implementors", new ComputeSegmentData() {
                 @Override
                 public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
-                    URI u = new URI(URL_BASE + "/implements/search?path=" + escapeForQuery(currentSegment) + "&type=" + escapeForQuery(type));
+                    URI u = new URI(urlBase + "index/implements/search?path=" + escapeForQuery(currentSegment) + "&type=" + escapeForQuery(type));
                     Map<String, List<Map<String, String>>> data = Pojson.load(HashMap.class, u);
                     List<Map<String, String>> implementors = new ArrayList<Map<String, String>>();
                     for (Entry<String, List<Map<String, String>>> relpath2ImplementorsE : data.entrySet()) {
@@ -320,10 +326,10 @@ public class UI {
             configurationData.put("isSubtypes", true);
         } else {
             final String method = methodSignature.substring(0, methodSignature.length() - 1);
-            configurationData = usagesSubclassesImpl(segment, methodSignature, "implementors", new ComputeSegmentData() {
+            configurationData = usagesSubclassesImpl(urlBase, segment, methodSignature, "implementors", new ComputeSegmentData() {
                 @Override
                 public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
-                    URI u = new URI(URL_BASE + "/implements/search?path=" + escapeForQuery(currentSegment) + "&method=" + escapeForQuery(method));
+                    URI u = new URI(urlBase + "index/implements/search?path=" + escapeForQuery(currentSegment) + "&method=" + escapeForQuery(method));
                     Map<String, List<Map<String, String>>> data = Pojson.load(HashMap.class, u);
                     List<Map<String, String>> implementors = new ArrayList<Map<String, String>>();
                     for (Entry<String, List<Map<String, String>>> relpath2ImplementorsE : data.entrySet()) {
@@ -351,10 +357,10 @@ public class UI {
         return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/implementors.html", configurationData);
     }
 
-    private Map<String, Object> usagesSubclassesImpl(String segment, String elementSignature, String dataKey, ComputeSegmentData computeSegmentData) throws URISyntaxException, TemplateException, IOException {
+    private Map<String, Object> usagesSubclassesImpl(String urlBase, String segment, String elementSignature, String dataKey, ComputeSegmentData computeSegmentData) throws URISyntaxException, TemplateException, IOException {
         List<Map<String, String>> segments2Process = new ArrayList<Map<String, String>>();
 
-        for (Map<String, String> m : list().values()) {
+        for (Map<String, String> m : list(urlBase).values()) {
             if (segment != null) {
                 if (segment.equals(m.get("segment"))) {
                     segments2Process.add(m);
@@ -410,10 +416,10 @@ public class UI {
         return elementDisplayName.toString();
     }
 
-    private static Map<String, Map<String, String>> list() throws URISyntaxException {
+    private static Map<String, Map<String, String>> list(String urlBase) throws URISyntaxException {
         Map<String, Map<String, String>> result = new LinkedHashMap<String, Map<String, String>>();
 
-        for (String enc : WebUtilities.requestStringArrayResponse(new URI(URL_BASE + "/list"))) {
+        for (String enc : WebUtilities.requestStringArrayResponse(new URI(urlBase + "index/list"))) {
             Map<String, String> rootDesc = new HashMap<String, String>();
             String[] col = enc.split(":", 2);
 
