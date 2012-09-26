@@ -550,10 +550,12 @@ public class Main {
         }
 
         for (Entry<String, String> remap : toIdRemap.entrySet()) {
-            idDisplayName.replace(remap.getKey(), remap.getValue());
+            idDisplayName = idDisplayName.replace(remap.getKey(), remap.getValue());
         }
 
-        idDisplayName = "[" + idDisplayName.replaceAll("_+", "_") + "] ";
+        idDisplayName = idDisplayName.replaceAll("[^A-Za-z0-9]", "_").replaceAll("_+", "_");
+
+        idDisplayName = "[" + idDisplayName + "] ";
 
         System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + (lineNumber + 1) + ": warning: " + idDisplayName + error.getDescription());
         System.out.println(line);
@@ -561,11 +563,6 @@ public class Main {
     }
 
     private static final Map<String, String> toIdRemap = new HashMap<String, String>() {{
-        put(" ", "_");
-        put("-", "_");
-        put(".", "_");
-        put("(", "");
-        put(")", "");
         put("==", "equals");
         put("!=", "not_equals");
     }};
