@@ -28,6 +28,9 @@
         <groupId>org.netbeans.modules.jackpot30</groupId>
         <artifactId>jackpot30-maven-plugin</artifactId>
         <version>1.0-SNAPSHOT</version>
+        <configuration>
+             <configurationFile>jackpot-settings.xml</configurationFile>
+        </configuration>
       </plugin>
     </plugins>
   </build>
