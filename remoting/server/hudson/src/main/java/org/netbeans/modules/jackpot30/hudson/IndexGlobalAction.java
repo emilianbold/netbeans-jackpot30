@@ -78,7 +78,7 @@ public class IndexGlobalAction implements RootAction {
         InputStream in = null;
         OutputStream out = null;
         try {
-            URI delegateURI = new URI("http", null, "localhost", 9998, "/index" + req.getRestOfPath(), req.getQueryString(), null);
+            URI delegateURI = new URI("http://localhost:9998/index" + req.getRestOfPath() + "?" + req.getQueryString());
             URLConnection inConnection = delegateURI.toURL().openConnection();
             in = inConnection.getInputStream();
 
