@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -64,6 +65,8 @@ import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.store.FSDirectory;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.api.java.queries.SourceForBinaryQuery;
+import org.netbeans.api.java.queries.SourceForBinaryQuery.Result2;
 import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
@@ -100,6 +103,7 @@ public class OptionProcessorImpl extends OptionProcessor {
     private final Option CACHE_TARGET = Option.requiredArgument(Option.NO_SHORT_NAME, "cache-target");
     private final Option INFO = Option.requiredArgument(Option.NO_SHORT_NAME, "info");
     private final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(CATEGORY_ID, CATEGORY_NAME, CATEGORY_PROJECTS, CATEGORY_ROOT_DIR, CACHE_TARGET, INFO));
+    private final boolean STORE_CLASSPATH = Boolean.getBoolean("jackpot.store.classpath");
     
     @Override
     protected Set<Option> getOptions() {
@@ -147,6 +151,8 @@ public class OptionProcessorImpl extends OptionProcessor {
 
         FileObject cacheFolder = CacheFolder.getCacheFolder();
         FileObject cacheTemp = cacheFolder.getFileObject("index");
+        Map<String, String> classpath;
+        Map<FileObject, String> extraJars = new HashMap<FileObject, String>();
 
         try {
             if (cacheTemp != null) cacheTemp.delete();
@@ -157,7 +163,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             IndexAccessor.current = new IndexAccessor(w, baseDir);
             Set<FileObject> roots = getRoots(optionValues.get(CATEGORY_PROJECTS), env);
 
-            indexProjects(roots, env);
+            classpath = indexProjects(roots, extraJars, env);
         } catch (InterruptedException ex) {
             LOG.log(Level.FINE, null, ex);
             throw (CommandException) new CommandException(0).initCause(ex);
@@ -255,6 +261,26 @@ public class OptionProcessorImpl extends OptionProcessor {
             out.write("\n}\n".getBytes("UTF-8"));
             out.write("\n}\n".getBytes("UTF-8"));
 
+            if (STORE_CLASSPATH) {
+                out.putNextEntry(new ZipEntry(categoryId + "/classpath"));
+
+                for (Entry<String, String> e : classpath.entrySet()) {
+                    out.write((e.getKey() + "=" + e.getValue() + "\n").getBytes("UTF-8"));
+                }
+
+                for (Entry<FileObject, String> ej : extraJars.entrySet()) {
+                    out.putNextEntry(new ZipEntry(categoryId + "/" + ej.getValue()));
+
+                    InputStream jarIn = ej.getKey().getInputStream();
+
+                    try {
+                        FileUtil.copy(jarIn, out);
+                    } finally {
+                        jarIn.close();
+                    }
+                }
+            }
+
             for (FileObject s : cacheFolder.getChildren()) {
                 if (!s.isFolder() || !s.getNameExt().startsWith("s") || s.getChildren().length == 0) continue;
 
@@ -346,9 +372,10 @@ public class OptionProcessorImpl extends OptionProcessor {
         return sourceRoots;
     }
 
-    private void indexProjects(Set<FileObject> sourceRoots, Env env) throws IOException, InterruptedException {
+    private Map<String, String> indexProjects(Set<FileObject> sourceRoots, Map<FileObject, String> extraJars, Env env) throws IOException, InterruptedException {
         if (sourceRoots.isEmpty()) {
             env.getErrorStream().println("Error: There is nothing to index!");
+            return Collections.emptyMap();
         } else {
             //XXX: to start up the project systems and RepositoryUpdater:
             ((Runnable) OpenProjects.getDefault().openProjects()).run();
@@ -358,7 +385,63 @@ public class OptionProcessorImpl extends OptionProcessor {
             LOG.log(Level.FINE, "Registering as source path: {0}", source.toString());
             GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {source});
             SourceUtils.waitScanFinished();
+            Map<String, String> classpath = new HashMap<String, String>();
+
+            if (STORE_CLASSPATH) {
+                long extraJarCounter = 0;
+
+                for (FileObject sourceRoot : sourceRoots) {
+                    StringBuilder cp = new StringBuilder();
+                    ClassPath sourceCP = ClassPath.getClassPath(sourceRoot, ClassPath.SOURCE);
+
+                    if (sourceCP != null) {
+                        for (ClassPath.Entry e : sourceCP.entries()) {
+                            cp.append(CacheFolder.getDataFolder(e.getURL()).getNameExt());
+                            cp.append(":");
+                        }
+                    }
+
+                    ClassPath compileCP = ClassPath.getClassPath(sourceRoot, ClassPath.COMPILE);
+
+                    if (compileCP != null) {
+                        for (ClassPath.Entry e : compileCP.entries()) {
+                            Result2 sourceMapping = SourceForBinaryQuery.findSourceRoots2(e.getURL());
+
+                            if (sourceMapping.preferSources() && /*XXX:*/ sourceMapping.getRoots().length > 0) {
+                                for (FileObject sr : sourceMapping.getRoots()) {
+                                    cp.append(CacheFolder.getDataFolder(sr.toURL()).getNameExt());
+                                    cp.append(":");
+                                }
+                            } else {
+                                FileObject root = e.getRoot();
+                                FileObject jar = FileUtil.getArchiveFile(root);
+
+                                if (jar != null) root = jar;
+
+                                if (root != null && root.isData()) { //XXX: class folders
+                                    String rootId = extraJars.get(root);
+
+                                    if (rootId == null) {
+                                        extraJars.put(root, rootId = "ej" + extraJarCounter++ + ".jar");
+                                    }
+
+                                    cp.append(rootId);
+                                    cp.append(":");
+                                }
+                            }
+                        }
+                    }
+
+                    if (cp.length() > 0)
+                        cp.deleteCharAt(cp.length() - 1);
+
+                    classpath.put(CacheFolder.getDataFolder(sourceRoot.toURL()).getNameExt(), cp.toString());
+                }
+            }
+
             GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {source});
+
+            return classpath;
         }
     }
 
