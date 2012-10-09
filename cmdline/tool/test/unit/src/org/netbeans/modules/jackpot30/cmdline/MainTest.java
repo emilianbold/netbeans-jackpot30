@@ -257,6 +257,35 @@ public class MainTest extends NbTestCase {
                       "1.6",
                       "--no-apply");
     }
+    
+    public void testHintFile() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b = c.size() == 0;\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      "",
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b = c.isEmpty();\n" +
+                      "    }\n" +
+                      "}\n",
+                      "test-rule.hint",
+                      "$var.isEmpty() => $var.size() == 0;;",
+                      null,
+                      "--hint-file",
+                      "${workdir}/test-rule.hint",
+                      "--source",
+                      "1.6",
+                      "--apply");
+    }
 
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
         List<String> fileAndContent = new LinkedList<String>();

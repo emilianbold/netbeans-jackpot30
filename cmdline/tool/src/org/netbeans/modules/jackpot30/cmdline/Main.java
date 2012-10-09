@@ -83,6 +83,7 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
 import org.netbeans.modules.jackpot30.ui.settings.XMLHintPreferences;
+import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.providers.spi.HintDescription;
 import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
 import org.netbeans.modules.java.hints.spiimpl.MessageImpl;
@@ -147,6 +148,7 @@ public class Main {
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
         ArgumentAcceptingOptionSpec<String> config = parser.accepts("config", "configurations").withRequiredArg().ofType(String.class);
         ArgumentAcceptingOptionSpec<String> source = parser.accepts("source", "source level").withRequiredArg().ofType(String.class).defaultsTo(SOURCE_LEVEL_DEFAULT);
+        ArgumentAcceptingOptionSpec<File> hintFile = parser.accepts("hint-file", "file with rules that should be performed").withRequiredArg().ofType(File.class);
 
         parser.accepts("list", "list all known hints");
         parser.accepts("progress", "show progress");
@@ -281,10 +283,21 @@ public class Main {
 
             if (parsed.has(hint)) {
                 if (settingsFromConfigFile != null) {
-                    System.err.println("cannot specify --hint and --configFile together");
+                    System.err.println("cannot specify --hint and --config-file together");
                     return 1;
                 }
                 hints = findHints(sourceCP, binaryCP, parsed.valueOf(hint), hintSettings);
+            } else if (parsed.has(hintFile)) {
+                if (settingsFromConfigFile != null) {
+                    System.err.println("cannot specify --hint-file and --config-file together");
+                    return 1;
+                }
+                FileObject hintFileFO = FileUtil.toFileObject(parsed.valueOf(hintFile));
+                assert hintFileFO != null;
+                hints = PatternConvertor.create(hintFileFO.asText());
+                for (HintDescription hd : hints) {
+                    HintsSettings.setEnabled(hintSettings.node(hd.getMetadata().id), true);
+                }
             } else {
                 hints = readHints(sourceCP, binaryCP, hintSettings, settingsFromConfigFile != null ? settingsFromConfigFile.getBoolean("runDeclarative", true) : true);
             }
