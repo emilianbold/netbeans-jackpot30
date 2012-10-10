@@ -41,7 +41,9 @@ package org.netbeans.modules.jackpot30.cmdline;
 import java.util.regex.Pattern;
 import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar;
 import org.netbeans.modules.jackpot30.cmdline.lib.CreateStandaloneJar.Info;
+import org.netbeans.modules.java.hints.declarative.PatternConvertorImpl;
 import org.netbeans.modules.java.hints.declarative.test.api.DeclarativeHintsTestBase;
+import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.modules.java.j2seproject.J2SEProject;
 import org.netbeans.modules.java.platform.DefaultJavaPlatformProvider;
 import org.netbeans.modules.project.ui.OpenProjectsTrampolineImpl;
@@ -58,10 +60,11 @@ public class CreateTool extends CreateStandaloneJar {
 
     @Override
     protected Info computeInfo() {
-        return new Info().addAdditionalRoots(Main.class.getName(), DeclarativeHintsTestBase.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName())
+        return new Info().addAdditionalRoots(Main.class.getName(), DeclarativeHintsTestBase.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName(), PatternConvertorImpl.class.getName())
                          .addAdditionalResources("org/netbeans/modules/java/hints/resources/Bundle.properties")
                          .addAdditionalLayers("org/netbeans/modules/java/hints/resources/layer.xml")
                          .addMetaInfRegistrations(new MetaInfRegistration(org.netbeans.modules.project.uiapi.OpenProjectsTrampoline.class, OpenProjectsTrampolineImpl.class))
+                         .addMetaInfRegistrationToCopy(PatternConvertor.class.getName())
                          .addExcludePattern(Pattern.compile("junit\\.framework\\..*"))
                          .setEscapeJavaxLang();
     }
