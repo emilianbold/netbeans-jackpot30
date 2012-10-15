@@ -414,7 +414,7 @@ public class OptionProcessorImpl extends OptionProcessor {
                                 }
                             } else {
                                 FileObject root = e.getRoot();
-                                FileObject jar = FileUtil.getArchiveFile(root);
+                                FileObject jar = root != null ? FileUtil.getArchiveFile(root) : null;
 
                                 if (jar != null) root = jar;
 
