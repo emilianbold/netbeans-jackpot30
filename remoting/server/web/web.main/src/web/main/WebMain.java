@@ -95,6 +95,10 @@ public class WebMain {
         } else {
             gws = new GrizzlyWebServer(port);
         }
+        
+        if (port == 0) {
+            gws.getSelectorThread().setAddress(InetAddress.getByName("localhost"));
+        }
 
         // Jersey web resources
         ServletAdapter jerseyAdapter = new ServletAdapter();
