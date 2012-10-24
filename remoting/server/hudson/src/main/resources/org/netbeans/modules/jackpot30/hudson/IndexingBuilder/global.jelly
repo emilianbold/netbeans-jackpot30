@@ -4,6 +4,11 @@
         <f:entry title="Cache directory:" field="cacheDir">
             <f:textbox />
         </f:entry>
+        <f:advanced>
+            <f:entry title="Web frontend VM Options" field="webVMOptions">
+                <f:textbox />
+            </f:entry>
+        </f:advanced>
     </f:section>
     
 </j:jelly>

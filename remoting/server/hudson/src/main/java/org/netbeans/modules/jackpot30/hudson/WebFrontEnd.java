@@ -63,6 +63,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.netbeans.modules.jackpot30.hudson.IndexingBuilder.DescriptorImpl;
 
 /**
  *
@@ -112,6 +113,11 @@ public class WebFrontEnd {
         if (requestId == originalRequestId) {
             frontend = proc.start();
         }
+    }
+
+    public static void restart() {
+        stop();
+        ensureStarted();
     }
 
     @Extension
@@ -222,6 +228,7 @@ public class WebFrontEnd {
             args.add(cacheDir);
 
             doStart(launcher.launch().cmds(args)
+                                     .envs(Collections.singletonMap("JACKPOT_WEB_OPTS", ((DescriptorImpl) DescriptorImpl.find(DescriptorImpl.class.getName())).getWebVMOptions()))
                                      .stdout(listener),
                     requestId);
         } catch (IOException ex) {

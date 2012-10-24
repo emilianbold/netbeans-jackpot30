@@ -259,14 +259,20 @@ public class IndexingBuilder extends Builder {
     public static final class DescriptorImpl extends Descriptor<Builder> {
 
         private File cacheDir;
+        private String webVMOptions;
 
         public DescriptorImpl() {
             cacheDir = new File(Hudson.getInstance().getRootDir(), "index").getAbsoluteFile();
+            webVMOptions = "";
             load();
         }
 
         public File getCacheDir() {
             return cacheDir;
+        }
+
+        public String getWebVMOptions() {
+            return webVMOptions;
         }
 
         @Override
@@ -278,9 +284,22 @@ public class IndexingBuilder extends Builder {
         public boolean configure(StaplerRequest req, JSONObject json) throws FormException {
             cacheDir = new File(json.getString("cacheDir"));
 
+            String newWebVMOptions = json.getString("webVMOptions");
+
+            if (newWebVMOptions == null) newWebVMOptions = "";
+
+            boolean restartWebFrontEnd = !webVMOptions.equals(newWebVMOptions);
+
+            webVMOptions = newWebVMOptions;
+            
             save();
             
-            return super.configure(req, json);
+            boolean result = super.configure(req, json);
+
+            if (restartWebFrontEnd)
+                WebFrontEnd.restart();
+            
+            return result;
         }
 
         @Override
