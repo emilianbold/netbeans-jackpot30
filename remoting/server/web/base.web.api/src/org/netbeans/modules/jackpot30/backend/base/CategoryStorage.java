@@ -80,6 +80,10 @@ public class CategoryStorage {
         categoryCache = null;
     }
 
+    public static synchronized File getAccessStatisticsFile() {
+        return new File(cacheRoot, "accessStatistics");
+    }
+
     public static void internalReset() {
         setCacheRoot(cacheRoot);
     }
@@ -95,6 +99,7 @@ public class CategoryStorage {
         List<CategoryStorage> result = new ArrayList<CategoryStorage>();
 
         for (File cat : cacheRoot.listFiles()) {
+            if (!cat.isDirectory()) continue;
             File info = new File(cat, "info");
             String displayName = cat.getName();
             if (info.canRead()) {

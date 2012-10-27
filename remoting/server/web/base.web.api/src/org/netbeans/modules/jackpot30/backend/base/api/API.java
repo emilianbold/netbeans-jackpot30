@@ -44,10 +44,9 @@ import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
-import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
+import org.codeviation.pojson.Pojson;
+import org.netbeans.modules.jackpot30.backend.base.AccessStatistics;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
-import org.openide.filesystems.FileObject;
 
 /**
  *
@@ -90,6 +89,13 @@ public class API {
         CategoryStorage cat = CategoryStorage.forId(segment);
 
         return cat.getInfo();
+    }
+
+    @GET
+    @Path("/accessStatistics")
+    @Produces("text/plain")
+    public String accessStatistics() throws IOException {
+        return Pojson.save(AccessStatistics.getStatistics());
     }
 
 }

@@ -56,6 +56,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.netbeans.modules.jackpot30.backend.base.AccessStatistics;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.RelStreamHandlerFactory;
 import org.openide.util.Exceptions;
@@ -104,6 +105,7 @@ public class WebMain {
         // Jersey web resources
         ServletAdapter jerseyAdapter = new ServletAdapter();
         jerseyAdapter.addInitParameter("com.sun.jersey.config.property.packages", "org.netbeans.modules.jackpot30");
+        jerseyAdapter.addInitParameter("com.sun.jersey.spi.container.ContainerRequestFilters", AccessStatistics.class.getName());
 //        jerseyAdapter.setContextPath("/");
         jerseyAdapter.setServletInstance(new ServletContainer());
 
