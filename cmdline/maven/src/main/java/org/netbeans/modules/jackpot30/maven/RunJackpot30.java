@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
+import org.apache.maven.model.Resource;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -66,7 +67,11 @@ public class RunJackpot30 extends AbstractMojo {
 
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
-            List<String> compileSourceRoots = (List<String>) project.getCompileSourceRoots();
+            List<String> compileSourceRoots = new ArrayList<String>();
+            compileSourceRoots.addAll((List<String>) project.getCompileSourceRoots());
+            for (Resource r : (List<Resource>) project.getResources()) {
+                compileSourceRoots.add(r.getDirectory());
+            }
             String sourceLevel = "1.5";
             Xpp3Dom sourceLevelConfiguration = Utils.getPluginConfiguration(project, "org.apache.maven.plugins", "maven-compiler-plugin");
 
@@ -96,7 +101,7 @@ public class RunJackpot30 extends AbstractMojo {
 
             boolean hasSourceRoots = false;
 
-            for (String sr : compileSourceRoots) {
+            for (String sr : (List<String>) project.getCompileSourceRoots()) {
                 if (!hasSourceRoots && new File(sr).isDirectory()) {
                     hasSourceRoots = true;
                 }
