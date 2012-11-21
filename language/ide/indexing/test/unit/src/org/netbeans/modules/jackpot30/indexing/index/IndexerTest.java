@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo;
@@ -217,7 +218,7 @@ public class IndexerTest extends IndexTestBase {
         
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
-                real.addAll(IndexQuery.open(src.toURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
+                real.addAll(IndexQuery.open(src.toURL()).findCandidates(BulkSearch.getDefault().create(parameter, new AtomicBoolean(), patterns)));
             }
         }, true);
 
@@ -238,7 +239,8 @@ public class IndexerTest extends IndexTestBase {
             public void run(CompilationController parameter) throws Exception {
                 BulkPattern bulkPattern = BulkSearch.getDefault().create(Collections.singletonList(pattern),
                                                                           Collections.singletonList(Utilities.parseAndAttribute(parameter, pattern, null)),
-                                                                          Collections.singletonList(additionalConstraints));
+                                                                          Collections.singletonList(additionalConstraints),
+                                                                          new AtomicBoolean());
                 
                 real.addAll(IndexQuery.open(src.toURL()).findCandidates(bulkPattern));
             }
@@ -259,7 +261,7 @@ public class IndexerTest extends IndexTestBase {
 
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
-                real.putAll(IndexQuery.open(src.toURL()).findCandidatesWithFrequencies(BulkSearch.getDefault().create(parameter, patterns)));
+                real.putAll(IndexQuery.open(src.toURL()).findCandidatesWithFrequencies(BulkSearch.getDefault().create(parameter, new AtomicBoolean(), patterns)));
             }
         }, true);
 
@@ -276,7 +278,7 @@ public class IndexerTest extends IndexTestBase {
         
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
-                real.addAll(IndexQuery.open(src.toURL()).findCandidates(BulkSearch.getDefault().create(parameter, pattern)));
+                real.addAll(IndexQuery.open(src.toURL()).findCandidates(BulkSearch.getDefault().create(parameter, new AtomicBoolean(), pattern)));
             }
         }, true);
 

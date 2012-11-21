@@ -50,6 +50,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
@@ -108,7 +109,7 @@ public class API {
         CompilationUnitTree cut = jti.parse(new JFOImpl(source)).iterator().next();
         Collection<TreePath> paths = new LinkedList<TreePath>();
 
-        for (Collection<TreePath> c : BulkSearch.getDefault().match(null, new TreePath(cut), bulkPattern).values()) {
+        for (Collection<TreePath> c : BulkSearch.getDefault().match(null, new AtomicBoolean(), new TreePath(cut), bulkPattern).values()) {
             paths.addAll(c);
         }
 
@@ -164,7 +165,7 @@ public class API {
             additionalConstraints.add(pattern.getAdditionalConstraints());
         }
 
-        return BulkSearch.getDefault().create(code, trees, additionalConstraints);
+        return BulkSearch.getDefault().create(code, trees, additionalConstraints, new AtomicBoolean());
     }
 
     private static JavacTaskImpl prepareJavacTaskImpl() {

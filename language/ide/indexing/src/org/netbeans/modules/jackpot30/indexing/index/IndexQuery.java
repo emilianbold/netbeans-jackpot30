@@ -51,6 +51,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.DataFormatException;
 import org.apache.lucene.analysis.KeywordAnalyzer;
 import org.apache.lucene.document.CompressionTools;
@@ -101,11 +102,11 @@ public abstract class IndexQuery {
                         boolean matches;
 
                         if (withFrequencies) {
-                            freqs = BulkSearch.getDefault().matchesWithFrequencies(in, pattern);
+                            freqs = BulkSearch.getDefault().matchesWithFrequencies(in, pattern, new AtomicBoolean());
                             matches = !freqs.isEmpty();
                         } else {
                             freqs = null;
-                            matches = BulkSearch.getDefault().matches(in, pattern);
+                            matches = BulkSearch.getDefault().matches(in, new AtomicBoolean(), pattern);
                         }
 
                         if (matches) {

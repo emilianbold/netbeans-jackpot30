@@ -42,6 +42,7 @@ import java.io.File;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
@@ -110,7 +111,7 @@ public class IndexingAnnotationProcessorTest extends HintsAnnotationProcessingTe
 
         JavaSource.create(cpInfo).runUserActionTask(new Task<CompilationController>() {
             public void run(CompilationController parameter) throws Exception {
-                real.addAll(IndexQuery.open(src.toURI().toURL()).findCandidates(BulkSearch.getDefault().create(parameter, patterns)));
+                real.addAll(IndexQuery.open(src.toURI().toURL()).findCandidates(BulkSearch.getDefault().create(parameter, new AtomicBoolean(), patterns)));
             }
         }, true);
 
