@@ -51,21 +51,9 @@ import org.apache.maven.project.MavenProject;
 import org.codehaus.plexus.util.xml.Xpp3Dom;
 import org.netbeans.modules.jackpot30.cmdline.Main;
 
-/**
- * @goal analyze
- * @requiresDependencyResolution compile
- * @author Jan Lahoda
- */
-public class RunJackpot30 extends AbstractMojo {
+public abstract class RunJackpot30 extends AbstractMojo {
 
-    /**
-     * @parameter expression="${project}"
-     * @required
-     * @readonly
-     */
-    private MavenProject project;
-
-    public void execute() throws MojoExecutionException, MojoFailureException {
+    protected final void doRun(MavenProject project, boolean apply) throws MojoExecutionException, MojoFailureException {
         try {
             List<String> compileSourceRoots = new ArrayList<String>();
             compileSourceRoots.addAll((List<String>) project.getCompileSourceRoots());
@@ -86,7 +74,12 @@ public class RunJackpot30 extends AbstractMojo {
             String configurationFile = Utils.getJackpotConfigurationFile(project);
 
             List<String> cmdLine = new ArrayList<String>();
-            cmdLine.add("--no-apply");
+
+            if (apply)
+                cmdLine.add("--apply");
+            else
+                cmdLine.add("--no-apply");
+
             cmdLine.add("--sourcepath");
             cmdLine.add(toClassPathString(compileSourceRoots));
             cmdLine.add("--classpath");
