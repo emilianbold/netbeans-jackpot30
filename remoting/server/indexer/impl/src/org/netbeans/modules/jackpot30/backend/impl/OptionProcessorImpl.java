@@ -204,6 +204,8 @@ public class OptionProcessorImpl extends OptionProcessor {
             }
         }
 
+        cacheTemp.refresh();
+
         JarOutputStream out = null;
         InputStream segments = null;
 
