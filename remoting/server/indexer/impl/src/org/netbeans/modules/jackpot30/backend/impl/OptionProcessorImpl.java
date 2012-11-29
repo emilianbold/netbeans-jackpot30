@@ -46,7 +46,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -211,7 +213,7 @@ public class OptionProcessorImpl extends OptionProcessor {
 
         try {
             out = new JarOutputStream(new FileOutputStream(cache));
-            pack(out, cacheTemp, "index", new StringBuilder(categoryId));
+            pack(out, cacheTemp, null, "index", new StringBuilder(categoryId));
 
             segments = cacheFolder.getFileObject("segments").getInputStream();
             Properties in = new Properties();
@@ -292,7 +294,7 @@ public class OptionProcessorImpl extends OptionProcessor {
 
                     local = new JarOutputStream(out);
 
-                    pack(local, s, "", new StringBuilder(""));
+                    pack(local, s, baseDir.toURI().toString(), "", new StringBuilder(""));
                 } finally {
                     if (local != null) {
                         local.finish();
@@ -447,7 +449,7 @@ public class OptionProcessorImpl extends OptionProcessor {
         }
     }
 
-    private void pack(JarOutputStream target, FileObject index, String name, StringBuilder relPath) throws IOException {
+    private void pack(JarOutputStream target, FileObject index, String baseURL, String name, StringBuilder relPath) throws IOException {
         int len = relPath.length();
         boolean first = relPath.length() == 0;
 
@@ -464,7 +466,11 @@ public class OptionProcessorImpl extends OptionProcessor {
             InputStream in = index.getInputStream();
 
             try {
-                FileUtil.copy(in, target);
+                if (baseURL != null && ("java/14/checksums.properties".contentEquals(relPath) || "java/14/fqn2files.properties".contentEquals(relPath))) {
+                    fixAbsolutePath(in, target, baseURL, "rel:/");
+                } else {
+                    FileUtil.copy(in, target);
+                }
             } finally {
                 in.close();
             }
@@ -472,10 +478,30 @@ public class OptionProcessorImpl extends OptionProcessor {
 
         for (FileObject c : index.getChildren()) {
             if (first && c.getNameExt().equals("segments")) continue;
-            pack(target, c, c.getNameExt(), relPath);
+            pack(target, c, baseURL, c.getNameExt(), relPath);
         }
 
         relPath.delete(len, relPath.length());
     }
 
+    private void fixAbsolutePath(InputStream original, OutputStream target, String origPrefix, String targetPrefix) throws IOException {
+        Properties inProps = new Properties();
+
+        inProps.load(original);
+
+        Properties outProps = new Properties();
+
+        for (String k : (Collection<String>) (Collection) inProps.keySet()) {
+            String orig = inProps.getProperty(k);
+
+            //XXX: should only change key or value as appropriate:
+            if (k.startsWith(origPrefix)) k = targetPrefix + k.substring(origPrefix.length());
+            if (orig.startsWith(origPrefix)) orig = targetPrefix + orig.substring(origPrefix.length());
+
+            outProps.setProperty(k, orig);
+        }
+
+
+        outProps.store(target, "");
+    }
 }
