@@ -129,7 +129,7 @@ public class ResolveService {
     }
 
     public static String resolveSource(String segment, String relative, String signature) throws IOException, InterruptedException {
-        String fqn = signature.split(":")[1];
+        String fqn = topLevelClassFromSignature(signature);
         SourceRoot sourceRoot = sourceRoot(CategoryStorage.forId(segment), relative);
         List<String> classpathElements = new ArrayList<String>();
 
@@ -154,7 +154,7 @@ public class ResolveService {
 
     public static Map<? extends CategoryStorage, ? extends Iterable<? extends String>> findSourcesContaining(String signature) throws IOException, InterruptedException {
         Map<CategoryStorage, Iterable<? extends String>> result = new HashMap<CategoryStorage, Iterable<? extends String>>();
-        String fqn = signature.split(":")[1];
+        String fqn = topLevelClassFromSignature(signature);
 
         for (CategoryStorage category : CategoryStorage.listCategories()) {
             //would it be faster to check if the given class is in the current category?
@@ -199,6 +199,16 @@ public class ResolveService {
         }
 
         return null;
+    }
+
+    private static String topLevelClassFromSignature(String signature) {
+        String fqn = signature.split(":")[1];
+
+        if (fqn.indexOf('$') != (-1)) {//not fully correct
+            return fqn.substring(0, fqn.indexOf('$'));
+        } else {
+            return fqn;
+        }
     }
 
     public static long[] nameSpan(CompilationInfo info, TreePath forTree) {
