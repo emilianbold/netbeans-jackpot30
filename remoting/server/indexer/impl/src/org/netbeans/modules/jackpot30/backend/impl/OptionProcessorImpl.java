@@ -105,7 +105,7 @@ public class OptionProcessorImpl extends OptionProcessor {
     private final Option CACHE_TARGET = Option.requiredArgument(Option.NO_SHORT_NAME, "cache-target");
     private final Option INFO = Option.requiredArgument(Option.NO_SHORT_NAME, "info");
     private final Set<Option> OPTIONS = new HashSet<Option>(Arrays.asList(CATEGORY_ID, CATEGORY_NAME, CATEGORY_PROJECTS, CATEGORY_ROOT_DIR, CACHE_TARGET, INFO));
-    private final boolean STORE_CLASSPATH = Boolean.getBoolean("jackpot.store.classpath");
+    private final boolean STORE_CLASSPATH = true;
     
     @Override
     protected Set<Option> getOptions() {
