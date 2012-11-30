@@ -57,6 +57,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -134,6 +135,8 @@ public class Javac {
         }
     }
 
+    private static final Set<String> CLASSFILE_EXTENSIONS = new HashSet<String>(Arrays.asList("class", "sig"));
+    
     private static final class FMImpl implements JavaFileManager {
 
         private final Collection<org.openide.filesystems.FileObject> classpath;
@@ -161,7 +164,7 @@ public class Javac {
 
                 if (dirFO != null) {
                     for (org.openide.filesystems.FileObject  f : dirFO.getChildren()) {
-                        if (!f.isData()) continue;
+                        if (!f.isData() || !CLASSFILE_EXTENSIONS.contains(f.getExt())) continue;
 
                         JFOImpl jfo = files.get(f);
 
