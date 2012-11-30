@@ -1,0 +1,354 @@
+44c44
+< package org.netbeans.modules.java.editor.semantic;
+---
+> package org.netbeans.modules.jackpot30.backend.ui.highlighting;
+84c84,86
+< import java.io.IOException;
+---
+> import com.sun.source.util.TreePathScanner;
+> import com.sun.tools.javac.tree.JCTree;
+> import com.sun.tools.javac.tree.JCTree.JCVariableDecl;
+94,96d95
+< import java.util.concurrent.atomic.AtomicBoolean;
+< import java.util.logging.Level;
+< import java.util.logging.Logger;
+102,109d100
+< import javax.swing.SwingUtilities;
+< import javax.swing.text.Document;
+< import org.netbeans.api.java.source.CompilationInfo;
+< import org.netbeans.api.java.source.JavaParserResultTask;
+< import org.netbeans.api.java.source.JavaSource.Phase;
+< import org.netbeans.api.java.source.TreePathHandle;
+< import org.netbeans.api.java.source.TreeUtilities;
+< import org.netbeans.api.java.source.support.CancellableTreePathScanner;
+111,123c102,103
+< import org.netbeans.api.lexer.TokenHierarchy;
+< import org.netbeans.modules.editor.NbEditorUtilities;
+< import org.netbeans.modules.java.editor.imports.UnusedImports;
+< import org.netbeans.modules.java.editor.semantic.ColoringAttributes.Coloring;
+< import org.netbeans.modules.parsing.spi.Parser.Result;
+< import org.netbeans.modules.parsing.spi.Scheduler;
+< import org.netbeans.modules.parsing.spi.SchedulerEvent;
+< import org.netbeans.modules.parsing.spi.TaskIndexingMode;
+< import org.netbeans.spi.editor.highlighting.support.OffsetsBag;
+< import org.netbeans.spi.editor.hints.ErrorDescription;
+< import org.openide.filesystems.FileObject;
+< import org.openide.filesystems.FileUtil;
+< import org.openide.loaders.DataObject;
+---
+> import org.netbeans.modules.jackpot30.backend.ui.highlighting.ColoringAttributes.Coloring;
+> import org.netbeans.modules.jackpot30.resolve.api.CompilationInfo;
+130,214c110
+< public class SemanticHighlighter extends JavaParserResultTask {
+<     
+<     public static List<TreePathHandle> computeUnusedImports(CompilationInfo info) throws IOException {
+<         final List<TreePathHandle> result = new ArrayList<TreePathHandle>();
+<         
+<         for (TreePath unused : UnusedImports.process(info, new AtomicBoolean())) {
+<             result.add(TreePathHandle.create(unused, info));
+<         }
+<         
+<         return result;
+<     }
+<     
+<     private FileObject file;
+<     //XXX: correct rescheduling when troubles traversing token list!
+< //    private SemanticHighlighterFactory fact;
+<     private AtomicBoolean cancel = new AtomicBoolean();
+<     
+< //    SemanticHighlighter(FileObject file) {
+< //        this(file, null);
+< //    }
+< //    
+<     SemanticHighlighter(FileObject file/*, SemanticHighlighterFactory fact*/) {
+<         super(Phase.RESOLVED, TaskIndexingMode.ALLOWED_DURING_SCAN);
+<         this.file = file;
+< //        this.fact = fact;
+<     }
+< 
+<     @Override
+<     public void run(Result result, SchedulerEvent event) {
+<         CompilationInfo info = CompilationInfo.get(result);
+<         
+<         if (info == null) {
+<             return ;
+<         }
+<         
+<         cancel.set(false);
+<         
+<         final Document doc = result.getSnapshot().getSource().getDocument(false);
+<         
+<         if (!verifyDocument(doc)) return;
+< 
+<         if (process(info, doc)/* && fact != null*/) {
+< //            fact.rescheduleImpl(file);
+<         }
+<     }
+< 
+<     private static boolean verifyDocument(final Document doc) {
+<         if (doc == null) {
+<             Logger.getLogger(SemanticHighlighter.class.getName()).log(Level.FINE, "SemanticHighlighter: Cannot get document!");
+<             return false;
+<         }
+< 
+<         final boolean[] tokenSequenceNull =  new boolean[1];
+<         doc.render(new Runnable() {
+<             public void run() {
+<                 tokenSequenceNull[0] = (TokenHierarchy.get(doc).tokenSequence() == null);
+<             }
+<         });
+<         if (tokenSequenceNull[0]) {
+<             return false;
+<         }
+<         
+<         return true;
+<     }
+<     
+<     public void cancel() {
+<         cancel.set(true);
+<     }
+<     
+< 
+<     @Override
+<     public int getPriority() {
+<         return 100;
+<     }
+< 
+<     @Override
+<     public Class<? extends Scheduler> getSchedulerClass() {
+<         return Scheduler.EDITOR_SENSITIVE_TASK_SCHEDULER;
+<     }
+<     
+< 
+<     
+<     boolean process(CompilationInfo info, final Document doc) {
+<         return process(info, doc, ERROR_DESCRIPTION_SETTER);
+<     }
+---
+> public class SemanticHighlighter {
+218c114
+<         
+---
+> 
+222c118
+<         
+---
+> 
+225,227c121,123
+<     
+<     boolean process(CompilationInfo info, final Document doc, ErrorDescriptionSetter setter) {
+<         DetectorVisitor v = new DetectorVisitor(info, doc, cancel);
+---
+> 
+>     public static Map<Token, Coloring> computeHighlights(CompilationInfo info, TokenList tl) {
+>         DetectorVisitor v = new DetectorVisitor(info, tl);
+232d127
+<         List<ErrorDescription> errors = new ArrayList<ErrorDescription>();
+238,269c133
+<         if (cancel.get())
+<             return true;
+<         
+<         boolean computeUnusedImports = "text/x-java".equals(FileUtil.getMIMEType(info.getFileObject()));
+<         
+<         final List<TreePathHandle> allUnusedImports = computeUnusedImports ? new ArrayList<TreePathHandle>() : null;
+<         OffsetsBag imports = computeUnusedImports ? new OffsetsBag(doc) : null;
+< 
+<         if (computeUnusedImports) {
+<             Coloring unused = ColoringAttributes.add(ColoringAttributes.empty(), ColoringAttributes.UNUSED);
+<             Collection<TreePath> unusedImports = UnusedImports.process(info, cancel);
+< 
+<             if (unusedImports == null) return true;
+<             
+<             for (TreePath tree : unusedImports) {
+<                 if (cancel.get()) {
+<                     return true;
+<                 }
+< 
+<                 //XXX: finish
+<                 final int startPos = (int) info.getTrees().getSourcePositions().getStartPosition(cu, tree.getLeaf());
+<                 final int endPos = (int) info.getTrees().getSourcePositions().getEndPosition(cu, tree.getLeaf());
+< 
+<                 imports.addHighlight(startPos, endPos, ColoringManager.getColoringImpl(unused));
+< 
+<                 TreePathHandle handle = TreePathHandle.create(tree, info);
+< 
+<                 allUnusedImports.add(handle);
+<             }
+<         }
+<         
+<         Map<Token, Coloring> oldColors = LexerBasedHighlightLayer.getLayer(SemanticHighlighter.class, doc).getColorings();
+---
+>         Map<Token, Coloring> oldColors = new HashMap<Token, Coloring>();
+274,276d137
+<             if (cancel.get())
+<                 return true;
+<             
+283c144
+<                 if (u.type.contains(UseTypes.DECLARATION) && org.netbeans.modules.java.editor.semantic.Utilities.isPrivateElement(decl)) {
+---
+>                 if (u.type.contains(UseTypes.DECLARATION) && isPrivateElement(decl)) {
+319,332c180
+<         if (cancel.get())
+<             return true;
+<         
+<         if (computeUnusedImports) {
+<             setter.setErrors(doc, errors, allUnusedImports);
+<             setter.setHighlights(doc, imports);
+<         }
+< 
+<         setter.setColorings(doc, newColoring, addedTokens, removedTokens.keySet());
+< 
+<         Logger.getLogger("TIMER").log(Level.FINE, "Semantic",
+<             new Object[] {NbEditorUtilities.getFileObject(doc), System.currentTimeMillis() - start});
+<         
+<         return false;
+---
+>         return newColoring;
+336c184
+<     private boolean hasAllTypes(List<Use> uses, Collection<UseTypes> types) {
+---
+>     private static boolean hasAllTypes(List<Use> uses, Collection<UseTypes> types) {
+389c237
+<     private static class DetectorVisitor extends CancellableTreePathScanner<Void, EnumSet<UseTypes>> {
+---
+>     private static class DetectorVisitor extends TreePathScanner<Void, EnumSet<UseTypes>> {
+391,392c239
+<         private org.netbeans.api.java.source.CompilationInfo info;
+<         private Document doc;
+---
+>         private CompilationInfo info;
+402,404c249
+<         private DetectorVisitor(org.netbeans.api.java.source.CompilationInfo info, final Document doc, AtomicBoolean cancel) {
+<             super(cancel);
+<             
+---
+>         private DetectorVisitor(CompilationInfo info, TokenList tl) {
+406d250
+<             this.doc  = doc;
+411c255
+<             tl = new TokenList(info, doc, cancel);
+---
+>             this.tl = tl;
+601c445
+<             if (Utilities.isKeyword(expr.getLeaf())) {
+---
+>             if (isKeyword(expr.getLeaf())) {
+806c650
+<             if (info.getTreeUtilities().isSynthetic(getCurrentPath()))
+---
+>             if (isSynthetic(getCurrentPath()))
+834c678
+<             if (info.getTreeUtilities().isSynthetic(getCurrentPath())) {
+---
+>             if (isSynthetic(getCurrentPath())) {
+886c730
+<                 while (tp != null && !TreeUtilities.CLASS_TREE_KINDS.contains(tp.getLeaf().getKind())) {
+---
+>                 while (tp != null && !CLASS_TREE_KINDS.contains(tp.getLeaf().getKind())) {
+890c734
+<                 if (tp != null && TreeUtilities.CLASS_TREE_KINDS.contains(tp.getLeaf().getKind())) {
+---
+>                 if (tp != null && CLASS_TREE_KINDS.contains(tp.getLeaf().getKind())) {
+1003c847
+<             int[] span = info.getTreeUtilities().findNameSpan(tree);
+---
+>             int[] span = new int[] {((JCVariableDecl) tree).pos, ((JCVariableDecl) tree).pos + tree.getName().length()};//info.getTreeUtilities().findNameSpan(tree);
+1313,1317c1157,1160
+<     public static interface ErrorDescriptionSetter {
+<         
+<         public void setErrors(Document doc, List<ErrorDescription> errors, List<TreePathHandle> allUnusedImports);
+<         public void setHighlights(Document doc, OffsetsBag highlights);
+<         public void setColorings(Document doc, Map<Token, Coloring> colorings, Set<Token> addedTokens, Set<Token> removedTokens);
+---
+> 
+>     //not fully correct, but should suffice now:
+>     private static boolean isSynthetic(TreePath path) {
+>         return ((JCTree) path.getLeaf()).pos == (-1);
+1319,1329c1162,1185
+<     
+<     static ErrorDescriptionSetter ERROR_DESCRIPTION_SETTER = new ErrorDescriptionSetter() {
+<         
+<         public void setErrors(Document doc, List<ErrorDescription> errors, List<TreePathHandle> allUnusedImports) {}
+<         
+<         public void setHighlights(final Document doc, final OffsetsBag highlights) {
+<             SwingUtilities.invokeLater(new Runnable() {
+<                 public void run() {
+<                     getImportHighlightsBag(doc).setHighlights(highlights);
+<                 }
+<             });
+---
+> 
+>     //from semantic.Utilities:
+>     private static final Set<String> keywords;
+>     private static final Set<String> nonCtorKeywords;
+> 
+>     static {
+>         keywords = new HashSet<String>();
+> 
+>         keywords.add("true");
+>         keywords.add("false");
+>         keywords.add("null");
+>         keywords.add("this");
+>         keywords.add("super");
+>         keywords.add("class");
+> 
+>         nonCtorKeywords = new HashSet<String>(keywords);
+>         nonCtorKeywords.remove("this");
+>         nonCtorKeywords.remove("super");
+> 
+>     }
+> 
+>     public static boolean isKeyword(Tree tree) {
+>         if (tree.getKind() == Kind.IDENTIFIER) {
+>             return keywords.contains(((IdentifierTree) tree).getName().toString());
+1331,1337c1187,1188
+<     
+<         public void setColorings(final Document doc, final Map<Token, Coloring> colorings, final Set<Token> addedTokens, final Set<Token> removedTokens) {
+<             SwingUtilities.invokeLater(new Runnable () {
+<                 public void run() {
+<                     LexerBasedHighlightLayer.getLayer(SemanticHighlighter.class, doc).setColorings(colorings, addedTokens, removedTokens);
+<                 }                
+<             });            
+---
+>         if (tree.getKind() == Kind.MEMBER_SELECT) {
+>             return keywords.contains(((MemberSelectTree) tree).getIdentifier().toString());
+1339d1189
+<     };
+1341,1352c1191,1196
+<     private static final Object KEY_UNUSED_IMPORTS = new Object();
+<     static OffsetsBag getImportHighlightsBag(Document doc) {
+<         OffsetsBag bag = (OffsetsBag) doc.getProperty(KEY_UNUSED_IMPORTS);
+<         
+<         if (bag == null) {
+<             doc.putProperty(KEY_UNUSED_IMPORTS, bag = new OffsetsBag(doc));
+<             
+<             Object stream = doc.getProperty(Document.StreamDescriptionProperty);
+<             
+<             if (stream instanceof DataObject) {
+< //                TimesCollector.getDefault().reportReference(((DataObject) stream).getPrimaryFile(), "ImportsHighlightsBag", "[M] Imports Highlights Bag", bag);
+<             }
+---
+>         return false;
+>     }
+> 
+>     public static boolean isNonCtorKeyword(Tree tree) {
+>         if (tree.getKind() == Kind.IDENTIFIER) {
+>             return nonCtorKeywords.contains(((IdentifierTree) tree).getName().toString());
+1354,1355c1198,1208
+<         
+<         return bag;
+---
+>         if (tree.getKind() == Kind.MEMBER_SELECT) {
+>             return nonCtorKeywords.contains(((MemberSelectTree) tree).getIdentifier().toString());
+>         }
+> 
+>         return false;
+>     }
+> 
+>     private static final Set<ElementKind> LOCAL_ELEMENT_KINDS = EnumSet.of(ElementKind.PARAMETER, ElementKind.LOCAL_VARIABLE, ElementKind.EXCEPTION_PARAMETER, ElementKind.RESOURCE_VARIABLE);
+> 
+>     public static boolean isPrivateElement(Element el) {
+>         return LOCAL_ELEMENT_KINDS.contains(el.getKind()) || el.getModifiers().contains(Modifier.PRIVATE);
+1357a1211,1212
+>     //from TreeUtilities:
+>     public static final Set<Kind> CLASS_TREE_KINDS = EnumSet.of(Kind.ANNOTATION_TYPE, Kind.CLASS, Kind.ENUM, Kind.INTERFACE);

@@ -39,38 +39,38 @@
  *
  * Portions Copyrighted 2011 Sun Microsystems, Inc.
  */
-package org.netbeans.modules.jackpot30.backend.base;
+package org.netbeans.modules.jackpot30.resolve.api;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+import java.util.EnumSet;
+import java.util.Set;
+import javax.lang.model.element.ElementKind;
+import org.netbeans.api.java.source.ElementHandle;
+import org.netbeans.api.java.source.SourceUtils;
 
 /**
  *
  * @author lahvac
  */
-public class Utilities {
+public class JavaUtils {
+    
+    public static final Set<ElementKind> SUPPORTED_KINDS = EnumSet.of(ElementKind.PACKAGE, ElementKind.CLASS,
+            ElementKind.INTERFACE, ElementKind.ENUM, ElementKind.ANNOTATION_TYPE, ElementKind.METHOD,
+            ElementKind.CONSTRUCTOR, ElementKind.INSTANCE_INIT, ElementKind.STATIC_INIT,
+            ElementKind.FIELD, ElementKind.ENUM_CONSTANT);
+    
+    public static String serialize(ElementHandle<?> h) {
+        StringBuilder result = new StringBuilder();
 
-    public static <T> Map<String, List<T>> sortBySourceRoot(List<Entry<String, T>> found, CategoryStorage category) {
-        Map<String, List<T>> result = new LinkedHashMap<String, List<T>>();
+        result.append(h.getKind());
 
-        for (Entry<String, T> e : found) {
-            for (SourceRoot sourceRoot : category.getSourceRoots()) {
-                if (e.getKey().startsWith(sourceRoot.getRelativePath())) {
-                    List<T> current = result.get(sourceRoot.getRelativePath());
+        String[] signatures = SourceUtils.getJVMSignature(h);
 
-                    if (current == null) {
-                        result.put(sourceRoot.getRelativePath(), current = new ArrayList<T>());
-                    }
-
-                    current.add(e.getValue());
-                }
-            }
+        for (String sig : signatures) {
+            result.append(":");
+            result.append(sig);
         }
 
-        return result;
+        return result.toString();
     }
-
+    
 }

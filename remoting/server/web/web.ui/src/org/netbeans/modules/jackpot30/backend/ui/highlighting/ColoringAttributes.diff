@@ -1,0 +1,4 @@
+44c44
+< package org.netbeans.modules.java.editor.semantic;
+---
+> package org.netbeans.modules.jackpot30.backend.ui.highlighting;

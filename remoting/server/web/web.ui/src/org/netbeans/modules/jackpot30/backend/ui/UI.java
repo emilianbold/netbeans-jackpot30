@@ -51,12 +51,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import javax.ws.rs.DefaultValue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -65,11 +66,19 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.UriInfo;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.java.lexer.JavaTokenId;
+import org.netbeans.api.lexer.Token;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.FreemarkerUtilities;
 import org.netbeans.modules.jackpot30.backend.base.WebUtilities;
 import static org.netbeans.modules.jackpot30.backend.base.WebUtilities.escapeForQuery;
+import org.netbeans.modules.jackpot30.backend.ui.highlighting.ColoringAttributes;
+import org.netbeans.modules.jackpot30.backend.ui.highlighting.ColoringAttributes.Coloring;
+import org.netbeans.modules.jackpot30.backend.ui.highlighting.SemanticHighlighter;
+import org.netbeans.modules.jackpot30.backend.ui.highlighting.TokenList;
+import org.netbeans.modules.jackpot30.resolve.api.CompilationInfo;
+import org.netbeans.modules.jackpot30.resolve.api.ResolveService;
 
 /**
  *
@@ -179,30 +188,52 @@ public class UI {
     @GET
     @Path("/show")
     @Produces("text/html")
-    public String show(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("highlight") @DefaultValue("[]") String highlightSpec) throws URISyntaxException, IOException, TemplateException {
+    public String show(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("highlight") String highlightSpec, @QueryParam("signature") String signature) throws URISyntaxException, IOException, TemplateException, InterruptedException {
         String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
         URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
         String content = WebUtilities.requestStringResponse(u);
-        List<Long> highlightSpans = Pojson.load(ArrayList.class, highlightSpec);
+        List<Long> highlightSpans = new ArrayList<Long>();
+
+        if (signature != null) {
+            CompilationInfo info = ResolveService.parse(segment, relative);
+            List<long[]> spans = ResolveService.usages(info, signature);
+
+            for (long[] span : spans) {
+                highlightSpans.add(span[0]);
+                highlightSpans.add(span[1]);
+            }
+        }
+
+        if (highlightSpec != null) {
+            highlightSpans.addAll(Pojson.load(ArrayList.class, highlightSpec));
+        }
+
         Map<String, Object> configurationData = new HashMap<String, Object>();
-        String[] highlights = colorTokens(content, highlightSpans);
+        String[] highlights = colorTokens(segment, relative, content, highlightSpans);
 
         configurationData.put("spans", highlights[0]);
         configurationData.put("categories", highlights[1]);
         configurationData.put("code", translate(content));
+        configurationData.put("path", segment);
+        configurationData.put("relative", relative);
 
         return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/showCode.html", configurationData);
     }
 
-    static String[] colorTokens(String content, List<Long> highlight) {
+    static String[] colorTokens(String segment, String relative, String content, List<Long> highlight) throws IOException, InterruptedException {
         TokenSequence<?> ts = TokenHierarchy.create(content, JavaTokenId.language()).tokenSequence();
+        CompilationInfo info = ResolveService.parse(segment, relative);
+        Map<Token, Coloring> semanticHighlights = SemanticHighlighter.computeHighlights(info, new TokenList(info, ts, new AtomicBoolean()));
         StringBuilder spans = new StringBuilder();
         StringBuilder cats  = new StringBuilder();
         long currentOffset = 0;
         boolean cont = false;
 
+        ts.moveStart();
+
         while (cont || ts.moveNext()) {
             if (spans.length() > 0) spans.append(", ");
+            if (cats.length() > 0) cats.append(", ");
 
             long endOffset = ts.offset() + ts.token().length();
             boolean foundHighlight = false;
@@ -236,31 +267,25 @@ public class UI {
             spans.append(endOffset - currentOffset);
             String category = ts.token().id().primaryCategory();
 
-            char cat;
-
-            if ("keyword".equals(category)) {
-                cat = 'K';
-            } else if ("keyword-directive".equals(category)) {
-                cat = 'K';
-            } else if ("literal".equals(category)) {
-                cat = 'K';
-            } else if ("whitespace".equals(category)) {
-                cat = 'W';
-            } else if ("comment".equals(category)) {
-                cat = 'C';
-            } else if ("character".equals(category)) {
-                cat = 'H';
-            } else if ("number".equals(category)) {
-                cat = 'N';
-            } else if ("string".equals(category)) {
-                cat = 'S';
-            } else {
-                cat = 'E';
+            if ("keyword-directive".equals(category)) {
+                category = "keyword";
             }
 
-            if (foundHighlight) cat++;
+            if (foundHighlight) {
+                if (!category.isEmpty()) category += " ";
+                category += "highlight";
+            }
 
-            cats.append(cat);
+            Coloring coloring = semanticHighlights.get(ts.token());
+
+            if (coloring != null) {
+                for (ColoringAttributes ca : coloring) {
+                    if (!category.isEmpty()) category += " ";
+                    category += ca.name().toLowerCase();
+                }
+            }
+
+            cats.append(category);
 
             currentOffset = endOffset;
         }
@@ -373,6 +398,7 @@ public class UI {
         Map<String, Object> configurationData = new HashMap<String, Object>();
 
         configurationData.put("elementDisplayName", elementDisplayName(elementSignature)); //TODO
+        configurationData.put("elementSignature", elementSignature); //TODO
 
         List<Map<String, Object>> results = new ArrayList<Map<String, Object>>(segments2Process.size());
 
@@ -624,5 +650,76 @@ public class UI {
         }
 
         return originalSignature;
+    }
+
+    @GET
+    @Path("/target")
+//    @Produces("text/html")
+    public String target(@QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("position") Long position, @QueryParam("signature") String signature) throws URISyntaxException, IOException, TemplateException, InterruptedException {
+        CompilationInfo info = ResolveService.parse(segment, relative);
+        Object target = null;
+
+        if (signature != null) {
+            long[] span = ResolveService.declarationSpans(info, signature);
+
+            if (span != null) {
+                target = span[2];
+            }
+        } else {
+            target = ResolveService.resolveGoToTarget(info, position);
+        }
+
+        Map<String, Object> result = new HashMap<String, Object>();
+
+        if (target instanceof Long) {
+            result.put("position", target);
+        } else if (target instanceof String) {
+            String targetSignature = (String) target;
+            String source = ResolveService.resolveSource(segment, relative, targetSignature);
+
+            result.put("signature", targetSignature);
+            
+            if (source != null) {
+                result.put("path", segment);
+                result.put("source", source);
+            } else {
+                String singleSource = null;
+                String singleSourceSegment = null;
+                boolean multipleSources = false;
+                List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
+
+                for (Entry<? extends CategoryStorage, ? extends Iterable<? extends String>> e : ResolveService.findSourcesContaining(targetSignature).entrySet()) {
+                    Map<String, Object> categoryData = new HashMap<String, Object>();
+
+                    categoryData.put("rootDisplayName", e.getKey().getDisplayName());
+                    categoryData.put("rootPath", e.getKey().getId());
+                    categoryData.put("files", e.getValue());
+
+                    if (!multipleSources) {
+                        Iterator<? extends String> fIt = e.getValue().iterator();
+
+                        if (fIt.hasNext()) {
+                            singleSource = fIt.next();
+                            singleSourceSegment = e.getKey().getId();
+                        }
+                        
+                        if (fIt.hasNext())
+                            multipleSources = true;
+                    }
+
+                    results.add(categoryData);
+                }
+
+                if (singleSource != null && !multipleSources) {
+                    //TODO: will automatically jump to the single known target - correct
+                    result.put("path", singleSourceSegment);
+                    result.put("source", singleSource);
+                } else if (!results.isEmpty()) {
+                    result.put("targets", results);
+                }
+            }
+        }
+
+        return Pojson.save(result);
     }
 }

@@ -67,7 +67,9 @@ import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.parsing.lucene.support.Index;
 import org.netbeans.modules.parsing.lucene.support.IndexManager;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileSystem;
 import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.JarFileSystem;
 
 /**
  *
@@ -139,17 +141,20 @@ public class CategoryStorage {
         this.displayName = displayName;
     }
 
-    private Iterable<? extends URL> getCategoryIndexFolders() {
+    private Iterable<? extends SourceRoot> sourceRoots;
+
+    public synchronized Iterable<? extends SourceRoot> getSourceRoots() {
+        if (sourceRoots != null) return sourceRoots;
+
+        List<SourceRoot> result = new ArrayList<SourceRoot>();
+
         try {
-            Set<URL> result = new HashSet<URL>();
             Map<String, String> invertedSegments = getInvertedSegments();
 
-            for (String c : invertedSegments.keySet()) {
-                if (!c.startsWith("rel:")) continue;
-                result.add(new URL(c));
+            for (Entry<String, String> e : invertedSegments.entrySet()) {
+                if (!e.getKey().startsWith("rel:")) continue;
+                result.add(new SourceRoot(this, new URL(e.getKey()).getPath().substring(1), e.getValue()));
             }
-
-            return result;
         } catch (IllegalArgumentException ex) {
             Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
         } catch (SecurityException ex) {
@@ -157,18 +162,28 @@ public class CategoryStorage {
         } catch (IOException ex) {
             Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
         }
-        return Collections.emptyList();
-    }
-
-    public Iterable<? extends String> getSourceRoots() {
-        List<String> result = new ArrayList<String>();
-
-        for (URL srcRoot : getCategoryIndexFolders()) {
-            if (!"rel".equals(srcRoot.getProtocol())) continue;
-                result.add(srcRoot.getPath().substring(1));
-        }
 
         return result;
+    }
+
+    private final Map<String, Reference<FileSystem>> embeddedJar2FileSystem = new HashMap<String, Reference<FileSystem>>();
+
+    public synchronized FileObject getEmbeddedJarRoot(String jarName) throws IOException {
+        Reference<FileSystem> fsRef = embeddedJar2FileSystem.get(jarName);
+        FileSystem fs = fsRef != null ? fsRef.get() : null;
+
+        if (fs == null) {
+            File f = new File(FileUtil.toFile(getCacheRoot()), jarName);
+
+            if (!f.canRead()) {
+                return null;//XXX: should not happen, but does?
+//                throw new IllegalStateException(jarName);
+            }
+
+            embeddedJar2FileSystem.put(jarName, new SoftReference<FileSystem>(fs = new JarFileSystem(f)));
+        }
+
+        return fs.getRoot();
     }
 
     public String getId() {

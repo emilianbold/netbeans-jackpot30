@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2012 Oracle and/or its affiliates. All rights reserved.
  *
  * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
  * Other names may be trademarks of their respective owners.
@@ -37,40 +37,42 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2011 Sun Microsystems, Inc.
+ * Portions Copyrighted 2012 Sun Microsystems, Inc.
  */
-package org.netbeans.modules.jackpot30.backend.base;
+package org.netbeans.modules.jackpot30.resolve.api;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.util.Trees;
+import javax.lang.model.util.Elements;
+import javax.lang.model.util.Types;
 
 /**
  *
  * @author lahvac
  */
-public class Utilities {
+public class CompilationInfo {
 
-    public static <T> Map<String, List<T>> sortBySourceRoot(List<Entry<String, T>> found, CategoryStorage category) {
-        Map<String, List<T>> result = new LinkedHashMap<String, List<T>>();
+    private final Javac javac;
+    private final CompilationUnitTree cut;
 
-        for (Entry<String, T> e : found) {
-            for (SourceRoot sourceRoot : category.getSourceRoots()) {
-                if (e.getKey().startsWith(sourceRoot.getRelativePath())) {
-                    List<T> current = result.get(sourceRoot.getRelativePath());
-
-                    if (current == null) {
-                        result.put(sourceRoot.getRelativePath(), current = new ArrayList<T>());
-                    }
-
-                    current.add(e.getValue());
-                }
-            }
-        }
-
-        return result;
+    public CompilationInfo(Javac javac, CompilationUnitTree cut) {
+        this.javac = javac;
+        this.cut = cut;
     }
 
+    public /*@NonNull*/ Trees getTrees() {
+        return Trees.instance(javac.getTask());
+    }
+
+    public /*@NonNull*/ Types getTypes() {
+        return javac.getTask().getTypes();
+    }
+
+    public /*@NonNull*/ Elements getElements() {
+	return javac.getTask().getElements();
+    }
+
+    public CompilationUnitTree getCompilationUnit() {
+        return cut;
+    }
 }
