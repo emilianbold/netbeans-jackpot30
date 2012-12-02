@@ -49,6 +49,8 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import com.sun.tools.javac.code.Flags;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import freemarker.template.TemplateException;
 import java.io.IOException;
 import java.net.URI;
@@ -698,7 +700,7 @@ public class UI {
 
                 long[] span = ResolveService.nameSpan(info, getCurrentPath());
 
-                if (span[0] <= position && position <= span[1]) {
+                if (span[2] <= position && position <= span[3]) {
                     if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
                         signature[0] = JavaUtils.serialize(ElementHandle.create(el));
                     }

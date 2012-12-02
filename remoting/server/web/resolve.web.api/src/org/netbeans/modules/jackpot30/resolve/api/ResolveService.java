@@ -49,7 +49,9 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCMethodDecl;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -183,7 +185,13 @@ public class ResolveService {
             case MEMBER_SELECT: name = ((MemberSelectTree) forTree.getLeaf()).getIdentifier(); break;
             case ANNOTATION_TYPE: case CLASS:
             case ENUM: case INTERFACE: name = ((ClassTree) forTree.getLeaf()).getSimpleName(); break;
-            case METHOD: name = ((MethodTree) forTree.getLeaf()).getName(); break;
+            case METHOD:
+                if ((((JCMethodDecl) forTree.getLeaf()).getModifiers().flags & Flags.GENERATEDCONSTR) != 0) {
+                    //no positions for generated constructors:
+                    return new long[] {-1, -1, -1, -1};
+                }
+                name = ((MethodTree) forTree.getLeaf()).getName();
+                break;
             case VARIABLE: name = ((VariableTree) forTree.getLeaf()).getName(); break;
         }
 
