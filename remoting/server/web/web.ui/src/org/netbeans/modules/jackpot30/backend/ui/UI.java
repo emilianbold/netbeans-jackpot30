@@ -42,6 +42,13 @@
 
 package org.netbeans.modules.jackpot30.backend.ui;
 
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import freemarker.template.TemplateException;
 import java.io.IOException;
 import java.net.URI;
@@ -58,6 +65,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -66,6 +75,7 @@ import javax.ws.rs.core.Context;
 import javax.ws.rs.core.UriInfo;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.java.lexer.JavaTokenId;
+import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.lexer.Token;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
@@ -78,6 +88,7 @@ import org.netbeans.modules.jackpot30.backend.ui.highlighting.ColoringAttributes
 import org.netbeans.modules.jackpot30.backend.ui.highlighting.SemanticHighlighter;
 import org.netbeans.modules.jackpot30.backend.ui.highlighting.TokenList;
 import org.netbeans.modules.jackpot30.resolve.api.CompilationInfo;
+import org.netbeans.modules.jackpot30.resolve.api.JavaUtils;
 import org.netbeans.modules.jackpot30.resolve.api.ResolveService;
 
 /**
@@ -304,7 +315,7 @@ public class UI {
         final String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
         Map<String, Object> configurationData = usagesSubclassesImpl(urlBase, segment, signatures, "files", new ComputeSegmentData() {
             @Override public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
-                URI u = new URI(urlBase + "index/usages/search?path=" + escapeForQuery(currentSegment) + "&signatures=" + escapeForQuery(simplify(signatures)));
+                URI u = new URI(urlBase + "index/usages/search?path=" + escapeForQuery(currentSegment) + "&signatures=" + escapeForQuery(signatures));
                 List<String> files = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));
                 Collections.sort(files);
                 return files;
@@ -350,11 +361,10 @@ public class UI {
 
             configurationData.put("isSubtypes", true);
         } else {
-            final String method = methodSignature.substring(0, methodSignature.length() - 1);
             configurationData = usagesSubclassesImpl(urlBase, segment, methodSignature, "implementors", new ComputeSegmentData() {
                 @Override
                 public Object compute(String currentSegment) throws URISyntaxException, TemplateException, IOException {
-                    URI u = new URI(urlBase + "index/implements/search?path=" + escapeForQuery(currentSegment) + "&method=" + escapeForQuery(method));
+                    URI u = new URI(urlBase + "index/implements/search?path=" + escapeForQuery(currentSegment) + "&method=" + escapeForQuery(methodSignature));
                     Map<String, List<Map<String, String>>> data = Pojson.load(HashMap.class, u);
                     List<Map<String, String>> implementors = new ArrayList<Map<String, String>>();
                     for (Entry<String, List<Map<String, String>>> relpath2ImplementorsE : data.entrySet()) {
@@ -621,27 +631,6 @@ public class UI {
         return input;
     }
 
-    static String simplify(String originalSignature) {
-        if (   !originalSignature.startsWith("METHOD:")
-            && !originalSignature.startsWith("CONSTRUCTOR:")) return originalSignature;
-        StringBuilder target = new StringBuilder(originalSignature.length());
-        int b = 0;
-
-        for (char c : originalSignature.toCharArray()) {
-            if (c == '<') {
-                b++;
-            } else if (c == '>') {
-                b--;
-            } else if (b == '^') {
-                return target.toString();
-            } else if (b == 0) {
-                target.append(c);
-            }
-        }
-
-        return target.delete(target.length() - 1, target.length()).toString();
-    }
-
     static String strip(String originalSignature, String... prefixesToStrip) {
         for (String strip : prefixesToStrip) {
             if (originalSignature.startsWith(strip)) {
@@ -655,71 +644,166 @@ public class UI {
     @GET
     @Path("/target")
 //    @Produces("text/html")
-    public String target(@QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("position") Long position, @QueryParam("signature") String signature) throws URISyntaxException, IOException, TemplateException, InterruptedException {
-        CompilationInfo info = ResolveService.parse(segment, relative);
-        Object target = null;
+    public String target(@QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("position") final long position) throws URISyntaxException, IOException, TemplateException, InterruptedException {
+        final CompilationInfo info = ResolveService.parse(segment, relative);
+        final boolean[] declaration = new boolean[1];
+        final long[] targetPosition = new long[] { -2 };
+        final String[] signature = new String[1];
+        final ElementKind[] kind = new ElementKind[1];
 
-        if (signature != null) {
-            long[] span = ResolveService.declarationSpans(info, signature);
-
-            if (span != null) {
-                target = span[2];
+        new TreePathScanner<Void, Void>() {
+            @Override public Void visitIdentifier(IdentifierTree node, Void p) {
+                handleUsage();
+                return super.visitIdentifier(node, p);
             }
-        } else {
-            target = ResolveService.resolveGoToTarget(info, position);
-        }
+            @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
+                handleUsage();
+                return super.visitMemberSelect(node, p);
+            }
+            private void handleUsage() {
+                Element el = info.getTrees().getElement(getCurrentPath());
+
+                if (el == null) return;
+
+                long[] span = ResolveService.nameSpan(info, getCurrentPath());
+
+                if (span[0] <= position && position <= span[1]) {
+                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
+                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
+                    }
+
+                    TreePath tp = info.getTrees().getPath(el);
+
+                    if (tp != null && tp.getCompilationUnit() == info.getCompilationUnit()) {
+                        targetPosition[0] = info.getTrees().getSourcePositions().getStartPosition(tp.getCompilationUnit(), tp.getLeaf());
+                    }
+                }
+            }
+            @Override public Void visitClass(ClassTree node, Void p) {
+                handleDeclaration();
+                return super.visitClass(node, p);
+            }
+            @Override public Void visitMethod(MethodTree node, Void p) {
+                handleDeclaration();
+                return super.visitMethod(node, p);
+            }
+            @Override public Void visitVariable(VariableTree node, Void p) {
+                handleDeclaration();
+                return super.visitVariable(node, p);
+            }
+            private void handleDeclaration() {
+                Element el = info.getTrees().getElement(getCurrentPath());
+
+                if (el == null) return;
+
+                long[] span = ResolveService.nameSpan(info, getCurrentPath());
+
+                if (span[0] <= position && position <= span[1]) {
+                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
+                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
+                    }
+
+                    declaration[0] = true;
+                    kind[0] = el.getKind();
+                }
+            }
+        }.scan(info.getCompilationUnit(), null);
 
         Map<String, Object> result = new HashMap<String, Object>();
 
-        if (target instanceof Long) {
-            result.put("position", target);
-        } else if (target instanceof String) {
-            String targetSignature = (String) target;
-            String source = ResolveService.resolveSource(segment, relative, targetSignature);
+        if (declaration[0]) {
+            if (signature[0] != null) {
+                List<Map<String, String>> menu = new ArrayList<Map<String, String>>();
 
-            result.put("signature", targetSignature);
-            
-            if (source != null) {
-                result.put("path", segment);
-                result.put("source", source);
-            } else {
-                String singleSource = null;
-                String singleSourceSegment = null;
-                boolean multipleSources = false;
-                List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
+                menu.add(menuMap("Usages in current project", "/index/ui/usages?path=" + escapeForQuery(segment) + "&signatures=" + escapeForQuery(signature[0])));
+                menu.add(menuMap("Usages in all known projects", "/index/ui/usages?signatures=" + escapeForQuery(signature[0])));
 
-                for (Entry<? extends CategoryStorage, ? extends Iterable<? extends String>> e : ResolveService.findSourcesContaining(targetSignature).entrySet()) {
-                    Map<String, Object> categoryData = new HashMap<String, Object>();
+                switch (kind[0]) {
+                    case METHOD:
+                        menu.add(menuMap("Overriders in the current project", "/index/ui/implements?path=" + escapeForQuery(segment) + "&method=" + escapeForQuery(signature[0])));
+                        menu.add(menuMap("Overriders in all known projects", "/index/ui/implements?method=" + escapeForQuery(signature[0])));
+                        break;
+                    case CLASS: case INTERFACE: case ENUM: case ANNOTATION_TYPE:
+                        menu.add(menuMap("Subtypes in the current project", "/index/ui/implements?path=" + escapeForQuery(segment) + "&type=" + escapeForQuery(signature[0])));
+                        menu.add(menuMap("Subtypes in all known projects", "/index/ui/implements?type=" + escapeForQuery(signature[0])));
+                        break;
+                }
+                result.put("menu", menu);
+            }
+        } else {
+            if (targetPosition[0] != (-2)) {
+                result.put("position", targetPosition[0]);
+            } else if (signature[0] != null) {
+                String targetSignature = signature[0];
+                String source = ResolveService.resolveSource(segment, relative, targetSignature);
 
-                    categoryData.put("rootDisplayName", e.getKey().getDisplayName());
-                    categoryData.put("rootPath", e.getKey().getId());
-                    categoryData.put("files", e.getValue());
+                result.put("signature", targetSignature);
 
-                    if (!multipleSources) {
-                        Iterator<? extends String> fIt = e.getValue().iterator();
+                if (source != null) {
+                    result.put("path", segment);
+                    result.put("source", source);
+                } else {
+                    String singleSource = null;
+                    String singleSourceSegment = null;
+                    boolean multipleSources = false;
+                    List<Map<String, Object>> results = new ArrayList<Map<String, Object>>();
 
-                        if (fIt.hasNext()) {
-                            singleSource = fIt.next();
-                            singleSourceSegment = e.getKey().getId();
+                    for (Entry<? extends CategoryStorage, ? extends Iterable<? extends String>> e : ResolveService.findSourcesContaining(targetSignature).entrySet()) {
+                        Map<String, Object> categoryData = new HashMap<String, Object>();
+
+                        categoryData.put("rootDisplayName", e.getKey().getDisplayName());
+                        categoryData.put("rootPath", e.getKey().getId());
+                        categoryData.put("files", e.getValue());
+
+                        if (!multipleSources) {
+                            Iterator<? extends String> fIt = e.getValue().iterator();
+
+                            if (fIt.hasNext()) {
+                                singleSource = fIt.next();
+                                singleSourceSegment = e.getKey().getId();
+                            }
+
+                            if (fIt.hasNext())
+                                multipleSources = true;
                         }
-                        
-                        if (fIt.hasNext())
-                            multipleSources = true;
+
+                        results.add(categoryData);
                     }
 
-                    results.add(categoryData);
-                }
-
-                if (singleSource != null && !multipleSources) {
-                    //TODO: will automatically jump to the single known target - correct
-                    result.put("path", singleSourceSegment);
-                    result.put("source", singleSource);
-                } else if (!results.isEmpty()) {
-                    result.put("targets", results);
+                    if (singleSource != null && !multipleSources) {
+                        //TODO: will automatically jump to the single known target - correct?
+                        result.put("path", singleSourceSegment);
+                        result.put("source", singleSource);
+                    } else if (!results.isEmpty()) {
+                        result.put("targets", results);
+                    }
                 }
             }
         }
 
         return Pojson.save(result);
+    }
+
+    private static Map<String, String> menuMap(String displayName, String url) {
+        Map<String, String> result = new HashMap<String, String>();
+
+        result.put("displayName", displayName);
+        result.put("url", url);
+
+        return result;
+    }
+
+    @GET
+    @Path("/declarationSpan")
+//    @Produces("text/html")
+    public String declarationSpan(@QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("signature") String signature) throws URISyntaxException, IOException, TemplateException, InterruptedException {
+        CompilationInfo info = ResolveService.parse(segment, relative);
+        long[] span = ResolveService.declarationSpans(info, signature);
+
+        if (span == null) {
+            span = new long[] {-1, -1, -1, -1};
+        }
+
+        return Pojson.save(span);
     }
 }

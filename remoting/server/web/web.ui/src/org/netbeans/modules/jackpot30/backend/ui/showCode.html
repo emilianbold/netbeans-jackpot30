@@ -23,10 +23,10 @@
 
                 for (var i = 0; i < $params.length; i++) {
                     if ($params[i].indexOf("signature=") !== (-1)) {
-                        $.get('/index/ui/target?path=${path}&relative=${relative}&signature=' + unescape($params[i].substring("signature=".length)), function(data) {
+                        $.get('/index/ui/declarationSpan?path=${path}&relative=${relative}&signature=' + unescape($params[i].substring("signature=".length)), function(data) {
                             var parsedData = $.parseJSON(data);
-                            if ("position" in parsedData) {
-                                window.location.hash = "#p" + parsedData.position;
+                            if (parsedData[2] !== (-1)) {
+                                window.location.hash = "#p" + parsedData[2];
                             }
 
                         });
@@ -66,6 +66,18 @@
                                         title: 'Show',
                                         width: 800 //XXX: hardcoded size
                                     });
+                } else if ("menu" in parsedData) {
+                    var menuDef = parsedData.menu;
+                    var popupContent = "";
+                    for (var i = 0; i < menuDef.length; i++) {
+                        var menuItem = menuDef[i];
+                        popupContent += '<a href="' + menuItem.url + '">' + menuItem.displayName + '</a><br>';
+                        $('#popup').html(popupContent)
+                                        .dialog({
+                                            title: 'Show',
+                                            width: 800 //XXX: hardcoded size
+                                        });
+                    }
                 } else if ("signature" in parsedData) {
                     alert("Cannot find source file for class: " + parsedData.signature.split(":")[1]);
                 } else {

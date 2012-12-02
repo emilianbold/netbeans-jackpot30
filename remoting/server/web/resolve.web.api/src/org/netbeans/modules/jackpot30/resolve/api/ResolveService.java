@@ -91,43 +91,6 @@ public class ResolveService {
         return javac.parse(relative);
     }
 
-    /**Long or String*/
-    public static Object resolveGoToTarget(final CompilationInfo info, final long pos) throws IOException, InterruptedException {
-        final Object[] result = new Object[1];
-
-        new TreePathScanner<Void, Void>() {
-            @Override public Void visitIdentifier(IdentifierTree node, Void p) {
-                handle();
-                return super.visitIdentifier(node, p);
-            }
-            @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
-                handle();
-                return super.visitMemberSelect(node, p);
-            }
-            private void handle() {
-                Element el = info.getTrees().getElement(getCurrentPath());
-
-                if (el == null) return;
-
-                long[] span = nameSpan(info, getCurrentPath());
-
-                if (span[0] <= pos && pos <= span[1]) {
-                    TreePath tp = info.getTrees().getPath(el);
-
-                    if (tp != null && tp.getCompilationUnit() == info.getCompilationUnit()) {
-                        result[0] = info.getTrees().getSourcePositions().getStartPosition(tp.getCompilationUnit(), tp.getLeaf());
-                    } else {
-                        assert JavaUtils.SUPPORTED_KINDS.contains(el.getKind());
-
-                        result[0] = JavaUtils.serialize(ElementHandle.create(el));
-                    }
-                }
-            }
-        }.scan(info.getCompilationUnit(), null);
-
-        return result[0];
-    }
-
     public static String resolveSource(String segment, String relative, String signature) throws IOException, InterruptedException {
         String fqn = topLevelClassFromSignature(signature);
         SourceRoot sourceRoot = sourceRoot(CategoryStorage.forId(segment), relative);
@@ -218,6 +181,10 @@ public class ResolveService {
         switch (forTree.getLeaf().getKind()) {
             case IDENTIFIER: name = ((IdentifierTree) forTree.getLeaf()).getName(); break;
             case MEMBER_SELECT: name = ((MemberSelectTree) forTree.getLeaf()).getIdentifier(); break;
+            case ANNOTATION_TYPE: case CLASS:
+            case ENUM: case INTERFACE: name = ((ClassTree) forTree.getLeaf()).getSimpleName(); break;
+            case METHOD: name = ((MethodTree) forTree.getLeaf()).getName(); break;
+            case VARIABLE: name = ((VariableTree) forTree.getLeaf()).getName(); break;
         }
 
         if (name != null) {
@@ -242,33 +209,26 @@ public class ResolveService {
 
         new TreePathScanner<Void, Void>() {
             @Override public Void visitClass(ClassTree node, Void p) {
-                handleDeclaration(node.getSimpleName());
+                handleDeclaration();
                 return super.visitClass(node, p);
             }
             @Override public Void visitMethod(MethodTree node, Void p) {
-                handleDeclaration(node.getName());
+                handleDeclaration();
                 return super.visitMethod(node, p);
             }
             @Override public Void visitVariable(VariableTree node, Void p) {
-                handleDeclaration(node.getName());
+                handleDeclaration();
                 return super.visitVariable(node, p);
             }
-            private void handleDeclaration(CharSequence name) {
+            private void handleDeclaration() {
                 Element el = info.getTrees().getElement(getCurrentPath());
 
                 if (el == null/*how?*/ || !JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) return ;
                 
                 String thisSignature = JavaUtils.serialize(ElementHandle.create(el));
-                Tree node = getCurrentPath().getLeaf();
 
                 if (thisSignature.equals(signature)) {
-                    long[] spans = new long[] {
-                        info.getTrees().getSourcePositions().getStartPosition(info.getCompilationUnit(), node),
-                        info.getTrees().getSourcePositions().getEndPosition(info.getCompilationUnit(), node),
-                        ((JCTree) node).pos,
-                        ((JCTree) node).pos + name.length()
-                    };
-                    result[0] = spans;
+                    result[0] = nameSpan(info, getCurrentPath());
                 }
             }
         }.scan(info.getCompilationUnit(), null);

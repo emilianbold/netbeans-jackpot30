@@ -5,7 +5,7 @@
     <link href="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/base/jquery-ui.css" rel="stylesheet" type="text/css">
     <script type="text/javascript">
         function methodPopup(relativePath, resultFile, signature) {
-            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
+            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '&signatures=' + signature + '">Source Code</a><br>' +
                              '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the defining project</a><br>' +
                              '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>' +
                              '<a href="/index/ui/implements?path=' + relativePath + '&method=' + signature + '">Overriders in the defining project</a><br>' +
@@ -16,7 +16,7 @@
                             });
         }
         function classPopup(relativePath, resultFile, signature) {
-            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
+            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '&signatures=' + signature + '">Source Code</a><br>' +
                              '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the defining project</a><br>' +
                              '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>' +
                              '<a href="/index/ui/implements?path=' + relativePath + '&type=' + signature + '">Subtypes in the defining project</a><br>' +
@@ -27,7 +27,7 @@
                             });
         }
         function otherPopup(relativePath, resultFile, signature) {
-            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '">Source Code</a><br>' +
+            $('#popup').html('<a href="/index/ui/show?path=' + relativePath + '&relative=' + resultFile + '&signatures=' + signature + '">Source Code</a><br>' +
                              '<a href="/index/ui/usages?path=' + relativePath + '&signatures=' + signature + '">Usages in the defining project</a><br>' +
                              '<a href="/index/ui/usages?signatures=' + signature + '">Usages in all known projects</a><br>')
                             .dialog({
@@ -75,7 +75,7 @@
                 <nobr>
                 <img src="/index/icons/${result.icon}" alt="${result.kind}"/>
                 <#if result.kind == "METHOD">
-                    <a href="javascript: methodPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}:${result.vmsignature};')">
+                    <a href="javascript: methodPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.enclosingFQN}:${result.simpleName}:${result.vmsignature}')">
                 <#elseif result.kind == "CLASS" || result.kind == "INTERFACE" || result.kind == "ENUM" || result.kind == "ANNOTATION_TYPE">
                     <a href="javascript: classPopup('${result.segment.segment}', '${result.file}', '${result.kind}:${result.fqn}')">
                 <#else>
