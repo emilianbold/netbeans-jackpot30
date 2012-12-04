@@ -14,7 +14,7 @@
             var $spans = [${spans}];
             var $current = 0;
             for (var i = 0; i < $highlights.length; i++ ) {
-                $codeEl.append($('<a id="p' + $current + '"><span class="' + $highlights[i] + '"' + ($highlights[i].indexOf("identifier") !== (-1) ? ' onclick="ic(' + $current + ')"' : '') + '>' + $code.slice($current, $current+$spans[i]).replace('&', '&amp;').replace('<', '&lt;') + "</span></a>"));
+                $codeEl.append($('<a id="p' + $current + '"><span class="' + $highlights[i] + '"' + ($highlights[i].indexOf("identifier") !== (-1) ? ' onclick="ic(' + $current + ')" jpt30pos="' + $current + '"' : '') + '>' + $code.slice($current, $current+$spans[i]).replace(/&/g, '&amp;').replace(/</g, '&lt;') + "</span></a>"));
                 $current += $spans[i];
             }
 
