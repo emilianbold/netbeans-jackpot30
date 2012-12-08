@@ -114,7 +114,7 @@ public class Javac {
 
             javacTask.analyze(javacTask.enter(Collections.singletonList(cut)));
 
-            path2CUT.put(relativePath, result = new CompilationInfo(this, cut));
+            path2CUT.put(relativePath, result = new CompilationInfo(this, cut, content));
         }
 
         return result;

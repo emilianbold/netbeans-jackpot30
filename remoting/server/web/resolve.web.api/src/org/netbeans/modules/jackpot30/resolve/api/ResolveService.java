@@ -45,7 +45,6 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -61,7 +60,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Name;
+import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.ElementHandle;
+import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.SourceRoot;
 import org.openide.filesystems.FileObject;
@@ -178,13 +180,31 @@ public class ResolveService {
 
     public static long[] nameSpan(CompilationInfo info, TreePath forTree) {
         JCTree jcTree = (JCTree) forTree.getLeaf(); //XXX
-        CharSequence name = null;
+        Name name = null;
+        int pos = jcTree.pos;
 
         switch (forTree.getLeaf().getKind()) {
             case IDENTIFIER: name = ((IdentifierTree) forTree.getLeaf()).getName(); break;
             case MEMBER_SELECT: name = ((MemberSelectTree) forTree.getLeaf()).getIdentifier(); break;
-            case ANNOTATION_TYPE: case CLASS:
-            case ENUM: case INTERFACE: name = ((ClassTree) forTree.getLeaf()).getSimpleName(); break;
+            case ANNOTATION_TYPE: case ENUM:
+                name = ((ClassTree) forTree.getLeaf()).getSimpleName();
+                
+                TokenSequence<JavaTokenId> ts = info.getTokenHierarchy().tokenSequence(JavaTokenId.language());
+
+                ts.move(pos);
+
+                while (ts.moveNext()) {
+                    if (ts.token().id() == JavaTokenId.IDENTIFIER) {
+                        if (name.contentEquals(ts.token().text())) {
+                            pos = ts.offset();
+                        }
+                        break;
+                    }
+                }
+
+                break;
+            case CLASS:
+            case INTERFACE: name = ((ClassTree) forTree.getLeaf()).getSimpleName(); break;
             case METHOD:
                 if ((((JCMethodDecl) forTree.getLeaf()).getModifiers().flags & Flags.GENERATEDCONSTR) != 0) {
                     //no positions for generated constructors:
@@ -199,8 +219,8 @@ public class ResolveService {
             return new long[] {
                 info.getTrees().getSourcePositions().getStartPosition(forTree.getCompilationUnit(), forTree.getLeaf()),
                 info.getTrees().getSourcePositions().getEndPosition(forTree.getCompilationUnit(), forTree.getLeaf()),
-                jcTree.pos,
-                jcTree.pos + name.length()
+                pos,
+                pos + name.length()
             };
         }
 

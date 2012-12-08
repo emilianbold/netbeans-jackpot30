@@ -45,6 +45,8 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.Trees;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import org.netbeans.api.java.lexer.JavaTokenId;
+import org.netbeans.api.lexer.TokenHierarchy;
 
 /**
  *
@@ -54,10 +56,14 @@ public class CompilationInfo {
 
     private final Javac javac;
     private final CompilationUnitTree cut;
+    private final String text;
+    private final TokenHierarchy<?> th;
 
-    public CompilationInfo(Javac javac, CompilationUnitTree cut) {
+    public CompilationInfo(Javac javac, CompilationUnitTree cut, String text) {
         this.javac = javac;
         this.cut = cut;
+        this.text = text;
+        this.th = TokenHierarchy.create(text, JavaTokenId.language());
     }
 
     public /*@NonNull*/ Trees getTrees() {
@@ -74,5 +80,13 @@ public class CompilationInfo {
 
     public CompilationUnitTree getCompilationUnit() {
         return cut;
+    }
+
+    public /*@NonNull*/ String getText() {
+        return text;
+    }
+
+    public /*@NonNull*/ TokenHierarchy<?> getTokenHierarchy() {
+        return th;
     }
 }
