@@ -108,7 +108,7 @@ public class Javac {
         CompilationInfo result = path2CUT.get(relativePath);
 
         if (result == null) {
-            String content = org.netbeans.modules.jackpot30.source.api.API.readFileContent(sourceRoot.getCategory(), relativePath);
+            String content = org.netbeans.modules.jackpot30.source.api.API.readFileContent(sourceRoot.getCategory(), relativePath).replace("\r\n", "\n");
             Iterable<? extends CompilationUnitTree> cuts = javacTask.parse(new FileObjectImpl(relativePath, content));
             CompilationUnitTree cut = cuts.iterator().next();
 

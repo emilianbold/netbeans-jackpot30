@@ -204,7 +204,7 @@ public class UI {
     public String show(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("highlight") String highlightSpec, @QueryParam("signature") String signature) throws URISyntaxException, IOException, TemplateException, InterruptedException {
         String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
         URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
-        String content = WebUtilities.requestStringResponse(u);
+        String content = WebUtilities.requestStringResponse(u).replace("\r\n", "\n");
         List<Long> highlightSpans = new ArrayList<Long>();
 
         if (signature != null) {
@@ -222,7 +222,7 @@ public class UI {
         }
 
         Map<String, Object> configurationData = new HashMap<String, Object>();
-        String[] highlights = colorTokens(segment, relative, content, highlightSpans);
+        String[] highlights = colorTokens(segment, relative, highlightSpans);
 
         configurationData.put("spans", highlights[0]);
         configurationData.put("categories", highlights[1]);
@@ -233,9 +233,9 @@ public class UI {
         return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/showCode.html", configurationData);
     }
 
-    static String[] colorTokens(String segment, String relative, String content, List<Long> highlight) throws IOException, InterruptedException {
-        TokenSequence<?> ts = TokenHierarchy.create(content, JavaTokenId.language()).tokenSequence();
+    static String[] colorTokens(String segment, String relative, List<Long> highlight) throws IOException, InterruptedException {
         CompilationInfo info = ResolveService.parse(segment, relative);
+        TokenSequence<?> ts = info.getTokenHierarchy().tokenSequence(JavaTokenId.language());
         Map<Token, Coloring> semanticHighlights = SemanticHighlighter.computeHighlights(info, new TokenList(info, ts, new AtomicBoolean()));
         StringBuilder spans = new StringBuilder();
         StringBuilder cats  = new StringBuilder();
