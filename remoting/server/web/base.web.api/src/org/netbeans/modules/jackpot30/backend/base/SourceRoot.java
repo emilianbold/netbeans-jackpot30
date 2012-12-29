@@ -44,6 +44,8 @@ package org.netbeans.modules.jackpot30.backend.base;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Properties;
@@ -59,7 +61,7 @@ import org.openide.filesystems.JarFileSystem;
 public class SourceRoot {
     
     private static final Logger LOG = Logger.getLogger(SourceRoot.class.getName());
- private final CategoryStorage category;
+    private final CategoryStorage category;
     private final String relativePath;
     private final String code;
 
@@ -77,14 +79,15 @@ public class SourceRoot {
         return relativePath;
     }
 
-    private Collection<FileObject> classPath; //XXX: soft reference?
+    private Reference<Collection<FileObject>> classPath;
 
     public synchronized Collection<FileObject> getClassPath() {
-        if (classPath == null) {
-            classPath = computeClassPath();
+        Collection<FileObject> cp = classPath != null ? classPath.get() : null;
+        if (cp == null) {
+            classPath = new SoftReference<Collection<FileObject>>(cp = computeClassPath());
         }
 
-        return classPath;
+        return cp;
     }
 
     public String getCode() {

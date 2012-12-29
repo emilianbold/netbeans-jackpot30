@@ -163,7 +163,7 @@ public class CategoryStorage {
             Logger.getLogger(CategoryStorage.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        return result;
+        return sourceRoots = result;
     }
 
     private final Map<String, Reference<FileSystem>> embeddedJar2FileSystem = new HashMap<String, Reference<FileSystem>>();
