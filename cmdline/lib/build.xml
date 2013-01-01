@@ -10,10 +10,9 @@
     <target name="create-cmdline-lib" depends="init">
         <mkdir dir="${build.classes.dir}/../lib" />
         <ant target="test" inheritall="false" inheritrefs="false">
-            <property name="test.config.standalone.includes" value="org/netbeans/modules/jackpot30/cmdline/lib/CreateStandaloneLibJar.class"/>
+            <property name="test.config.standalone.includes" value="org/netbeans/modules/jackpot30/cmdline/lib/CreateStandaloneLibJar*.class"/>
             <property name="test.config" value="standalone"/>
             <property name="test-unit-sys-prop.outputDir" location="${build.classes.dir}/../lib" />
-            <property name="test-unit-sys-prop.targetName" value="jackpot-lib.jar" />
         </ant>
     </target>
 
