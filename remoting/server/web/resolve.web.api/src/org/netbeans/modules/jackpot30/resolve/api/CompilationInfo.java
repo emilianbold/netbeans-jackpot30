@@ -42,6 +42,7 @@
 package org.netbeans.modules.jackpot30.resolve.api;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.util.JavacTask;
 import com.sun.source.util.Trees;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
@@ -88,5 +89,9 @@ public class CompilationInfo {
 
     public /*@NonNull*/ TokenHierarchy<?> getTokenHierarchy() {
         return th;
+    }
+
+    public JavacTask getJavacTask() {
+        return javac.getTask();
     }
 }

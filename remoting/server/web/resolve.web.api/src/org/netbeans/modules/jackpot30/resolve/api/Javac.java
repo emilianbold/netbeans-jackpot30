@@ -44,6 +44,7 @@ package org.netbeans.modules.jackpot30.resolve.api;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.util.Abort;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.WeakHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
 import javax.tools.FileObject;
@@ -72,7 +74,6 @@ import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardLocation;
-import javax.tools.ToolProvider;
 import org.netbeans.modules.jackpot30.backend.base.SourceRoot;
 
 /**
@@ -94,25 +95,26 @@ public class Javac {
     }
 
     private final SourceRoot sourceRoot;
-    private final JavacTaskImpl javacTask;
+    private final AtomicReference<JavacTaskImpl> javacTask = new AtomicReference<JavacTaskImpl>();
     private final Map<String, CompilationInfo> path2CUT = new HashMap<String, CompilationInfo>();
 
     private Javac(SourceRoot sourceRoot) {
         this.sourceRoot = sourceRoot;
-        FMImpl fm = new FMImpl(sourceRoot.getClassPath());
-        this.javacTask = (JavacTaskImpl) ToolProvider.getSystemJavaCompiler().getTask(null, fm, null, Arrays.asList("-Xjcov", "-proc:none"), null, Collections.<JavaFileObject>emptyList());
     }
-
 
     public CompilationInfo parse(String relativePath) throws IOException, InterruptedException {
         CompilationInfo result = path2CUT.get(relativePath);
 
         if (result == null) {
             String content = org.netbeans.modules.jackpot30.source.api.API.readFileContent(sourceRoot.getCategory(), relativePath).replace("\r\n", "\n");
-            Iterable<? extends CompilationUnitTree> cuts = javacTask.parse(new FileObjectImpl(relativePath, content));
-            CompilationUnitTree cut = cuts.iterator().next();
+            CompilationUnitTree cut;
 
-            javacTask.analyze(javacTask.enter(Collections.singletonList(cut)));
+            try {
+                cut = doParse(relativePath, content);
+            } catch (Abort a) {
+                javacTask.set(null);
+                cut = doParse(relativePath, content);
+            }
 
             path2CUT.put(relativePath, result = new CompilationInfo(this, cut, content));
         }
@@ -120,8 +122,24 @@ public class Javac {
         return result;
     }
 
+    private CompilationUnitTree doParse(String relativePath, String content) throws IOException {
+        JavacTaskImpl javac = (JavacTaskImpl) getTask();
+        Iterable<? extends CompilationUnitTree> cuts = javac.parse(new FileObjectImpl(relativePath, content));
+        CompilationUnitTree cut = cuts.iterator().next();
+
+        javac.analyze(javac.enter(Collections.singletonList(cut)));
+        return cut;
+    }
+
     public JavacTask getTask() {
-        return javacTask;
+        JavacTaskImpl jti = javacTask.get();
+
+        if (jti == null) {
+            FMImpl fm = new FMImpl(sourceRoot.getClassPath());
+            javacTask.set(jti = JavacCreator.create(null, fm, null, Arrays.asList("-Xjcov", "-proc:none"), null, Collections.<JavaFileObject>emptyList()));
+        }
+
+        return jti;
     }
 
     private static class FileObjectImpl extends SimpleJavaFileObject {

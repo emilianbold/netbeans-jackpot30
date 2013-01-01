@@ -39,17 +39,16 @@
 
 package org.netbeans.modules.jackpot30.backend.language.api;
 
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.util.TreePath;
-import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTaskImpl;
 import java.io.IOException;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
@@ -57,22 +56,29 @@ import javax.tools.JavaFileObject;
 import javax.tools.JavaFileObject.Kind;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.ToolProvider;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.QueryParam;
 import org.apache.lucene.queryParser.ParseException;
+import org.netbeans.api.java.source.CompilationInfoHack;
 import org.netbeans.lib.nbjavac.services.NBParserFactory;
 import org.netbeans.lib.nbjavac.services.NBTreeMaker;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.indexing.index.IndexQuery;
+import org.netbeans.modules.jackpot30.resolve.api.CompilationInfo;
+import org.netbeans.modules.jackpot30.resolve.api.ResolveService;
+import org.netbeans.modules.java.hints.declarative.DeclarativeHintsParser;
 import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.providers.spi.HintDescription;
 import org.netbeans.modules.java.hints.providers.spi.HintDescription.AdditionalQueryConstraints;
 import org.netbeans.modules.java.hints.providers.spi.Trigger.PatternDescription;
 import org.netbeans.modules.java.hints.spiimpl.Utilities;
+import org.netbeans.modules.java.hints.spiimpl.hints.HintsInvoker;
 import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch;
 import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.BulkPattern;
+import org.netbeans.spi.editor.hints.ErrorDescription;
 
 /**
  *
@@ -81,15 +87,30 @@ import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.BulkPattern;
 @Path("/index/language")
 public class API {
 
+    static {
+        DeclarativeHintsParser.disableCustomCode = true;
+    }
+
     @GET
     @Path("/search")
     @Produces("text/plain")
-    public String find(@QueryParam("path") String segment, @QueryParam("pattern") String pattern) throws IOException, InterruptedException, ParseException {
+    public String find(@QueryParam("path") String segment, @QueryParam("pattern") String pattern, @QueryParam("validate") @DefaultValue("false") boolean validate) throws IOException, InterruptedException, ParseException {
         CategoryStorage category = CategoryStorage.forId(segment);
+        Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
+        BulkPattern bulkPattern = preparePattern(hints, null);
         StringBuilder sb = new StringBuilder();
-        BulkPattern bulkPattern = preparePattern(pattern, null);
+        List<String> candidates = new ArrayList<String>(IndexQuery.performLocalQuery(category.getIndex(), bulkPattern, false).keySet());
+        Collections.sort(candidates);
 
-        for (String candidate : IndexQuery.performLocalQuery(category.getIndex(), bulkPattern, false).keySet()) {
+        for (String candidate : candidates) {
+            if (validate) {
+                CompilationInfo resolvedInfo = ResolveService.parse(segment, candidate);
+                CompilationInfoHack info = new CompilationInfoHack(resolvedInfo);
+                List<ErrorDescription> computedHints = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, hints);
+
+                if (computedHints.isEmpty()) continue;
+            }
+            
             sb.append(candidate);
             sb.append("\n");
         }
@@ -101,24 +122,18 @@ public class API {
     @Path("/searchSpans")
     @Produces("text/plain")
     public String findSpans(@QueryParam("path") String segment, @QueryParam("relativePath") String relativePath, @QueryParam("pattern") String pattern) throws IOException, InterruptedException {
-        CategoryStorage category = CategoryStorage.forId(segment);
         StringBuilder sb = new StringBuilder();
-        BulkPattern bulkPattern = preparePattern(pattern, null);
-        CharSequence source = org.netbeans.modules.jackpot30.source.api.API.readFileContent(category, relativePath);
-        JavacTaskImpl jti = prepareJavacTaskImpl();
-        CompilationUnitTree cut = jti.parse(new JFOImpl(source)).iterator().next();
-        Collection<TreePath> paths = new LinkedList<TreePath>();
+        CompilationInfo resolvedInfo = ResolveService.parse(segment, relativePath);
+        CompilationInfoHack info = new CompilationInfoHack(resolvedInfo);
+        Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
 
-        for (Collection<TreePath> c : BulkSearch.getDefault().match(null, new AtomicBoolean(), new TreePath(cut), bulkPattern).values()) {
-            paths.addAll(c);
-        }
+        List<ErrorDescription> computedHints = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, hints);
 
-        Trees t = Trees.instance(jti);
-
-        for (TreePath tp : paths) {
-            sb.append(t.getSourcePositions().getStartPosition(cut, tp.getLeaf()));
+        for (ErrorDescription ed : computedHints) {
+            if (!ed.getFile().equals(info.getFileObject())) continue;
+            sb.append(ed.getRange().getBegin().getOffset());
             sb.append(":");
-            sb.append(t.getSourcePositions().getEndPosition(cut, tp.getLeaf()));
+            sb.append(ed.getRange().getEnd().getOffset());
             sb.append(":");
         }
 
@@ -152,7 +167,10 @@ public class API {
 
     //XXX: copied from BatchSearch, may be possible to merge once CompilationInfo is accessible in server mode
     private static BulkPattern preparePattern(final Iterable<? extends HintDescription> patterns, Collection<Diagnostic<? extends JavaFileObject>> errors) {
-        JavacTaskImpl javac = prepareJavacTaskImpl();
+        return preparePattern(prepareJavacTaskImpl(), patterns, errors);
+    }
+
+    private static BulkPattern preparePattern(JavacTaskImpl javac, final Iterable<? extends HintDescription> patterns, Collection<Diagnostic<? extends JavaFileObject>> errors) {
         Collection<String> code = new LinkedList<String>();
         Collection<Tree> trees = new LinkedList<Tree>();
         Collection<AdditionalQueryConstraints> additionalConstraints = new LinkedList<AdditionalQueryConstraints>();

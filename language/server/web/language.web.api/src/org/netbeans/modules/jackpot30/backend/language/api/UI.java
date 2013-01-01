@@ -56,6 +56,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -77,7 +78,7 @@ public class UI {
     @GET
     @Path("/search")
     @Produces("text/html")
-    public String search(@Context UriInfo uriInfo, @QueryParam("path") String path, @QueryParam("pattern") String pattern) throws URISyntaxException, IOException, TemplateException {
+    public String search(@Context UriInfo uriInfo, @QueryParam("path") String path, @QueryParam("pattern") String pattern, @QueryParam("validate") @DefaultValue("false") boolean validate) throws URISyntaxException, IOException, TemplateException {
         String urlBase = uriInfo.getBaseUri().toString();
         Map<String, Object> configurationData = new HashMap<String, Object>();
 
@@ -87,7 +88,7 @@ public class UI {
         configurationData.put("patternEscaped", escapeForQuery(pattern));
 
         if (pattern != null && path != null) {
-            URI u = new URI(urlBase + "index/language/search?path=" + escapeForQuery(path) + "&pattern=" + escapeForQuery(pattern));
+            URI u = new URI(urlBase + "index/language/search?path=" + escapeForQuery(path) + "&pattern=" + escapeForQuery(pattern) + "&validate=" + validate);
             List<Map<String, Object>> results = new LinkedList<Map<String, Object>>();
             long queryTime = System.currentTimeMillis();
             List<String> candidates = new ArrayList<String>(WebUtilities.requestStringArrayResponse(u));

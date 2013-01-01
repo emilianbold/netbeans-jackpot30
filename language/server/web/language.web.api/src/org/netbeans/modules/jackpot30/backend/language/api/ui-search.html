@@ -3,7 +3,20 @@
     <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.4/jquery.min.js"></script>
 <#if results??>
     <script type="text/javascript">
+        //XXX: duplicate:
+        function paramValue(param) {
+            var $params = window.location.search.substring(1).split("&");
+
+            for (var i = 0; i < $params.length; i++) {
+                if ($params[i].indexOf(param + "=") !== (-1)) {
+                    return unescape($params[i].substring((param + "=").length));
+                }
+            }
+        }
         $(document).ready(function() {
+            if (paramValue("validate") == "true") {
+                $('#validate').attr("checked", "true");
+            }
             $('#list').find('dd').hide().end().find('dt').click(function() {
                 current_dd=$(this).next();
                 //XXX: will do the AJAX call for both show and hide!
@@ -36,6 +49,7 @@
 ${pattern}
 </#if>
 </textarea><br>
+<input type="checkbox" name="validate" value="true" id="validate">Validate (slower)<br>
 <input type="submit" name="Find Candidates"/>
 </form>
 

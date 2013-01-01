@@ -42,6 +42,9 @@
 
 package org.netbeans.modules.jackpot30.cmdline.lib;
 
+import org.netbeans.modules.java.hints.declarative.PatternConvertorImpl;
+import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
+
 /**
  *
  * @author lahvac
@@ -54,7 +57,7 @@ public class CreateStandaloneLibJar extends CreateStandaloneJar {
 
     @Override
     protected Info computeInfo() {
-        return new Info().addAdditionalRoots(NonNBComputer.class.getName()).setEscapeJavaxLang();
+        return new Info().addAdditionalRoots(NonNBComputer.class.getName(), PatternConvertorImpl.class.getName()).addMetaInfRegistrationToCopy(PatternConvertor.class.getName()).setEscapeJavaxLang();
     }
 
 }
