@@ -59,7 +59,7 @@ public class Type extends Base {
 
     @GET
     @Path("/search")
-    @Produces("text/plain")
+    @Produces("application/json")
     public String findType(@QueryParam("path") String segment, @QueryParam("prefix") String prefix, @QueryParam("casesensitive") @DefaultValue("false") boolean casesensitive, @QueryParam("querykind") String queryKindName) throws IOException, InterruptedException {
         return doFind(segment, prefix, casesensitive, queryKindName, "class", new TypeConvertorImpl());
     }
