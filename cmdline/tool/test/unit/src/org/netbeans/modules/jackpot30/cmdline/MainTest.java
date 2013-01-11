@@ -287,6 +287,84 @@ public class MainTest extends NbTestCase {
                       "--apply");
     }
 
+    public void testConfigurationFileDeclarative1() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b1 = c.isEmpty();\n" +
+            "        boolean b2 = c.size() <= 0;\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      null,
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "        boolean b2 = c.size() <= 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      "META-INF/upgrade/test1.hint",
+                      "$c.size() == 0 :: $c instanceof java.util.Collection => $c.isEmpty();;\n",
+                      "META-INF/upgrade/test2.hint",
+                      "$c.size() <= 0 :: $c instanceof java.util.Collection => $c.isEmpty();;\n",
+                      "settings.xml",
+                      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                      "<hints apply=\"true\" runDeclarative=\"false\">\n" +
+                      "    <settings>\n" +
+                      "        <test1.hint enabled=\"true\"/>\n" +
+                      "    </settings>\n" +
+                      "</hints>\n",
+                      null,
+                      "--config-file",
+                      "${workdir}/settings.xml",
+                      "--source",
+                      "1.6");
+    }
+
+    public void testConfigurationFileDeclarative2() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b1 = c.isEmpty();\n" +
+            "        boolean b2 = c.isEmpty();\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      null,
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "        boolean b2 = c.size() <= 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      "META-INF/upgrade/test1.hint",
+                      "$c.size() == 0 :: $c instanceof java.util.Collection => $c.isEmpty();;\n",
+                      "META-INF/upgrade/test2.hint",
+                      "$c.size() <= 0 :: $c instanceof java.util.Collection => $c.isEmpty();;\n",
+                      "settings.xml",
+                      "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n" +
+                      "<hints apply=\"true\" runDeclarative=\"true\">\n" +
+                      "    <settings>\n" +
+                      "        <test1.hint enabled=\"true\"/>\n" +
+                      "    </settings>\n" +
+                      "</hints>\n",
+                      null,
+                      "--config-file",
+                      "${workdir}/settings.xml",
+                      "--source",
+                      "1.6");
+    }
+
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
         List<String> fileAndContent = new LinkedList<String>();
         List<String> extraOptions = new LinkedList<String>();

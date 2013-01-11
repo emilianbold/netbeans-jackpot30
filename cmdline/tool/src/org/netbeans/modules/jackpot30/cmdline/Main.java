@@ -79,6 +79,7 @@ import joptsimple.OptionException;
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
@@ -136,7 +137,7 @@ public class Main {
 
     public static int compile(String... args) throws IOException, ClassNotFoundException {
         System.setProperty("netbeans.user", "/tmp/tmp-foo");
-        
+
         OptionParser parser = new OptionParser();
 //        ArgumentAcceptingOptionSpec<File> projects = parser.accepts("project", "project(s) to refactor").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
         ArgumentAcceptingOptionSpec<File> classpath = parser.accepts("classpath", "classpath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
@@ -173,6 +174,24 @@ public class Main {
             return 0;
         }
 
+        List<FileObject> roots = new ArrayList<FileObject>();
+        List<Folder> rootFolders = new ArrayList<Folder>();
+
+        for (String sr : parsed.nonOptionArguments()) {
+            File r = new File(sr);
+            FileObject root = FileUtil.toFileObject(r);
+
+            if (root != null) {
+                roots.add(root);
+                rootFolders.add(new Folder(root));
+            }
+        }
+
+        ClassPath bootCP = createClassPath(parsed.has(bootclasspath) ? parsed.valuesOf(bootclasspath) : null, createDefaultBootClassPath());
+        ClassPath compileCP = createClassPath(parsed.has(classpath) ? parsed.valuesOf(classpath) : null, ClassPath.EMPTY);
+        final ClassPath sourceCP = createClassPath(parsed.has(sourcepath) ? parsed.valuesOf(sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
+        final ClassPath binaryCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP);
+
         if (parsed.has("show-gui")) {
             if (parsed.has(configFile)) {
                 final File settingsFile = parsed.valueOf(configFile);
@@ -180,7 +199,7 @@ public class Main {
                     SwingUtilities.invokeAndWait(new Runnable() {
                         @Override public void run() {
                             try {
-                                showGUICustomizer(settingsFile);
+                                showGUICustomizer(settingsFile, binaryCP, sourceCP);
                             } catch (IOException ex) {
                                 Exceptions.printStackTrace(ex);
                             } catch (BackingStoreException ex) {
@@ -237,19 +256,6 @@ public class Main {
             org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
             RepositoryUpdater.getDefault().start(false);
 
-            List<FileObject> roots = new ArrayList<FileObject>();
-            List<Folder> rootFolders = new ArrayList<Folder>();
-
-            for (String sr : parsed.nonOptionArguments()) {
-                File r = new File(sr);
-                FileObject root = FileUtil.toFileObject(r);
-
-                if (root != null) {
-                    roots.add(root);
-                    rootFolders.add(new Folder(root));
-                }
-            }
-
             if (roots.isEmpty() && !parsed.has("list")) {
                 System.err.println("no source roots to work on");
                 return 1;
@@ -257,11 +263,6 @@ public class Main {
 
             Iterable<? extends HintDescription> hints;
             
-            ClassPath bootCP = createClassPath(parsed.has(bootclasspath) ? parsed.valuesOf(bootclasspath) : null, createDefaultBootClassPath());
-            ClassPath compileCP = createClassPath(parsed.has(classpath) ? parsed.valuesOf(classpath) : null, ClassPath.EMPTY);
-            ClassPath sourceCP = createClassPath(parsed.has(sourcepath) ? parsed.valuesOf(sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
-            ClassPath binaryCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP);
-
             if (parsed.has("list")) {
                 printHints(sourceCP, binaryCP);
                 return 0;
@@ -480,19 +481,20 @@ public class Main {
         return descs;
     }
 
-    private static Iterable<? extends HintDescription> readHints(ClassPath sourceFrom, ClassPath binaryFrom, Preferences toEnableIn, boolean declarative) {
+    private static Iterable<? extends HintDescription> readHints(ClassPath sourceFrom, ClassPath binaryFrom, Preferences toEnableIn, boolean declarativeEnabledByDefault) {
         Map<HintMetadata, ? extends Collection<? extends HintDescription>> hardcoded = RulesManager.getInstance().readHints(null, Arrays.<ClassPath>asList(), null);
-        Map<HintMetadata, ? extends Collection<? extends HintDescription>> all = declarative ? RulesManager.getInstance().readHints(null, Arrays.asList(sourceFrom, binaryFrom), null) : hardcoded;
+        Map<HintMetadata, ? extends Collection<? extends HintDescription>> all = RulesManager.getInstance().readHints(null, Arrays.asList(sourceFrom, binaryFrom), null);
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
         for (Entry<HintMetadata, ? extends Collection<? extends HintDescription>> entry: all.entrySet()) {
             if (hardcoded.containsKey(entry.getKey())) {
-                if (HintsSettings.isEnabled(toEnableIn.node(entry.getKey().id), entry.getKey().enabled)) {
+                if (HintsSettings.isEnabledWithDefault(toEnableIn.node(entry.getKey().id), false)) {
                     descs.addAll(entry.getValue());
                 }
             } else {
-                assert declarative;
-                descs.addAll(entry.getValue());
+                if (HintsSettings.isEnabledWithDefault(toEnableIn.node(entry.getKey().id), declarativeEnabledByDefault)) {
+                    descs.addAll(entry.getValue());
+                }
             }
         }
 
@@ -663,12 +665,15 @@ public class Main {
         return ClassPathSupport.createClassPath(rootURLs.toArray(new URL[0]));
     }
 
-    private static void showGUICustomizer(File settings) throws IOException, BackingStoreException {
-        final Preferences p = XMLHintPreferences.from(settings);
-        JPanel hintPanel = new HintsPanel(p.node("settings"), new ClassPathBasedHintWrapper());
-        final JCheckBox runDeclarativeHints = new JCheckBox("Run Declarative Rules");
+    private static void showGUICustomizer(File settingsFile, ClassPath binaryCP, ClassPath sourceCP) throws IOException, BackingStoreException {
+        GlobalPathRegistry.getDefault().register(ClassPath.COMPILE, new ClassPath[] {binaryCP});
+        GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+        ClassPathBasedHintWrapper hints = new ClassPathBasedHintWrapper();
+        final Preferences p = XMLHintPreferences.from(settingsFile);
+        JPanel hintPanel = new HintsPanel(p.node("settings"), hints);
+        final JCheckBox runDeclarativeHints = new JCheckBox("Always Run Declarative Rules");
 
-        runDeclarativeHints.setToolTipText("Should the declarative rules found on classpath be run?");
+        runDeclarativeHints.setToolTipText("Always run the declarative rules found on classpath? (Only those selected above will be run when unchecked.)");
         runDeclarativeHints.setSelected(p.getBoolean("runDeclarative", true));
         runDeclarativeHints.addActionListener(new ActionListener() {
             @Override public void actionPerformed(ActionEvent e) {
@@ -831,122 +836,3 @@ public class Main {
     }
 
 }
-
-//    public static void main(String... args) throws IOException, ClassNotFoundException {
-//        System.setProperty("netbeans.user", "/tmp/tmp-foo");
-//
-//        OptionParser parser = new OptionParser();
-////        ArgumentAcceptingOptionSpec<File> projects = parser.accepts("project", "project(s) to refactor").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
-//        ArgumentAcceptingOptionSpec<File> classpath = parser.accepts("classpath", "classpath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
-//        ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "source directory").withRequiredArg().ofType(File.class);
-//        ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
-//
-//        parser.accepts("list", "list all known hints");
-//
-//        OptionSet parsed;
-//
-//        try {
-//            parsed = parser.parse(args);
-//        } catch (OptionException ex) {
-//            System.err.println(ex.getLocalizedMessage());
-//            parser.printHelpOn(System.err);
-//            return;
-//        }
-//
-//        if (parsed.has("list")) {
-//            listHints();
-//            System.exit(0);
-//        }
-//
-//        File cacheDir = parsed.valueOf(cache);
-//
-//        if (cacheDir.isFile()) {
-//            System.err.println("cache directory exists and is a file");
-//            System.exit(1);
-//        }
-//
-//        String[] cacheDirContent = cacheDir.list();
-//
-//        if (cacheDirContent != null && cacheDirContent.length > 0 && !new File(cacheDir, "segments").exists()) {
-//            System.err.println("cache directory is not empty, but was not created by this tool");
-//            System.exit(1);
-//        }
-//
-//        cacheDir.mkdirs();
-//
-//        CacheFolder.setCacheFolder(FileUtil.toFileObject(FileUtil.normalizeFile(cacheDir)));
-//
-//
-//        Map<String, Object> attrs = new HashMap<String, Object>();
-//
-//        attrs.put("type", "org.netbeans.modules.java.j2seproject");
-//        attrs.put("iconResource", "org/netbeans/modules/java/j2seproject/ui/resources/j2seProject.png");
-//        attrs.put("sharedName", "data");
-//        attrs.put("sharedNamespace", "http://www.netbeans.org/ns/j2se-project/3");
-//        attrs.put("privateName", "data");
-//        attrs.put("privateNamespace", "http://www.netbeans.org/ns/j2se-project-private/1");
-//        attrs.put("className", "org.netbeans.modules.java.j2seproject.J2SEProject");
-//        attrs.put("instanceClass", "org.netbeans.spi.project.support.ant.AntBasedProjectType");
-//
-//        MainLookup.register(AntBasedProjectFactorySingleton.create(attrs));
-//
-//        //XXX:
-//        MainLookup.register(new AntBasedProjectFactorySingleton());
-//
-//        System.err.println(Lookup.getDefault().lookupAll(ClassPathProvider.class));
-//
-////        for (Object o : Lookups.forPath("Services/AntBasedProjectTypes").lookupAll(Object.class)) {
-////            MainLookup.register(o);
-////        }
-//
-//        org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
-//        RepositoryUpdater.getDefault().start(false);
-//
-//        List<FileObject> roots = new ArrayList<FileObject>();
-//        List<File> projectRoots = parsed.valuesOf(projects);
-//
-//        if (projectRoots.isEmpty()) {
-//            System.err.println("no projects to work on specified");
-//            System.exit(1);
-//        }
-//
-//        for (File projectRoot : projectRoots) {
-//            if (!projectRoot.isDirectory()) {
-//                System.err.println("project: " + projectRoot + " does not exist");
-//                continue;
-//            }
-//
-//            Project prj = ProjectManager.getDefault().findProject(FileUtil.toFileObject(FileUtil.normalizeFile(projectRoot)));
-//
-//            if (prj == null) {
-//                System.err.println("project: " + projectRoot + " cannot be resolved to NetBeans project");
-//                continue;
-//            }
-//
-//            SourceGroup[] sourceGroups = ProjectUtils.getSources(prj).getSourceGroups(JavaProjectConstants.SOURCES_TYPE_JAVA);
-//
-//            for (SourceGroup sg : sourceGroups) {
-//                roots.add(sg.getRootFolder());
-//            }
-//        }
-//
-//        if (roots.isEmpty()) {
-//            System.err.println("no source roots to work on");
-//            System.exit(1);
-//        }
-//
-//        Iterable<? extends HintDescription> hints = findHints(parsed.valueOf(hint));
-//
-//        if (!hints.iterator().hasNext()) {
-//            System.err.println("no hints specified");
-//            System.exit(1);
-//        }
-//
-//        try {
-//            perform(hints, roots.toArray(new FileObject[0]));
-//        } catch (Throwable e) {
-//            e.printStackTrace();
-//        }
-//
-//        System.exit(0);
-//    }

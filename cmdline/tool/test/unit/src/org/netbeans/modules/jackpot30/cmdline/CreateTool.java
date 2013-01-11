@@ -61,8 +61,8 @@ public class CreateTool extends CreateStandaloneJar {
     @Override
     protected Info computeInfo() {
         return new Info().addAdditionalRoots(Main.class.getName(), DeclarativeHintsTestBase.class.getName(), OpenProjectsTrampolineImpl.class.getName(), J2SEProject.class.getName(), DefaultJavaPlatformProvider.class.getName(), PatternConvertorImpl.class.getName())
-                         .addAdditionalResources("org/netbeans/modules/java/hints/resources/Bundle.properties")
-                         .addAdditionalLayers("org/netbeans/modules/java/hints/resources/layer.xml")
+                         .addAdditionalResources("org/netbeans/modules/java/hints/resources/Bundle.properties", "org/netbeans/modules/java/hints/declarative/resources/Bundle.properties")
+                         .addAdditionalLayers("org/netbeans/modules/java/hints/resources/layer.xml", "org/netbeans/modules/java/hints/declarative/resources/layer.xml")
                          .addMetaInfRegistrations(new MetaInfRegistration(org.netbeans.modules.project.uiapi.OpenProjectsTrampoline.class, OpenProjectsTrampolineImpl.class))
                          .addMetaInfRegistrationToCopy(PatternConvertor.class.getName())
                          .addExcludePattern(Pattern.compile("junit\\.framework\\..*"))
