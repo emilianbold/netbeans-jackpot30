@@ -41,6 +41,7 @@ package org.netbeans.modules.jackpot30.maven;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugin.AbstractMojo;
 import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugin.MojoFailureException;
@@ -63,7 +64,7 @@ public class ShowGuiJackpot30 extends AbstractMojo {
     public void execute() throws MojoExecutionException, MojoFailureException {
         try {
             if (!project.isExecutionRoot()) return;
-            
+
             String configurationFile = Utils.getJackpotConfigurationFile(project);
 
             if (configurationFile == null)
@@ -73,12 +74,16 @@ public class ShowGuiJackpot30 extends AbstractMojo {
 
             cmdLine.add("--config-file");
             cmdLine.add(configurationFile);
+            cmdLine.addAll(RunJackpot30.sourceAndCompileClassPaths(project.getCollectedProjects()));
             cmdLine.add("--show-gui");
+            System.err.println(cmdLine);
 
             Main.compile(cmdLine.toArray(new String[0]));
         } catch (IOException ex) {
             throw new MojoExecutionException(ex.getMessage(), ex);
         } catch (ClassNotFoundException ex) {
+            throw new MojoExecutionException(ex.getMessage(), ex);
+        } catch (DependencyResolutionRequiredException ex) {
             throw new MojoExecutionException(ex.getMessage(), ex);
         }
     }

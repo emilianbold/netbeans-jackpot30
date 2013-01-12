@@ -41,6 +41,8 @@ package org.netbeans.modules.jackpot30.maven;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.model.Resource;
@@ -55,11 +57,6 @@ public abstract class RunJackpot30 extends AbstractMojo {
 
     protected final void doRun(MavenProject project, boolean apply) throws MojoExecutionException, MojoFailureException {
         try {
-            List<String> compileSourceRoots = new ArrayList<String>();
-            compileSourceRoots.addAll((List<String>) project.getCompileSourceRoots());
-            for (Resource r : (List<Resource>) project.getResources()) {
-                compileSourceRoots.add(r.getDirectory());
-            }
             String sourceLevel = "1.5";
             Xpp3Dom sourceLevelConfiguration = Utils.getPluginConfiguration(project, "org.apache.maven.plugins", "maven-compiler-plugin");
 
@@ -80,10 +77,7 @@ public abstract class RunJackpot30 extends AbstractMojo {
             else
                 cmdLine.add("--no-apply");
 
-            cmdLine.add("--sourcepath");
-            cmdLine.add(toClassPathString(compileSourceRoots));
-            cmdLine.add("--classpath");
-            cmdLine.add(toClassPathString((List<String>) project.getCompileClasspathElements()));
+            cmdLine.addAll(sourceAndCompileClassPaths(Collections.singletonList(project)));
             cmdLine.add("--source");
             cmdLine.add(sourceLevel);
 
@@ -127,4 +121,24 @@ public abstract class RunJackpot30 extends AbstractMojo {
         return classPath.toString();
     }
 
+    @SuppressWarnings("unchecked")
+    public static List<String> sourceAndCompileClassPaths(Iterable<? extends MavenProject> projects) throws DependencyResolutionRequiredException {
+        List<String> compileSourceRoots = new ArrayList<String>();
+        List<String> compileClassPath = new ArrayList<String>();
+
+        for (MavenProject project : projects) {
+            compileSourceRoots.addAll((List<String>) project.getCompileSourceRoots());
+
+            for (Resource r : (List<Resource>) project.getResources()) {
+                compileSourceRoots.add(r.getDirectory());
+            }
+            
+            compileClassPath.addAll((List<String>) project.getCompileClasspathElements());
+        }
+
+        return Arrays.asList("--sourcepath",
+                             toClassPathString(compileSourceRoots),
+                             "--classpath",
+                             toClassPathString(compileClassPath));
+    }
 }
