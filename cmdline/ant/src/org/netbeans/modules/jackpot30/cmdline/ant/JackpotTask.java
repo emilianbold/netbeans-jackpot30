@@ -44,7 +44,7 @@ import org.apache.tools.ant.Project;
 import org.apache.tools.ant.Task;
 import org.apache.tools.ant.taskdefs.Execute;
 import org.apache.tools.ant.taskdefs.LogStreamHandler;
-import org.apache.tools.ant.types.Commandline;
+import org.apache.tools.ant.types.CommandlineJava;
 import org.apache.tools.ant.types.Path;
 
 /**
@@ -83,6 +83,10 @@ public class JackpotTask extends Task {
         return this.classpath = new Path(getProject());
     }
 
+    public Path getClasspath() {
+        return classpath != null ? classpath : createClasspath();
+    }
+
     private String configFile;
 
     public void setConfigfile(String file) {
@@ -92,13 +96,11 @@ public class JackpotTask extends Task {
     @Override
     public void execute() throws BuildException {
         try {
-            Commandline cmdLine = new Commandline();
+            CommandlineJava cmdLine = new CommandlineJava();
 
             if (jackpotHome == null) {
                 throw new BuildException("Must specify jackpotHome");
             }
-
-            cmdLine.setExecutable(jackpotHome + "/jackpot");
 
             Path srcPath = src;
 
@@ -110,18 +112,27 @@ public class JackpotTask extends Task {
                 srcPath = new Path(getProject(), sourcepath);
             }
 
-            cmdLine.addArguments(new String[] {"-no-apply"});
-            cmdLine.addArguments(new String[] {"-sourcepath", srcPath.toString()});
-            cmdLine.addArguments(new String[] {"-classpath", classpath.toString()});
-            if (sourcelevel != null) cmdLine.addArguments(new String[] {"--source", sourcelevel});
-            if (configFile != null) cmdLine.addArguments(new String[] {"--config-file", configFile});
-            cmdLine.addArguments(srcPath.list());
+            cmdLine.createClasspath(getProject()).add(new Path(getProject(), jackpotHome + "/jackpot.jar"));
+            cmdLine.setClassname("org.netbeans.modules.jackpot30.cmdline.Main");
+
+            addArguments(cmdLine, "-no-apply");
+            addArguments(cmdLine, "-sourcepath", srcPath.toString());
+            addArguments(cmdLine, "-classpath", getClasspath().toString());
+            if (sourcelevel != null) addArguments(cmdLine, "--source", sourcelevel);
+            if (configFile != null) addArguments(cmdLine, "--config-file", configFile);
+            addArguments(cmdLine, srcPath.list());
 
             Execute exec = new Execute(new LogStreamHandler(this, Project.MSG_INFO, Project.MSG_WARN));
             exec.setCommandline(cmdLine.getCommandline());
             exec.execute();
         } catch (IOException ex) {
             throw new BuildException(ex);
+        }
+    }
+
+    private static void addArguments(CommandlineJava cmdLine, String... args) {
+        for (String arg : args) {
+            cmdLine.createArgument().setValue(arg);
         }
     }
 

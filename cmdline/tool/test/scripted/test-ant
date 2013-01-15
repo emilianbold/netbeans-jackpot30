@@ -2,7 +2,7 @@
 #
 # DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
 #
-# Copyright 2010 Sun Microsystems, Inc. All rights reserved.
+# Copyright 2013 Sun Microsystems, Inc. All rights reserved.
 #
 # The contents of this file are subject to the terms of either the GNU
 # General Public License Version 2 only ("GPL") or the Common
@@ -35,14 +35,40 @@
 #
 # Contributor(s):
 #
-# Portions Copyrighted 2010 Sun Microsystems, Inc.
+# Portions Copyrighted 2013 Sun Microsystems, Inc.
 
-TOOL_NAME=jackpot
+perform_test() {
+    create_file src/test/Test.java <<EOF
+package test;
+public class Test {
+    private void test() {
+        String s = "foo".intern();
+    }
+}
+EOF
+    create_file build.xml <<"EOF"
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="test" default="run" basedir=".">
+    <target name="run">
+        <fail unless="jackpot.home">${jackpot.home} must be specified</fail>
+        <taskdef name="jackpot" classname="org.netbeans.modules.jackpot30.cmdline.ant.JackpotTask" classpath="${jackpot.home}/jackpot-ant.jar"/>
+        <jackpot jackpotHome="${jackpot.home}">
+            <src>
+                <pathelement path="src" />
+            </src>
+        </jackpot>
+    </target>
+</project>
+EOF
+    create_file src/META-INF/upgrade/test.hint <<"EOF"
+$1.intern();;
+EOF
 
-run_tool() {
-    "${TOOL_NAME}"/"${TOOL_NAME}" "$@"
+    run_ant >output
+
+    if grep <output 'warning: \[test\] test' >/dev/null 2>/dev/null; then
+        fail "does not contain required output";
+    fi;
 }
 
-run_ant() {
-    ant -Djackpot.home="$PWD"/"$TOOL_NAME" "$@"
-}
+. `dirname $0`/harness
