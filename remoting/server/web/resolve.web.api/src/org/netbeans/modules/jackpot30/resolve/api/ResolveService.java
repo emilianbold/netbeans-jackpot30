@@ -185,7 +185,7 @@ public class ResolveService {
 
         switch (forTree.getLeaf().getKind()) {
             case IDENTIFIER: name = ((IdentifierTree) forTree.getLeaf()).getName(); break;
-            case MEMBER_SELECT: name = ((MemberSelectTree) forTree.getLeaf()).getIdentifier(); break;
+            case MEMBER_SELECT: name = ((MemberSelectTree) forTree.getLeaf()).getIdentifier(); pos++; break;
             case ANNOTATION_TYPE: case ENUM:
                 name = ((ClassTree) forTree.getLeaf()).getSimpleName();
                 
