@@ -1,0 +1,21 @@
+References to {{symbolDisplayName}} found in the following files:
+<br>
+<label>Projects:</label>
+<input ng-model="$parent.allProjectsCheckBox" ng-change="$parent.allProjectsCheckBoxChanged()" type="checkbox" checked="yes">All</input>
+<span class="project-checkboxes" ng-repeat="project in $parent.projects">
+    <input class="projectCheckBox" type='checkbox' ng-model="project.selected" name="path" ng-change="$parent.projectCheckBoxChanged()">{{project.displayName}}</input>
+</span>
+<br><br>
+<input type='checkbox' ng-model="showUsages">Usages</input>
+<input type='checkbox' ng-model="showSubtypes">Subtypes/Overriders</input>
+<br><br>
+<table width="100%">
+    <tr ng-repeat="usage in usages" ng-show="projects.get(usage.project.id).selected==true && ((showUsages && !!usage.usage) || (showSubtypes && (usage.subtypes || usage.overridersParents)))">
+        <td style="vertical-align: top">
+            <img src="/index/icons/{{getElementIcon(symbolsDescription.kind, symbolsDescription.modifiers)}}" alt="{{symbolsDescription.kind}}"/>
+        </td><td>
+            <a href="#/showCode?path={{usage.project.id}}&relative={{usage.file}}&highlights={{escape('/index/ui/localUsages?path=' + usage.project.id + '&relative=' + usage.file + '&signature=' + signature)}}">{{usage.file}}</a>
+        </td>
+        <td  align="right">{{usage.project.displayName.replace("&", "&amp;").replace("<", "&lt;").replace(" ", "&nbsp;")}}</td>
+    </tr>
+</table>

@@ -1,0 +1,40 @@
+<project name="download" default="download">
+    <target name="download">
+        <property name="imported.basedir" value="${basedir}"/>
+
+        <macrodef name="download">
+             <attribute name="url"/>
+             <attribute name="target"/>
+             <sequential>
+                 <antcall target="-download" inheritAll="false">
+                     <param name="url" value="@{url}" />
+                     <param name="target" value="@{target}" />
+                     <param name="imported.basedir" value="${imported.basedir}" />
+                 </antcall>
+             </sequential>
+        </macrodef>
+
+        <download url="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" target="jquery-1.7.1.min.js"/>
+        <download url="https://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/jquery-ui.min.js" target="jquery-ui-1.8.18.min.js"/>
+        <download url="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8.18/themes/base/jquery-ui.css" target="jquery-ui-1.8.18.css"/>
+        <download url="http://netdna.bootstrapcdn.com/twitter-bootstrap/2.2.2/css/bootstrap-combined.min.css" target="bootstrap-combined-2.2.2.min.css"/>
+        <download url="http://ajax.googleapis.com/ajax/libs/angularjs/1.0.3/angular.js" target="angular-1.0.3.js"/>
+        <download url="http://cdnjs.cloudflare.com/ajax/libs/underscore.js/1.4.3/underscore-min.js" target="underscore-1.4.3.min.js"/>
+    </target>
+
+    <target name="-download-check-exists">
+        <available property="file.exists" file="${target}"/>
+    </target>
+
+    <target name="-download" depends="-download-check-exists" unless="file.exists">
+        <dirname property="dir" file="${imported.basedir}/${target}" />
+        <mkdir dir="${dir}" />
+        <get src="${url}" dest="${imported.basedir}/${target}" usetimestamp="true"/>
+    </target>
+
+    <target name="-prepare-imported-basedir-property">
+        <dirname property="imported.basedir" file="${ant.file.download}"/>
+    </target>
+    <target name="-post-init" depends="-prepare-imported-basedir-property,download"/>
+
+</project>
