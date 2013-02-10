@@ -41,13 +41,13 @@ fi;
 
 ant -Dnbplatform.active.dir=$PLATFORM -f lib/download.xml download copy-from-platform
 
-SUBPROJECTS="remoting duplicates cmdline language";
+SUBPROJECTS="remoting duplicates language cmdline";
 
 for subproject in $SUBPROJECTS; do
     (cd $subproject; ./build.sh -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
 done
 
-for subproject in $SUBPROJECTS; do
+for subproject in language remoting; do
     if [ -x $subproject/post-build.sh ] ; then
         (cd $subproject; ./post-build.sh -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
     fi;
