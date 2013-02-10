@@ -199,16 +199,83 @@ public class UI {
     }
 
     @GET
+    @Path("/searchSymbol")
+    @Produces("application/javascript")
+    public String searchSymbol(@Context UriInfo uriInfo, @QueryParam("path") List<String> paths, @QueryParam("prefix") String prefix) throws URISyntaxException, IOException, TemplateException {
+        String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
+        Map<String, Map<?, ?>> segment2Result = new HashMap<String, Map<?, ?>>();
+
+        if (paths == null) {
+            Map<String,Map<String, String>> pathsList = list(urlBase);
+            paths = new ArrayList<String>(pathsList.keySet());
+        }
+
+        for (String path : paths) {
+            URI u = new URI(urlBase + "index/symbol/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
+            @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+            Map<String, List<Map<String, Object>>> symbols = Pojson.load(LinkedHashMap.class, u);
+
+            URI typeSearch = new URI(urlBase + "index/type/search?path=" + escapeForQuery(path) + "&prefix=" + escapeForQuery(prefix));
+            @SuppressWarnings("unchecked") //XXX: should not trust something got from the network!
+            Map<String, List<String>> types = Pojson.load(LinkedHashMap.class, typeSearch);
+
+            for (Entry<String, List<String>> e : types.entrySet()) {
+                List<Map<String, Object>> thisSourceRootResults = new ArrayList<Map<String, Object>>(e.getValue().size());
+                for (String fqn : e.getValue()) {
+                    Map<String, Object> result = new HashMap<String, Object>();
+
+                    result.put("kind", "CLASS");
+                    result.put("fqn", fqn);
+
+                    String simpleName = fqn;
+                    String enclosingFQN = "";
+
+                    if (simpleName.lastIndexOf('.') > 0) {
+                        simpleName = simpleName.substring(simpleName.lastIndexOf('.') + 1);
+                        enclosingFQN = fqn.substring(0, fqn.lastIndexOf('.'));
+                    }
+
+                    if (simpleName.lastIndexOf('$') > 0) {
+                        simpleName = simpleName.substring(simpleName.lastIndexOf('$') + 1);
+                        enclosingFQN = fqn.substring(0, fqn.lastIndexOf('$'));
+                    }
+
+                    result.put("simpleName", simpleName);
+                    result.put("enclosingFQN", enclosingFQN);
+
+                    if (fqn.contains("$")) {
+                        fqn = fqn.substring(0, fqn.indexOf("$"));
+                    }
+
+                    result.put("file", fqn.replace('.', '/') + ".java");
+
+                    thisSourceRootResults.add(result);
+                }
+
+                List<Map<String, Object>> putInto = symbols.get(e.getKey());
+
+                if (putInto == null) symbols.put(e.getKey(), thisSourceRootResults);
+                else putInto.addAll(thisSourceRootResults);
+            }
+
+            segment2Result.put(path, Collections.singletonMap("found", symbols));
+        }
+
+        return Pojson.save(segment2Result);
+    }
+
+    @GET
     @Path("/show")
     @Produces("text/html")
     public String show(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("highlight") String highlightSpec, @QueryParam("signature") String signature) throws URISyntaxException, IOException, TemplateException, InterruptedException {
+        CategoryStorage category = CategoryStorage.forId(segment);
         String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
         URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
         String content = WebUtilities.requestStringResponse(u).replace("\r\n", "\n");
         List<Long> highlightSpans = new ArrayList<Long>();
+        CompilationInfo info = ResolveService.parse(segment, relative);
 
         if (signature != null) {
-            CompilationInfo info = ResolveService.parse(segment, relative);
             List<long[]> spans = ResolveService.usages(info, signature);
 
             for (long[] span : spans) {
@@ -222,32 +289,39 @@ public class UI {
         }
 
         Map<String, Object> configurationData = new HashMap<String, Object>();
-        String[] highlights = colorTokens(segment, relative, highlightSpans);
+        HighlightData highlights = colorTokens(info, segment, relative, highlightSpans);
 
-        configurationData.put("spans", highlights[0]);
-        configurationData.put("categories", highlights[1]);
+        configurationData.put("spans", toString(highlights.spans));
+        configurationData.put("categories", toString(highlights.categories));
         configurationData.put("code", translate(content));
         configurationData.put("path", segment);
+        configurationData.put("category", category.getDisplayName());
         configurationData.put("relative", relative);
 
         return FreemarkerUtilities.processTemplate("org/netbeans/modules/jackpot30/backend/ui/showCode.html", configurationData);
     }
 
-    static String[] colorTokens(String segment, String relative, List<Long> highlight) throws IOException, InterruptedException {
+    @GET
+    @Path("/highlightData")
+    @Produces("application/javascript")
+    public String highlightData(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative) throws URISyntaxException, IOException, TemplateException, InterruptedException {
         CompilationInfo info = ResolveService.parse(segment, relative);
+        HighlightData highlights = colorTokens(info, segment, relative, Collections.<Long>emptyList());
+
+        return Pojson.save(highlights);
+    }
+
+    static HighlightData colorTokens(CompilationInfo info, String segment, String relative, List<Long> highlight) throws IOException, InterruptedException {
         TokenSequence<?> ts = info.getTokenHierarchy().tokenSequence(JavaTokenId.language());
         Map<Token, Coloring> semanticHighlights = SemanticHighlighter.computeHighlights(info, new TokenList(info, ts, new AtomicBoolean()));
-        StringBuilder spans = new StringBuilder();
-        StringBuilder cats  = new StringBuilder();
+        List<Long> spans = new ArrayList<Long>(ts.tokenCount());
+        List<String> cats  = new ArrayList<String>(ts.tokenCount());
         long currentOffset = 0;
         boolean cont = false;
 
         ts.moveStart();
 
         while (cont || ts.moveNext()) {
-            if (spans.length() > 0) spans.append(", ");
-            if (cats.length() > 0) cats.append(", ");
-
             long endOffset = ts.offset() + ts.token().length();
             boolean foundHighlight = false;
 
@@ -277,10 +351,14 @@ public class UI {
                 }
             }
 
-            spans.append(endOffset - currentOffset);
+            spans.add(endOffset - currentOffset);
             String category = ts.token().id().primaryCategory();
 
             if ("keyword-directive".equals(category)) {
+                category = "keyword";
+            }
+
+            if ("literal".equals(category)) {
                 category = "keyword";
             }
 
@@ -298,15 +376,32 @@ public class UI {
                 }
             }
 
-            cats.append(category);
+            cats.add(category);
 
             currentOffset = endOffset;
         }
 
-        return new String[] {
-            spans.toString(),
-            cats.toString()
-        };
+        return new HighlightData(cats, spans);
+    }
+
+    private static String toString(List<?> list) {
+        StringBuilder result = new StringBuilder();
+
+        for (Object o : list) {
+            if (result.length() > 0) result.append(", ");
+            result.append(String.valueOf(o));
+        }
+
+        return result.toString();
+    }
+
+    private static final class HighlightData {
+        List<String> categories;
+        List<Long> spans;
+        public HighlightData(List<String> cats, List<Long> spans) {
+            this.categories = cats;
+            this.spans = spans;
+        }
     }
 
     //XXX: usages on fields do not work because the field signature in the index contain also the field type
@@ -432,6 +527,99 @@ public class UI {
 
     private interface ComputeSegmentData {
         public Object compute(String segment) throws URISyntaxException, TemplateException, IOException;
+    }
+
+    @GET
+    @Path("/searchUsages")
+    @Produces("application/javascript")
+    public String searchUsages(@Context UriInfo uriInfo, @QueryParam("path") List<String> paths, @QueryParam("signature") final String signature) throws URISyntaxException, IOException, TemplateException {
+        String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
+        Map<String, Map<?, ?>> segment2Result = new HashMap<String, Map<?, ?>>();
+
+        if (paths == null) {
+            Map<String,Map<String, String>> pathsList = list(urlBase);
+            paths = new ArrayList<String>(pathsList.keySet());
+        }
+
+        for (String path : paths) {
+            Map<String, Map<String, Object>> usageFile2Flags = new HashMap<String, Map<String, Object>>();
+            
+            URI usagesURI = new URI(urlBase + "index/usages/search?path=" + escapeForQuery(path) + "&signatures=" + escapeForQuery(signature));
+            List<String> files = new ArrayList<String>(WebUtilities.requestStringArrayResponse(usagesURI));
+
+            for (String file : files) {
+                Map<String, Object> flags = usageFile2Flags.get(file);
+
+                if (flags == null) {
+                    usageFile2Flags.put(file, flags = new HashMap<String, Object>());
+                }
+
+                flags.put("usage", "true");
+            }
+
+            if (signature.startsWith("CLASS:") || signature.startsWith("INTERFACE:") || signature.startsWith("ENUM:") || signature.startsWith("ANNOTATION_TYPE:")) {
+                final String type = strip(signature, "CLASS:", "INTERFACE:", "ENUM:", "ANNOTATION_TYPE:");
+                URI u = new URI(urlBase + "index/implements/search?path=" + escapeForQuery(path) + "&type=" + escapeForQuery(type));
+                Map<String, List<Map<String, String>>> data = Pojson.load(HashMap.class, u);
+                for (Entry<String, List<Map<String, String>>> relpath2ImplementorsE : data.entrySet()) {
+                    for (Map<String, String> implementorData : relpath2ImplementorsE.getValue()) {
+                        String file = implementorData.get("file");
+                        Map<String, Object> flags = usageFile2Flags.get(file);
+
+                        if (flags == null) {
+                            usageFile2Flags.put(file, flags = new HashMap<String, Object>());
+                        }
+
+                        List<String> implementors = (List<String>) flags.get("subtypes");
+
+                        if (implementors == null) {
+                            flags.put("subtypes", implementors = new ArrayList<String>());
+                        }
+
+                        implementors.add(implementorData.get("class"));
+                    }
+                }
+            } else if (signature.startsWith("METHOD:")) {
+                URI u = new URI(urlBase + "index/implements/search?path=" + escapeForQuery(path) + "&method=" + escapeForQuery(signature));
+                Map<String, List<Map<String, String>>> data = Pojson.load(HashMap.class, u);
+                for (Entry<String, List<Map<String, String>>> relpath2ImplementorsE : data.entrySet()) {
+                    for (Map<String, String> implementorData : relpath2ImplementorsE.getValue()) {
+                        String file = implementorData.get("file");
+                        Map<String, Object> flags = usageFile2Flags.get(file);
+
+                        if (flags == null) {
+                            usageFile2Flags.put(file, flags = new HashMap<String, Object>());
+                        }
+
+                        List<String> overridersParents = (List<String>) flags.get("overridersParents");
+
+                        if (overridersParents == null) {
+                            flags.put("overridersParents", overridersParents = new ArrayList<String>());
+                        }
+
+                        overridersParents.add(implementorData.get("enclosingFQN"));
+                    }
+                }
+            }
+            
+            segment2Result.put(path, usageFile2Flags);
+        }
+
+        return Pojson.save(segment2Result);
+    }
+
+    @GET
+    @Path("/localUsages")
+    @Produces("application/javascript")
+    public String localUsages(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("signature") final String signature, @QueryParam("usages") boolean usages) throws URISyntaxException, IOException, TemplateException, InterruptedException {
+        final CompilationInfo info = ResolveService.parse(segment, relative);
+        List<long[]> result = new ArrayList<long[]>();
+        
+        for (long[] span : ResolveService.usages(info, signature)) {
+            result.add(new long[] {span[2], span[3]});
+        }
+
+        return Pojson.save(result);
     }
 
     private static String elementDisplayName(String signatures) {
@@ -731,6 +919,7 @@ public class UI {
                         break;
                 }
                 result.put("menu", menu);
+                result.put("signature", signature[0]);
             }
         } else {
             if (targetPosition[0] != (-2)) {
