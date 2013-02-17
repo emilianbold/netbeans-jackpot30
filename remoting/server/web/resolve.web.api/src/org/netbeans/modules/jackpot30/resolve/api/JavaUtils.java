@@ -45,7 +45,7 @@ import java.util.EnumSet;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
 import org.netbeans.api.java.source.ElementHandle;
-import org.netbeans.api.java.source.SourceUtils;
+import org.netbeans.modules.java.source.ElementHandleAccessor;
 
 /**
  *
@@ -63,7 +63,10 @@ public class JavaUtils {
 
         result.append(h.getKind());
 
-        String[] signatures = SourceUtils.getJVMSignature(h);
+        //was:
+//        String[] signatures = SourceUtils.getJVMSignature(h);
+        //but that was forcing loading of UserTask from parsing.api
+        String[] signatures = ElementHandleAccessor.getInstance().getJVMSignature(h);
 
         for (String sig : signatures) {
             result.append(":");
