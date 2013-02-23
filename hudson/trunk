@@ -24,7 +24,7 @@ download_and_unpack_cluster() {
     unzip -q ../download/*$TRUNK_ID-$1.zip || exit
 }
 
-for cluster in ide platform java harness nb apisupport enterprise cnd dlight websvccommon; do
+for cluster in ide extide platform java harness nb apisupport enterprise cnd dlight websvccommon; do
     download_and_unpack_cluster $cluster;
 done
 
