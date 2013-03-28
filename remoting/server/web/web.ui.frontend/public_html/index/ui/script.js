@@ -16,6 +16,7 @@ function DeclarationSearch($scope, $http, $routeParams) {
                         symbols[j].project = project;
                         symbols[j].displayName = symbolDisplayName(symbols[j]).replace("&", "&amp;").replace("<", "&lt;");
                         symbols[j].enclosingFQN = symbols[j].enclosingFQN.replace("&", "&amp;").replace("<", "&lt;");
+                        symbols[j].file = relPath + symbols[j].file;
                         result[index++] = symbols[j];
                     }
                 }
