@@ -38,11 +38,13 @@
  */
 package org.netbeans.modules.jackpot30.compiler;
 
+import com.sun.source.util.JavacTask;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTrees;
+import com.sun.tools.javac.api.MultiTaskListener;
 import com.sun.tools.javac.jvm.Gen;
 import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
@@ -112,10 +114,8 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
         }
 
         Context c = ((JavacProcessingEnvironment) processingEnv).getContext();
-        TaskListener prev = c.get(TaskListener.class);
-
-        c.put(TaskListener.class, (TaskListener) null);
-        c.put(TaskListener.class, new TaskListenerImpl(prev));
+        
+        MultiTaskListener.instance(c).add(new TaskListenerImpl());
     }
 
     @Override
@@ -222,25 +222,14 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
 
     private final class TaskListenerImpl implements TaskListener {
 
-        private final TaskListener delegate;
-
-        public TaskListenerImpl(TaskListener delegate) {
-            this.delegate = delegate;
-        }
+        public TaskListenerImpl() { }
 
         @Override
         public void started(TaskEvent te) {
-            if (delegate != null) {
-                delegate.started(te);
-            }
         }
 
         @Override
         public void finished(TaskEvent te) {
-            if (delegate != null) {
-                delegate.finished(te);
-            }
-
             if (te.getKind() == TaskEvent.Kind.ANALYZE) {
                 TypeElement toProcess = te.getTypeElement();
 
