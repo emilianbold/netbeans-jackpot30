@@ -213,7 +213,7 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
 
         if (files != null) {
             for (File f : files) {
-                urls.add(FileUtil.urlForArchiveOrDir(FileUtil.normalizeFile(f)));
+                urls.add(FileUtil.urlForArchiveOrDir(FileUtil.normalizeFile(f.getAbsoluteFile())));
             }
         }
 
