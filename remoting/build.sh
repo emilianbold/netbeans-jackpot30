@@ -17,7 +17,9 @@ chmod u+x build/temp-indexing-backend/web
 (cd build; zip -r indexing-backend.zip indexing-backend) || exit 1
 (cd build; zip -r indexing-backend-shortened.zip `find indexing-backend -type f | grep -v indexing-backend/indexer/enterprise/ | grep -v indexing-backend/indexer/apisupport/  | grep -v indexing-backend/indexer/cnd/   | grep -v indexing-backend/indexer/dlight/   | grep -v indexing-backend/indexer/harness/   | grep -v indexing-backend/indexer/ide/   | grep -v indexing-backend/indexer/java   | grep -v indexing-backend/indexer/nb/   | grep -v indexing-backend/indexer/platform/   | grep -v indexing-backend/indexer/profiler/   | grep -v indexing-backend/indexer/websvccommon/`) || exit 1
 
-(cd server/hudson; mvn $MAVEN_EXTRA_ARGS -Dmaven.test.skip=true clean package && (cp target/*.hpi ../../build || true)) || exit
+if [ "$JAVA6_HOME" != "" ] ; then
+    (cd server/hudson; export JAVA_HOME=$JAVA6_HOME; export PATH=$JAVA_HOME/bin:$PATH; mvn $MAVEN_EXTRA_ARGS -Dmaven.test.skip=true clean package && (cp target/*.hpi ../../build || true)) || exit
+fi;
 
 mkdir -p ide/local/release/index-server
 (cd server/web/web.main; cp -r dist/* ../../../ide/local/release/index-server) || exit 1
