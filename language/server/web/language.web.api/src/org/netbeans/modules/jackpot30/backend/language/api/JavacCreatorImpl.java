@@ -42,6 +42,7 @@
 package org.netbeans.modules.jackpot30.backend.language.api;
 
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javadoc.Messager;
@@ -53,7 +54,6 @@ import java.util.List;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaFileManager;
 import javax.tools.JavaFileObject;
-import javax.tools.ToolProvider;
 import org.netbeans.lib.nbjavac.services.NBAttr;
 import org.netbeans.lib.nbjavac.services.NBClassReader;
 import org.netbeans.lib.nbjavac.services.NBClassWriter;
@@ -82,10 +82,11 @@ public class JavacCreatorImpl extends JavacCreator {
         realOptions.add("-XDallowStringFolding=false"); //NOI18N
         realOptions.add("-XDshouldStopPolicy=GENERATE");   // NOI18N, parsing should not stop in phase where an error is found
         realOptions.add("-XDsuppressAbortOnBadClassFile=true");
-        JavacTaskImpl task = (JavacTaskImpl) ToolProvider.getSystemJavaCompiler().getTask(out, fileManager, diagnosticListener, realOptions, classes, compilationUnits);
-        Context context = task.getContext();
-        NBClassReader.preRegister(context, true);
+        Context context = new Context();
+        //need to preregister the Messages here, because the getTask below requires Log instance:
         Messager.preRegister(context, null, DEV_NULL, DEV_NULL, DEV_NULL);
+        JavacTaskImpl task = (JavacTaskImpl) JavacTool.create().getTask(out, fileManager, diagnosticListener, realOptions, classes, compilationUnits, context);
+        NBClassReader.preRegister(context, true);
         NBAttr.preRegister(context);
         NBClassWriter.preRegister(context);
         NBParserFactory.preRegister(context);
