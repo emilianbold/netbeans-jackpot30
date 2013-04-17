@@ -23,3 +23,5 @@ fi;
 
 mkdir -p ide/local/release/index-server
 (cd server/web/web.main; cp -r dist/* ../../../ide/local/release/index-server) || exit 1
+
+(cd server/tests; ./run-integration-tests) || exit 1

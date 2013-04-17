@@ -9,3 +9,5 @@ cp -r ../language/server/web/*/dist/lib/*.jar build/indexing-backend/web/lib
 
 (cd build; zip -r indexing-backend-feature-packed.zip indexing-backend) || exit 1
 (cd build; zip -r indexing-backend-feature-packed-shortened.zip `find indexing-backend -type f | grep -v indexing-backend/indexer/enterprise/ | grep -v indexing-backend/indexer/apisupport/  | grep -v indexing-backend/indexer/cnd/   | grep -v indexing-backend/indexer/dlight/   | grep -v indexing-backend/indexer/harness/   | grep -v indexing-backend/indexer/ide/   | grep -v indexing-backend/indexer/java   | grep -v indexing-backend/indexer/nb/   | grep -v indexing-backend/indexer/platform/   | grep -v indexing-backend/indexer/profiler/   | grep -v indexing-backend/indexer/websvccommon/`) || exit 1
+
+(cd server/tests; ./run-integration-tests) || exit 1

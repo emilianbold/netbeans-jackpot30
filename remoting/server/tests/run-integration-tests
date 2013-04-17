@@ -1,0 +1,25 @@
+#!/bin/bash -x
+do_index() {
+    rm -rf cache
+    mkdir -p cache
+    ../../build/indexing-backend/index.sh data Data ../tests/cache/temp.zip integration-data integration-data/example
+    (cd cache; unzip temp.zip; rm temp.zip)
+}
+
+do_index
+
+OUT=`mktemp`;
+trap "rm $OUT" EXIT
+#JACKPOT_WEB_OPTS=-Xmx128m ../../build/indexing-backend/web.sh --port 0 cache >"$OUT" &
+JACKPOT_WEB_OPTS=-Xmx128m ../../build/indexing-backend/web.sh cache >"$OUT" &
+
+trap "kill %1" EXIT
+
+#while [ -z "$PORT" ] ; do
+#     sleep 1s;
+#     PORT=`cat "$OUT" | grep "Running on port: " | cut -d ':' -f 2 | tr -d ' '`;
+#done
+
+(cd integration; mvn test)
+
+exit 0

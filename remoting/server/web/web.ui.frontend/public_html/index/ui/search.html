@@ -1,14 +1,14 @@
 <form ng-submit="performQuery()">
-    <input class="search-query" ng-model="prefix" type="text" name="prefix" placeholder="Search"/><!--ng-change="performQueryDelayed()" -->
+    <input class="search-query" ng-model="prefix" type="text" name="prefix" placeholder="Search" id="search-input"/><!--ng-change="performQueryDelayed()" -->
     <button class="btn" type="submit">Search</button>
 </form>
 <label>Projects:</label>
 <input ng-model="$parent.allProjectsCheckBox" ng-change="$parent.allProjectsCheckBoxChanged()" type="checkbox" checked="yes">All</input>
 <span class="project-checkboxes" ng-repeat="project in $parent.projects">
-    <input class="projectCheckBox" type='checkbox' ng-model="project.selected" name="path" ng-change="$parent.projectCheckBoxChanged()">{{project.displayName}}</input>
+    <input class="projectCheckBox" type='checkbox' ng-model="project.selected" name="path" ng-change="$parent.projectCheckBoxChanged()" id="projectCheckBox-{{project.id}}">{{project.displayName}}</input>
 </span>
 <table width="100%">
-    <tr ng-repeat="symbolsDescription in searchResult" ng-show="projects.get(symbolsDescription.project.id).selected==true"> <!--projects[symbolsDescription.projectId].neco==true">-->
+    <tr ng-repeat="symbolsDescription in searchResult" ng-show="projects.get(symbolsDescription.project.id).selected==true" id="{{symbolsDescription.project.id}}"> <!--projects[symbolsDescription.projectId].neco==true">-->
         <td style="vertical-align: top">
             <img src="/index/icons/{{getElementIcon(symbolsDescription.kind, symbolsDescription.modifiers)}}" alt="{{symbolsDescription.kind}}"/>
         </td><td>
