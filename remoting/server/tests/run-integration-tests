@@ -10,16 +10,15 @@ do_index
 
 OUT=`mktemp`;
 trap "rm $OUT" EXIT
-#JACKPOT_WEB_OPTS=-Xmx128m ../../build/indexing-backend/web.sh --port 0 cache >"$OUT" &
-JACKPOT_WEB_OPTS=-Xmx128m ../../build/indexing-backend/web.sh cache >"$OUT" &
+JACKPOT_WEB_OPTS=-Xmx128m ../../build/indexing-backend/web.sh --port 0 cache >"$OUT" &
 
 trap "kill %1" EXIT
 
-#while [ -z "$PORT" ] ; do
-#     sleep 1s;
-#     PORT=`cat "$OUT" | grep "Running on port: " | cut -d ':' -f 2 | tr -d ' '`;
-#done
+while [ -z "$PORT" ] ; do
+     sleep 1s;
+     PORT=`cat "$OUT" | grep "Running on port: " | cut -d ':' -f 2 | tr -d ' '`;
+done
 
-(cd integration; mvn test)
+(cd integration; mvn -DPORT=$PORT test)
 
 exit 0

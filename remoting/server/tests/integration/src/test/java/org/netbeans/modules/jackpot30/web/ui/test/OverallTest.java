@@ -70,7 +70,7 @@ public class OverallTest {
         ((HtmlUnitDriver) driver).setJavascriptEnabled(true);
 
         try {
-            driver.get("http://localhost:9998/index/ui/index.html");
+            driver.get("http://localhost:" + System.getProperty("PORT", "9998") + "/index/ui/index.html");
 
             //wait for the page to be rendered:
             new WebDriverWait(driver, 20).until(new Predicate<WebDriver>() {
