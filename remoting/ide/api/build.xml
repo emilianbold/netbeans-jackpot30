@@ -12,7 +12,7 @@
     </target>
     <target name="-download-jerig" depends="-check-jerig-downloaded" unless="jerig.downloaded">
         <mkdir dir="external" />
-        <get src="http://kenai.com/projects/jackpot30/downloads/download/external/jerig-36929ddc99ff.zip" dest="external/jerig-36929ddc99ff.zip" usetimestamp="true"/>
+        <get src="http://kenai.com/downloads/jackpot30/external/jerig-36929ddc99ff.zip" dest="external/jerig-36929ddc99ff.zip" usetimestamp="true"/>
     </target>
     
     <target name="files-init" depends="projectized-common.files-init,-download-jerig">
