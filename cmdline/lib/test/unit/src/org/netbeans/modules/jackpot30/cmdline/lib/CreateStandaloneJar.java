@@ -472,6 +472,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             , Tree.class.getName()
             ,JavacTool.class.getName()
             ,JavaMimeResolver.class.getName()
+            , "org.netbeans.api.java.source.support.OpenedEditors"
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
