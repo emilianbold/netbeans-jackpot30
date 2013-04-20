@@ -19,6 +19,6 @@ while [ -z "$PORT" ] ; do
      PORT=`cat "$OUT" | grep "Running on port: " | cut -d ':' -f 2 | tr -d ' '`;
 done
 
-(cd integration; mvn -DPORT=$PORT test)
+(cd integration; mvn -DPORT=$PORT -Dsurefire.timeout=600 test)
 
 exit 0
