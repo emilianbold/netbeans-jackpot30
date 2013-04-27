@@ -7,8 +7,16 @@
 <span class="project-checkboxes" ng-repeat="project in $parent.projects">
     <input class="projectCheckBox" type='checkbox' ng-model="project.selected" name="path" ng-change="$parent.projectCheckBoxChanged()" id="projectCheckBox-{{project.id}}">{{project.displayName}}</input>
 </span>
+<br>
+<span>
+    Show:
+    <input type='checkbox' ng-model="showTypes" id="showTypes">Types</input>
+    <input type='checkbox' ng-model="showFields" id="showFields">Fields</input>
+    <input type='checkbox' ng-model="showMethods" id="showMethods">Methods</input>
+    <input type='checkbox' ng-model="showOthers" id="showOthers">Others</input>
+</span>
 <table width="100%">
-    <tr ng-repeat="symbolsDescription in searchResult" ng-show="projects.get(symbolsDescription.project.id).selected==true" id="{{symbolsDescription.project.id}}"> <!--projects[symbolsDescription.projectId].neco==true">-->
+    <tr ng-repeat="symbolsDescription in searchResult" ng-show="projects.get(symbolsDescription.project.id).selected==true && acceptByKind(symbolsDescription.kind, showFields, showTypes, showMethods, showOthers)" id="{{symbolsDescription.project.id}}"> <!--projects[symbolsDescription.projectId].neco==true">-->
         <td style="vertical-align: top">
             <img src="/index/icons/{{getElementIcon(symbolsDescription.kind, symbolsDescription.modifiers)}}" alt="{{symbolsDescription.kind}}"/>
         </td><td>

@@ -28,11 +28,16 @@ function DeclarationSearch($scope, $http, $routeParams) {
     };
     $scope.performQueryDelayed = _.debounce($scope.performQuery, 2000);
     $scope.getElementIcon = getElementIcon;
+    $scope.acceptByKind = acceptByKind;
     $scope.prefix = $routeParams.prefix || "";
     $scope.symbolSignature = symbolSignature;
 
     $scope.showSearch = false;
     $scope.showNextPrev = false;
+    $scope.showTypes = true;
+    $scope.showFields = true;
+    $scope.showMethods = true;
+    $scope.showOthers = true;
     
     if (typeof $routeParams.prefix !== 'undefined') {
         $scope.performQuery();
@@ -66,6 +71,19 @@ function getElementIcon(elementKind, modifiers) {
         return getIconName("method", PNG_EXTENSION, modifiers);
     } else {
         return "";
+    }
+}
+
+function acceptByKind(elementKind, showFields, showTypes, showMethods, showOthers) {
+    if (   "ENUM" === elementKind || "ANNOTATION_TYPE" === elementKind
+        || "CLASS" === elementKind || "INTERFACE" === elementKind) {
+        return showTypes;
+    } else if ("FIELD" === elementKind || "ENUM_CONSTANT" === elementKind) {
+        return showFields;
+    } else if ("CONSTRUCTOR" === elementKind || "METHOD" === elementKind) {
+        return showMethods;
+    } else {
+        return showOthers;
     }
 }
 
