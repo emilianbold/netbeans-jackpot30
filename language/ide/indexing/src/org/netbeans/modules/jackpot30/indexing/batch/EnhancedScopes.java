@@ -90,6 +90,7 @@ import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Scope;
 import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.VerifiedSpansCallBack;
 import org.netbeans.modules.java.hints.spiimpl.batch.ProgressHandleWrapper;
 import org.netbeans.modules.java.hints.spiimpl.batch.Scopes;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
 import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.BulkPattern;
 import org.netbeans.modules.java.preprocessorbridge.spi.JavaIndexerPlugin;
 import org.netbeans.modules.parsing.impl.indexing.FileObjectIndexable;
@@ -325,6 +326,8 @@ public class EnhancedScopes {
     }
 
     private static IndexEnquirer enquirerForRemoteIndex(FileObject src, RemoteIndex remoteIndex, Iterable<? extends HintDescription> hints) {
+        if (hints == null) return null;
+        
         boolean fullySupported = isAttributedIndexWithSpans(remoteIndex);
         StringBuilder textualRepresentation = new StringBuilder();
 
@@ -365,7 +368,7 @@ public class EnhancedScopes {
             super(src);
             this.idx = idx;
         }
-        public Collection<? extends Resource> findResources(final Iterable<? extends HintDescription> hints, ProgressHandleWrapper progress, final Callable<BulkPattern> bulkPattern, final Collection<? super MessageImpl> problems) {
+        public Collection<? extends Resource> findResources(final Iterable<? extends HintDescription> hints, ProgressHandleWrapper progress, final Callable<BulkPattern> bulkPattern, final Collection<? super MessageImpl> problems, HintsSettings settingsProvider) {
             final Collection<Resource> result = new ArrayList<Resource>();
 
             progress.startNextPart(1);
@@ -374,7 +377,7 @@ public class EnhancedScopes {
                 BulkPattern bp = bulkPattern.call();
 
                 for (String candidate : idx.findCandidates(bp)) {
-                    result.add(new Resource(this, candidate, hints, bp));
+                    result.add(new Resource(this, candidate, hints, bp, settingsProvider));
                 }
             } catch (Exception ex) {
                 Exceptions.printStackTrace(ex);
@@ -394,7 +397,7 @@ public class EnhancedScopes {
             this.remoteIndex = remoteIndex;
             this.textualHintRepresentation = textualHintRepresentation;
         }
-        public Collection<? extends Resource> findResources(final Iterable<? extends HintDescription> hints, ProgressHandleWrapper progress, final Callable<BulkPattern> bulkPattern, final Collection<? super MessageImpl> problems) {
+        public Collection<? extends Resource> findResources(final Iterable<? extends HintDescription> hints, ProgressHandleWrapper progress, final Callable<BulkPattern> bulkPattern, final Collection<? super MessageImpl> problems, HintsSettings settingsProvider) {
             final Collection<Resource> result = new ArrayList<Resource>();
 
             progress.startNextPart(1);
@@ -405,7 +408,7 @@ public class EnhancedScopes {
                 for (String occurrence : new ArrayList<String>(WebUtilities.requestStringArrayResponse(u))) {
                     try {
                         BulkPattern bp = bulkPattern.call();
-                        result.add(new Resource(this, occurrence, hints, bp));
+                        result.add(new Resource(this, occurrence, hints, bp, settingsProvider));
                     } catch (Exception ex) {
                         //from bulkPattern.call()? should not happen.
                         Exceptions.printStackTrace(ex);
