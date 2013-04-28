@@ -45,11 +45,18 @@ package org.netbeans.modules.jackpot30.ui;
 import com.sun.source.util.TreePath;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.modules.java.hints.infrastructure.TreeRuleTestBase;
 import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.spiimpl.hints.HintsInvoker;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings.GlobalSettingsProvider;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
+import org.openide.util.Lookup;
+import org.openide.util.lookup.Lookups;
+import org.openide.util.lookup.ServiceProvider;
 
 /**
  *
@@ -116,7 +123,7 @@ public class PatternGeneratorTest extends TreeRuleTestBase {
     protected List<ErrorDescription> computeErrors(CompilationInfo info, TreePath path) {
         String script = PatternGenerator.generateFindUsagesScript(info, info.getTrees().getElement(path));
 
-        return new HintsInvoker(info, new AtomicBoolean()).computeHints(info, PatternConvertor.create(script));
+        return new HintsInvoker(HintsSettings.getSettingsFor(info.getFileObject()), new AtomicBoolean()).computeHints(info, PatternConvertor.create(script));
     }
 
     @Override
@@ -130,5 +137,17 @@ public class PatternGeneratorTest extends TreeRuleTestBase {
 
     @Override
     public void testNoHintsForSimpleInitialize() throws Exception {}
+
+    @ServiceProvider(service=MimeDataProvider.class)
+    public static class MimeLookupProviderImpl implements MimeDataProvider {
+        private final Lookup lookup = Lookups.singleton(new GlobalSettingsProvider());
+
+        @Override
+        public Lookup getLookup(MimePath mimePath) {
+            if ("text/x-java".equals(mimePath.getPath()))
+                return lookup;
+            return null;
+        }
+    }
 
 }
