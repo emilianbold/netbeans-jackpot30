@@ -269,16 +269,17 @@ public class Main {
             }
 
             Preferences settingsFromConfigFile;
-            Preferences hintSettings;
+            Preferences hintSettingsPreferences;
+            HintsSettings hintSettings;
             boolean apply;
 
             if (parsed.has(configFile)) {
                 settingsFromConfigFile = XMLHintPreferences.from(parsed.valueOf(configFile));
-                hintSettings = settingsFromConfigFile.node("settings");
+                hintSettings = HintsSettings.createPreferencesBasedHintsSettings(hintSettingsPreferences = settingsFromConfigFile.node("settings"), false, null);
                 apply = settingsFromConfigFile.getBoolean("apply", false);
             } else {
                 settingsFromConfigFile = null;
-                hintSettings = NbPreferences.root().node("tempSettings");
+                hintSettings = HintsSettings.createPreferencesBasedHintsSettings(hintSettingsPreferences = NbPreferences.root().node("tempSettings"), false, null);
                 apply = false;
             }
 
@@ -297,10 +298,10 @@ public class Main {
                 assert hintFileFO != null;
                 hints = PatternConvertor.create(hintFileFO.asText());
                 for (HintDescription hd : hints) {
-                    HintsSettings.setEnabled(hintSettings.node(hd.getMetadata().id), true);
+                    hintSettings.setEnabled(hd.getMetadata(), true);
                 }
             } else {
-                hints = readHints(sourceCP, binaryCP, hintSettings, settingsFromConfigFile != null ? settingsFromConfigFile.getBoolean("runDeclarative", true) : true);
+                hints = readHints(sourceCP, binaryCP, hintSettings, hintSettingsPreferences, settingsFromConfigFile != null ? settingsFromConfigFile.getBoolean("runDeclarative", true) : true);
             }
 
             if (parsed.has(config) && !parsed.has(hint)) {
@@ -318,7 +319,7 @@ public class Main {
                     return 1;
                 }
 
-                Preferences prefs = hintSettings.node(hd.getMetadata().id);
+                Preferences prefs = hintSettings.getHintPreferences(hd.getMetadata());
 
                 boolean stop = false;
 
@@ -368,14 +369,12 @@ public class Main {
                     MainLookup.register(toRegister);
                 }
 
-                setHintPreferences(hintSettings);
-                
                 ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1) : new ProgressHandleWrapper(1);
 
                 if (apply) {
-                    apply(hints, rootFolders.toArray(new Folder[0]), progress, parsed.valueOf(out));
+                    apply(hints, rootFolders.toArray(new Folder[0]), progress, hintSettings, parsed.valueOf(out));
                 } else {
-                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, parsed.valueOf(out));
+                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, hintSettings, parsed.valueOf(out));
                 }
             } catch (Throwable e) {
                 e.printStackTrace();
@@ -398,53 +397,6 @@ public class Main {
         return 0;
     }
 
-    private static void setHintPreferences(final Preferences prefs) {
-        HintsSettings.setPreferencesOverride(new Map<String, Preferences>() {
-            @Override public int size() {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public boolean isEmpty() {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public boolean containsKey(Object key) {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public boolean containsValue(Object value) {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public Preferences get(Object key) {
-                Preferences res = prefs.node((String) key);
-
-                if (res.get("enabled", null) == null) {
-                    res.putBoolean("enabled", false);
-                }
-                
-                return res;
-            }
-            @Override public Preferences put(String key, Preferences value) {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public Preferences remove(Object key) {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public void putAll(Map<? extends String, ? extends Preferences> m) {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public void clear() {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public Set<String> keySet() {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public Collection<Preferences> values() {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-            @Override public Set<Entry<String, Preferences>> entrySet() {
-                throw new UnsupportedOperationException("Not supported yet.");
-            }
-        });
-    }
-
     private static Map<HintMetadata, Collection<? extends HintDescription>> listHints(ClassPath sourceFrom, ClassPath binaryFrom) {
         Map<HintMetadata, Collection<? extends HintDescription>> result = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
 
@@ -455,44 +407,44 @@ public class Main {
         return result;
     }
     
-    private static Iterable<? extends HintDescription> findHints(ClassPath sourceFrom, ClassPath binaryFrom, String name, Preferences toEnableIn) {
+    private static Iterable<? extends HintDescription> findHints(ClassPath sourceFrom, ClassPath binaryFrom, String name, HintsSettings toEnableIn) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
         for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(sourceFrom, binaryFrom).entrySet()) {
             if (e.getKey().displayName.equals(name)) {
                 descs.addAll(e.getValue());
-                HintsSettings.setEnabled(toEnableIn.node(e.getKey().id), true);
+                toEnableIn.setEnabled(e.getKey(), true);
             }
         }
 
         return descs;
     }
 
-    private static Iterable<? extends HintDescription> allHints(ClassPath sourceFrom, ClassPath binaryFrom, Preferences toEnableIn) {
+    private static Iterable<? extends HintDescription> allHints(ClassPath sourceFrom, ClassPath binaryFrom, HintsSettings toEnableIn) {
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
         for (Entry<HintMetadata, Collection<? extends HintDescription>> e : listHints(sourceFrom, binaryFrom).entrySet()) {
             if (e.getKey().kind != Kind.INSPECTION) continue;
             if (!e.getKey().enabled) continue;
             descs.addAll(e.getValue());
-            HintsSettings.setEnabled(toEnableIn.node(e.getKey().id), true);
+            toEnableIn.setEnabled(e.getKey(), true);
         }
 
         return descs;
     }
 
-    private static Iterable<? extends HintDescription> readHints(ClassPath sourceFrom, ClassPath binaryFrom, Preferences toEnableIn, boolean declarativeEnabledByDefault) {
+    private static Iterable<? extends HintDescription> readHints(ClassPath sourceFrom, ClassPath binaryFrom, HintsSettings toEnableIn, Preferences toEnableInPreferencesHack, boolean declarativeEnabledByDefault) {
         Map<HintMetadata, ? extends Collection<? extends HintDescription>> hardcoded = RulesManager.getInstance().readHints(null, Arrays.<ClassPath>asList(), null);
         Map<HintMetadata, ? extends Collection<? extends HintDescription>> all = RulesManager.getInstance().readHints(null, Arrays.asList(sourceFrom, binaryFrom), null);
         List<HintDescription> descs = new LinkedList<HintDescription>();
 
         for (Entry<HintMetadata, ? extends Collection<? extends HintDescription>> entry: all.entrySet()) {
             if (hardcoded.containsKey(entry.getKey())) {
-                if (HintsSettings.isEnabledWithDefault(toEnableIn.node(entry.getKey().id), false)) {
+                if (toEnableIn.isEnabled(entry.getKey())) {
                     descs.addAll(entry.getValue());
                 }
             } else {
-                if (HintsSettings.isEnabledWithDefault(toEnableIn.node(entry.getKey().id), declarativeEnabledByDefault)) {
+                if (/*XXX: hack*/toEnableInPreferencesHack.node(entry.getKey().id).getBoolean("enabled", declarativeEnabledByDefault)) {
                     descs.addAll(entry.getValue());
                 }
             }
@@ -508,7 +460,7 @@ public class Main {
         System.setProperty("RepositoryUpdate.increasedLogLevel", "OFF");
     }
     
-    private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
+    private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, File out) throws IOException {
         final Map<String, String> id2DisplayName = new HashMap<String, String>();
 
         for (HintDescription hd : descs) {
@@ -518,7 +470,7 @@ public class Main {
         }
 
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
-        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w);
+        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w, settings);
 
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
         BatchSearch.getVerifiedSpans(occurrences, progress, new VerifiedSpansCallBack() {
@@ -582,9 +534,9 @@ public class Main {
         put("!=", "not_equals");
     }};
 
-    private static void apply(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, File out) throws IOException {
+    private static void apply(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, File out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
-        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w);
+        BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w, settings);
 
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
         Collection<ModificationResult> diffs = BatchUtilities.applyFixes(occurrences, w, new AtomicBoolean(), problems);
