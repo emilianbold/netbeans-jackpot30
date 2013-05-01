@@ -76,6 +76,7 @@ import org.netbeans.modules.java.hints.providers.spi.HintDescription.AdditionalQ
 import org.netbeans.modules.java.hints.providers.spi.Trigger.PatternDescription;
 import org.netbeans.modules.java.hints.spiimpl.Utilities;
 import org.netbeans.modules.java.hints.spiimpl.hints.HintsInvoker;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
 import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch;
 import org.netbeans.modules.java.hints.spiimpl.pm.BulkSearch.BulkPattern;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -106,7 +107,7 @@ public class API {
             if (validate) {
                 CompilationInfo resolvedInfo = ResolveService.parse(segment, candidate);
                 CompilationInfoHack info = new CompilationInfoHack(resolvedInfo);
-                List<ErrorDescription> computedHints = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, hints);
+                List<ErrorDescription> computedHints = new HintsInvoker(HintsSettings.getGlobalSettings(), new AtomicBoolean()).computeHints(info, hints);
 
                 if (computedHints.isEmpty()) continue;
             }
@@ -127,7 +128,7 @@ public class API {
         CompilationInfoHack info = new CompilationInfoHack(resolvedInfo);
         Iterable<? extends HintDescription> hints = PatternConvertor.create(pattern);
 
-        List<ErrorDescription> computedHints = new HintsInvoker(info, new AtomicBoolean()).computeHints(info, hints);
+        List<ErrorDescription> computedHints = new HintsInvoker(HintsSettings.getGlobalSettings(), new AtomicBoolean()).computeHints(info, hints);
 
         for (ErrorDescription ed : computedHints) {
             if (!ed.getFile().equals(info.getFileObject())) continue;

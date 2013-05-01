@@ -59,6 +59,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.queries.SourceForBinaryQuery;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings.GlobalSettingsProvider;
 import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.java.source.parsing.JavacParser;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
@@ -100,7 +101,7 @@ public class StandaloneTools {
 
     public static final class StandaloneMimeDataProviderImpl implements MimeDataProvider {
 
-        private static final Lookup L = Lookups.fixed(NbPreferences.forModule(StandaloneTools.class), new JavacParserFactory(), new JavaCustomIndexer.Factory());
+        private static final Lookup L = Lookups.fixed(NbPreferences.forModule(StandaloneTools.class), new JavacParserFactory(), new JavaCustomIndexer.Factory(), new GlobalSettingsProvider());
 
         public Lookup getLookup(MimePath mimePath) {
             if ("text/x-java".equals(mimePath.getPath()))

@@ -57,6 +57,7 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.modules.java.hints.spiimpl.hints.HintsInvoker;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -92,7 +93,7 @@ public class NonNBComputer {
                     return;
                 }
 
-                List<ErrorDescription> eds = new HintsInvoker(parameter, cancel).computeHints(parameter);
+                List<ErrorDescription> eds = new HintsInvoker(HintsSettings.getSettingsFor(parameter.getFileObject()), cancel).computeHints(parameter);
                 List<List<Object>> currentResult = new LinkedList<List<Object>>();
 
                 if (eds != null) {

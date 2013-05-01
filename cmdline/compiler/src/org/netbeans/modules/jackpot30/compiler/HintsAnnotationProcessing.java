@@ -304,9 +304,10 @@ public class HintsAnnotationProcessing extends AbstractHintsAnnotationProcessing
     private static final class SettingsBasedChecker implements ContainsChecker<String> {
         private static final Set<String> enabled = new HashSet<String>();
         public SettingsBasedChecker() {
+            HintsSettings hintsSettings = HintsSettings.getGlobalSettings();
             for (HintMetadata hm : RulesManager.getInstance().readHints(null, null, null).keySet()) {
-                if (   HintsSettings.isEnabled(hm)
-                    && HintsSettings.getSeverity(hm, HintsSettings.getPreferences(hm.id, HintsSettings.getCurrentProfileId())) != Severity.HINT) {
+                if (   hintsSettings.isEnabled(hm)
+                    && hintsSettings.getSeverity(hm) != Severity.HINT) {
                     enabled.add(hm.id);
                 }
             }
