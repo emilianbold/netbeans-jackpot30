@@ -41,7 +41,7 @@ fi;
 
 ant -Dnbplatform.active.dir=$PLATFORM -f lib/download.xml download copy-from-platform
 
-SUBPROJECTS="remoting duplicates language cmdline";
+SUBPROJECTS="remoting duplicates language java.hints cmdline";
 
 for subproject in $SUBPROJECTS; do
     (cd $subproject; ./build.sh -Dnbplatform.default.harness.dir=$PLATFORM/harness -Dnbplatform.default.netbeans.dest.dir=$PLATFORM -Dnbplatform.active.dir=$PLATFORM) || exit 1
