@@ -127,7 +127,7 @@ public class HintsInvokerTest extends TestBase {
                             "4:11-4:16:verifier:HINT");
     }
 
-    public void testPatternVariable1() throws Exception {
+    public void DISABLEDtestPatternVariable1() throws Exception {
         performFixTest("test/Test.java",
                        "|package test;\n" +
                        "\n" +
