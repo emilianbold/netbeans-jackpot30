@@ -41,12 +41,12 @@
  */
 package org.netbeans.modules.java.hints.providers.spi;
 
-import com.sun.source.tree.Tree;
 import com.sun.source.tree.Tree.Kind;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 import org.netbeans.api.java.source.matching.Pattern;
+import org.netbeans.spi.java.hints.Decision;
 import org.openide.util.Parameters;
 
 /**A base class for triggers.
@@ -154,6 +154,18 @@ public abstract class Trigger {
             return pattern;
         }
 
+    }
+    
+    public static final class DecisionTrigger extends Trigger {
+        private final Class<? extends Decision> decisionClass;
+
+        public DecisionTrigger(Class<? extends Decision> decisionClass) {
+            this.decisionClass = decisionClass;
+        }
+
+        public Class<? extends Decision> getDecisionClass() {
+            return decisionClass;
+        }
     }
 
 }

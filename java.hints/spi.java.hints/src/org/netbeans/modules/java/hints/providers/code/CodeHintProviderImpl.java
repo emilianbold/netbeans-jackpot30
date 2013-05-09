@@ -74,6 +74,7 @@ import org.netbeans.modules.java.hints.providers.spi.HintDescriptionFactory;
 import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
 import org.netbeans.modules.java.hints.providers.spi.HintMetadata.Options;
 import org.netbeans.modules.java.hints.providers.spi.HintProvider;
+import org.netbeans.modules.java.hints.providers.spi.Trigger.DecisionTrigger;
 import org.netbeans.modules.java.hints.providers.spi.Trigger.Kinds;
 import org.netbeans.modules.java.hints.providers.spi.Trigger.PatternDescription;
 import org.netbeans.spi.editor.hints.ErrorDescription;
@@ -82,6 +83,7 @@ import org.netbeans.spi.java.hints.BooleanOption;
 import org.netbeans.spi.java.hints.ConstraintVariableType;
 import org.netbeans.spi.java.hints.Hint;
 import org.netbeans.spi.java.hints.IntegerOption;
+import org.netbeans.spi.java.hints.TriggerDecision;
 import org.netbeans.spi.java.hints.TriggerPattern;
 import org.netbeans.spi.java.hints.TriggerPatterns;
 import org.netbeans.spi.java.hints.TriggerTreeKind;
@@ -241,6 +243,7 @@ public class CodeHintProviderImpl implements HintProvider {
         //XXX: combinations of TriggerTreeKind and TriggerPattern?
         processTreeKindHint(hints, m, metadata);
         processPatternHint(hints, m, metadata);
+        processDecisionHint(hints, m, metadata);
     }
     
     private static void processTreeKindHint(Map<HintMetadata, Collection<HintDescription>> hints, MethodWrapper m, HintMetadata metadata) {
@@ -298,6 +301,22 @@ public class CodeHintProviderImpl implements HintProvider {
                                                        .produce());
     }
 
+    private static void processDecisionHint(Map<HintMetadata, Collection<HintDescription>> hints, MethodWrapper m, HintMetadata metadata) {
+        TriggerDecision decisionTrigger = m.getAnnotation(TriggerDecision.class);
+
+        if (decisionTrigger == null) {
+            return ;
+        }
+
+        Worker w = new WorkerImpl(m.getClazz().getName(), m.getName());
+
+        addHint(hints, metadata, HintDescriptionFactory.create()
+                                                       .setTrigger(new DecisionTrigger(decisionTrigger.value()))
+                                                       .setWorker(w)
+                                                       .setMetadata(metadata)
+                                                       .produce());
+    }
+    
     private static void addHint(Map<HintMetadata, Collection<HintDescription>> hints, HintMetadata metadata, HintDescription hint) {
         Collection<HintDescription> list = hints.get(metadata);
 

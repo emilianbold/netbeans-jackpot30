@@ -304,4 +304,28 @@ public class HintTestTest {
             return ErrorDescriptionFactory.forTree(ctx, ctx.getPath(), "Test", f);
         }
     }
+
+    public void testSourcePathReady() throws Exception {
+        HintTest.create()
+                .input("test/Test1.java",
+                       "package test;\n" +
+                       "public class Test1 {\n" +
+                       "    private final Test2 test2 = null;\n" +
+                       "}\n")
+                .input("test/Test2.java",
+                       "package test;\n" +
+                       "public class Test2 {\n" +
+                       "    private final Test1 test1 = null;\n" +
+                       "}\n")
+                .runGlobal(NoOp.class)
+                .assertWarnings();
+    }
+
+    @Hint(displayName="noOp", description="noOp", category="test")
+    public static final class NoOp {
+        @TriggerTreeKind(Kind.CLASS)
+        public static ErrorDescription hint(HintContext ctx) {
+            return null;
+        }
+    }
 }

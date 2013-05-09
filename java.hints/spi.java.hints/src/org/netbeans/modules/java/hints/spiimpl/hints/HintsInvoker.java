@@ -102,6 +102,7 @@ import org.netbeans.spi.java.hints.Hint;
 import org.netbeans.api.java.source.matching.Matcher;
 import org.netbeans.api.java.source.matching.Occurrence;
 import org.netbeans.api.java.source.matching.Pattern;
+import org.netbeans.modules.java.hints.providers.spi.Trigger.DecisionTrigger;
 import org.openide.util.Exceptions;
 
 /**
@@ -116,31 +117,31 @@ public class HintsInvoker {
     private final int caret;
     private final int from;
     private final int to;
-    private final boolean bulkMode;
+    private final GlobalProcessingContext globalContext;
     private final AtomicBoolean cancel;
 
     public HintsInvoker(HintsSettings settings, AtomicBoolean cancel) {
-        this(settings, false, cancel);
+        this(settings, null, cancel);
     }
 
-    public HintsInvoker(HintsSettings settings, boolean bulkMode, AtomicBoolean cancel) {
-        this(settings, -1, -1, -1, bulkMode, cancel);
+    public HintsInvoker(HintsSettings settings, GlobalProcessingContext globalContext, AtomicBoolean cancel) {
+        this(settings, -1, -1, -1, globalContext, cancel);
     }
 
     public HintsInvoker(HintsSettings settings, int caret, AtomicBoolean cancel) {
-        this(settings, caret, -1, -1, false, cancel);
+        this(settings, caret, -1, -1, null, cancel);
     }
 
     public HintsInvoker(HintsSettings settings, int from, int to, AtomicBoolean cancel) {
-        this(settings, -1, from, to, false, cancel);
+        this(settings, -1, from, to, null, cancel);
     }
 
-    private HintsInvoker(HintsSettings settings, int caret, int from, int to, boolean bulkMode, AtomicBoolean cancel) {
+    private HintsInvoker(HintsSettings settings, int caret, int from, int to, GlobalProcessingContext globalContext, AtomicBoolean cancel) {
         this.settings = settings;
         this.caret = caret;
         this.from = from;
         this.to = to;
-        this.bulkMode = bulkMode;
+        this.globalContext = globalContext;
         this.cancel = cancel;
     }
 
@@ -197,7 +198,7 @@ public class HintsInvoker {
         return join(computeHints(info, new TreePath(info.getCompilationUnit()), hints, problems));
     }
 
-    private static final Iterable<? extends Class<? extends Trigger>> TRIGGER_KINDS = Arrays.asList(Kinds.class, PatternDescription.class);
+    private static final Iterable<? extends Class<? extends Trigger>> TRIGGER_KINDS = Arrays.asList(Kinds.class, PatternDescription.class, DecisionTrigger.class);
     
     @CheckForNull
     public Map<HintDescription, List<ErrorDescription>> computeHints(CompilationInfo info,
@@ -555,7 +556,7 @@ public class HintsInvoker {
 
                     for (HintDescription hd : patternHints.get(d)) {
                         HintMetadata hm = hd.getMetadata();
-                        HintContext c = SPIAccessor.getINSTANCE().createHintContext(info, settings, hm, candidate, verifiedVariables.getVariables(), verifiedVariables.getMultiVariables(), verifiedVariables.getVariables2Names(), constraints, problems, bulkMode, cancel, caret);
+                        HintContext c = SPIAccessor.getINSTANCE().createHintContext(info, settings, hm, globalContext != null ? globalContext : new GlobalProcessingContext(), candidate, verifiedVariables.getVariables(), verifiedVariables.getMultiVariables(), verifiedVariables.getVariables2Names(), constraints, problems, globalContext != null, cancel, caret);
 
                         if (!Collections.disjoint(suppressedWarnings, hm.suppressWarnings))
                             continue;
@@ -649,7 +650,7 @@ public class HintsInvoker {
                         }
                     }
 
-                    HintContext c = SPIAccessor.getINSTANCE().createHintContext(info, settings, hm, path, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap(), Collections.<String, TypeMirror>emptyMap(), new ArrayList<MessageImpl>(), bulkMode, cancel, caret);
+                    HintContext c = SPIAccessor.getINSTANCE().createHintContext(info, settings, hm, globalContext != null ? globalContext : new GlobalProcessingContext(), path, Collections.<String, TreePath>emptyMap(), Collections.<String, Collection<? extends TreePath>>emptyMap(), Collections.<String, String>emptyMap(), Collections.<String, TypeMirror>emptyMap(), new ArrayList<MessageImpl>(), globalContext != null, cancel, caret);
                     Collection<? extends ErrorDescription> errors = runHint(hd, c);
 
                     if (errors != null) {

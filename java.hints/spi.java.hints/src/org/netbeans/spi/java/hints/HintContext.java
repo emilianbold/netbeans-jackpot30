@@ -43,20 +43,25 @@
 package org.netbeans.spi.java.hints;
 
 import com.sun.source.util.TreePath;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.prefs.Preferences;
 import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
+import org.netbeans.api.java.source.TreePathHandle;
 import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
 import org.netbeans.modules.java.hints.spiimpl.MessageImpl;
 import org.netbeans.modules.java.hints.spiimpl.SPIAccessor;
+import org.netbeans.modules.java.hints.spiimpl.hints.GlobalProcessingContext;
 import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
 import org.netbeans.spi.editor.hints.Severity;
+import org.netbeans.spi.java.hints.Decision.Factory;
 import org.netbeans.spi.java.hints.Hint.Kind;
 
 /**
@@ -70,6 +75,7 @@ public class HintContext {
     private final Preferences preferences;
     private final Severity severity;
     private final HintMetadata metadata;
+    private final GlobalProcessingContext globalContext;
     private final TreePath path;
     private final Map<String, TreePath> variables;
     private final Map<String, Collection<? extends TreePath>> multiVariables;
@@ -80,12 +86,13 @@ public class HintContext {
     private final AtomicBoolean cancel;
     private final int caret;
 
-    private HintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames, Map<String, TypeMirror> constraints, Collection<? super MessageImpl> problems, boolean bulkMode, AtomicBoolean cancel, int caret) {
+    private HintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, GlobalProcessingContext globalContext, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames, Map<String, TypeMirror> constraints, Collection<? super MessageImpl> problems, boolean bulkMode, AtomicBoolean cancel, int caret) {
         this.info = info;
         this.settings = settings;
         this.preferences = metadata != null ? settings.getHintPreferences(metadata) : null;
         this.severity = preferences != null ? settings.getSeverity(metadata) : Severity.ERROR;
         this.metadata = metadata;
+        this.globalContext = globalContext;
         this.path = path;
 
         variables = new HashMap<String, TreePath>(variables);
@@ -174,17 +181,43 @@ public class HintContext {
         return metadata.kind == Kind.ACTION ? caret : -1;
     }
     
+    public <V, R, D extends Decision<V, R>> D findDecision(TreePathHandle forPath, Factory<V, R, D> f) {
+        List<Decision<?, ?>> decs = globalContext.decisions.get(forPath);
+
+        if (decs == null) {
+            globalContext.decisions.put(forPath, decs = new ArrayList<Decision<?, ?>>());
+        }
+
+        for (Decision<?, ?> d : decs) {
+            if (d.getClass() == f.decisionClass) {
+                return f.decisionClass.cast(d);
+            }
+        }
+
+        D res = f.create(forPath);
+
+        decs.add((Decision<?, ?>) res);
+
+        return res;
+    }
+
+    public Decision<?, ?> decision;
+
+    public Decision<?, ?> getDecision() {
+        return decision;
+    }
+
     public enum MessageKind {
         WARNING, ERROR;
     }
     
     static {
         SPIAccessor.setINSTANCE(new SPIAccessor() {
-            @Override public HintContext createHintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames, Map<String, TypeMirror> constraints, Collection<? super MessageImpl> problems, boolean bulkMode, AtomicBoolean cancel, int caret) {
-                return new HintContext(info, settings, metadata, path, variables, multiVariables, variableNames, constraints, problems, bulkMode, cancel, caret);
+            @Override public HintContext createHintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, GlobalProcessingContext globalContext, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames, Map<String, TypeMirror> constraints, Collection<? super MessageImpl> problems, boolean bulkMode, AtomicBoolean cancel, int caret) {
+                return new HintContext(info, settings, metadata, globalContext, path, variables, multiVariables, variableNames, constraints, problems, bulkMode, cancel, caret);
             }
-            @Override public HintContext createHintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames) {
-                return new HintContext(info, settings, metadata, path, variables, multiVariables, variableNames, Collections.<String, TypeMirror>emptyMap(), new LinkedList<MessageImpl>(), false, new AtomicBoolean(), -1);
+            @Override public HintContext createHintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, GlobalProcessingContext globalContext, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames) {
+                return new HintContext(info, settings, metadata, globalContext, path, variables, multiVariables, variableNames, Collections.<String, TypeMirror>emptyMap(), new LinkedList<MessageImpl>(), false, new AtomicBoolean(), -1);
             }
             @Override public HintMetadata getHintMetadata(HintContext ctx) {
                 return ctx.getHintMetadata();

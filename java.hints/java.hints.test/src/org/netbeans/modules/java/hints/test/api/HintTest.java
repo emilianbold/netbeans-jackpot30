@@ -113,7 +113,15 @@ import org.netbeans.modules.java.hints.spiimpl.JavaFixImpl;
 import org.netbeans.modules.java.hints.spiimpl.JavaFixImpl.Accessor;
 import org.netbeans.modules.java.hints.spiimpl.MessageImpl;
 import org.netbeans.modules.java.hints.spiimpl.SyntheticFix;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.BatchResult;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Folder;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Resource;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.Scope;
+import org.netbeans.modules.java.hints.spiimpl.batch.BatchSearch.VerifiedSpansCallBack;
 import org.netbeans.modules.java.hints.spiimpl.batch.BatchUtilities;
+import org.netbeans.modules.java.hints.spiimpl.batch.ProgressHandleWrapper;
+import org.netbeans.modules.java.hints.spiimpl.batch.Scopes;
 import org.netbeans.modules.java.hints.spiimpl.hints.HintsInvoker;
 import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
 import org.netbeans.modules.java.hints.test.Utilities.TestLookup;
@@ -193,6 +201,7 @@ public class HintTest {
     private final Preferences testPreferences;
     private final HintsSettings hintSettings;
     private final List<FileObject> checkCompilable = new ArrayList<FileObject>();
+    private final List<FileObject> testFiles = new ArrayList<FileObject>();
     private String sourceLevel = "1.5";
     private Character caretMarker;
     private FileObject testFile;
@@ -380,6 +389,8 @@ public class HintTest {
             this.caret = caret;
         }
         
+        testFiles.add(file);
+        
         return this;
     }
 
@@ -455,6 +466,36 @@ public class HintTest {
      * @return a wrapper over the hint output that allows verifying results of the hint
      */
     public HintOutput run(Class<?> hint, String hintCode) throws Exception {
+        return runImpl(hint, hintCode, new HintComputer() {
+            @Override public Collection<ErrorDescription> computeHints(List<HintDescription> total) throws Exception {
+                CompilationInfo info = parse(testFile);
+
+                assertNotNull(info);
+
+                List<ErrorDescription> result = new ArrayList<ErrorDescription>();
+
+                Map<HintDescription, List<ErrorDescription>> errors = computeErrors(info, total, new AtomicBoolean());
+
+                for (Entry<HintDescription, List<ErrorDescription>> e : errors.entrySet()) {
+                    result.addAll(e.getValue());
+                }
+
+                Reference<CompilationInfo> infoRef = new WeakReference<CompilationInfo>(info);
+                Reference<CompilationUnitTree> cut = new WeakReference<CompilationUnitTree>(info.getCompilationUnit());
+
+                info = null;
+
+                DEBUGGING_HELPER.add(result);
+                NbTestCase.assertGC("noone holds CompilationInfo", infoRef);
+                NbTestCase.assertGC("noone holds javac", cut);
+                DEBUGGING_HELPER.remove(result);
+
+                return result;
+            }
+        });
+    }
+
+    private HintOutput runImpl(Class<?> hint, String hintCode, HintComputer doComputeErrors) throws Exception {
         IndexingManager.getDefault().refreshIndexAndWait(sourceRoot.toURL(), null);
         
         for (FileObject file : checkCompilable) {
@@ -512,12 +553,6 @@ public class HintTest {
             }
         }
         
-        CompilationInfo info = parse(testFile);
-
-        assertNotNull(info);
-
-        List<ErrorDescription> result = new ArrayList<ErrorDescription>();
-
         Handler h = new Handler() {
             @Override public void publish(LogRecord record) {
                 if (   record.getLevel().intValue() >= Level.WARNING.intValue()
@@ -528,27 +563,40 @@ public class HintTest {
             @Override public void flush() { }
             @Override public void close() throws SecurityException { }
         };
+
         Logger log = Logger.getLogger(Exceptions.class.getName());
         log.addHandler(h);
-        Map<HintDescription, List<ErrorDescription>> errors = computeErrors(info, total, new AtomicBoolean());
+        List<ErrorDescription> result = new ArrayList<ErrorDescription>(doComputeErrors.computeHints(total));
         log.removeHandler(h);
-        for (Entry<HintDescription, List<ErrorDescription>> e : errors.entrySet()) {
-            result.addAll(e.getValue());
-        }
 
         Collections.sort(result, ERRORS_COMPARATOR);
         
-        Reference<CompilationInfo> infoRef = new WeakReference<CompilationInfo>(info);
-        Reference<CompilationUnitTree> cut = new WeakReference<CompilationUnitTree>(info.getCompilationUnit());
-        
-        info = null;
-        
-        DEBUGGING_HELPER.add(result);
-        NbTestCase.assertGC("noone holds CompilationInfo", infoRef);
-        NbTestCase.assertGC("noone holds javac", cut);
-        DEBUGGING_HELPER.remove(result);
-        
         return new HintOutput(result, requiresJavaFix);
+    }
+
+    private interface HintComputer {
+        public Collection<ErrorDescription> computeHints(List<HintDescription> total) throws Exception;
+    }
+    
+    public HintOutput runGlobal(Class<?> hint) throws Exception {
+        return runImpl(hint, null, new HintComputer() {
+            @Override public Collection<ErrorDescription> computeHints(List<HintDescription> total) throws Exception {
+                final List<ErrorDescription> result = new ArrayList<ErrorDescription>();
+                Scope s = Scopes.specifiedFoldersScope(Folder.convert(sourceRoot));
+                BatchResult batchResult = BatchSearch.findOccurrences(total, s);
+                BatchSearch.getVerifiedSpans(batchResult, new ProgressHandleWrapper(1, 1), new VerifiedSpansCallBack() {
+                    @Override public void groupStarted() { }
+                    @Override public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
+                        result.addAll(hints);
+                        return true;
+                    }
+                    @Override public void groupFinished() { }
+                    @Override public void cannotVerifySpan(Resource r) { }
+                }, false, new ArrayList<MessageImpl>(), new AtomicBoolean());
+
+                return result;
+            }
+        });
     }
     
     //must keep the error descriptions (and their Fixes through them) in a field

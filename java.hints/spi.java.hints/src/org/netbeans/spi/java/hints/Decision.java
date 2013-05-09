@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2012 Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2013 Oracle and/or its affiliates. All rights reserved.
  *
  * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
  * Other names may be trademarks of their respective owners.
@@ -37,50 +37,70 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2012 Sun Microsystems, Inc.
+ * Portions Copyrighted 2013 Sun Microsystems, Inc.
  */
-package org.netbeans.modules.java.hints.spiimpl;
+package org.netbeans.spi.java.hints;
 
-import com.sun.source.util.TreePath;
-import java.util.Collection;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
-import javax.lang.model.type.TypeMirror;
 import org.netbeans.api.java.source.CompilationInfo;
-import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
-import org.netbeans.modules.java.hints.spiimpl.hints.GlobalProcessingContext;
-import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings;
-import org.netbeans.spi.java.hints.HintContext;
-import org.openide.util.Exceptions;
+import org.netbeans.api.java.source.TreePathHandle;
+import org.openide.filesystems.FileObject;
 
 /**
  *
  * @author lahvac
  */
-public abstract class SPIAccessor {
+public abstract class Decision<V, R> {
+    
+    /*XXX: should not be public*/public final TreePathHandle root;
+    private final Map<FileObject, List<V>> file2Facts = new HashMap<FileObject, List<V>>();
 
-    private static volatile SPIAccessor accessor;
-
-    public static synchronized SPIAccessor getINSTANCE() {
-        if (accessor == null) {
-            try {
-                Class.forName(HintContext.class.getName(), true, HintContext.class.getClassLoader());
-                assert accessor != null;
-            } catch (ClassNotFoundException e) {
-                Exceptions.printStackTrace(e);
-            }
+    protected Decision(TreePathHandle root) {
+        this.root = root;
+    }
+    
+    protected abstract R makeDecision(Iterable<? extends V> input);
+    
+    private R previousResult;
+    
+    /*XXX: should not be public*/public boolean makeDecision() {
+        List<V> inputs = new ArrayList<V>();
+        
+        for (List<V> v : file2Facts.values()) {
+            inputs.addAll(v);
         }
-        return accessor;
+        
+        R current = makeDecision(inputs);
+        
+        boolean changed = !(previousResult == null ? current == null : previousResult.equals(current));
+        
+        previousResult = current;
+        
+        return changed;
     }
-
-    public static void setINSTANCE(SPIAccessor instance) {
-        assert instance != null;
-        accessor = instance;
+    
+    public R getCurrentResult() {
+        return previousResult;
     }
-
-    public abstract HintContext createHintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, GlobalProcessingContext globalContext, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames, Map<String, TypeMirror> constraints, Collection<? super MessageImpl> problems, boolean bulkMode, AtomicBoolean cancel, int caret);
-    public abstract HintContext createHintContext(CompilationInfo info, HintsSettings settings, HintMetadata metadata, GlobalProcessingContext globalContext, TreePath path, Map<String, TreePath> variables, Map<String, Collection<? extends TreePath>> multiVariables, Map<String, String> variableNames);
-    public abstract HintMetadata getHintMetadata(HintContext ctx);
-    public abstract HintsSettings getHintSettings(HintContext ctx);
-
+    
+    public void recordLocalFact(/*XXX: should not require the CompilationInfo!*/CompilationInfo info, V fact) {
+        List<V> facts = file2Facts.get(info.getFileObject());
+        
+        if (facts == null) {
+            file2Facts.put(info.getFileObject(), facts = new ArrayList<V>());
+        }
+        
+        facts.add(fact);
+    }
+    
+    public static abstract class Factory<V, R, DecisionImpl extends Decision<V, R>> {
+        /*XXX: should not be public*/public final Class<DecisionImpl> decisionClass;
+        public Factory(Class<DecisionImpl> decisionClass) {
+            this.decisionClass = decisionClass;
+        }
+        public abstract DecisionImpl create(TreePathHandle handle);
+    }
 }
