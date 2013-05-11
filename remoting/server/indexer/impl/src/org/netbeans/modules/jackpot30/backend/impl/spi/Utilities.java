@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2011-2012 Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2013 Oracle and/or its affiliates. All rights reserved.
  *
  * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
  * Other names may be trademarks of their respective owners.
@@ -37,50 +37,52 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2011-2012 Sun Microsystems, Inc.
+ * Portions Copyrighted 2013 Sun Microsystems, Inc.
  */
 package org.netbeans.modules.jackpot30.backend.impl.spi;
 
-import java.net.URISyntaxException;
-import java.net.URL;
-import org.apache.lucene.index.IndexWriter;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.Reader;
+import java.nio.charset.Charset;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.netbeans.api.queries.FileEncodingQuery;
 import org.openide.filesystems.FileObject;
-import org.openide.util.Exceptions;
 
 /**
  *
  * @author lahvac
  */
-public class IndexAccessor {
+public class Utilities {
 
-    private final FileObject root;
-    private final IndexWriter w;
+    private Utilities() { }
 
-    public IndexAccessor(IndexWriter w, FileObject root) {
-        this.w = w;
-        this.root = root;
-    }
+    public static String readFully(FileObject source) throws IOException {
+        Reader in = null;
+        StringBuilder result = new StringBuilder();
 
-    public IndexWriter getIndexWriter() {
-        return w;
-    }
-
-    public String getPath(URL file) {
         try {
-            return root.toURI().relativize(file.toURI()).toString();
-        } catch (URISyntaxException ex) {
-            Exceptions.printStackTrace(ex);
+            Charset charset = FileEncodingQuery.getEncoding(source);
+            in = new BufferedReader(new InputStreamReader(source.getInputStream(), charset));
+
+            int read;
+
+            while ((read = in.read()) != (-1)) {
+                result.append((char) read);
+            }
+        } finally {
+            if (in != null) {
+                try {
+                    in.close();
+                } catch (IOException ex) {
+                    Logger.getLogger(Utilities.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
         }
 
-        return file.toExternalForm();
+        return result.toString();
     }
 
-    public boolean isAcceptable(URL file) {
-        return file.toString().startsWith(root.toURL().toString());
-    }
-
-    public static IndexAccessor current;
-    public static IndexAccessor getCurrent() {
-        return current;
-    }
 }

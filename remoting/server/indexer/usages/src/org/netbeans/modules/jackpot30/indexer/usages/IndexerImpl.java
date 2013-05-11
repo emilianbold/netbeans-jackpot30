@@ -106,8 +106,8 @@ import org.openide.util.Lookup;
 public class IndexerImpl implements JavaIndexerPlugin {
 
     private static final boolean NAVIGABLE = Boolean.getBoolean("jackpot.navigable.index");
-    private static final String KEY_SIGNATURES = "signatures";
-    private static final String KEY_MARKER = "usagesIndexMarker";
+            static final String KEY_SIGNATURES = "signatures";
+            static final String KEY_MARKER = "usagesIndexMarker";
 
     private final URL root;
 

@@ -1,7 +1,7 @@
 /*
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
  *
- * Copyright 2011 Oracle and/or its affiliates. All rights reserved.
+ * Copyright 2013 Oracle and/or its affiliates. All rights reserved.
  *
  * Oracle and Java are registered trademarks of Oracle and/or its affiliates.
  * Other names may be trademarks of their respective owners.
@@ -37,18 +37,24 @@
  *
  * Contributor(s):
  *
- * Portions Copyrighted 2011 Sun Microsystems, Inc.
+ * Portions Copyrighted 2013 Sun Microsystems, Inc.
  */
-package org.netbeans.modules.jackpot30.indexer.source;
+package org.netbeans.modules.jackpot30.indexer.usages;
 
 import java.io.IOException;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-import org.apache.lucene.document.CompressionTools;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.Field.Index;
 import org.apache.lucene.document.Field.Store;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanClause.Occur;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.TermQuery;
 import org.netbeans.api.editor.mimelookup.MimeRegistration;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
 import org.netbeans.modules.jackpot30.backend.impl.spi.Utilities;
@@ -58,43 +64,74 @@ import org.netbeans.modules.parsing.spi.indexing.CustomIndexerFactory;
 import org.netbeans.modules.parsing.spi.indexing.Indexable;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.URLMapper;
+import org.openide.util.Exceptions;
 
 /**
  *
  * @author lahvac
  */
-public class SourceIndexer extends CustomIndexer {
-
-    private static final String KEY_CONTENT = "content";
+public class ResourceIndexerImpl extends CustomIndexer {
 
     @Override
     protected void index(Iterable<? extends Indexable> files, Context context) {
-        try {
-            for (Indexable i : files) {
-                if (!IndexAccessor.getCurrent().isAcceptable(i.getURL())) continue;
-                String relPath = IndexAccessor.getCurrent().getPath(i.getURL());
-
-                if (relPath == null) continue;
-
-                FileObject file = URLMapper.findFileObject(i.getURL());
-
-                if (file == null) {
-                    //TODO: log
-                    continue;
-                }
-                
-                Document doc = new Document();
-
-                doc.add(new Field("relativePath", relPath, Store.YES, Index.NOT_ANALYZED));
-                doc.add(new Field(KEY_CONTENT, CompressionTools.compressString(Utilities.readFully(file)), Store.YES));
-                doc.add(new Field("fileMimeType", file.getMIMEType(), Store.YES, Index.NO));
-                doc.add(new Field("sizeInBytes", Long.toString(file.getSize()), Store.YES, Index.NO));
-
-                IndexAccessor.getCurrent().getIndexWriter().addDocument(doc);
-            }
-        } catch (IOException ex) {
-            Logger.getLogger(SourceIndexer.class.getName()).log(Level.SEVERE, null, ex);
+        for (Indexable indexable : files) {
+            doIndexFile(indexable);
         }
+    }
+
+    private static final Pattern INTERESTING_PATTERN = Pattern.compile("\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*([.-]\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)+");
+
+    private void doIndexFile(Indexable indexable) {
+        if (!IndexAccessor.getCurrent().isAcceptable(indexable.getURL()) || "text/x-java".equals(indexable.getMimeType())) return;
+        try {
+            doDelete(indexable);
+
+            FileObject file = URLMapper.findFileObject(indexable.getURL());
+
+            if (file == null) return ;
+
+            final String relative = IndexAccessor.getCurrent().getPath(indexable.getURL());
+            final Document usages = new Document();
+
+            usages.add(new Field("file", relative, Store.YES, Index.NOT_ANALYZED));
+            usages.add(new Field(IndexerImpl.KEY_MARKER, "true", Store.NO, Index.NOT_ANALYZED));
+
+            //sources indexer does the same, we should really look into files only once!
+            String content = Utilities.readFully(file);
+            Matcher matcher = INTERESTING_PATTERN.matcher(content);
+            Set<String> SEEN_SIGNATURES = new HashSet<String>();
+
+            while (matcher.find()) {
+                String reference = matcher.group();
+                String[] elements = reference.split("[.-]");
+                StringBuilder currentElement = new StringBuilder();
+
+                currentElement.append(elements[0]);
+
+                for (int i = 1; i < elements.length; i++) {
+                    currentElement.append(".");
+                    currentElement.append(elements[i]);
+                    String serialized = "OTHER:" + currentElement.toString();
+
+                    if (SEEN_SIGNATURES.add(serialized)) {
+                        usages.add(new Field(IndexerImpl.KEY_SIGNATURES, serialized, Store.YES, Index.NOT_ANALYZED));
+                    }
+                }
+            }
+
+            IndexAccessor.getCurrent().getIndexWriter().addDocument(usages);
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        }
+    }
+
+    private static void doDelete(Indexable indexable) throws IOException {
+        BooleanQuery q = new BooleanQuery();
+
+        q.add(new BooleanClause(new TermQuery(new Term("file", IndexAccessor.getCurrent().getPath(indexable.getURL()))), Occur.MUST));
+        q.add(new BooleanClause(new TermQuery(new Term(IndexerImpl.KEY_MARKER, "true")), Occur.MUST));
+
+        IndexAccessor.getCurrent().getIndexWriter().deleteDocuments(q);
     }
 
     @MimeRegistration(mimeType="", service=CustomIndexerFactory.class)
@@ -102,7 +139,7 @@ public class SourceIndexer extends CustomIndexer {
 
         @Override
         public CustomIndexer createIndexer() {
-            return new SourceIndexer();
+            return new ResourceIndexerImpl();
         }
 
         @Override
@@ -112,34 +149,28 @@ public class SourceIndexer extends CustomIndexer {
 
         @Override
         public void filesDeleted(Iterable<? extends Indexable> deleted, Context context) {
-            assert !deleted.iterator().hasNext();
-            //TODO: ability to delete from the index:
-//            try {
-//                DocumentIndex idx = IndexManager.createDocumentIndex(FileUtil.toFile(context.getIndexFolder()));
-//
-//                for (Indexable i : deleted) {
-//                    idx.removeDocument(i.getRelativePath());
-//                }
-//
-//                idx.close();
-//            } catch (IOException ex) {
-//                Logger.getLogger(SourceIndexer.class.getName()).log(Level.SEVERE, null, ex);
-//            }
+            for (Indexable indexable : deleted) {
+                try {
+                    doDelete(indexable);
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
         }
 
         @Override
-        public void filesDirty(Iterable<? extends Indexable> dirty, Context context) {
-        }
+        public void filesDirty(Iterable<? extends Indexable> dirty, Context context) { }
 
         @Override
         public String getIndexerName() {
-            return "fullsource";
+            return "resource-usages-indexer";
         }
 
         @Override
         public int getIndexVersion() {
             return 1;
         }
-
+        
     }
+
 }
