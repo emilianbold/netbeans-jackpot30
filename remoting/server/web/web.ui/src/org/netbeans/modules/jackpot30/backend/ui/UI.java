@@ -247,7 +247,7 @@ public class UI {
                         fqn = fqn.substring(0, fqn.indexOf("$"));
                     }
 
-                    result.put("file", fqn.replace('.', '/') + ".java");
+                    result.put("file", e.getKey() + fqn.replace('.', '/') + ".java");
 
                     thisSourceRootResults.add(result);
                 }
