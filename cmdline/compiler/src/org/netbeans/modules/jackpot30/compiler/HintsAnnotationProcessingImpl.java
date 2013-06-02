@@ -45,6 +45,7 @@ import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.api.MultiTaskListener;
+import com.sun.tools.javac.comp.Resolve;
 import com.sun.tools.javac.jvm.Gen;
 import com.sun.tools.javac.parser.ParserFactory;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
@@ -78,6 +79,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.CompilationInfoHack;
 import org.netbeans.lib.nbjavac.services.NBParserFactory;
+import org.netbeans.lib.nbjavac.services.NBResolve;
 import org.netbeans.modules.jackpot30.compiler.AbstractHintsAnnotationProcessing.Reporter;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileUtil;
@@ -153,6 +155,10 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
         ParserFactory origParserFactory = c.get(key);
         c.put(key, (ParserFactory) null);
         NBParserFactory.preRegister(c);
+        final Key<Resolve> resolveKey = ResolveKeyAccessor.getContextKey();
+        Resolve origResolve = c.get(resolveKey);
+        c.put(resolveKey, (Resolve) null);
+        NBResolve.preRegister(c);
 
         try {
             TreePath elTree = trees.getPath(type);
@@ -188,6 +194,8 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
 
             c.put(key, (ParserFactory) null);
             c.put(key, origParserFactory);
+            c.put(resolveKey, (Resolve) null);
+            c.put(resolveKey, origResolve);
         }
     }
 
@@ -249,6 +257,14 @@ public final class HintsAnnotationProcessingImpl extends AbstractProcessor {
         }
     }
 
+    private static final class ResolveKeyAccessor extends Resolve {
+        ResolveKeyAccessor() {
+            super(null);
+        }
+        public static Key<Resolve> getContextKey() {
+            return resolveKey;
+        }
+    }
 
     static {
         try {
