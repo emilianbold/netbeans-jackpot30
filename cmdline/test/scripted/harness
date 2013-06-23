@@ -87,12 +87,13 @@ EOF
 }
 
 write_failure_results_file() {
+      ESCAPED_CONTENT=`echo $X | sed -e 's/&/\&amp;/g' | sed -e 's/</\&lt;/g'`;
       cat >$RESULT_FILE <<EOF
 <?xml version="1.0" encoding="UTF-8" ?>
 <testsuite errors="0" failures="1" hostname="foo" name="$TEST_NAME" tests="1" time="0" timestamp="`date`">
   <properties/>
   <testcase classname="$TEST_NAME" name="main" time="0">
-    <failure message="Test failed" type="junit.framework.AssertionFailedError">$1</failure>
+    <failure message="Test failed" type="junit.framework.AssertionFailedError">$ESCAPED_CONTENT</failure>
   </testcase>
 </testsuite>
 EOF
