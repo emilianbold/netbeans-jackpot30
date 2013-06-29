@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
+import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -69,7 +70,7 @@ public class Usages {
     @GET
     @Path("/search")
     @Produces("text/plain")
-    public String search(@QueryParam("path") String segment, @QueryParam("signatures") String signatures) throws IOException, InterruptedException {
+    public String search(@QueryParam("path") String segment, @QueryParam("signatures") String signatures, @QueryParam("searchResources") @DefaultValue("true") boolean searchResources) throws IOException, InterruptedException {
         StringBuilder result = new StringBuilder();
         CategoryStorage category = CategoryStorage.forId(segment);
         Index idx = category.getIndex();
@@ -92,6 +93,32 @@ public class Usages {
 
             //TODO: field selector:
             idx.query(found, new ConvertorImpl(), null, new AtomicBoolean(), query);
+        }
+
+        if (searchResources) {
+            //look for usages from resources:
+            String[] parts = signatures.split(":");
+
+            if (parts.length >= 2 ) {
+                String otherSignature;
+
+                switch (parts[0]) {
+                    case "FIELD": case "ENUM_CONSTANT":
+                    case "METHOD":
+                        if (parts.length >= 3) {
+                            otherSignature = "OTHER:" + parts[1] + ":" + parts[2];
+                            break;
+                        }
+                    default:
+                        otherSignature = "OTHER:" + parts[1];
+                        break;
+                }
+
+                query = Queries.createQuery(KEY_SIGNATURES, "does-not-exist", otherSignature, QueryKind.EXACT);
+
+                //TODO: field selector:
+                idx.query(found, new ConvertorImpl(), null, new AtomicBoolean(), query);
+            }
         }
 
         for (String foundFile : found) {

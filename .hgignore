@@ -27,3 +27,4 @@
 ^remoting/ide/local/release$
 .*/target$
 ^remoting/server/web/web.ui.frontend/public_html/index/lib/
+^remoting/server/web/web.ui.frontend/jstestdriver-1.3.5.jar$

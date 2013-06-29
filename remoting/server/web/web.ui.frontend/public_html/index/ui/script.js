@@ -338,17 +338,61 @@ function ShowSourceCode($scope, $http, $routeParams, $location) {
     };
 }
 
-function doColoring(path, relative, $highlights, $spans, $scope, $location, $routeParams, $http) {
-    var $code = $scope.sourceCode;
-    var $coloredCode = "";
-
-    var $current = 0;
-    for (var i = 0; i < $highlights.length; i++ ) {
-        $coloredCode += '<span id="p' + $current + '" class="' + $highlights[i] + '"' + ($highlights[i].indexOf("identifier") !== (-1) ? ' jpt30pos="' + $current + '"' : '') + '>' + $code.slice($current, $current+$spans[i]).replace(/&/g, '&amp;').replace(/</g, '&lt;') + "</span>";
-        $current += $spans[i];
+function tokenColoring(code, tokenColoring, tokenSpans) {
+    var current = 0;
+    var coloredCode = "";
+    
+    for (var i = 0; i < tokenColoring.length; i++ ) {
+        coloredCode += '<span id="p' + current + '" class="' + tokenColoring[i] + '" jpt30pos="' + current + '">' + code.slice(current, current+tokenSpans[i]).replace(/&/g, '&amp;').replace(/</g, '&lt;') + "</span>";
+        current += tokenSpans[i];
     }
 
-    $scope.sourceCode = $coloredCode;
+    return coloredCode;
+}
+
+function addHighlights(highlights) {
+    $(".highlight").removeClass("highlight");
+
+    for (var i = 0; i < highlights.length; i++) {
+        var highlightStart = highlights[i][0];
+        var highlightEnd = highlights[i][1];
+        var highlightLen = highlightEnd - highlights[i][0];
+        var startingHere = $("#p" + highlightStart);
+
+        if (startingHere.length === 1 && $(startingHere[0]).text().length === highlightLen) {
+            startingHere.addClass("highlight");
+            continue;
+        }
+
+        //should use binary search or something
+        $(document).find('span').each(function () {
+            var id=$(this).attr('id');
+            if (!id || id.indexOf("p") !== 0) return ;
+            var start = parseInt($(this).attr('id').substring(1));
+            var text = $(this).text();
+            var end = start + text.length;
+
+            if (highlightStart <= end && highlightEnd > start) {
+                var clazz = $(this).attr('class');
+                var jpt30pos = $(this).attr('jpt30pos');
+                var result = "";
+
+                if (start < highlightStart) {
+                    result += '<span id="p' + start + '" class="' + clazz + '" jpt30pos="' + jpt30pos + '">' + text.substring(0, Math.min(text.length, highlightStart - start)) + "</span>";
+                }
+                result += '<span id="p' + Math.max(start, highlightStart) + '" class="' + clazz + ' highlight" jpt30pos="' + Math.max(start, highlightStart) + '">' + text.substring(highlightStart - start, Math.min(text.length, highlightEnd - start)) + "</span>";
+                if (highlightEnd < end) {
+                    result += '<span id="p' + (highlightStart + highlightLen) + '" class="' + clazz + '" jpt30pos="' + (highlightStart + highlightLen) + '">' + text.substring(highlightEnd - start, end - start) + "</span>";
+                }
+
+                $(this).replaceWith(result);
+            }
+        });
+    }
+}
+
+function doColoring(path, relative, $highlights, $spans, $scope, $location, $routeParams, $http) {
+    $scope.sourceCode = tokenColoring($scope.sourceCode, $highlights, $spans);
 
     $location.replace();
 
@@ -368,13 +412,7 @@ function doColoring(path, relative, $highlights, $spans, $scope, $location, $rou
 
     if (!$routeParams.goto && $routeParams.highlights) {
         $http.get($routeParams.highlights).success(function(parsedData) {
-            $(".highlight").removeClass("highlight");
-
-            for (var i = 0; i < parsedData.length; i++) {
-                var start = parsedData[i][0];
-
-                $("#p" + start).addClass("highlight");
-            }
+            addHighlights(parsedData);
 
             if (parsedData.length > 0) {
                 $scope.$parent.currentHighlight = -1;

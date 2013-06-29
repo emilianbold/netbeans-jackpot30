@@ -67,6 +67,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.ws.rs.GET;
@@ -78,9 +79,11 @@ import javax.ws.rs.core.UriInfo;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.java.source.ElementHandle;
+import org.netbeans.api.java.source.matching.Matcher;
 import org.netbeans.api.lexer.Token;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.api.xml.lexer.XMLTokenId;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.FreemarkerUtilities;
 import org.netbeans.modules.jackpot30.backend.base.WebUtilities;
@@ -272,24 +275,31 @@ public class UI {
         String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
         URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
         String content = WebUtilities.requestStringResponse(u).replace("\r\n", "\n");
-        List<Long> highlightSpans = new ArrayList<Long>();
-        CompilationInfo info = ResolveService.parse(segment, relative);
+        HighlightData highlights;
 
-        if (signature != null) {
-            List<long[]> spans = ResolveService.usages(info, signature);
+        if (relative.endsWith(".java")) {
+            List<Long> highlightSpans = new ArrayList<Long>();
+            CompilationInfo info = ResolveService.parse(segment, relative);
 
-            for (long[] span : spans) {
-                highlightSpans.add(span[0]);
-                highlightSpans.add(span[1]);
+            if (signature != null) {
+                List<long[]> spans = ResolveService.usages(info, signature);
+
+                for (long[] span : spans) {
+                    highlightSpans.add(span[0]);
+                    highlightSpans.add(span[1]);
+                }
             }
-        }
 
-        if (highlightSpec != null) {
-            highlightSpans.addAll(Pojson.load(ArrayList.class, highlightSpec));
+            if (highlightSpec != null) {
+                highlightSpans.addAll(Pojson.load(ArrayList.class, highlightSpec));
+            }
+
+            highlights = colorTokens(info, highlightSpans);
+        } else {
+            highlights = new HighlightData(Collections.<String>emptyList(), Collections.<Long>emptyList());
         }
 
         Map<String, Object> configurationData = new HashMap<String, Object>();
-        HighlightData highlights = colorTokens(info, segment, relative, highlightSpans);
 
         configurationData.put("spans", toString(highlights.spans));
         configurationData.put("categories", toString(highlights.categories));
@@ -305,15 +315,32 @@ public class UI {
     @Path("/highlightData")
     @Produces("application/javascript")
     public String highlightData(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative) throws URISyntaxException, IOException, TemplateException, InterruptedException {
-        CompilationInfo info = ResolveService.parse(segment, relative);
-        HighlightData highlights = colorTokens(info, segment, relative, Collections.<Long>emptyList());
+        HighlightData highlights;
+        
+        if (relative.endsWith(".java")) {
+            CompilationInfo info = ResolveService.parse(segment, relative);
+            highlights = colorTokens(info, Collections.<Long>emptyList());
+        } else if (relative.endsWith(".xml")) {
+            String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
+            URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
+            String content = WebUtilities.requestStringResponse(u).replace("\r\n", "\n");
+            highlights = colorTokens(TokenHierarchy.create(content, XMLTokenId.language()).tokenSequence(XMLTokenId.language()), Collections.<Token, Coloring>emptyMap(), Collections.<Long>emptyList());
+        } else {
+            highlights = new HighlightData(Collections.<String>emptyList(), Collections.<Long>emptyList());
+        }
+
 
         return Pojson.save(highlights);
     }
 
-    static HighlightData colorTokens(CompilationInfo info, String segment, String relative, List<Long> highlight) throws IOException, InterruptedException {
+    static HighlightData colorTokens(CompilationInfo info, List<Long> highlight) throws IOException, InterruptedException {
         TokenSequence<?> ts = info.getTokenHierarchy().tokenSequence(JavaTokenId.language());
         Map<Token, Coloring> semanticHighlights = SemanticHighlighter.computeHighlights(info, new TokenList(info, ts, new AtomicBoolean()));
+
+        return colorTokens(ts, semanticHighlights, highlight);
+    }
+
+    static HighlightData colorTokens(TokenSequence<?> ts, Map<Token, Coloring> semanticHighlights, List<Long> highlight) throws IOException, InterruptedException {
         List<Long> spans = new ArrayList<Long>(ts.tokenCount());
         List<String> cats  = new ArrayList<String>(ts.tokenCount());
         long currentOffset = 0;
@@ -354,14 +381,18 @@ public class UI {
             spans.add(endOffset - currentOffset);
             String category = ts.token().id().primaryCategory();
 
-            if ("keyword-directive".equals(category)) {
-                category = "keyword";
+            switch (category) {
+                case "literal":
+                case "keyword-directive": category = "keyword"; break;
+                case "xml-attribute": category = "markup-attribute"; break;
+                case "xml-comment": category = "comment"; break;
+                case "xml-error": category = "error"; break;
+                case "xml-operator": category = "operator"; break;
+                case "xml-ref": category = "entity-reference"; break;
+                case "xml-tag": category = "markup-element"; break;
+                case "xml-value": category = "markup-attribute-value"; break;
             }
-
-            if ("literal".equals(category)) {
-                category = "keyword";
-            }
-
+            
             if (foundHighlight) {
                 if (!category.isEmpty()) category += " ";
                 category += "highlight";
@@ -612,11 +643,42 @@ public class UI {
     @Path("/localUsages")
     @Produces("application/javascript")
     public String localUsages(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("signature") final String signature, @QueryParam("usages") boolean usages) throws URISyntaxException, IOException, TemplateException, InterruptedException {
-        final CompilationInfo info = ResolveService.parse(segment, relative);
         List<long[]> result = new ArrayList<long[]>();
-        
-        for (long[] span : ResolveService.usages(info, signature)) {
-            result.add(new long[] {span[2], span[3]});
+
+        if (relative.endsWith(".java")) {
+            final CompilationInfo info = ResolveService.parse(segment, relative);
+
+            for (long[] span : ResolveService.usages(info, signature)) {
+                result.add(new long[] {span[2], span[3]});
+            }
+        } else {
+            //look for usages from resources:
+            String[] parts = signature.split(":");
+
+            if (parts.length >= 2 ) {
+                String otherSignature;
+
+                switch (parts[0]) {
+                    case "FIELD": case "ENUM_CONSTANT":
+                    case "METHOD":
+                        if (parts.length >= 3) {
+                            otherSignature = parts[1].replace(".", "[.-]") + "[.-]" + parts[2];
+                            break;
+                        }
+                    default:
+                        otherSignature = parts[1].replace(".", "[.-]");
+                        break;
+                }
+
+                String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
+                URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
+                String content = WebUtilities.requestStringResponse(u).replace("\r\n", "\n");
+                java.util.regex.Matcher matcher = Pattern.compile(otherSignature).matcher(content);
+
+                while (matcher.find()) {
+                    result.add(new long[] {matcher.start(), matcher.end()});
+                }
+            }
         }
 
         return Pojson.save(result);

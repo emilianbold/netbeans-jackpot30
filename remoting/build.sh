@@ -6,7 +6,7 @@ mkdir -p build/indexing-backend
 (cd server/indexer; ant "$@" clean && ant "$@" build-zip && unzip -d ../../build/indexing-backend dist/indexer.zip) || exit 1
 mkdir -p build/indexing-backend/web
 (cd server/web/web.main; ant clean && ant jar && cp -r dist/* ../../../build/indexing-backend/web) || exit 1
-(cd server/web/web.ui.frontend/public_html/index/lib; ant -f download.xml) || exit 1
+(cd server/web/web.ui.frontend/; ant -f download.xml;) || exit 1
 cp -r server/web/web.ui.frontend/public_html build/indexing-backend/web || exit 1
 
 cp server/scripts/* build/indexing-backend
