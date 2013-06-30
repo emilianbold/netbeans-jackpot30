@@ -45,7 +45,6 @@ import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javadoc.Messager;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -60,6 +59,7 @@ import org.netbeans.lib.nbjavac.services.NBClassWriter;
 import org.netbeans.lib.nbjavac.services.NBJavacTrees;
 import org.netbeans.lib.nbjavac.services.NBJavadocEnter;
 import org.netbeans.lib.nbjavac.services.NBJavadocMemberEnter;
+import org.netbeans.lib.nbjavac.services.NBMessager;
 import org.netbeans.lib.nbjavac.services.NBParserFactory;
 import org.netbeans.lib.nbjavac.services.NBTreeMaker;
 import org.netbeans.modules.jackpot30.resolve.api.JavacCreator;
@@ -84,7 +84,7 @@ public class JavacCreatorImpl extends JavacCreator {
         realOptions.add("-XDsuppressAbortOnBadClassFile=true");
         Context context = new Context();
         //need to preregister the Messages here, because the getTask below requires Log instance:
-        Messager.preRegister(context, null, DEV_NULL, DEV_NULL, DEV_NULL);
+        NBMessager.preRegister(context, null, DEV_NULL, DEV_NULL, DEV_NULL);
         JavacTaskImpl task = (JavacTaskImpl) JavacTool.create().getTask(out, fileManager, diagnosticListener, realOptions, classes, compilationUnits, context);
         NBClassReader.preRegister(context, true);
         NBAttr.preRegister(context);
