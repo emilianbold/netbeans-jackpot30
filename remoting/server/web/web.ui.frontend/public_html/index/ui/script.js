@@ -341,11 +341,20 @@ function ShowSourceCode($scope, $http, $routeParams, $location) {
 function tokenColoring(code, tokenColoring, tokenSpans) {
     var current = 0;
     var coloredCode = "";
+    var line = 1;
+    coloredCode += '<table><tr><td class="unselectable">' + (line++) + "</td><td>";
     
     for (var i = 0; i < tokenColoring.length; i++ ) {
-        coloredCode += '<span id="p' + current + '" class="' + tokenColoring[i] + '" jpt30pos="' + current + '">' + code.slice(current, current+tokenSpans[i]).replace(/&/g, '&amp;').replace(/</g, '&lt;') + "</span>";
+        var currentCode = code.slice(current, current+tokenSpans[i]);
+        var byLines = currentCode.split("\n");
+        for (var j = 0; j < byLines.length; j++) {
+            if (j > 0) coloredCode += '</td></tr><tr><td class="unselectable">' + (line++) + "</td><td>";
+            coloredCode += '<span id="p' + current + '" class="' + tokenColoring[i] + '" jpt30pos="' + current + '">' + byLines[j].replace(/&/g, '&amp;').replace(/</g, '&lt;') + "</span>";
+        }
         current += tokenSpans[i];
     }
+
+    coloredCode += "</td></tr></table>";
 
     return coloredCode;
 }
