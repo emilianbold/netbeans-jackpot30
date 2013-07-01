@@ -319,9 +319,10 @@ function ShowSourceCode($scope, $http, $routeParams, $location) {
     };
 
     $http.get("/index/source/cat?path=" + escape(path) + "&relative=" + escape(relative)).success(function(data) {
-        $scope.sourceCode = data.replace(/\r\n/g, '\n');
+        var sourceCode = data.replace(/\r\n/g, '\n');
+        $scope.sourceCode = escapeHTML(sourceCode);
         $http.get("/index/ui/highlightData?path=" + escape(path) + "&relative=" + escape(relative)).success(function(parsedData) {
-            doColoring(path, relative, parsedData.categories, parsedData.spans, $scope, $location, $routeParams, $http);
+            doColoring(path, relative, parsedData.categories, parsedData.spans, $scope, $location, $routeParams, $http, sourceCode);
         });
     });
     
@@ -347,9 +348,14 @@ function tokenColoring(code, tokenColoring, tokenSpans) {
     for (var i = 0; i < tokenColoring.length; i++ ) {
         var currentCode = code.slice(current, current+tokenSpans[i]);
         var byLines = currentCode.split("\n");
+        var index = current;
         for (var j = 0; j < byLines.length; j++) {
-            if (j > 0) coloredCode += '</td></tr><tr><td class="unselectable">' + (line++) + "</td><td>";
-            coloredCode += '<span id="p' + current + '" class="' + tokenColoring[i] + '" jpt30pos="' + current + '">' + byLines[j].replace(/&/g, '&amp;').replace(/</g, '&lt;') + "</span>";
+            if (j > 0) {
+                coloredCode += '</td></tr><tr><td class="unselectable">' + (line++) + "</td><td>";
+                index++;
+            }
+            coloredCode += '<span id="p' + index + '" class="' + tokenColoring[i] + '" jpt30pos="' + current + '">' + byLines[j].replace(/&/g, '&amp;').replace(/</g, '&lt;') + "</span>";
+            index += byLines[j].length;
         }
         current += tokenSpans[i];
     }
@@ -357,6 +363,10 @@ function tokenColoring(code, tokenColoring, tokenSpans) {
     coloredCode += "</td></tr></table>";
 
     return coloredCode;
+}
+
+function escapeHTML(source) {
+    return source.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 }
 
 function addHighlights(highlights) {
@@ -387,11 +397,11 @@ function addHighlights(highlights) {
                 var result = "";
 
                 if (start < highlightStart) {
-                    result += '<span id="p' + start + '" class="' + clazz + '" jpt30pos="' + jpt30pos + '">' + text.substring(0, Math.min(text.length, highlightStart - start)) + "</span>";
+                    result += '<span id="p' + start + '" class="' + clazz + '" jpt30pos="' + jpt30pos + '">' + escapeHTML(text.substring(0, Math.min(text.length, highlightStart - start))) + "</span>";
                 }
-                result += '<span id="p' + Math.max(start, highlightStart) + '" class="' + clazz + ' highlight" jpt30pos="' + Math.max(start, highlightStart) + '">' + text.substring(highlightStart - start, Math.min(text.length, highlightEnd - start)) + "</span>";
+                result += '<span id="p' + Math.max(start, highlightStart) + '" class="' + clazz + ' highlight" jpt30pos="' + Math.max(start, highlightStart) + '">' + escapeHTML(text.substring(highlightStart - start, Math.min(text.length, highlightEnd - start))) + "</span>";
                 if (highlightEnd < end) {
-                    result += '<span id="p' + (highlightStart + highlightLen) + '" class="' + clazz + '" jpt30pos="' + (highlightStart + highlightLen) + '">' + text.substring(highlightEnd - start, end - start) + "</span>";
+                    result += '<span id="p' + (highlightStart + highlightLen) + '" class="' + clazz + '" jpt30pos="' + (highlightStart + highlightLen) + '">' + escapeHTML(text.substring(highlightEnd - start, end - start)) + "</span>";
                 }
 
                 $(this).replaceWith(result);
@@ -400,8 +410,8 @@ function addHighlights(highlights) {
     }
 }
 
-function doColoring(path, relative, $highlights, $spans, $scope, $location, $routeParams, $http) {
-    $scope.sourceCode = tokenColoring($scope.sourceCode, $highlights, $spans);
+function doColoring(path, relative, $highlights, $spans, $scope, $location, $routeParams, $http, sourceCode) {
+    $scope.sourceCode = tokenColoring(sourceCode, $highlights, $spans);
 
     $location.replace();
 

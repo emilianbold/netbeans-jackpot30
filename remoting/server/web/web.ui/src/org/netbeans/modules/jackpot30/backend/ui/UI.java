@@ -320,13 +320,15 @@ public class UI {
         if (relative.endsWith(".java")) {
             CompilationInfo info = ResolveService.parse(segment, relative);
             highlights = colorTokens(info, Collections.<Long>emptyList());
-        } else if (relative.endsWith(".xml")) {
+        } else {
             String urlBase = URL_BASE_OVERRIDE != null ? URL_BASE_OVERRIDE : uriInfo.getBaseUri().toString();
             URI u = new URI(urlBase + "index/source/cat?path=" + escapeForQuery(segment) + "&relative=" + escapeForQuery(relative));
             String content = WebUtilities.requestStringResponse(u).replace("\r\n", "\n");
-            highlights = colorTokens(TokenHierarchy.create(content, XMLTokenId.language()).tokenSequence(XMLTokenId.language()), Collections.<Token, Coloring>emptyMap(), Collections.<Long>emptyList());
-        } else {
-            highlights = new HighlightData(Collections.<String>emptyList(), Collections.<Long>emptyList());
+            if (relative.endsWith(".xml")) {
+                highlights = colorTokens(TokenHierarchy.create(content, XMLTokenId.language()).tokenSequence(XMLTokenId.language()), Collections.<Token, Coloring>emptyMap(), Collections.<Long>emptyList());
+            } else {
+                highlights = new HighlightData(Collections.<String>singletonList(""), Collections.<Long>singletonList((long) content.length()));
+            }
         }
 
 
