@@ -1,5 +1,4 @@
-function DeclarationSearch($scope, $http, $routeParams) {
-    $scope.prefix = "";
+function DeclarationSearch($scope, $location, $http, $routeParams, $route) {
     $scope.performQuery = function() {
         $scope.$parent.loading = true;
         $http.get('/index/ui/searchSymbol?prefix=' + $scope.prefix).success(function(data) {
@@ -28,7 +27,8 @@ function DeclarationSearch($scope, $http, $routeParams) {
     $scope.performQueryDelayed = _.debounce($scope.performQuery, 2000);
     $scope.getElementIcon = getElementIcon;
     $scope.acceptByKind = acceptByKind;
-    $scope.prefix = $routeParams.prefix || "";
+    var prefix = $route ? $route.current.params.prefix : null;
+    $scope.prefix = prefix != null ? prefix : "";
     $scope.symbolSignature = symbolSignature;
 
     $scope.showSearch = false;
@@ -38,7 +38,7 @@ function DeclarationSearch($scope, $http, $routeParams) {
     $scope.showMethods = true;
     $scope.showOthers = true;
     
-    if (typeof $routeParams.prefix !== 'undefined') {
+    if (prefix != null) {
         $scope.performQuery();
     }
 }
