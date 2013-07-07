@@ -186,7 +186,8 @@ public class ResolveService {
         switch (forTree.getLeaf().getKind()) {
             case IDENTIFIER: name = ((IdentifierTree) forTree.getLeaf()).getName(); break;
             case MEMBER_SELECT: name = ((MemberSelectTree) forTree.getLeaf()).getIdentifier(); pos++; break;
-            case ANNOTATION_TYPE: case ENUM:
+            case ANNOTATION_TYPE: case CLASS:
+            case ENUM: case INTERFACE:
                 name = ((ClassTree) forTree.getLeaf()).getSimpleName();
                 
                 TokenSequence<JavaTokenId> ts = info.getTokenHierarchy().tokenSequence(JavaTokenId.language());
@@ -203,8 +204,6 @@ public class ResolveService {
                 }
 
                 break;
-            case CLASS:
-            case INTERFACE: name = ((ClassTree) forTree.getLeaf()).getSimpleName(); break;
             case METHOD:
                 if ((((JCMethodDecl) forTree.getLeaf()).getModifiers().flags & Flags.GENERATEDCONSTR) != 0) {
                     //no positions for generated constructors:
