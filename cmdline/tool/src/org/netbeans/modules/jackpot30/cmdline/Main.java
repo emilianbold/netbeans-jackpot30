@@ -622,7 +622,7 @@ public class Main {
         GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {sourceCP});
         ClassPathBasedHintWrapper hints = new ClassPathBasedHintWrapper();
         final Preferences p = XMLHintPreferences.from(settingsFile);
-        JPanel hintPanel = new HintsPanel(p.node("settings"), hints);
+        JPanel hintPanel = new HintsPanel(p.node("settings"), hints, true);
         final JCheckBox runDeclarativeHints = new JCheckBox("Always Run Declarative Rules");
 
         runDeclarativeHints.setToolTipText("Always run the declarative rules found on classpath? (Only those selected above will be run when unchecked.)");
