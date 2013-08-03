@@ -42,9 +42,14 @@
 package org.netbeans.modules.jackpot30.resolve.api;
 
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.JavacTask;
 import com.sun.tools.javac.api.JavacTaskImpl;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
+import com.sun.tools.javac.model.LazyTreeLoader;
 import com.sun.tools.javac.util.Abort;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Context.Factory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -136,7 +141,8 @@ public class Javac {
 
         if (jti == null) {
             FMImpl fm = new FMImpl(sourceRoot.getClassPath());
-            javacTask.set(jti = JavacCreator.create(null, fm, null, Arrays.asList("-Xjcov", "-proc:none"), null, Collections.<JavaFileObject>emptyList()));
+            javacTask.set(jti = JavacCreator.create(null, fm, null, Arrays.asList("-Xjcov", "-proc:none", "-XDshouldStopPolicy=FLOW"), null, Collections.<JavaFileObject>emptyList()));
+            TreeLoaderImpl.preRegister(jti.getContext());
         }
 
         return jti;
@@ -327,6 +333,26 @@ public class Javac {
         @Override
         public boolean delete() {
             throw new UnsupportedOperationException("Not supported yet.");
+        }
+
+    }
+
+    private static final class TreeLoaderImpl extends LazyTreeLoader {
+        public static void preRegister(Context ctx) {
+            ctx.put(lazyTreeLoaderKey, new Factory<LazyTreeLoader>() {
+                @Override public LazyTreeLoader make(Context ctx) {
+                    return new TreeLoaderImpl(ctx);
+                }
+            });
+        }
+
+        public TreeLoaderImpl(Context ctx) {
+            ctx.put(lazyTreeLoaderKey, this);
+        }
+
+        @Override
+        public void couplingError(ClassSymbol clazz, Tree t) {
+            //ignore...
         }
 
     }
