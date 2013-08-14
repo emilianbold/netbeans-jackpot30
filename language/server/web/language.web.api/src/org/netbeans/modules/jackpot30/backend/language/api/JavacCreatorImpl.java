@@ -82,6 +82,7 @@ public class JavacCreatorImpl extends JavacCreator {
         realOptions.add("-XDallowStringFolding=false"); //NOI18N
         realOptions.add("-XDshouldStopPolicy=GENERATE");   // NOI18N, parsing should not stop in phase where an error is found
         realOptions.add("-XDsuppressAbortOnBadClassFile=true");
+        realOptions.add("-XDkeepComments=true"); //NOI18N
         Context context = new Context();
         //need to preregister the Messages here, because the getTask below requires Log instance:
         NBMessager.preRegister(context, null, DEV_NULL, DEV_NULL, DEV_NULL);
@@ -94,8 +95,6 @@ public class JavacCreatorImpl extends JavacCreator {
         NBJavacTrees.preRegister(context);
         NBJavadocEnter.preRegister(context);
         NBJavadocMemberEnter.preRegister(context);
-
-        JavaCompiler.instance(context).keepComments = true;
 
         return task;
     }
