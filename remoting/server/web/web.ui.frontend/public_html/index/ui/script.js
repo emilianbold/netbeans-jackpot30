@@ -1,6 +1,14 @@
+function IndexDeclarationSearch($scope, $location, $http, $routeParams, $route) {
+    DeclarationSearch($scope, $location, $http, $routeParams, $route);
+    $scope.performQuery = function() {
+        $location.url("/search?prefix=" + $scope.prefix);
+        //no need to do the actual query - it will be done automatically when the route changes
+    };
+}
 function DeclarationSearch($scope, $location, $http, $routeParams, $route) {
     $scope.performQuery = function() {
         $scope.$parent.loading = true;
+        $location.url("/search?prefix=" + $scope.prefix);
         $http.get('/index/ui/searchSymbol?prefix=' + $scope.prefix).success(function(data) {
             var result = [];
             var index = 0;
