@@ -51,7 +51,7 @@ import org.apache.lucene.search.Query;
 import org.codeviation.pojson.Pojson;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.Utilities;
-import org.netbeans.modules.jumpto.type.GoToTypeAction;
+import org.netbeans.modules.jumpto.common.Utils;
 import org.netbeans.modules.parsing.lucene.support.Convertor;
 import org.netbeans.modules.parsing.lucene.support.Index;
 import org.netbeans.modules.parsing.lucene.support.Queries;
@@ -86,13 +86,13 @@ public class Base {
         }
 
         if (queryKind == null) {
-            int wildcard = GoToTypeAction.containsWildCard(prefix);
+            int wildcard = Utils.containsWildCard(prefix);
 
             if (exact) {
                 //nameKind = panel.isCaseSensitive() ? SearchType.EXACT_NAME : SearchType.CASE_INSENSITIVE_EXACT_NAME;
                 queryKind = QueryKind.EXACT;
             }
-            else if ((GoToTypeAction.isAllUpper(prefix) && prefix.length() > 1) || GoToTypeAction.isCamelCase(prefix)) {
+            else if ((Utils.isAllUpper(prefix) && prefix.length() > 1) || Utils.isCamelCase(prefix)) {
                 queryKind = QueryKind.CAMEL_CASE;
             }
             else if (wildcard != -1) {
