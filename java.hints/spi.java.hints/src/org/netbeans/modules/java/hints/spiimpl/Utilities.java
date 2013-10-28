@@ -736,7 +736,7 @@ public class Utilities {
             compiler.enterTrees(com.sun.tools.javac.util.List.of(cut));
 
             Todo todo = compiler.todo;
-            ListBuffer<Env<AttrContext>> defer = ListBuffer.<Env<AttrContext>>lb();
+            ListBuffer<Env<AttrContext>> defer = new ListBuffer<>();
             
             while (todo.peek() != null) {
                 Env<AttrContext> env = todo.remove();
