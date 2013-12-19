@@ -169,6 +169,10 @@ public class Main {
             return 1;
         }
 
+        if (!parsed.has("debug")) {
+            prepareLoggers();
+        }
+
         if (parsed.has("help")) {
             parser.printHelpOn(System.out);
             return 0;
@@ -218,10 +222,6 @@ public class Main {
                 System.err.println("show-gui requires config-file");
                 return 1;
             }
-        }
-
-        if (!parsed.has("debug")) {
-            prepareLoggers();
         }
 
         File cacheDir = parsed.valueOf(cache);
