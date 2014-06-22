@@ -358,11 +358,21 @@ public class UI {
     @GET
     @Path("/localUsages")
     @Produces("application/javascript")
-    public String localUsages(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("signature") final String signature, @QueryParam("usages") boolean usages) throws URISyntaxException, IOException, InterruptedException {
+    public String localUsages(@Context UriInfo uriInfo, @QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("signature")  String signature, @QueryParam("position") final long position, @QueryParam("usages") boolean usages) throws URISyntaxException, IOException, InterruptedException {
         List<long[]> result = new ArrayList<long[]>();
 
         if (relative.endsWith(".java")) {
             final CompilationInfo info = ResolveService.parse(segment, relative);
+
+            if (signature == null) {
+                ResolvedLocation location = resolveTarget(info, position, false);
+
+                signature = location.signature;
+            }
+
+            if (signature == null) {
+                return "[]";
+            }
 
             for (long[] span : ResolveService.usages(info, signature)) {
                 result.add(new long[] {span[2], span[3]});
@@ -614,96 +624,34 @@ public class UI {
 //    @Produces("text/html")
     public String target(@QueryParam("path") String segment, @QueryParam("relative") String relative, @QueryParam("position") final long position) throws URISyntaxException, IOException, InterruptedException {
         final CompilationInfo info = ResolveService.parse(segment, relative);
-        final boolean[] declaration = new boolean[1];
-        final long[] targetPosition = new long[] { -2 };
-        final String[] signature = new String[1];
-        final ElementKind[] kind = new ElementKind[1];
-
-        new TreePathScanner<Void, Void>() {
-            @Override public Void visitIdentifier(IdentifierTree node, Void p) {
-                handleUsage();
-                return super.visitIdentifier(node, p);
-            }
-            @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
-                handleUsage();
-                return super.visitMemberSelect(node, p);
-            }
-            private void handleUsage() {
-                Element el = info.getTrees().getElement(getCurrentPath());
-
-                if (el == null) return;
-
-                long[] span = ResolveService.nameSpan(info, getCurrentPath());
-
-                if (span[0] <= position && position <= span[1]) {
-                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
-                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
-                    }
-
-                    TreePath tp = info.getTrees().getPath(el);
-
-                    if (tp != null && tp.getCompilationUnit() == info.getCompilationUnit()) {
-                        targetPosition[0] = info.getTrees().getSourcePositions().getStartPosition(tp.getCompilationUnit(), tp.getLeaf());
-                    }
-                }
-            }
-            @Override public Void visitClass(ClassTree node, Void p) {
-                handleDeclaration();
-                return super.visitClass(node, p);
-            }
-            @Override public Void visitMethod(MethodTree node, Void p) {
-                handleDeclaration();
-                return super.visitMethod(node, p);
-            }
-            @Override public Void visitVariable(VariableTree node, Void p) {
-                handleDeclaration();
-                return super.visitVariable(node, p);
-            }
-            private void handleDeclaration() {
-                Element el = info.getTrees().getElement(getCurrentPath());
-
-                if (el == null) return;
-
-                long[] span = ResolveService.nameSpan(info, getCurrentPath());
-
-                if (span[2] <= position && position <= span[3]) {
-                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
-                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
-                    }
-
-                    declaration[0] = true;
-                    kind[0] = el.getKind();
-                }
-            }
-        }.scan(info.getCompilationUnit(), null);
-
+        ResolvedLocation location = resolveTarget(info, position, true);
         Map<String, Object> result = new HashMap<String, Object>();
 
-        if (declaration[0]) {
-            if (signature[0] != null) {
+        if (location.declaration) {
+            if (location.signature != null) {
                 List<Map<String, String>> menu = new ArrayList<Map<String, String>>();
 
-                menu.add(menuMap("Usages in current project", "/index/ui/usages?path=" + escapeForQuery(segment) + "&signatures=" + escapeForQuery(signature[0])));
-                menu.add(menuMap("Usages in all known projects", "/index/ui/usages?signatures=" + escapeForQuery(signature[0])));
+                menu.add(menuMap("Usages in current project", "/index/ui/usages?path=" + escapeForQuery(segment) + "&signatures=" + escapeForQuery(location.signature)));
+                menu.add(menuMap("Usages in all known projects", "/index/ui/usages?signatures=" + escapeForQuery(location.signature)));
 
-                switch (kind[0]) {
+                switch (location.kind) {
                     case METHOD:
-                        menu.add(menuMap("Overriders in the current project", "/index/ui/implements?path=" + escapeForQuery(segment) + "&method=" + escapeForQuery(signature[0])));
-                        menu.add(menuMap("Overriders in all known projects", "/index/ui/implements?method=" + escapeForQuery(signature[0])));
+                        menu.add(menuMap("Overriders in the current project", "/index/ui/implements?path=" + escapeForQuery(segment) + "&method=" + escapeForQuery(location.signature)));
+                        menu.add(menuMap("Overriders in all known projects", "/index/ui/implements?method=" + escapeForQuery(location.signature)));
                         break;
                     case CLASS: case INTERFACE: case ENUM: case ANNOTATION_TYPE:
-                        menu.add(menuMap("Subtypes in the current project", "/index/ui/implements?path=" + escapeForQuery(segment) + "&type=" + escapeForQuery(signature[0])));
-                        menu.add(menuMap("Subtypes in all known projects", "/index/ui/implements?type=" + escapeForQuery(signature[0])));
+                        menu.add(menuMap("Subtypes in the current project", "/index/ui/implements?path=" + escapeForQuery(segment) + "&type=" + escapeForQuery(location.signature)));
+                        menu.add(menuMap("Subtypes in all known projects", "/index/ui/implements?type=" + escapeForQuery(location.signature)));
                         break;
                 }
                 result.put("menu", menu);
-                result.put("signature", signature[0]);
+                result.put("signature", location.signature);
             }
         } else {
-            if (targetPosition[0] != (-2)) {
-                result.put("position", targetPosition[0]);
-            } else if (signature[0] != null) {
-                String targetSignature = signature[0];
+            if (location.position != (-2)) {
+                result.put("position", location.position);
+            } else if (location.signature != null) {
+                String targetSignature = location.signature;
                 String source = ResolveService.resolveSource(segment, relative, targetSignature);
 
                 result.put("signature", targetSignature);
@@ -762,6 +710,75 @@ public class UI {
         return result;
     }
 
+    private static ResolvedLocation resolveTarget(final CompilationInfo info, final long position, final boolean resolveTargetPosition) {
+        final boolean[] declaration = new boolean[1];
+        final long[] targetPosition = new long[] { -2 };
+        final String[] signature = new String[1];
+        final ElementKind[] kind = new ElementKind[1];
+
+        new TreePathScanner<Void, Void>() {
+            @Override public Void visitIdentifier(IdentifierTree node, Void p) {
+                handleUsage();
+                return super.visitIdentifier(node, p);
+            }
+            @Override public Void visitMemberSelect(MemberSelectTree node, Void p) {
+                handleUsage();
+                return super.visitMemberSelect(node, p);
+            }
+            private void handleUsage() {
+                Element el = info.getTrees().getElement(getCurrentPath());
+
+                if (el == null) return;
+
+                long[] span = ResolveService.nameSpan(info, getCurrentPath());
+
+                if (span[0] <= position && position <= span[1]) {
+                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
+                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
+                    }
+
+                    if (resolveTargetPosition) {
+                        TreePath tp = info.getTrees().getPath(el);
+
+                        if (tp != null && tp.getCompilationUnit() == info.getCompilationUnit()) {
+                            targetPosition[0] = info.getTrees().getSourcePositions().getStartPosition(tp.getCompilationUnit(), tp.getLeaf());
+                        }
+                    }
+                }
+            }
+            @Override public Void visitClass(ClassTree node, Void p) {
+                handleDeclaration();
+                return super.visitClass(node, p);
+            }
+            @Override public Void visitMethod(MethodTree node, Void p) {
+                handleDeclaration();
+                return super.visitMethod(node, p);
+            }
+            @Override public Void visitVariable(VariableTree node, Void p) {
+                handleDeclaration();
+                return super.visitVariable(node, p);
+            }
+            private void handleDeclaration() {
+                Element el = info.getTrees().getElement(getCurrentPath());
+
+                if (el == null) return;
+
+                long[] span = ResolveService.nameSpan(info, getCurrentPath());
+
+                if (span[2] <= position && position <= span[3]) {
+                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
+                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
+                    }
+
+                    declaration[0] = true;
+                    kind[0] = el.getKind();
+                }
+            }
+        }.scan(info.getCompilationUnit(), null);
+
+        return new ResolvedLocation(signature[0], kind[0], targetPosition[0], declaration[0]);
+    }
+
     @GET
     @Path("/declarationSpan")
 //    @Produces("text/html")
@@ -774,5 +791,20 @@ public class UI {
         }
 
         return Pojson.save(span);
+    }
+
+    private static class ResolvedLocation {
+
+        private final String signature;
+        private final ElementKind kind;
+        private final long position;
+        private final boolean declaration;
+
+        public ResolvedLocation(String signature, ElementKind kind, long position, boolean declaration) {
+            this.signature = signature;
+            this.kind = kind;
+            this.position = position;
+            this.declaration = declaration;
+        }
     }
 }

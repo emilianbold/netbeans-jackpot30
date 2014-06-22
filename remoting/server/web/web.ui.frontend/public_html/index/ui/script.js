@@ -325,6 +325,31 @@ function ShowSourceCode($scope, $http, $routeParams, $location) {
             }
         });
     };
+    $scope.markOccurrencesAction = function ($event) {
+        $scope.$parent.loading = true;
+        var pos = $($event.target).attr("jpt30pos");
+        $http.get('/index/ui/localUsages?path=' + path + '&relative=' + relative + '&position=' + pos).success(function(parsedData) {
+            $scope.$parent.loading = false;
+            addHighlights(parsedData);
+
+            if (parsedData.length > 0) {
+                $scope.$parent.currentHighlight = -1;
+
+                for (var i = 0; i < parsedData.length; i++) {
+                    if (parsedData[i][0] <= pos && pos <= parsedData[i][1]) {
+                        break;
+                    }
+                    $scope.$parent.currentHighlight++;
+                }
+
+                $scope.$parent.highlights = parsedData;
+                $scope.$parent.nextOccurrence();
+            } else {
+                $scope.$parent.currentHighlight = 0;
+                $scope.$parent.highlights = [];
+            }
+        });
+    };
 
     $http.get("/index/source/cat?path=" + escape(path) + "&relative=" + escape(relative)).success(function(data) {
         var sourceCode = data.replace(/\r\n/g, '\n');
