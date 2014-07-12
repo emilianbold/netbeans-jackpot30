@@ -6,4 +6,8 @@
     <description>Builds the module suite indexing.</description>
     <import file="nbproject/build-impl.xml"/>
     <import file="../../../suite-common.xml"/>
+    <target name="build-launchers" depends="suite.build-launchers">
+        <echo message="extra" file="${build.launcher.dir}/etc/${app.name}.clusters" append="true"/>
+        <echo message="&#10;" file="${build.launcher.dir}/etc/${app.name}.clusters" append="true"/>
+    </target>
 </project>
