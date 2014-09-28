@@ -803,14 +803,17 @@ public class SemanticHighlighter {
         @Override
         public Void visitVariable(VariableTree tree, EnumSet<UseTypes> d) {
             tl.moveToOffset(sourcePositions.getStartPosition(info.getCompilationUnit(), tree));
-            TreePath type = new TreePath(getCurrentPath(), tree.getType());
-            
-            if (type.getLeaf() instanceof ArrayTypeTree) {
-                type = new TreePath(type, ((ArrayTypeTree) type.getLeaf()).getType());
+
+            if (tree.getType() != null) {
+                TreePath type = new TreePath(getCurrentPath(), tree.getType());
+
+                if (type.getLeaf() instanceof ArrayTypeTree) {
+                    type = new TreePath(type, ((ArrayTypeTree) type.getLeaf()).getType());
+                }
+
+                if (type.getLeaf().getKind() == Kind.IDENTIFIER)
+                    handlePossibleIdentifier(type, EnumSet.of(UseTypes.CLASS_USE));
             }
-            
-            if (type.getLeaf().getKind() == Kind.IDENTIFIER)
-                handlePossibleIdentifier(type, EnumSet.of(UseTypes.CLASS_USE));
             
             Collection<UseTypes> uses = null;
             

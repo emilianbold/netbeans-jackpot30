@@ -56,15 +56,23 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -377,6 +385,12 @@ public class UI {
             for (long[] span : ResolveService.usages(info, signature)) {
                 result.add(new long[] {span[2], span[3]});
             }
+
+            long[] declSpans = ResolveService.declarationSpans(info, signature);
+
+            if (declSpans != null) {
+                result.add(new long[] {declSpans[2], declSpans[3]});
+            }
         } else {
             //look for usages from resources:
             String[] parts = signature.split(":");
@@ -654,8 +668,6 @@ public class UI {
                 String targetSignature = location.signature;
                 String source = ResolveService.resolveSource(segment, relative, targetSignature);
 
-                result.put("signature", targetSignature);
-
                 if (source != null) {
                     result.put("path", segment);
                     result.put("source", source);
@@ -698,6 +710,11 @@ public class UI {
             }
         }
 
+        if (location.signature != null) {
+            result.put("signature", location.signature);
+            result.put("superMethods", location.superMethodsSignatures);
+        }
+
         return Pojson.save(result);
     }
 
@@ -714,6 +731,7 @@ public class UI {
         final boolean[] declaration = new boolean[1];
         final long[] targetPosition = new long[] { -2 };
         final String[] signature = new String[1];
+        final String[][] superMethodsSignaturesOut = new String[1][];
         final ElementKind[] kind = new ElementKind[1];
 
         new TreePathScanner<Void, Void>() {
@@ -733,9 +751,7 @@ public class UI {
                 long[] span = ResolveService.nameSpan(info, getCurrentPath());
 
                 if (span[0] <= position && position <= span[1]) {
-                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
-                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
-                    }
+                    fillSignature(el);
 
                     if (resolveTargetPosition) {
                         TreePath tp = info.getTrees().getPath(el);
@@ -766,18 +782,65 @@ public class UI {
                 long[] span = ResolveService.nameSpan(info, getCurrentPath());
 
                 if (span[2] <= position && position <= span[3]) {
-                    if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
-                        signature[0] = JavaUtils.serialize(ElementHandle.create(el));
-                    }
-
+                    fillSignature(el);
                     declaration[0] = true;
                     kind[0] = el.getKind();
                 }
             }
+            private void fillSignature(Element el) {
+                if (JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
+                    signature[0] = JavaUtils.serialize(ElementHandle.create(el));
+                    if (el.getKind() == ElementKind.METHOD) {
+                        List<ElementHandle<?>> superMethods = superMethods(info, new HashSet<TypeElement>(), (ExecutableElement) el, (TypeElement) el.getEnclosingElement());
+
+                        String[] superMethodsSignatures = new String[superMethods.size()];
+                        int i = 0;
+
+                        for (ElementHandle<?> m : superMethods) {
+                            superMethodsSignatures[i++] = JavaUtils.serialize(m);
+                        }
+
+                        superMethodsSignaturesOut[0] = superMethodsSignatures;
+                    }
+                }
+            }
         }.scan(info.getCompilationUnit(), null);
 
-        return new ResolvedLocation(signature[0], kind[0], targetPosition[0], declaration[0]);
+        return new ResolvedLocation(signature[0], kind[0], targetPosition[0], declaration[0], superMethodsSignaturesOut[0]);
     }
+
+    //XXX: duplicated here and in RemoteUsages:
+    private static List<ElementHandle<?>> superMethods(CompilationInfo info, Set<TypeElement> seenTypes, ExecutableElement baseMethod, TypeElement currentType) {
+        if (!seenTypes.add(currentType))
+            return Collections.emptyList();
+
+        List<ElementHandle<?>> result = new ArrayList<ElementHandle<?>>();
+
+        for (TypeElement sup : superTypes(info, currentType)) {
+            for (ExecutableElement ee : ElementFilter.methodsIn(sup.getEnclosedElements())) {
+                if (info.getElements().overrides(baseMethod, ee, (TypeElement) baseMethod.getEnclosingElement())) {
+                    result.add(ElementHandle.create(ee));
+                }
+            }
+
+            result.addAll(superMethods(info, seenTypes, baseMethod, currentType));
+        }
+
+        return result;
+    }
+
+    private static List<TypeElement> superTypes(CompilationInfo info, TypeElement type) {
+        List<TypeElement> superTypes = new ArrayList<TypeElement>();
+
+        for (TypeMirror sup : info.getTypes().directSupertypes(type.asType())) {
+            if (sup.getKind() == TypeKind.DECLARED) {
+                superTypes.add((TypeElement) ((DeclaredType) sup).asElement());
+            }
+        }
+
+        return superTypes;
+    }
+
 
     @GET
     @Path("/declarationSpan")
@@ -799,12 +862,14 @@ public class UI {
         private final ElementKind kind;
         private final long position;
         private final boolean declaration;
+        private final String[] superMethodsSignatures;
 
-        public ResolvedLocation(String signature, ElementKind kind, long position, boolean declaration) {
+        public ResolvedLocation(String signature, ElementKind kind, long position, boolean declaration, String[] superMethodsSignatures) {
             this.signature = signature;
             this.kind = kind;
             this.position = position;
             this.declaration = declaration;
+            this.superMethodsSignatures = superMethodsSignatures;
         }
     }
 }

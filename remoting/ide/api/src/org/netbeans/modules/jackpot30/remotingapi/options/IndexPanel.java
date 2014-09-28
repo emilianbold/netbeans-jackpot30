@@ -42,6 +42,7 @@
 package org.netbeans.modules.jackpot30.remotingapi.options;
 
 import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
@@ -338,7 +339,9 @@ final class IndexPanel extends javax.swing.JPanel {
 
             switch (columnIndex) {
                 case 0: return idx.enabled;
-                case 1: return Utils.toDisplayName(idx.getLocalFolder());
+                case 1:
+                    URL localFolder = idx.getLocalFolder();
+                    return localFolder != null ? Utils.toDisplayName(localFolder) : "";
                 case 2: return idx.remote.toExternalForm();
                 case 3: return idx.remoteSegment;
                 case 4: return idx.useLocalCache;

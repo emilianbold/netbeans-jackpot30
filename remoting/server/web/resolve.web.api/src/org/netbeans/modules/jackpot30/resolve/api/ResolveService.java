@@ -210,6 +210,9 @@ public class ResolveService {
                     return new long[] {-1, -1, -1, -1};
                 }
                 name = ((MethodTree) forTree.getLeaf()).getName();
+                if (name.contentEquals("<init>")) {
+                    name = ((ClassTree) forTree.getParentPath().getLeaf()).getSimpleName();
+                }
                 break;
             case VARIABLE: name = ((VariableTree) forTree.getLeaf()).getName(); break;
         }

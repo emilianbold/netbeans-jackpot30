@@ -51,8 +51,11 @@ import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -65,6 +68,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.ElementFilter;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -77,12 +85,15 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.CompilationInfo;
 import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.java.source.Task;
 import org.netbeans.api.java.source.ui.ElementHeaders;
 import org.netbeans.api.java.source.ui.ScanDialog;
 import org.netbeans.modules.editor.NbEditorUtilities;
 import org.netbeans.modules.jackpot30.common.api.JavaUtils;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
+import org.netbeans.modules.jackpot30.remoting.api.Utilities;
+import org.netbeans.modules.jackpot30.remoting.api.Utilities.RemoteSourceDescription;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.openide.DialogDescriptor;
 import org.openide.DialogDisplayer;
@@ -93,6 +104,7 @@ import org.openide.awt.ActionReference;
 import org.openide.awt.ActionReferences;
 import org.openide.awt.ActionRegistration;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.nodes.Node;
 import org.openide.util.Cancellable;
@@ -129,7 +141,13 @@ public final class RemoteUsages implements ActionListener {
         final Set<SearchOptions> options = EnumSet.noneOf(SearchOptions.class);
         final JButton okButton = new JButton("OK");
         JButton cancelButton = new JButton("Cancel");
-        JPanel dialogContent = constructDialog(element, options, okButton);
+        final ElementHandle[] searchFor = new ElementHandle[1];
+        JPanel dialogContent = constructDialog(element, options, new SelectionListener() {
+            @Override
+            public void elementSelected(ElementHandle<?> selected) {
+                searchFor[0] = selected;
+            }
+        }, okButton);
 
         DialogDescriptor dd = new DialogDescriptor(dialogContent, "Remote Find Usages", true, new Object[] {okButton, cancelButton}, okButton, DialogDescriptor.DEFAULT_ALIGN, null, new ActionListener() {
             @Override public void actionPerformed(ActionEvent e) { }
@@ -141,7 +159,7 @@ public final class RemoteUsages implements ActionListener {
         okButton.addActionListener(new ActionListener() {
             @Override public void actionPerformed(ActionEvent e) {
                 okButton.setEnabled(false);
-                WORKER.post(new FindUsagesWorker(options.contains(SearchOptions.FROM_BASE) ? element.superMethod : element.element, options, d, cancel));
+                WORKER.post(new FindUsagesWorker(searchFor[0], options, d, cancel));
             }
         });
 
@@ -158,38 +176,78 @@ public final class RemoteUsages implements ActionListener {
     private static ElementDescription findElement(final FileObject file, final int pos) {
         final ElementDescription[] handle = new ElementDescription[1];
 
-        final JavaSource js = JavaSource.forFileObject(file);
+        if ("text/x-java".equals(FileUtil.getMIMEType(file, "text/x-java"))) {
+            final JavaSource js = JavaSource.forFileObject(file);
 
-        ScanDialog.runWhenScanFinished(new Runnable() {
-            @Override public void run() {
-                try {
-                    js.runUserActionTask(new Task<CompilationController>() {
-                        @Override public void run(CompilationController parameter) throws Exception {
-                            parameter.toPhase(JavaSource.Phase.RESOLVED);
+            ScanDialog.runWhenScanFinished(new Runnable() {
+                @Override public void run() {
+                    try {
+                        js.runUserActionTask(new Task<CompilationController>() {
+                            @Override public void run(CompilationController parameter) throws Exception {
+                                parameter.toPhase(JavaSource.Phase.RESOLVED);
 
-                            TreePath tp = parameter.getTreeUtilities().pathFor(pos);
-                            Element el = parameter.getTrees().getElement(tp);
+                                TreePath tp = parameter.getTreeUtilities().pathFor(pos);
+                                Element el = parameter.getTrees().getElement(tp);
 
-                            if (el != null && JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
-                                handle[0] = new ElementDescription(parameter, el);
+                                if (el != null && JavaUtils.SUPPORTED_KINDS.contains(el.getKind())) {
+                                    handle[0] = new ElementDescription(parameter, el);
+                                }
                             }
+                        }, true);
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
+                    }
+                }
+
+            }, "Find Remote Usages");
+
+            return handle[0];
+        } else {
+            RemoteSourceDescription rsd = org.netbeans.modules.jackpot30.remoting.api.Utilities.remoteSource(file);
+
+            if (rsd != null) {
+                try {
+                    URI sourceURI = new URI(rsd.idx.remote.toExternalForm() + "/ui/target?path=" + WebUtilities.escapeForQuery(rsd.idx.remoteSegment) + "&relative=" + WebUtilities.escapeForQuery(rsd.relative) + "&position=" + pos);
+                    Map<Object, Object> targetData = Pojson.load(HashMap.class, sourceURI.toURL().openStream());
+
+                    String signature = (String) targetData.get("signature");
+
+                    if (signature != null) {
+                        List<String> baseMethodsSpec = (List<String>) targetData.get("superMethods");
+                        baseMethodsSpec = baseMethodsSpec != null ? baseMethodsSpec : Collections.<String>emptyList();
+                        List<ElementHandle<?>> baseMethods = new ArrayList<ElementHandle<?>>(baseMethodsSpec.size());
+                        for (String spec : baseMethodsSpec) {
+                            baseMethods.add(signature2Handle(spec));
                         }
-                    }, true);
+                        return new ElementDescription(signature2Handle(signature),
+                                                      baseMethods);
+                    }
+                } catch (URISyntaxException ex) {
+                    Exceptions.printStackTrace(ex);
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
                 }
             }
 
-        }, "Find Remote Usages");
-
-        return handle[0];
+            return null;
+        }
     }
 
-    private JPanel constructDialog(ElementDescription toSearch, Set<SearchOptions> options, JButton ok) {
+    private static ElementHandle<?> signature2Handle(String signature) {
+        if (signature == null) return null;
+        String[] parts = signature.split(":");
+        ElementHandle<?> h = Utilities.createElementHandle(ElementKind.valueOf(parts[0]),
+                                                           parts[1],
+                                                           parts.length > 2 ? parts[2] : null,
+                                                           parts.length > 3 ? parts[3] : null);
+        return h;
+    }
+
+    private JPanel constructDialog(ElementDescription toSearch, Set<SearchOptions> options, SelectionListener sl, JButton ok) {
         JPanel searchKind;
 
         switch (toSearch.element.getKind()) {
-            case METHOD: searchKind = new MethodOptions(toSearch, options); break;
+            case METHOD: searchKind = new MethodOptions(toSearch, options, sl); break;
             case CLASS:
             case INTERFACE:
             case ANNOTATION_TYPE: searchKind = new ClassOptions(options); break;
@@ -216,62 +274,86 @@ public final class RemoteUsages implements ActionListener {
         result.setLayout(new BorderLayout());
         result.setBorder(new EmptyBorder(new Insets(12, 12, 12, 12)));
 
-        result.add(new JLabel(toSearch.displayName), BorderLayout.NORTH);
+        result.add(new JLabel("Usages of: " + toSearch.displayName), BorderLayout.NORTH);
         result.add(searchKind, BorderLayout.CENTER);
         result.add(progress, BorderLayout.SOUTH);
 
+        sl.elementSelected(toSearch.element);
+        
         return result;
     }
     
     public static final class ElementDescription {
         public final ElementHandle<?> element;
         public final String displayName;
-        public final ElementHandle<?> superMethod;
-        public final String superMethodDisplayName;
+        public final List<ElementHandle<?>> superMethods;
 
         public ElementDescription(CompilationInfo info, Element el) {
-            this.displayName = displayNameForElement(el, info);
+            element = ElementHandle.create(el);
+            displayName = displayNameForElement(ElementHandle.create(el));
 
             if (el.getKind() == ElementKind.METHOD) {
-                ExecutableElement base = (ExecutableElement) el;
-
-                while (true) {
-                    ExecutableElement current = info.getElementUtilities().getOverriddenMethod(base);
-
-                    if (current == null) break;
-
-                    base = current;
-                }
-
-                if (base != el) {
-                    superMethod = ElementHandle.create(base);
-                    superMethodDisplayName = displayNameForElement(base, info);
-                } else {
-                    superMethod = null;
-                    superMethodDisplayName = null;
-                }
+                superMethods = superMethods(info, new HashSet<TypeElement>(), (ExecutableElement) el, (TypeElement) el.getEnclosingElement());
             } else {
-                superMethod = null;
-                superMethodDisplayName = null;
+                superMethods = null;
             }
-
-            element = ElementHandle.create(el);
         }
 
-        private String displayNameForElement(Element el, CompilationInfo info) throws UnsupportedOperationException {
+        private List<ElementHandle<?>> superMethods(CompilationInfo info, Set<TypeElement> seenTypes, ExecutableElement baseMethod, TypeElement currentType) {
+            if (!seenTypes.add(currentType))
+                return Collections.emptyList();
+
+            List<ElementHandle<?>> result = new ArrayList<ElementHandle<?>>();
+
+            for (TypeElement sup : superTypes(info, currentType)) {
+                for (ExecutableElement ee : ElementFilter.methodsIn(sup.getEnclosedElements())) {
+                    if (info.getElements().overrides(baseMethod, ee, (TypeElement) baseMethod.getEnclosingElement())) {
+                        result.add(ElementHandle.create(ee));
+                    }
+                }
+
+                result.addAll(superMethods(info, seenTypes, baseMethod, currentType));
+            }
+            
+            return result;
+        }
+
+        private List<TypeElement> superTypes(CompilationInfo info, TypeElement type) {
+            List<TypeElement> superTypes = new ArrayList<TypeElement>();
+
+            for (TypeMirror sup : info.getTypes().directSupertypes(type.asType())) {
+                if (sup.getKind() == TypeKind.DECLARED) {
+                    superTypes.add((TypeElement) ((DeclaredType) sup).asElement());
+                }
+            }
+
+            return superTypes;
+        }
+
+        public ElementDescription(ElementHandle<?> element, List<ElementHandle<?>> superMethods) {
+            this.element = element;
+            displayName = displayNameForElement(element);
+            this.superMethods = superMethods;
+        }
+
+        private String displayNameForElement(ElementHandle<?> el) throws UnsupportedOperationException {
+            String[] signatures = SourceUtils.getJVMSignature(el);
+            String classSimpleName = signatures[0];
+            int lastDotDollar = Math.max(classSimpleName.lastIndexOf('.'), classSimpleName.lastIndexOf('$'));
+            if (lastDotDollar > (-1)) classSimpleName = classSimpleName.substring(lastDotDollar + 1);
             switch (el.getKind()) {
                 case METHOD:
-                    return "<html>Method <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME + ElementHeaders.PARAMETERS) + "</b> of class <b>" + ElementHeaders.getHeader(el.getEnclosingElement(), info, ElementHeaders.NAME);
+                    return signatures[1] + Utilities.decodeMethodParameterTypes(signatures[2]);
                 case CONSTRUCTOR:
-                    return "<html>Constructor <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME + ElementHeaders.PARAMETERS) + "</b> of class <b>" + ElementHeaders.getHeader(el.getEnclosingElement(), info, ElementHeaders.NAME);
+                    return classSimpleName + Utilities.decodeMethodParameterTypes(signatures[2]);
                 case CLASS:
                 case INTERFACE:
                 case ENUM:
                 case ANNOTATION_TYPE:
-                    return "<html>Type <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME);
+                    return classSimpleName;
                 case FIELD:
                 case ENUM_CONSTANT:
-                    return "<html>Field <b>" + ElementHeaders.getHeader(el, info, ElementHeaders.NAME) + " of class " + ElementHeaders.getHeader(el.getEnclosingElement(), info, ElementHeaders.NAME);
+                    return signatures[1];
                 default:
                     throw new UnsupportedOperationException();
             }
@@ -302,7 +384,8 @@ public final class RemoteUsages implements ActionListener {
                 Map<RemoteIndex, List<String>> unmappable = new HashMap<RemoteIndex, List<String>>();
 
                 for (RemoteIndex idx : RemoteIndex.loadIndices()) {
-                    FileObject localFolder = URLMapper.findFileObject(idx.getLocalFolder());
+                    URL localFolderURL = idx.getLocalFolder();
+                    FileObject localFolder = localFolderURL != null ? URLMapper.findFileObject(localFolderURL) : null;
 
                     if (options.contains(SearchOptions.USAGES)) {
                         URI resolved = new URI(idx.remote.toExternalForm() + "/usages/search?path=" + WebUtilities.escapeForQuery(idx.remoteSegment) + "&signatures=" + WebUtilities.escapeForQuery(serialized));
@@ -313,7 +396,7 @@ public final class RemoteUsages implements ActionListener {
 
                         for (String path : response) {
                             if (path.trim().isEmpty()) continue;
-                            FileObject file = localFolder.getFileObject(path);
+                            FileObject file = localFolder != null ? localFolder.getFileObject(path) : null;
 
                             if (file != null) {
                                 if (resultSet.add(file)) {
@@ -350,7 +433,7 @@ public final class RemoteUsages implements ActionListener {
                         for (Entry<String, List<Map<String, String>>> e : formattedResponse.entrySet()) {
                             for (Map<String, String> p : e.getValue()) {
                                 String path = p.get("file");
-                                FileObject file = localFolder.getFileObject(path);
+                                FileObject file = localFolder != null ? localFolder.getFileObject(path) : null;
 
                                 if (file != null) {
                                     if (resultSet.add(file)) {
@@ -399,7 +482,10 @@ public final class RemoteUsages implements ActionListener {
 
     public enum SearchOptions {
         USAGES,
-        SUB,
-        FROM_BASE;
+        SUB;
+    }
+
+    public interface SelectionListener {
+        public void elementSelected(ElementHandle<?> selected);
     }
 }

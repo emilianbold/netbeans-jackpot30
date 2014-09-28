@@ -49,6 +49,7 @@ import javax.lang.model.element.Modifier;
 import javax.swing.Icon;
 import org.netbeans.api.java.source.ClasspathInfo;
 import org.netbeans.api.java.source.ElementHandle;
+import org.netbeans.api.java.source.UiUtils;
 import org.netbeans.api.java.source.ui.ElementIcons;
 import org.netbeans.api.java.source.ui.ElementOpen;
 import org.netbeans.modules.jackpot30.jumpto.RemoteGoToType.RemoteTypeDescriptor;
@@ -59,6 +60,7 @@ import org.netbeans.spi.jumpto.type.SearchType;
 import org.netbeans.spi.jumpto.type.TypeDescriptor;
 import org.netbeans.spi.jumpto.type.TypeProvider;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
@@ -130,9 +132,7 @@ public class RemoteGoToType extends RemoteQuery<RemoteTypeDescriptor, String> im
                         fqn = fqn.substring(0, fqn.indexOf("$"));
                     }
 
-                    FileObject originFolder = URLMapper.findFileObject(origin.getLocalFolder());
-
-                    return originFolder != null ? originFolder.getFileObject(relativePath + "/" + fqn.replace('.', '/') + ".java") : null;
+                    return origin.getFile(relativePath + fqn.replace('.', '/') + ".java");
                 }
             };
         }
@@ -206,10 +206,15 @@ public class RemoteGoToType extends RemoteQuery<RemoteTypeDescriptor, String> im
 
             if (file == null) return ; //XXX tell to the user
 
-            ClasspathInfo cpInfo = ClasspathInfo.create(file);
-            ElementHandle<?> handle = ElementHandle.createTypeElementHandle(ElementKind.CLASS, binaryName);
+            if ("text/x-java".equals(FileUtil.getMIMEType(file, "text/x-java"))) {
+                ClasspathInfo cpInfo = ClasspathInfo.create(file);
+                ElementHandle<?> handle = ElementHandle.createTypeElementHandle(ElementKind.CLASS, binaryName);
 
-            ElementOpen.open(cpInfo, handle);
+                ElementOpen.open(cpInfo, handle);
+            } else {
+                //TODO: should jump to the correct place in the file
+                UiUtils.open(file, 0);
+            }
         }
 
     }

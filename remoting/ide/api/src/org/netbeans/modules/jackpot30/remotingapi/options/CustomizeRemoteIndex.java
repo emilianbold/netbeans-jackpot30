@@ -277,7 +277,8 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
 
     private String tempSubIndexSelection;
     public void setIndex(RemoteIndex index) {
-        folder.setText(Utils.toDisplayName(index.getLocalFolder()));
+        URL localFolder = index.getLocalFolder();
+        folder.setText(localFolder != null ? Utils.toDisplayName(localFolder) : "");
         indexURL.setText(index.remote.toExternalForm());
         tempSubIndexSelection = index.remoteSegment;
     }
@@ -294,7 +295,8 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     
     public RemoteIndex getIndex() {
         try {
-            return RemoteIndex.create(Utils.fromDisplayName(folder.getText()), new URL(indexURL.getText()), getSubIndexSelectedItem());
+            String folderText = folder.getText();
+            return RemoteIndex.create(!folderText.isEmpty() ? Utils.fromDisplayName(folderText) : null, new URL(indexURL.getText()), getSubIndexSelectedItem());
         } catch (MalformedURLException ex) {
             throw new IllegalStateException(ex);
         }
@@ -309,19 +311,23 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     private void updateErrors() {
         notificationSupport.clearMessages();
 
-        URL folderURL = Utils.fromDisplayName(folder.getText());
-        FileObject folder = URLMapper.findFileObject(folderURL);
+        String folderText = folder.getText();
 
-        if (folder == null) {
-            notificationSupport.setErrorMessage("Specified directory does not exist.");
-            okButton.setEnabled(false);
-            return;
-        }
+        if (!folderText.isEmpty()) {
+            URL folderURL = Utils.fromDisplayName(folderText);
+            FileObject folder = URLMapper.findFileObject(folderURL);
 
-        if (!folder.isFolder()) {
-            notificationSupport.setErrorMessage("Specified directory is not directory.");
-            okButton.setEnabled(false);
-            return ;
+            if (folder == null) {
+                notificationSupport.setErrorMessage("Specified directory does not exist.");
+                okButton.setEnabled(false);
+                return;
+            }
+
+            if (!folder.isFolder()) {
+                notificationSupport.setErrorMessage("Specified directory is not directory.");
+                okButton.setEnabled(false);
+                return ;
+            }
         }
 
         if (checkingIndexURL.get()) {
@@ -463,6 +469,9 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
     private final RequestProcessor.Task indexInfoTask = WORKER.create(new Runnable() {
 
         public void run() {
+            String localFolder = checkingIndexFolderContentCopy.get();
+
+            if (!localFolder.isEmpty()) {
             checkingIndexAgainstFolder.set(true);
             checkingIndexURLWarning.set(null);
 
@@ -474,7 +483,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
             
             String urlText = indexInfoURLContentCopy.get();
             String subIndex = indexInfoSubIndexCopy.get();
-            URL folderURL = Utils.fromDisplayName(checkingIndexFolderContentCopy.get());
+            URL folderURL = Utils.fromDisplayName(localFolder);
             FileObject folder = URLMapper.findFileObject(folderURL);
 
             try {
@@ -527,6 +536,7 @@ public class CustomizeRemoteIndex extends javax.swing.JPanel {
                 checkingIndexURLError.set("Invalid URL");
             } finally {
                 checkingIndexAgainstFolder.set(false);
+            }
             }
 
             //XXX: the index currently does not provide the info anyway...

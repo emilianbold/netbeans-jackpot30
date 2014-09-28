@@ -8,15 +8,15 @@
     <import file="${suite.dir}/../../findbugs-import.xml"/>
     
     <target name="-check-jerig-downloaded">
-        <available file="external/jerig-36929ddc99ff.zip" property="jerig.downloaded"/>
+        <available file="external/jerig-6142f6ca1038.zip" property="jerig.downloaded"/>
     </target>
     <target name="-download-jerig" depends="-check-jerig-downloaded" unless="jerig.downloaded">
         <mkdir dir="external" />
-        <get src="http://kenai.com/downloads/jackpot30/external/jerig-36929ddc99ff.zip" dest="external/jerig-36929ddc99ff.zip" usetimestamp="true"/>
+        <get src="http://kenai.com/downloads/jackpot30/external/jerig-6142f6ca1038.zip" dest="external/jerig-6142f6ca1038.zip" usetimestamp="true"/>
     </target>
     
     <target name="files-init" depends="projectized-common.files-init,-download-jerig">
-        <unzip src="external/jerig-36929ddc99ff.zip" dest="external" overwrite="false" />
+        <unzip src="external/jerig-6142f6ca1038.zip" dest="external" overwrite="false" />
         <mkdir dir="${cluster}/modules/ext" />
         <copy  todir="${cluster}/modules/ext">
             <fileset dir="external" includes="*pojson*.jar" />

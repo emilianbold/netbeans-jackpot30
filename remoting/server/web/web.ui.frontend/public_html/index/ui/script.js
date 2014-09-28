@@ -283,7 +283,9 @@ function ShowSourceCode($scope, $http, $routeParams, $location) {
             } else if ("position" in parsedData) {
                 setHash($location, "p" + parsedData.position);
             } else if ("source" in parsedData) {
-                window.location = "#/showCode?path=" + parsedData.path + "&relative=" + parsedData.source + "&goto=" + parsedData.signature;
+                $location.hash("p" + pos);
+                $location.replace();
+                $location.url("/showCode?path=" + parsedData.path + "&relative=" + parsedData.source + "&goto=" + parsedData.signature);
             } else if ("targets" in parsedData) {
                 var popupContent = "The target element is defined in the following files:<br>";
                 popupContent += "<ul>";
@@ -446,8 +448,6 @@ function addHighlights(highlights) {
 function doColoring(path, relative, $highlights, $spans, $scope, $location, $routeParams, $http, sourceCode) {
     $scope.sourceCode = tokenColoring(sourceCode, $highlights, $spans);
 
-    $location.replace();
-
     if (!$location.hash()) {
         var goto = $routeParams.goto;
 
@@ -455,6 +455,9 @@ function doColoring(path, relative, $highlights, $spans, $scope, $location, $rou
             $http.get('/index/ui/declarationSpan?path=' + path + '&relative=' + relative + '&signature=' + unescape(goto)).success(function(parsedData) {
                 if (parsedData[2] !== (-1)) {
                     setHash($location, "p" + parsedData[2]);
+//                    $location.hash("p" + parsedData[2]);
+                    $location.replace();
+//                    alert(parsedData[2]);
                 }
             });
         }

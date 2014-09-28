@@ -41,9 +41,6 @@
  */
 package org.netbeans.modules.jackpot30.jumpto;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Collection;
@@ -51,8 +48,6 @@ import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.swing.Icon;
@@ -63,6 +58,7 @@ import org.netbeans.api.java.source.ui.ElementOpen;
 import org.netbeans.modules.jackpot30.jumpto.RemoteGoToSymbol.RemoteSymbolDescriptor;
 import org.netbeans.modules.jackpot30.jumpto.RemoteQuery.SimpleNameable;
 import org.netbeans.modules.jackpot30.remoting.api.RemoteIndex;
+import org.netbeans.modules.jackpot30.remoting.api.Utilities;
 import org.netbeans.modules.jackpot30.remoting.api.WebUtilities;
 import org.netbeans.spi.jumpto.symbol.SymbolDescriptor;
 import org.netbeans.spi.jumpto.symbol.SymbolProvider;
@@ -78,7 +74,6 @@ import org.openide.util.lookup.ServiceProvider;
  */
 @ServiceProvider(service=SymbolProvider.class)
 public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<String, Object>> implements SymbolProvider {
-    private static final Logger LOG = Logger.getLogger(RemoteGoToSymbol.class.getName());
 
     @Override
     public String name() {
@@ -191,7 +186,7 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<St
             if (file == null) return ; //XXX tell to the user
 
             ClasspathInfo cpInfo = ClasspathInfo.create(file);
-            ElementHandle<?> handle = createElementHandle(resolveKind(), (String) properties.get("enclosingFQN"), (String) properties.get("simpleName"), (String) properties.get("vmsignature"));
+            ElementHandle<?> handle = Utilities.createElementHandle(resolveKind(), (String) properties.get("enclosingFQN"), (String) properties.get("simpleName"), (String) properties.get("vmsignature"));
 
             ElementOpen.open(cpInfo, handle);
         }
@@ -203,7 +198,7 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<St
             name.append(properties.get("simpleName"));
 
             if (properties.containsKey("signature") && (resolveKind() == ElementKind.METHOD || resolveKind() == ElementKind.CONSTRUCTOR)) {
-                methodParameterTypes((String) properties.get("signature"), new int[] {0}, name);
+                name.append(Utilities.decodeMethodParameterTypes((String) properties.get("signature")));
             }
 
             return name.toString();
@@ -220,144 +215,5 @@ public class RemoteGoToSymbol extends RemoteQuery<RemoteSymbolDescriptor, Map<St
         }
 
     }
-
-    private static ElementHandle<?> createElementHandle(ElementKind kind, String clazz, String simpleName, String signature) {
-        try {
-            Class<?> elementHandleAccessor = Class.forName("org.netbeans.modules.java.source.ElementHandleAccessor", false, ElementHandle.class.getClassLoader());
-            Field instance = elementHandleAccessor.getDeclaredField("INSTANCE");
-            Method m = elementHandleAccessor.getDeclaredMethod("create", ElementKind.class, String.class, String.class, String.class);
-            return (ElementHandle<?>) m.invoke(instance.get(null), kind, clazz, simpleName, signature);
-        } catch (IllegalAccessException ex) {
-            LOG.log(Level.INFO, null, ex);
-        } catch (IllegalArgumentException ex) {
-            LOG.log(Level.INFO, null, ex);
-        } catch (InvocationTargetException ex) {
-            LOG.log(Level.INFO, null, ex);
-        } catch (NoSuchMethodException ex) {
-            LOG.log(Level.INFO, null, ex);
-        } catch (NoSuchFieldException ex) {
-            LOG.log(Level.INFO, null, ex);
-        } catch (SecurityException ex) {
-            LOG.log(Level.INFO, null, ex);
-        } catch (ClassNotFoundException ex) {
-            LOG.log(Level.INFO, null, ex);
-        }
-
-        return ElementHandle.createTypeElementHandle(ElementKind.CLASS, clazz);
-    }
     
-    private static char getChar (final String buffer, final int pos) {
-        if (pos>=buffer.length()) {
-            throw new IllegalStateException ();
-        }
-        return buffer.charAt(pos);
-    }
-
-    private static String typeArgument (final String jvmTypeId, final int[] pos) {
-        char c = getChar (jvmTypeId, pos[0]);
-        switch (c) {
-            case '*': 
-                pos[0]++;
-                return ""; //XXX?
-            case '+':
-                pos[0]++;
-                return "? extends " + typeSignatureType(jvmTypeId, pos);
-            case '-':
-                pos[0]++;
-                return "? super " + typeSignatureType(jvmTypeId, pos);
-            default:
-                return typeSignatureType (jvmTypeId, pos);
-        }
-    }
-
-
-    private static void typeArgumentsList (final String jvmTypeId, final int[] pos, StringBuilder result) {
-        char c = getChar (jvmTypeId, pos[0]++);
-        if (c != '<') {
-            throw new IllegalStateException (jvmTypeId);
-        }
-        c = getChar (jvmTypeId, pos[0]);
-        boolean first = true;
-        while (c !='>') {
-            if (!first) result.append(", ");
-            first = false;
-            result.append(typeArgument (jvmTypeId, pos));
-            c = getChar (jvmTypeId, pos[0]);
-        }
-        pos[0]++;
-    }
-
-    static boolean generateSimpleNames = true;
-
-    private static String typeSignatureType (final String jvmTypeId, final int[] pos) {
-        char c = getChar(jvmTypeId, pos[0]++);
-        switch (c) {
-            case 'B': return "byte";
-            case 'C': return "char";
-            case 'D': return "double";
-            case 'F': return "float";
-            case 'I': return "int";
-            case 'J': return "long";
-            case 'S': return "short";
-            case 'V': return "void";
-            case 'Z': return "boolean";
-            case 'L': {
-                StringBuilder builder = new StringBuilder ();
-                c = getChar(jvmTypeId, pos[0]++);
-                while (c != ';') {
-                    if (c == '/' || c == '$') {
-                        if (generateSimpleNames) builder.delete(0, builder.length());
-                        else builder.append('.');
-                    } else {
-                        builder.append(c);
-                    }
-
-                    if (c=='<') {
-                        pos[0]--;
-                        typeArgumentsList (jvmTypeId, pos, builder);
-                        builder.append(">");
-                    }
-                    c = getChar(jvmTypeId, pos[0]++);
-                }
-                return builder.toString();
-            }
-            case 'T': {
-                StringBuilder builder = new StringBuilder ();
-                c = getChar(jvmTypeId, pos[0]++);
-                while (c != ';') {
-                    builder.append(c);
-                    c = getChar(jvmTypeId, pos[0]++);
-                }
-                return builder.toString();
-            }
-            case '[':
-                return typeSignatureType (jvmTypeId, pos) + "[]";
-            default:
-                return "<unknown-type>";
-        }
-    }
-
-    private static void methodParameterTypes(final String jvmTypeId, final int[] pos, StringBuilder result) {
-        char c = getChar (jvmTypeId, pos[0]);
-        if (c == '<') {
-            do {
-                c = getChar (jvmTypeId, pos[0]++);
-            } while (c != '>');
-            c = getChar (jvmTypeId, pos[0]);
-        }
-        if (c!='(') {
-            throw new IllegalStateException (jvmTypeId);
-        }
-        pos[0]++;
-        c = getChar (jvmTypeId, pos[0]);
-        result.append("(");
-        boolean first = true;
-        while (c != ')') {
-            if (!first) result.append(", ");
-            first = false;
-            result.append(typeSignatureType (jvmTypeId, pos));
-            c = getChar (jvmTypeId, pos[0]);
-        }
-        result.append(")");
-    }
 }

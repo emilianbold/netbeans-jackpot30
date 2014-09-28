@@ -41,7 +41,15 @@
  */
 package org.netbeans.modules.jackpot30.ide.usages;
 
+import java.awt.Component;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.Set;
+import javax.swing.DefaultListCellRenderer;
+import javax.swing.JList;
+import org.netbeans.api.java.source.ElementHandle;
+import org.netbeans.api.java.source.SourceUtils;
+import org.netbeans.modules.jackpot30.ide.usages.RemoteUsages.SelectionListener;
 
 /**
  *
@@ -49,17 +57,42 @@ import java.util.Set;
  */
 public class MethodOptions extends javax.swing.JPanel {
 
-    private final String superMethod;
     private final Set<RemoteUsages.SearchOptions> options;
 
-    public MethodOptions(RemoteUsages.ElementDescription element, Set<RemoteUsages.SearchOptions> options) {
-        superMethod = element.superMethodDisplayName != null ? element.superMethodDisplayName : "";
+    public MethodOptions(RemoteUsages.ElementDescription element, Set<RemoteUsages.SearchOptions> options, final SelectionListener sl) {
         this.options = options;
         
         initComponents();
 
-        if (element.superMethod == null) fromBaseClass.setVisible(false);
-        else fromBaseClass.setSelected(true);
+        fromClass.removeAllItems();
+        fromClass.addItem(element.element);
+
+        for (ElementHandle<?> superMethod : element.superMethods) {
+            fromClass.addItem(superMethod);
+        }
+
+        fromClass.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                if (value instanceof ElementHandle) {
+                    ElementHandle<?> m = (ElementHandle<?>) value;
+
+                    value = SourceUtils.getJVMSignature(m)[0]; //TODO: icon???
+                }
+                return super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+            }
+        });
+
+        fromClass.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                sl.elementSelected((ElementHandle<?>) fromClass.getSelectedItem());
+            }
+        });
+
+        if (fromClass.getModel().getSize() == 1) {
+            fromClass.setEnabled(false);
+        }
 
         usages.setSelected(true);
     }
@@ -75,7 +108,8 @@ public class MethodOptions extends javax.swing.JPanel {
 
         usages = new javax.swing.JCheckBox();
         overriding = new javax.swing.JCheckBox();
-        fromBaseClass = new javax.swing.JCheckBox();
+        jLabel3 = new javax.swing.JLabel();
+        fromClass = new javax.swing.JComboBox();
 
         usages.setText(org.openide.util.NbBundle.getMessage(MethodOptions.class, "MethodOptions.usages.text")); // NOI18N
         usages.addItemListener(new java.awt.event.ItemListener() {
@@ -91,12 +125,9 @@ public class MethodOptions extends javax.swing.JPanel {
             }
         });
 
-        fromBaseClass.setText(org.openide.util.NbBundle.getMessage(MethodOptions.class, "MethodOptions.fromBaseClass.text", new Object[] {superMethod})); // NOI18N
-        fromBaseClass.addItemListener(new java.awt.event.ItemListener() {
-            public void itemStateChanged(java.awt.event.ItemEvent evt) {
-                fromBaseClassItemStateChanged(evt);
-            }
-        });
+        jLabel3.setText(org.openide.util.NbBundle.getMessage(MethodOptions.class, "MethodOptions.jLabel3.text", new Object[] {})); // NOI18N
+
+        fromClass.setModel(new javax.swing.DefaultComboBoxModel(new String[] { "Item 1", "Item 2", "Item 3", "Item 4" }));
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(this);
         this.setLayout(layout);
@@ -105,20 +136,25 @@ public class MethodOptions extends javax.swing.JPanel {
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(usages)
-                    .addComponent(overriding)
-                    .addComponent(fromBaseClass))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addGroup(layout.createSequentialGroup()
+                        .addComponent(jLabel3)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
+                        .addComponent(fromClass, 0, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                    .addComponent(overriding, javax.swing.GroupLayout.DEFAULT_SIZE, 328, Short.MAX_VALUE)
+                    .addComponent(usages, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
                 .addContainerGap()
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(jLabel3)
+                    .addComponent(fromClass, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(18, 18, 18)
                 .addComponent(usages)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(overriding)
-                .addGap(18, 18, 18)
-                .addComponent(fromBaseClass)
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
         );
     }// </editor-fold>//GEN-END:initComponents
@@ -137,15 +173,9 @@ public class MethodOptions extends javax.swing.JPanel {
             options.remove(RemoteUsages.SearchOptions.SUB);
     }//GEN-LAST:event_overridingItemStateChanged
 
-    private void fromBaseClassItemStateChanged(java.awt.event.ItemEvent evt) {//GEN-FIRST:event_fromBaseClassItemStateChanged
-        if (fromBaseClass.isSelected())
-            options.add(RemoteUsages.SearchOptions.FROM_BASE);
-        else
-            options.remove(RemoteUsages.SearchOptions.FROM_BASE);
-    }//GEN-LAST:event_fromBaseClassItemStateChanged
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JCheckBox fromBaseClass;
+    private javax.swing.JComboBox fromClass;
+    private javax.swing.JLabel jLabel3;
     private javax.swing.JCheckBox overriding;
     private javax.swing.JCheckBox usages;
     // End of variables declaration//GEN-END:variables

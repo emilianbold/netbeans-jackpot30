@@ -42,6 +42,9 @@
 
 package org.netbeans.modules.jackpot30.remoting.api;
 
+import java.io.IOException;
+import java.lang.ref.Reference;
+import java.lang.ref.SoftReference;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.LinkedList;
@@ -49,7 +52,13 @@ import java.util.List;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import org.codeviation.pojson.Pojson;
+import org.netbeans.api.annotations.common.CheckForNull;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.modules.jackpot30.remotingapi.options.Utils;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileSystem;
+import org.openide.filesystems.FileUtil;
+import org.openide.filesystems.URLMapper;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.NbPreferences;
@@ -66,12 +75,12 @@ public class RemoteIndex {
     public final URL    remote;
     public final String remoteSegment;
 
-    public static RemoteIndex create(URL localFolder, URL remote, String remoteSegment) {
+    public static RemoteIndex create(@NullAllowed URL localFolder, URL remote, String remoteSegment) {
         return create(true, UseLocalCache.NEVER, localFolder, remote, remoteSegment);
     }
 
-    public static RemoteIndex create(boolean enabled, UseLocalCache useLocalCache, URL localFolder, URL remote, String remoteSegment) {
-        return new RemoteIndex(enabled, useLocalCache, localFolder.toExternalForm(), remote, remoteSegment);
+    public static RemoteIndex create(boolean enabled, UseLocalCache useLocalCache, @NullAllowed URL localFolder, URL remote, String remoteSegment) {
+        return new RemoteIndex(enabled, useLocalCache, localFolder != null ? localFolder.toExternalForm() : null, remote, remoteSegment);
     }
 
     private RemoteIndex() {//used by Pojson
@@ -90,8 +99,41 @@ public class RemoteIndex {
         this.remoteSegment = remoteSegment;
     }
 
-    public URL getLocalFolder() {
-        return Utils.fromDisplayName(folder);
+    public @CheckForNull URL getLocalFolder() {
+        return folder != null ? Utils.fromDisplayName(folder) : null;
+    }
+
+    private Reference<FileSystem> data;
+
+    public FileObject getFile(String relativePath) {
+        if (folder == null) {
+            FileSystem fs;
+
+            synchronized (this) {
+                fs = data != null ? data.get() : null;
+
+                if (fs == null) data = new SoftReference<FileSystem>(fs = FileUtil.createMemoryFileSystem());
+            }
+
+            String remoteRelativePath = relativePath.replace(".java", ".rjava");
+
+            FileObject result = fs.getRoot().getFileObject(remoteRelativePath);
+
+            if (result == null) {
+                try {
+                    result = FileUtil.createData(fs.getRoot(), remoteRelativePath);
+                    result.setAttribute("remoteIndex", this);
+                    result.setAttribute("relative", relativePath);
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+
+            return result;
+        }
+        FileObject originFolder = URLMapper.findFileObject(getLocalFolder());
+
+        return originFolder != null ? originFolder.getFileObject(relativePath) : null;
     }
 
     private static final String KEY_REMOTE_INDICES = RemoteIndex.class.getSimpleName();

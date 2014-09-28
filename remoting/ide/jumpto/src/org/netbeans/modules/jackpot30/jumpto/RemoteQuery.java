@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
 import java.net.URI;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -144,7 +145,8 @@ public abstract class RemoteQuery<R extends SimpleNameable, P> {
         Set<FileObject> sources = GlobalPathRegistry.getDefault().getSourceRoots();
         
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
-            FileObject originFolder = URLMapper.findFileObject(ri.getLocalFolder());
+            URL localFolder = ri.getLocalFolder();
+            FileObject originFolder = localFolder != null ? URLMapper.findFileObject(localFolder) : null;
             URI url = computeURL(ri, text, searchType);
 
             if (url == null) continue;

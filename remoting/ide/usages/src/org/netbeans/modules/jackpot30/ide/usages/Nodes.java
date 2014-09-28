@@ -110,6 +110,7 @@ import org.openide.util.ImageUtilities;
 import org.openide.util.NbBundle;
 import org.openide.util.lookup.AbstractLookup;
 import org.openide.util.lookup.InstanceContent;
+import org.openide.util.lookup.Lookups;
 
 /**
  *
@@ -184,8 +185,22 @@ public class Nodes {
                         toPopulate.addAll(e.getValue());
                         return true;
                     }
-                    @Override protected Node createNodeForKey(String rel) {
-                        AbstractNode fileNode = new AbstractNode(Children.LEAF);
+                    @Override protected Node createNodeForKey(final String rel) {
+                        OpenCookie open = new OpenCookie() {
+                            @Override public void open() {
+                                UiUtils.open(e.getKey().getFile(rel), 0);
+                            }
+                        };
+                        AbstractNode fileNode = new AbstractNode(Children.LEAF, Lookups.singleton(open)) {
+                            @Override public Action[] getActions(boolean context) {
+                                return new Action[] {
+                                    OpenAction.get(OpenAction.class)
+                                };
+                            }
+                            @Override public Action getPreferredAction() {
+                                return OpenAction.get(OpenAction.class);
+                            }
+                        };
 
                         fileNode.setDisplayName(rel);
                         return fileNode;

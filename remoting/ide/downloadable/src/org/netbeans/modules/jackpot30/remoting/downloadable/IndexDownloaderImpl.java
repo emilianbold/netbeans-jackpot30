@@ -72,7 +72,8 @@ public class IndexDownloaderImpl implements IndexDownloader {
         if (sourceRootFO == null) return null;
 
         for (RemoteIndex ri : RemoteIndex.loadIndices()) {
-            FileObject indexRootFO = URLMapper.findFileObject(ri.getLocalFolder());
+            URL localFolderURL = ri.getLocalFolder();
+            FileObject indexRootFO = localFolderURL != null ? URLMapper.findFileObject(localFolderURL) : null;
 
             if (indexRootFO == null) continue;
 
