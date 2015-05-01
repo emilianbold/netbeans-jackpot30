@@ -36,7 +36,7 @@
         <download url="http://repo1.maven.org/maven2/org/apache/lucene/lucene-core/3.5.0/lucene-core-3.5.0-sources.jar" target="lucene-3.5.0/lucene-core-3.5.0-sources.jar" />
 
         <download url="http://repo1.maven.org/maven2/junit/junit/4.5/junit-4.5.jar" target="junit_4/junit-4.5.jar" />
-        <download url="http://switch.dl.sourceforge.net/project/junit/junit/4.5/junit4.5.zip" target="junit_4/junit-4.5-api.zip" />
+<!--        <download url="http://switch.dl.sourceforge.net/project/junit/junit/4.5/junit4.5.zip" target="junit_4/junit-4.5-api.zip" />-->
         <download url="http://repo1.maven.org/maven2/junit/junit/4.5/junit-4.5-sources.jar" target="junit_4/junit-4.5-src.jar" />
         
         <download url="http://repo1.maven.org/maven2/junit/junit/3.8.2/junit-3.8.2.jar" target="junit/junit-3.8.2.jar" />
