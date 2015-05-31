@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Set;
 import junit.extensions.TestSetup;
 import junit.framework.Test;
+import org.hamcrest.Condition;
 import org.junit.runner.JUnitCore;
 import org.netbeans.junit.NbTestSuite;
 import org.openide.filesystems.FileUtil;
@@ -106,7 +107,7 @@ public class CreateToolTest extends MainTest {
         List<String> ll = new LinkedList<String>();
         ll.add("java");
         ll.add("-classpath");
-        ll.add(compiler.getAbsolutePath() + File.pathSeparator + classes.getAbsolutePath() + File.pathSeparator + new File(JUnitCore.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath());
+        ll.add(compiler.getAbsolutePath() + File.pathSeparator + classes.getAbsolutePath() + File.pathSeparator + new File(JUnitCore.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath() + File.pathSeparator + new File(Condition.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath());
 
 //        ll.add("-Xdebug");
 //        ll.add("-Xrunjdwp:transport=dt_socket,suspend=y,server=y,address=8889");

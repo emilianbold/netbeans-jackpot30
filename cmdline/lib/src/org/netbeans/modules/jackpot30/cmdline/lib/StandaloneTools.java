@@ -38,22 +38,26 @@
  */
 package org.netbeans.modules.jackpot30.cmdline.lib;
 
+import java.beans.PropertyChangeListener;
 import java.beans.PropertyVetoException;
 import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.StringTokenizer;
 import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.prefs.PreferencesFactory;
 import javax.swing.event.ChangeListener;
+import javax.swing.text.Document;
 import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.queries.SourceForBinaryQuery;
@@ -63,6 +67,8 @@ import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings.GlobalSetti
 import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.java.source.parsing.JavacParser;
 import org.netbeans.modules.java.source.parsing.JavacParserFactory;
+import org.netbeans.modules.parsing.impl.indexing.implspi.ActiveDocumentProvider;
+import org.netbeans.spi.editor.document.EditorMimeTypesImplementation;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.java.queries.SourceForBinaryQueryImplementation;
@@ -87,18 +93,6 @@ import org.openide.util.lookup.ServiceProvider;
 public class StandaloneTools {
 
     @ServiceProvider(service=MimeDataProvider.class)
-    public static final class MimeDataProviderImpl implements MimeDataProvider {
-
-        private static final Lookup L = Lookups.fixed(new JavacParserFactory(), new JavaCustomIndexer.Factory());
-
-        public Lookup getLookup(MimePath mimePath) {
-            if ("text/x-java".equals(mimePath.getPath()))
-                return L;
-            return null;
-        }
-        
-    }
-
     public static final class StandaloneMimeDataProviderImpl implements MimeDataProvider {
 
         private static final Lookup L = Lookups.fixed(NbPreferences.forModule(StandaloneTools.class), new JavacParserFactory(), new JavaCustomIndexer.Factory(), new GlobalSettingsProvider());
@@ -335,6 +329,49 @@ public class StandaloneTools {
             }
 
             return null;
+        }
+
+    }
+
+    @ServiceProvider(service=ActiveDocumentProvider.class)
+    public static final class ActiveDocumentProviderImpl implements ActiveDocumentProvider {
+
+        @Override
+        public Document getActiveDocument() {
+            return null;
+        }
+
+        @Override
+        public Set<? extends Document> getActiveDocuments() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public void addActiveDocumentListener(ActiveDocumentListener listener) {
+        }
+
+        @Override
+        public void removeActiveDocumentListener(ActiveDocumentListener listener) {
+        }
+
+    }
+
+    @ServiceProvider(service=EditorMimeTypesImplementation.class)
+    public static final class EditorMimeTypesImplementationImpl implements EditorMimeTypesImplementation {
+
+        private static final Set<String> MIME_TYPES = Collections.singleton("text/x-java");
+
+        @Override
+        public Set<String> getSupportedMimeTypes() {
+            return MIME_TYPES;
+        }
+
+        @Override
+        public void addPropertyChangeListener(PropertyChangeListener listener) {
+        }
+
+        @Override
+        public void removePropertyChangeListener(PropertyChangeListener listener) {
         }
 
     }

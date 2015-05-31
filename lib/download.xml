@@ -69,7 +69,7 @@
 
     <target name="copy-from-platform">
         <fail unless="nbplatform.active.dir" />
-        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-source.jar" todir="." />
+        <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-source-base.jar" todir="." />
         <copy file="${nbplatform.active.dir}/java/modules/org-netbeans-modules-java-hints.jar" todir="." />
         <copy file="${nbplatform.active.dir}/platform/core/org-openide-filesystems.jar" todir="." />
         <copy file="${nbplatform.active.dir}/platform/lib/org-openide-util.jar" todir="." />

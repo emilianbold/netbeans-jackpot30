@@ -259,7 +259,7 @@ public class CompilationInfoHack extends WorkingCopy {
     }
 
     public ModificationResult computeResult() throws IOException, BadLocationException {
-        ModificationResult mr = new ModificationResult(null);
+        ModificationResult mr = new ModificationResult();
 
         mr.diffs.put(getFileObject(), getChanges(new HashMap<Object, int[]>()));
 

@@ -92,7 +92,7 @@ public class Base {
                 //nameKind = panel.isCaseSensitive() ? SearchType.EXACT_NAME : SearchType.CASE_INSENSITIVE_EXACT_NAME;
                 queryKind = QueryKind.EXACT;
             }
-            else if ((Utils.isAllUpper(prefix) && prefix.length() > 1) || Utils.isCamelCase(prefix)) {
+            else if ((Utils.isAllUpper(prefix) && prefix.length() > 1) || Queries.isCamelCase(prefix, null, null)) {
                 queryKind = QueryKind.CAMEL_CASE;
             }
             else if (wildcard != -1) {

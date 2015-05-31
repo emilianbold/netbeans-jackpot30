@@ -101,6 +101,7 @@ import org.netbeans.modules.java.source.JavaSourceAccessor;
 import org.netbeans.modules.java.source.parsing.CompilationInfoImpl;
 import org.netbeans.modules.java.source.save.DiffUtilities;
 import org.netbeans.modules.java.source.save.ElementOverlay;
+import org.netbeans.modules.parsing.api.Source;
 import org.netbeans.modules.refactoring.spi.RefactoringElementImplementation;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
@@ -201,11 +202,13 @@ public class BatchUtilities {
                 Charset encoding = FileEncodingQuery.getEncoding(e.getKey());
                 final Document originalDocument = getDocument(e.getKey());
                 final String[] origContent = new String[1];
+                final Source[] s = new Source[1];
                 if (originalDocument != null) {
                     originalDocument.render(new Runnable() {
                         @Override public void run() {
                             try {
                                 origContent[0] = originalDocument.getText(0, originalDocument.getLength());
+                                s[0] = Source.create(originalDocument);
                             } catch (BadLocationException ex) {
                                 Exceptions.printStackTrace(ex);
                             }
@@ -219,7 +222,7 @@ public class BatchUtilities {
                 }
                 String newContent  = encoding.newDecoder().decode(ByteBuffer.wrap(e.getValue())).toString();
 
-                result.put(e.getKey(), DiffUtilities.diff2ModificationResultDifference(e.getKey(), null, Collections.<Integer, String>emptyMap(), origContent[0], newContent));
+                result.put(e.getKey(), DiffUtilities.diff2ModificationResultDifference(e.getKey(), null, Collections.<Integer, String>emptyMap(), origContent[0], newContent, s[0]));
             } catch (BadLocationException ex) {
                 Exceptions.printStackTrace(ex);
             } catch (IOException ex) {

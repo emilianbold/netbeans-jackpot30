@@ -73,9 +73,14 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.classfile.ClassFile;
 import org.netbeans.modules.classfile.ClassName;
+import org.netbeans.modules.editor.mimelookup.MimeLookupCacheSPI;
+import org.netbeans.modules.editor.mimelookup.SharedMimeLookupCache;
+import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.ActiveDocumentProviderImpl;
+import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.EditorMimeTypesImplementationImpl;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.JavaMimeResolver;
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
 import org.netbeans.modules.jackpot30.common.api.IndexAccess;
+import org.netbeans.modules.java.classpath.DefaultGlobalPathRegistryImplementation;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
 import org.netbeans.modules.java.hints.providers.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.providers.code.FSWrapper;
@@ -85,8 +90,17 @@ import org.netbeans.modules.java.hints.providers.spi.HintProvider;
 import org.netbeans.modules.java.hints.spiimpl.RulesManager;
 import org.netbeans.modules.java.hints.spiimpl.RulesManagerImpl;
 import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
+import org.netbeans.modules.java.source.DefaultPositionRefProvider;
+import org.netbeans.modules.java.source.PositionRefProvider;
+import org.netbeans.modules.parsing.impl.indexing.implspi.ActiveDocumentProvider;
+import org.netbeans.modules.parsing.implspi.EnvironmentFactory;
+import org.netbeans.modules.parsing.nb.DataObjectEnvFactory;
+import org.netbeans.modules.projectapi.nb.NbProjectManager;
+import org.netbeans.spi.editor.document.EditorMimeTypesImplementation;
 import org.netbeans.spi.editor.mimelookup.MimeDataProvider;
+import org.netbeans.spi.java.classpath.GlobalPathRegistryImplementation;
 import org.netbeans.spi.java.hints.Hint;
+import org.netbeans.spi.project.ProjectManagerImplementation;
 import org.openide.filesystems.MIMEResolver;
 import org.openide.util.NbCollections;
 import org.openide.util.NbPreferences.Provider;
@@ -264,6 +278,9 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         registrations.add(new MetaInfRegistration(MimeDataProvider.class.getName(), StandaloneTools.StandaloneMimeDataProviderImpl.class.getName()));
         registrations.add(new MetaInfRegistration(SPI.class.getName(), StandaloneTools.UtilitiesSPIImpl.class.getName()));
         registrations.add(new MetaInfRegistration(MIMEResolver.class.getName(), JavaMimeResolver.class.getName()));
+        registrations.add(new MetaInfRegistration(ActiveDocumentProvider.class.getName(), ActiveDocumentProviderImpl.class.getName()));
+        registrations.add(new MetaInfRegistration(EditorMimeTypesImplementation.class.getName(), EditorMimeTypesImplementationImpl.class.getName()));
+        registrations.add(new MetaInfRegistration(PositionRefProvider.Factory.class.getName(), DefaultPositionRefProvider.FactoryImpl.class.getName()));
         registrations.addAll(info.metaInf);
 
         Map<String, Collection<MetaInfRegistration>> api2Registrations = new HashMap<String, Collection<MetaInfRegistration>>();
@@ -472,7 +489,12 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             , Tree.class.getName()
             ,JavacTool.class.getName()
             ,JavaMimeResolver.class.getName()
-            , "org.netbeans.api.java.source.support.OpenedEditors"
+            , "org.netbeans.api.java.source.support.OpenedEditors",
+            SharedMimeLookupCache.class.getName(),
+            DataObjectEnvFactory.class.getName(),
+            NbProjectManager.class.getName(),
+            DefaultGlobalPathRegistryImplementation.class.getName(),
+            DefaultPositionRefProvider.FactoryImpl.class.getName()
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
@@ -482,8 +504,12 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             "org.netbeans.modules.openide.util.PreferencesProvider",
             ClassPathBasedHintProvider.class.getName(),
             IndexAccess.class.getName(),
-            RulesManager.class.getName()
-            ));
+            RulesManager.class.getName(),
+            MimeLookupCacheSPI.class.getName(),
+            EnvironmentFactory.class.getName(),
+            ProjectManagerImplementation.class.getName(),
+            GlobalPathRegistryImplementation.class.getName()
+        ));
 
     private static final Set<String> RESOURCES = new HashSet<String>(Arrays.asList(
         "com/sun/tools/javac/resources/javac_zh_CN.properties",

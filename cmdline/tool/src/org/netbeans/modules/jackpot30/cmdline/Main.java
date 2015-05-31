@@ -82,6 +82,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
+import org.netbeans.api.project.ui.*;
 import org.netbeans.core.startup.MainLookup;
 import org.netbeans.modules.jackpot30.ui.settings.XMLHintPreferences;
 import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
@@ -383,6 +384,9 @@ public class Main {
                     MainLookup.unregister(toUnRegister);
                 }
             }
+        } catch (Throwable e) {
+            e.printStackTrace();
+            throw new IllegalStateException(e);
         } finally {
             if (deleteCacheDir) {
                 FileObject cacheDirFO = FileUtil.toFileObject(cacheDir);

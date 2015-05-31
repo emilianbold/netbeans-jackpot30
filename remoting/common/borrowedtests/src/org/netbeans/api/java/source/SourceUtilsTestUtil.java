@@ -185,7 +185,7 @@ public final class SourceUtilsTestUtil extends ProxyLookup {
         lookupContent[0] = new TestProxyClassPathProvider(sourceRoot, buildRoot, classPathElements);
         lookupContent[1] = new TestSourceForBinaryQuery(sourceRoot, buildRoot);
         lookupContent[2] = new TestSourceLevelQueryImplementation();
-        lookupContent[3] = JavaDataLoader.findObject(JavaDataLoader.class, true);
+        lookupContent[3] = JavaDataLoader.getLoader(JavaDataLoader.class);
         
         setLookup(lookupContent, SourceUtilsTestUtil.class.getClassLoader());
 

@@ -63,6 +63,8 @@ import org.netbeans.api.java.source.WorkingCopy;
 import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.modules.diff.builtin.provider.BuiltInDiffProvider;
 import org.netbeans.modules.diff.builtin.visualizer.TextDiffVisualizer;
+import org.netbeans.modules.java.editor.base.imports.UnusedImports;
+import org.netbeans.modules.java.editor.base.semantic.SemanticHighlighterBase;
 import org.netbeans.modules.java.editor.semantic.SemanticHighlighter;
 import org.netbeans.spi.diff.DiffProvider;
 import org.openide.filesystems.FileObject;
@@ -150,7 +152,7 @@ public class BatchUtilities {
             }
 
             //compute imports to remove:
-            List<TreePathHandle> unusedImports = SemanticHighlighter.computeUnusedImports(wc);
+            List<TreePathHandle> unusedImports = UnusedImports.computeUnusedImports(wc);
             CompilationUnitTree cut = wc.getCompilationUnit();
             // make the changes to the source
             for (TreePathHandle handle : unusedImports) {
