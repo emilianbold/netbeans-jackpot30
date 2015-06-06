@@ -49,6 +49,7 @@ import org.netbeans.api.java.source.SourceUtilsTestUtil;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.core.startup.Main;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.modules.java.hints.spiimpl.options.HintsSettings.GlobalSettingsProvider;
 import org.netbeans.modules.java.source.indexing.JavaCustomIndexer;
 import org.netbeans.modules.parsing.impl.indexing.MimeTypes;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
@@ -140,7 +141,7 @@ public abstract class IndexTestBase extends NbTestCase {
     @ServiceProvider(service=MimeDataProvider.class)
     public static final class MimeDataProviderImpl implements MimeDataProvider {
 
-        private static final Lookup L = Lookups.fixed(new JavaCustomIndexer.Factory());
+        private static final Lookup L = Lookups.fixed(new JavaCustomIndexer.Factory(), new GlobalSettingsProvider());
         
         @Override
         public Lookup getLookup(MimePath mp) {
