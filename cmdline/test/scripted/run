@@ -40,5 +40,5 @@
 cd `dirname $0`
 
 for test in test-*; do
-    ./$test;
+    ./$test || true;
 done
