@@ -116,7 +116,9 @@ public class Javac {
 
             try {
                 cut = doParse(relativePath, content);
-            } catch (Abort a) {
+            } catch (ThreadDeath td) {
+                throw td;
+            } catch (Throwable ignore) {
                 javacTask.set(null);
                 cut = doParse(relativePath, content);
             }
