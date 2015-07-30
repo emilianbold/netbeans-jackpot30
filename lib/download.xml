@@ -13,21 +13,21 @@
                  </antcall>
              </sequential>
         </macrodef>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-client/1.0.1/jersey-client-1.0.1.jar" target="jersey-1.1/jersey-client-1.0.1.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-client/1.0.1/jersey-client-1.0.1-javadoc.jar" target="jersey-1.1/jersey-client-1.0.1-javadoc.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-client/1.0.1/jersey-client-1.0.1-sources.jar" target="jersey-1.1/jersey-client-1.0.1-sources.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-core/1.0.1/jersey-core-1.0.1.jar" target="jersey-1.1/jersey-core-1.0.1.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-core/1.0.1/jersey-core-1.0.1-javadoc.jar" target="jersey-1.1/jersey-core-1.0.1-javadoc.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-core/1.0.1/jersey-core-1.0.1-sources.jar" target="jersey-1.1/jersey-core-1.0.1-sources.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-server/1.0.1/jersey-server-1.0.1.jar" target="jersey-1.1/jersey-server-1.0.1.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-server/1.0.1/jersey-server-1.0.1-javadoc.jar" target="jersey-1.1/jersey-server-1.0.1-javadoc.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/jersey/jersey-server/1.0.1/jersey-server-1.0.1-sources.jar" target="jersey-1.1/jersey-server-1.0.1-sources.jar"/>
-        <download url="http://download.java.net/maven/2/com/sun/grizzly/grizzly-servlet-webserver/1.8.6.3/grizzly-servlet-webserver-1.8.6.3.jar" target="jersey-1.1/grizzly-servlet-webserver-1.8.6.3.jar"/>
-<!--        <download url="http://download.java.net/maven/2/com/sun/grizzly/grizzly-servlet-webserver/1.9.14/grizzly-servlet-webserver-1.9.14-javadoc.jar" target="jersey-1.1/grizzly-servlet-webserver-1.9.14-javadoc.jar"/>-->
-<!--        <download url="http://download.java.net/maven/2/com/sun/grizzly/grizzly-servlet-webserver/1.9.14/grizzly-servlet-webserver-1.9.14-sources.jar" target="jersey-1.1/grizzly-servlet-webserver-1.9.14-sources.jar"/>-->
-        <download url="http://download.java.net/maven/2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0.jar" target="jersey-1.1/jsr311-api-1.0.jar"/>
-        <download url="http://download.java.net/maven/2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0-javadoc.jar" target="jersey-1.1/jsr311-api-1.0-javadoc.jar"/>
-        <download url="http://download.java.net/maven/2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0-sources.jar" target="jersey-1.1/jsr311-api-1.0-sources.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-client/1.0.1/jersey-client-1.0.1.jar" target="jersey-1.1/jersey-client-1.0.1.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-client/1.0.1/jersey-client-1.0.1-javadoc.jar" target="jersey-1.1/jersey-client-1.0.1-javadoc.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-client/1.0.1/jersey-client-1.0.1-sources.jar" target="jersey-1.1/jersey-client-1.0.1-sources.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-core/1.0.1/jersey-core-1.0.1.jar" target="jersey-1.1/jersey-core-1.0.1.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-core/1.0.1/jersey-core-1.0.1-javadoc.jar" target="jersey-1.1/jersey-core-1.0.1-javadoc.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-core/1.0.1/jersey-core-1.0.1-sources.jar" target="jersey-1.1/jersey-core-1.0.1-sources.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-server/1.0.1/jersey-server-1.0.1.jar" target="jersey-1.1/jersey-server-1.0.1.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-server/1.0.1/jersey-server-1.0.1-javadoc.jar" target="jersey-1.1/jersey-server-1.0.1-javadoc.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/jersey/jersey-server/1.0.1/jersey-server-1.0.1-sources.jar" target="jersey-1.1/jersey-server-1.0.1-sources.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/grizzly/grizzly-servlet-webserver/1.8.6.3/grizzly-servlet-webserver-1.8.6.3.jar" target="jersey-1.1/grizzly-servlet-webserver-1.8.6.3.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/grizzly/grizzly-servlet-webserver/1.9.14/grizzly-servlet-webserver-1.9.14-javadoc.jar" target="jersey-1.1/grizzly-servlet-webserver-1.9.14-javadoc.jar"/>
+        <download url="http://central.maven.org/maven2/com/sun/grizzly/grizzly-servlet-webserver/1.9.14/grizzly-servlet-webserver-1.9.14-sources.jar" target="jersey-1.1/grizzly-servlet-webserver-1.9.14-sources.jar"/>
+        <download url="http://central.maven.org/maven2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0.jar" target="jersey-1.1/jsr311-api-1.0.jar"/>
+        <download url="http://central.maven.org/maven2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0-javadoc.jar" target="jersey-1.1/jsr311-api-1.0-javadoc.jar"/>
+        <download url="http://central.maven.org/maven2/javax/ws/rs/jsr311-api/1.0/jsr311-api-1.0-sources.jar" target="jersey-1.1/jsr311-api-1.0-sources.jar"/>
         <download url="http://repo2.maven.org/maven2/asm/asm-all/3.1/asm-all-3.1.jar" target="jersey-1.1/asm-all-3.1.jar"/>
         <download url="http://repo2.maven.org/maven2/asm/asm-all/3.1/asm-all-3.1-sources.jar" target="jersey-1.1/asm-all-3.1-sources.jar"/>
 
