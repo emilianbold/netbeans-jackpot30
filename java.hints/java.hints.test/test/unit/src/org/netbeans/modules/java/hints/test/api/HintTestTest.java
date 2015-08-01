@@ -64,6 +64,7 @@ import org.netbeans.spi.java.hints.HintContext;
 import org.netbeans.spi.java.hints.JavaFix;
 import org.netbeans.spi.java.hints.JavaFix.TransformationContext;
 import org.netbeans.spi.java.hints.TriggerTreeKind;
+import org.openide.LifecycleManager;
 import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -104,22 +105,26 @@ public class HintTestTest {
     
     @Test
     public void testNonJavaChangesOpenedInEditor() throws Exception {
-        HintTest ht = HintTest.create()
-                              .input("package test;\n" +
-                                     "public class Test { }\n")
-                              .input("test/test.txt", "1\n2\n", false);
-        FileObject resource = ht.getSourceRoot().getFileObject("test/test.txt");
-        DataObject od = DataObject.find(resource);
-        EditorCookie ec = od.getLookup().lookup(EditorCookie.class);
-        Document doc = ec.openDocument();
-        doc.remove(0, doc.getLength());
-        doc.insertString(0, "5\n6\n", null);
-        ht.run(NonJavaChanges.class)
-          .findWarning("1:13-1:17:verifier:Test")
-          .applyFix(false)
-          .assertVerbatimOutput("test/test.txt", "6\n7\n");
-        Assert.assertEquals("1\n2\n", resource.asText("UTF-8"));
-        Assert.assertEquals("6\n7\n", doc.getText(0, doc.getLength()));
+        try {
+            HintTest ht = HintTest.create()
+                                  .input("package test;\n" +
+                                         "public class Test { }\n")
+                                  .input("test/test.txt", "1\n2\n", false);
+            FileObject resource = ht.getSourceRoot().getFileObject("test/test.txt");
+            DataObject od = DataObject.find(resource);
+            EditorCookie ec = od.getLookup().lookup(EditorCookie.class);
+            Document doc = ec.openDocument();
+            doc.remove(0, doc.getLength());
+            doc.insertString(0, "5\n6\n", null);
+            ht.run(NonJavaChanges.class)
+              .findWarning("1:13-1:17:verifier:Test")
+              .applyFix(false)
+              .assertVerbatimOutput("test/test.txt", "6\n7\n");
+            Assert.assertEquals("1\n2\n", resource.asText("UTF-8"));
+            Assert.assertEquals("6\n7\n", doc.getText(0, doc.getLength()));
+        } finally {
+            LifecycleManager.getDefault().saveAll();
+        }
     }
 
     @Hint(displayName="testingNonJavaChanges", description="testingNonJavaChanges", category="test")

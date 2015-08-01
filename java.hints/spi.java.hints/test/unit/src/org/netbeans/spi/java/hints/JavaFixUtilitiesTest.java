@@ -430,7 +430,9 @@ public class JavaFixUtilitiesTest extends TestBase {
                            "try { } catch $catches$ => try { new Object(); } catch $catches$",
                            "package test;\n" +
                            "public class Test {\n" +
-                           "    { try {      new Object();\n } catch {NullPointerException ex} { } }\n" +
+                           //XXX: whitespaces:
+                           "    {  try {new Object();\n } catch {NullPointerException ex} { } }\n" +
+//                           "    { try {      new Object();\n } catch {NullPointerException ex} { } }\n" +
 		           "}\n");
     }
 
@@ -442,9 +444,7 @@ public class JavaFixUtilitiesTest extends TestBase {
                            "switch ($v) { case $p$ case 2: $stmts$; } => switch ($v) { case $p$ case 3: $stmts$; }",
                            "package test;\n" +
                            "public class Test {\n" +
-                           //XXX: whitespaces:
-//                           "    { int i = 0; switch (i) {case 0: System.err.println(1); break; case 1: System.err.println(2); break; case 3: System.err.println(3); break; }\n" +
-                           "    { int i = 0; switch (i) {case 0: System.err.println(1); break; case 1: System.err.println(2); break; case   3: System.err.println(3); break; }\n" +
+                           "    { int i = 0; switch (i) {case 0: System.err.println(1); break; case 1: System.err.println(2); break; case 3: System.err.println(3); break; }\n" +
 		           "}\n");
     }
 
