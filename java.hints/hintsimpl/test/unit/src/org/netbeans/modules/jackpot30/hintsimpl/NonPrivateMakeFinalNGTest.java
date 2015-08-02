@@ -41,8 +41,8 @@
  */
 package org.netbeans.modules.jackpot30.hintsimpl;
 
+import org.junit.Test;
 import org.netbeans.modules.java.hints.test.api.HintTest;
-import org.testng.annotations.Test;
 
 /**
  *
