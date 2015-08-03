@@ -81,6 +81,7 @@ import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.JavaMimeResolv
 import org.netbeans.modules.jackpot30.cmdline.lib.StandaloneTools.RepositoryImpl;
 import org.netbeans.modules.jackpot30.common.api.IndexAccess;
 import org.netbeans.modules.java.classpath.DefaultGlobalPathRegistryImplementation;
+import org.netbeans.modules.java.hints.StandardJavacWarnings.CompilerSettingsImpl;
 import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
 import org.netbeans.modules.java.hints.providers.code.CodeHintProviderImpl;
 import org.netbeans.modules.java.hints.providers.code.FSWrapper;
@@ -92,6 +93,7 @@ import org.netbeans.modules.java.hints.spiimpl.RulesManagerImpl;
 import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
 import org.netbeans.modules.java.source.DefaultPositionRefProvider;
 import org.netbeans.modules.java.source.PositionRefProvider;
+import org.netbeans.modules.java.source.tasklist.CompilerSettings;
 import org.netbeans.modules.parsing.impl.indexing.implspi.ActiveDocumentProvider;
 import org.netbeans.modules.parsing.implspi.EnvironmentFactory;
 import org.netbeans.modules.parsing.nb.DataObjectEnvFactory;
@@ -281,6 +283,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         registrations.add(new MetaInfRegistration(ActiveDocumentProvider.class.getName(), ActiveDocumentProviderImpl.class.getName()));
         registrations.add(new MetaInfRegistration(EditorMimeTypesImplementation.class.getName(), EditorMimeTypesImplementationImpl.class.getName()));
         registrations.add(new MetaInfRegistration(PositionRefProvider.Factory.class.getName(), DefaultPositionRefProvider.FactoryImpl.class.getName()));
+        registrations.add(new MetaInfRegistration(CompilerSettings.class.getName(), CompilerSettingsImpl.class.getName()));
         registrations.addAll(info.metaInf);
 
         Map<String, Collection<MetaInfRegistration>> api2Registrations = new HashMap<String, Collection<MetaInfRegistration>>();
@@ -494,7 +497,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             DataObjectEnvFactory.class.getName(),
             NbProjectManager.class.getName(),
             DefaultGlobalPathRegistryImplementation.class.getName(),
-            DefaultPositionRefProvider.FactoryImpl.class.getName()
+            DefaultPositionRefProvider.FactoryImpl.class.getName(),
+            CompilerSettingsImpl.class.getName()
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
