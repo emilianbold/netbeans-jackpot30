@@ -365,6 +365,42 @@ public class MainTest extends NbTestCase {
                       "1.6");
     }
 
+    public void testSourcePath() throws Exception {
+        String golden =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test() {\n" +
+            "        String s = test2.Test2.C;\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(golden,
+                      null,
+                      null,
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test() {\n" +
+                      "        String s = test2.Test2.C.intern();\n" +
+                      "    }\n" +
+                      "}\n",
+                      "src/test2/Test2.java",
+                      "package test2;\n" +
+                      "public class Test2 {\n" +
+                      "    public static final String C = \"a\";\n" +
+                      "}\n",
+                      null,
+                      DONT_APPEND_PATH,
+                      "--apply",
+                      "--hint",
+                      "String.intern() called on constant",
+                      "--sourcepath",
+                      "${workdir}/src",
+                      "${workdir}/src/test");
+    }
+
+    private static final String DONT_APPEND_PATH = new String("DONT_APPEND_PATH");
+
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
         List<String> fileAndContent = new LinkedList<String>();
         List<String> extraOptions = new LinkedList<String>();
@@ -395,13 +431,20 @@ public class MainTest extends NbTestCase {
         File source = new File(wd, "src/test/Test.java");
 
         List<String> options = new LinkedList<String>();
+        boolean appendPath = true;
 
         options.add("--cache");
         options.add("/tmp/cachex");
         for (String extraOption : extraOptions) {
+            if (extraOption == DONT_APPEND_PATH) {
+                appendPath = false;
+                continue;
+            }
             options.add(extraOption.replace("${workdir}", wd.getAbsolutePath()));
         }
-        options.add(wd.getAbsolutePath());
+
+        if (appendPath)
+            options.add(wd.getAbsolutePath());
 
         String[] output = new String[2];
 

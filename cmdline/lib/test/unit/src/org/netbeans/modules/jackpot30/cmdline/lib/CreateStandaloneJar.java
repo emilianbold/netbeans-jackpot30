@@ -94,6 +94,8 @@ import org.netbeans.modules.java.hints.spiimpl.Utilities.SPI;
 import org.netbeans.modules.java.source.DefaultPositionRefProvider;
 import org.netbeans.modules.java.source.PositionRefProvider;
 import org.netbeans.modules.java.source.tasklist.CompilerSettings;
+import org.netbeans.modules.openide.util.DefaultMutexImplementation;
+import org.netbeans.modules.openide.util.NbMutexEventProvider;
 import org.netbeans.modules.parsing.impl.indexing.implspi.ActiveDocumentProvider;
 import org.netbeans.modules.parsing.implspi.EnvironmentFactory;
 import org.netbeans.modules.parsing.nb.DataObjectEnvFactory;
@@ -106,6 +108,8 @@ import org.netbeans.spi.project.ProjectManagerImplementation;
 import org.openide.filesystems.MIMEResolver;
 import org.openide.util.NbCollections;
 import org.openide.util.NbPreferences.Provider;
+import org.openide.util.spi.MutexEventProvider;
+import org.openide.util.spi.MutexImplementation;
 import org.openide.xml.EntityCatalog;
 import org.openide.xml.XMLUtil;
 import org.w3c.dom.Document;
@@ -284,6 +288,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         registrations.add(new MetaInfRegistration(EditorMimeTypesImplementation.class.getName(), EditorMimeTypesImplementationImpl.class.getName()));
         registrations.add(new MetaInfRegistration(PositionRefProvider.Factory.class.getName(), DefaultPositionRefProvider.FactoryImpl.class.getName()));
         registrations.add(new MetaInfRegistration(CompilerSettings.class.getName(), CompilerSettingsImpl.class.getName()));
+        registrations.add(new MetaInfRegistration(MutexImplementation.class.getName(), DefaultMutexImplementation.class.getName()));
+        registrations.add(new MetaInfRegistration(MutexEventProvider.class.getName(), NbMutexEventProvider.class.getName()));
         registrations.addAll(info.metaInf);
 
         Map<String, Collection<MetaInfRegistration>> api2Registrations = new HashMap<String, Collection<MetaInfRegistration>>();
@@ -498,7 +504,9 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             NbProjectManager.class.getName(),
             DefaultGlobalPathRegistryImplementation.class.getName(),
             DefaultPositionRefProvider.FactoryImpl.class.getName(),
-            CompilerSettingsImpl.class.getName()
+            CompilerSettingsImpl.class.getName(),
+            NbMutexEventProvider.class.getName(),
+            DefaultMutexImplementation.class.getName()
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
