@@ -63,7 +63,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import org.apache.lucene.analysis.tokenattributes.OffsetAttributeImpl;
@@ -141,7 +143,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
     protected abstract Info computeInfo();
 
     public void createCompiler(File targetCompilerFile, File targetHintsFile) throws Exception {
-        JarOutputStream out = new JarOutputStream(new FileOutputStream(targetCompilerFile));
+        Map<String, byte[]> out = new TreeMap<>();
         List<String> toProcess = new LinkedList<String>(INCLUDE);
 
         for (FSWrapper.ClassWrapper cw : FSWrapper.listClasses()) {
@@ -212,21 +214,23 @@ public abstract class CreateStandaloneJar extends NbTestCase {
                 toProcess.add(classFromCP.getInternalName().replace('/', '.'));
             }
 
-            out.putNextEntry(new ZipEntry(escapeJavaxLang(info, fileName)));
-            out.write(escapeJavaxLang(info, bytes));
+            out.put(escapeJavaxLang(info, fileName), escapeJavaxLang(info, bytes));
 
             if (COPY_REGISTRATION.contains(fqn) || info.copyMetaInfRegistration.contains(fqn)) {
                 String serviceName = "META-INF/services/" + fqn;
                 Enumeration<URL> resources = this.getClass().getClassLoader().getResources(serviceName);
 
                 if (resources.hasMoreElements()) {
-                    out.putNextEntry(new ZipEntry(escapeJavaxLang(info, serviceName)));
+                    try (ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+                        while (resources.hasMoreElements()) {
+                            URL res = resources.nextElement();
 
-                    while (resources.hasMoreElements()) {
-                        URL res = resources.nextElement();
+                            buffer.write(readFile(res));
+                        }
 
-                        out.write(readFile(res));
+                        out.put(escapeJavaxLang(info, serviceName), buffer.toByteArray());
                     }
+
                 }
             }
 
@@ -275,8 +279,10 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             }
         }
 
-        out.putNextEntry(new ZipEntry(escapeJavaxLang(info, "META-INF/generated-layer.xml")));
-        XMLUtil.write(main, out, "UTF-8");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        XMLUtil.write(main, bytes, "UTF-8");
+        bytes.close();
+        out.put(escapeJavaxLang(info, "META-INF/generated-layer.xml"), escapeJavaxLang(info, bytes.toByteArray()));
 
         List<MetaInfRegistration> registrations = new ArrayList<MetaInfRegistration>();
 
@@ -310,7 +316,21 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             addMETA_INFRegistration(out, info, e.getValue());
         }
 
-        out.close();
+        try (JarOutputStream outStream = new JarOutputStream(new FileOutputStream(targetCompilerFile))) {
+            Set<String> seenDirs = new HashSet<>();
+            for (Entry<String, byte[]> e : out.entrySet()) {
+                String[] parts = e.getKey().split("/");
+                StringBuilder dir = new StringBuilder();
+                for (int i = 0; i < parts.length - 1; i++) {
+                    dir.append(parts[i]);
+                    dir.append("/");
+                    if (seenDirs.add(dir.toString()))
+                        outStream.putNextEntry(new ZipEntry(dir.toString()));
+                }
+                outStream.putNextEntry(new ZipEntry(e.getKey()));
+                outStream.write(e.getValue());
+            }
+        }
 
         Writer hints = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(targetHintsFile), "UTF-8"));
 
@@ -379,7 +399,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
 
     }
 
-    private void copyResources(JarOutputStream out, Info info, Set<String> res) throws IOException {
+    private void copyResources(Map<String, byte[]> out, Info info, Set<String> res) throws IOException {
         for (String resource : res) {
             URL url = this.getClass().getClassLoader().getResource(resource);
 
@@ -387,8 +407,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
                 continue;
             }
             
-            out.putNextEntry(new ZipEntry(escapeJavaxLang(info, resource)));
-            out.write(readFile(url));
+            out.put(escapeJavaxLang(info, resource), readFile(url));
         }
     }
 
@@ -410,25 +429,35 @@ public abstract class CreateStandaloneJar extends NbTestCase {
         return data.toByteArray();
     }
 
-    private static void addMETA_INFRegistration(JarOutputStream out, Info info, Iterable<MetaInfRegistration> registrations) throws IOException {
+    private static void addMETA_INFRegistration(Map<String, byte[]> out, Info info, Iterable<MetaInfRegistration> registrations) throws IOException {
         String apiClassName = registrations.iterator().next().apiClassName;
-        out.putNextEntry(new ZipEntry(escapeJavaxLang(info, "META-INF/services/" + apiClassName)));
 
-        for (MetaInfRegistration r : registrations) {
-            assert apiClassName.equals(r.apiClassName);
-            out.write(r.implClassName.getBytes("UTF-8"));
-            out.write("\n".getBytes("UTF-8"));
-            if (r.pos != null) {
-                out.write(("#position=" + r.pos.toString() + "\n").getBytes("UTF-8"));
+        try (ByteArrayOutputStream buffer = new ByteArrayOutputStream()) {
+            for (MetaInfRegistration r : registrations) {
+                assert apiClassName.equals(r.apiClassName);
+                buffer.write(r.implClassName.getBytes("UTF-8"));
+                buffer.write("\n".getBytes("UTF-8"));
+                if (r.pos != null) {
+                    buffer.write(("#position=" + r.pos.toString() + "\n").getBytes("UTF-8"));
+                }
             }
+
+            out.put(escapeJavaxLang(info, "META-INF/services/" + apiClassName), buffer.toByteArray());
         }
     }
 
     private static final Map<String, String> replaceWhat2With = new LinkedHashMap<String, String>();
 
     static {
+        replaceWhat2With.put("javax/annotation/processing/", "jpt30/annotation/processing/");
         replaceWhat2With.put("javax/lang/", "jpt30/lang/");
         replaceWhat2With.put("javax/tools/", "jpt30/tools/");
+        replaceWhat2With.put("com/sun/tools/", "jpt/sun/tools/");
+        replaceWhat2With.put("com/sun/source/", "jpt/sun/source/");
+
+        for (String originalKey : new HashSet<>(replaceWhat2With.keySet())) {
+            replaceWhat2With.put(originalKey.replace('/', '.'), replaceWhat2With.get(originalKey).replace('/', '.'));
+        }
     }
             
 
@@ -509,6 +538,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             CompilerSettingsImpl.class.getName(),
             NbMutexEventProvider.class.getName(),
             DefaultMutexImplementation.class.getName(),
+            Utils.class.getName(),
             IndexerControl.class.getName()
         ));
 

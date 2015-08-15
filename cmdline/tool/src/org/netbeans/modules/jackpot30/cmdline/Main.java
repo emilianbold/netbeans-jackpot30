@@ -84,6 +84,7 @@ import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.api.project.ui.*;
 import org.netbeans.core.startup.MainLookup;
+import org.netbeans.modules.jackpot30.cmdline.lib.Utils;
 import org.netbeans.modules.jackpot30.ui.settings.XMLHintPreferences;
 import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.providers.spi.HintDescription;
@@ -465,14 +466,7 @@ public class Main {
     }
     
     private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, File out) throws IOException {
-        final Map<String, String> id2DisplayName = new HashMap<String, String>();
-
-        for (HintDescription hd : descs) {
-            if (hd.getMetadata() != null) {
-                id2DisplayName.put(hd.getMetadata().id, hd.getMetadata().displayName);
-            }
-        }
-
+        final Map<String, String> id2DisplayName = Utils.computeId2DisplayName(descs);
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w, settings);
 
@@ -508,35 +502,11 @@ public class Main {
 
         b.append('^');
 
-        String id = error.getId();
-
-        if (id != null && id.startsWith("text/x-java:")) {
-            id = id.substring("text/x-java:".length());
-        }
-
-        String idDisplayName = id2DisplayName.get(id);
-
-        if (idDisplayName == null) {
-            idDisplayName = "unknown";
-        }
-
-        for (Entry<String, String> remap : toIdRemap.entrySet()) {
-            idDisplayName = idDisplayName.replace(remap.getKey(), remap.getValue());
-        }
-
-        idDisplayName = idDisplayName.replaceAll("[^A-Za-z0-9]", "_").replaceAll("_+", "_");
-
-        idDisplayName = "[" + idDisplayName + "] ";
-
+        String idDisplayName = Utils.categoryName(error.getId(), id2DisplayName);
         System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + (lineNumber + 1) + ": warning: " + idDisplayName + error.getDescription());
         System.out.println(line);
         System.out.println(b);
     }
-
-    private static final Map<String, String> toIdRemap = new HashMap<String, String>() {{
-        put("==", "equals");
-        put("!=", "not_equals");
-    }};
 
     private static void apply(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, File out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
