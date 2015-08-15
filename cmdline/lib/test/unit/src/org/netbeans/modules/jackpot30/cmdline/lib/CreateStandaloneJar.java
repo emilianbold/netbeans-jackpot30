@@ -96,6 +96,8 @@ import org.netbeans.modules.java.source.PositionRefProvider;
 import org.netbeans.modules.java.source.tasklist.CompilerSettings;
 import org.netbeans.modules.openide.util.DefaultMutexImplementation;
 import org.netbeans.modules.openide.util.NbMutexEventProvider;
+import org.netbeans.modules.parsing.impl.IndexerBridge;
+import org.netbeans.modules.parsing.impl.indexing.IndexerControl;
 import org.netbeans.modules.parsing.impl.indexing.implspi.ActiveDocumentProvider;
 import org.netbeans.modules.parsing.implspi.EnvironmentFactory;
 import org.netbeans.modules.parsing.nb.DataObjectEnvFactory;
@@ -506,7 +508,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             DefaultPositionRefProvider.FactoryImpl.class.getName(),
             CompilerSettingsImpl.class.getName(),
             NbMutexEventProvider.class.getName(),
-            DefaultMutexImplementation.class.getName()
+            DefaultMutexImplementation.class.getName(),
+            IndexerControl.class.getName()
         ));
 
     private static final Set<String> COPY_REGISTRATION = new HashSet<String>(Arrays.<String>asList(
@@ -520,7 +523,8 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             MimeLookupCacheSPI.class.getName(),
             EnvironmentFactory.class.getName(),
             ProjectManagerImplementation.class.getName(),
-            GlobalPathRegistryImplementation.class.getName()
+            GlobalPathRegistryImplementation.class.getName(),
+            IndexerBridge.class.getName()
         ));
 
     private static final Set<String> RESOURCES = new HashSet<String>(Arrays.asList(
