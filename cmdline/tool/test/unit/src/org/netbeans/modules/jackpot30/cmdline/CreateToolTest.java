@@ -71,7 +71,7 @@ public class CreateToolTest extends MainTest {
     private static File compiler;
 
     @Override
-    protected void reallyRunCompiler(File workingDir, String[] output, String... params) throws Exception {
+    protected void reallyRunCompiler(File workingDir, int exitcode, String[] output, String... params) throws Exception {
         assertNotNull(compiler);
         List<String> ll = new LinkedList<String>();
         ll.add("java");
@@ -90,7 +90,7 @@ public class CreateToolTest extends MainTest {
             outCopy.start();
             errCopy.start();
 
-            assertEquals(0, p.waitFor());
+            assertEquals(exitcode, p.waitFor());
 
             outCopy.doJoin();
             errCopy.doJoin();

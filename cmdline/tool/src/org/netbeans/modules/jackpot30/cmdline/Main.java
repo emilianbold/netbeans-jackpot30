@@ -107,6 +107,7 @@ import org.netbeans.modules.java.source.parsing.JavaPathRecognizer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.Severity;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.java.hints.Hint.Kind;
@@ -130,6 +131,7 @@ public class Main {
 
     private static final String OPTION_APPLY = "apply";
     private static final String OPTION_NO_APPLY = "no-apply";
+    private static final String OPTION_FAIL_ON_WARNINGS = "fail-on-warnings";
     private static final String SOURCE_LEVEL_DEFAULT = "1.7";
     private static final String ACCEPTABLE_SOURCE_LEVEL_PATTERN = "(1\\.)?[2-9][0-9]*";
     
@@ -160,6 +162,7 @@ public class Main {
         parser.accepts(OPTION_NO_APPLY, "do not apply changes - only print locations were the hint would be applied");
         parser.accepts(OPTION_APPLY, "apply changes");
         parser.accepts("show-gui", "show configuration dialog");
+        parser.accepts(OPTION_FAIL_ON_WARNINGS, "fail when warnings are detected");
 
         OptionSet parsed;
 
@@ -375,11 +378,19 @@ public class Main {
 
                 if (apply) {
                     apply(hints, rootFolders.toArray(new Folder[0]), progress, hintSettings, parsed.valueOf(out));
+
+                    return 0;
                 } else {
-                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, hintSettings, parsed.valueOf(out));
+                    WarningsAndErrors wae = new WarningsAndErrors();
+
+                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, hintSettings, wae);
+
+                    if (wae.errors != 0 || (wae.warnings != 0 && parsed.has(OPTION_FAIL_ON_WARNINGS))) {
+                        return 1;
+                    } else {
+                        return 0;
+                    }
                 }
-            } catch (Throwable e) {
-                e.printStackTrace();
             } finally {
                 for (Object toUnRegister : register2Lookup) {
                     MainLookup.unregister(toUnRegister);
@@ -398,8 +409,6 @@ public class Main {
                 }
             }
         }
-
-        return 0;
     }
 
     private static Map<HintMetadata, Collection<? extends HintDescription>> listHints(ClassPath sourceFrom, ClassPath binaryFrom) {
@@ -465,7 +474,7 @@ public class Main {
         System.setProperty("RepositoryUpdate.increasedLogLevel", "OFF");
     }
     
-    private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, File out) throws IOException {
+    private static void findOccurrences(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, final WarningsAndErrors wae) throws IOException {
         final Map<String, String> id2DisplayName = Utils.computeId2DisplayName(descs);
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w, settings);
@@ -475,7 +484,7 @@ public class Main {
             @Override public void groupStarted() {}
             @Override public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
                 for (ErrorDescription ed : hints) {
-                    print(ed, id2DisplayName);
+                    print(ed, wae, id2DisplayName);
                 }
                 return true;
             }
@@ -486,7 +495,7 @@ public class Main {
         }, problems, new AtomicBoolean());
     }
 
-    private static void print(ErrorDescription error, Map<String, String> id2DisplayName) throws IOException {
+    private static void print(ErrorDescription error, WarningsAndErrors wae, Map<String, String> id2DisplayName) throws IOException {
         int lineNumber = error.getRange().getBegin().getLine();
         String line = error.getFile().asLines().get(lineNumber);
         int column = error.getRange().getBegin().getColumn();
@@ -503,7 +512,15 @@ public class Main {
         b.append('^');
 
         String idDisplayName = Utils.categoryName(error.getId(), id2DisplayName);
-        System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + (lineNumber + 1) + ": warning: " + idDisplayName + error.getDescription());
+        String severity;
+        if (error.getSeverity() == Severity.ERROR) {
+            severity = "error";
+            wae.errors++;
+        } else {
+            severity = "warning";
+            wae.warnings++;
+        }
+        System.out.println(FileUtil.getFileDisplayName(error.getFile()) + ":" + (lineNumber + 1) + ": " + severity + ": " + idDisplayName + error.getDescription());
         System.out.println(line);
         System.out.println(b);
     }
@@ -623,6 +640,11 @@ public class Main {
         if (result.equals(JOptionPane.OK_OPTION)) {
             p.flush();
         }
+    }
+
+    private static final class WarningsAndErrors {
+        private int warnings;
+        private int errors;
     }
 
     @ServiceProvider(service=Lookup.class)

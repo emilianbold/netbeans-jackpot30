@@ -399,9 +399,41 @@ public class MainTest extends NbTestCase {
                       "${workdir}/src/test");
     }
 
+    public void testWarningsAreErrors() throws Exception {
+        String code =
+            "package test;\n" +
+            "public class Test {\n" +
+            "    private void test(java.util.Collection c) {\n" +
+            "        boolean b1 = c.size() == 0;\n" +
+            "\tboolean b2 = c.size() == 0;\n" +
+            "    }\n" +
+            "}\n";
+
+        doRunCompiler(code,
+                      "${workdir}/src/test/Test.java:4: warning: [Usage_of_size_equals_0] Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "                     ^\n" +
+                      "${workdir}/src/test/Test.java:5: warning: [Usage_of_size_equals_0] Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                      "\tboolean b2 = c.size() == 0;\n" +
+                      "\t             ^\n",
+                      null,
+                      1,
+                      "src/test/Test.java",
+                      code,
+                      null,
+                      "--hint",
+                      "Usage of .size() == 0",
+                      "--no-apply",
+                      "--fail-on-warnings");
+    }
+
     private static final String DONT_APPEND_PATH = new String("DONT_APPEND_PATH");
 
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
+        doRunCompiler(golden, stdOut, stdErr, 0, fileContentAndExtraOptions);
+    }
+
+    private void doRunCompiler(String golden, String stdOut, String stdErr, int exitcode, String... fileContentAndExtraOptions) throws Exception {
         List<String> fileAndContent = new LinkedList<String>();
         List<String> extraOptions = new LinkedList<String>();
         List<String> fileContentAndExtraOptionsList = Arrays.asList(fileContentAndExtraOptions);
@@ -448,7 +480,7 @@ public class MainTest extends NbTestCase {
 
         String[] output = new String[2];
 
-        reallyRunCompiler(wd, output, options.toArray(new String[0]));
+        reallyRunCompiler(wd, exitcode, output, options.toArray(new String[0]));
 
         assertEquals(golden, TestUtilities.copyFileToString(source));
 
@@ -461,7 +493,7 @@ public class MainTest extends NbTestCase {
         }
     }
 
-    protected void reallyRunCompiler(File workDir, String[] output, String... params) throws Exception {
+    protected void reallyRunCompiler(File workDir, int exitcode, String[] output, String... params) throws Exception {
         String oldUserDir = System.getProperty("user.dir");
 
         System.setProperty("user.dir", workDir.getAbsolutePath());
@@ -475,7 +507,7 @@ public class MainTest extends NbTestCase {
         System.setErr(new PrintStream(errData, true, "UTF-8"));
 
         try {
-            assertEquals(0, Main.compile(params));
+            assertEquals(exitcode, Main.compile(params));
         } finally {
             System.setProperty("user.dir", oldUserDir);
             System.out.close();
