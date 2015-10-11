@@ -941,6 +941,7 @@ public class Main {
 
         @Override
         public void finish() {
+            System.out.println();
         }
 
         private void update() {
