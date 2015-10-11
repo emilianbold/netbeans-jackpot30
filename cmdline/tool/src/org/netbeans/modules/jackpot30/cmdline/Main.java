@@ -65,6 +65,7 @@ import java.util.TreeSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.regex.Pattern;
@@ -82,7 +83,6 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.ModificationResult;
-import org.netbeans.api.project.ui.*;
 import org.netbeans.core.startup.MainLookup;
 import org.netbeans.modules.jackpot30.cmdline.lib.Utils;
 import org.netbeans.modules.jackpot30.ui.settings.XMLHintPreferences;
@@ -117,7 +117,6 @@ import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
-import org.openide.util.NbPreferences;
 import org.openide.util.RequestProcessor;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ProxyLookup;
@@ -144,16 +143,14 @@ public class Main {
 
         OptionParser parser = new OptionParser();
 //        ArgumentAcceptingOptionSpec<File> projects = parser.accepts("project", "project(s) to refactor").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
-        ArgumentAcceptingOptionSpec<File> classpath = parser.accepts("classpath", "classpath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
-        ArgumentAcceptingOptionSpec<File> bootclasspath = parser.accepts("bootclasspath", "bootclasspath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
-        ArgumentAcceptingOptionSpec<File> sourcepath = parser.accepts("sourcepath", "sourcepath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class);
+        GroupOptions globalGroupOptions = setupGroupParser(parser);
         ArgumentAcceptingOptionSpec<File> cache = parser.accepts("cache", "a cache directory to store working data").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<File> out = parser.accepts("out", "output diff").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<File> configFile = parser.accepts("config-file", "configuration file").withRequiredArg().ofType(File.class);
         ArgumentAcceptingOptionSpec<String> hint = parser.accepts("hint", "hint name").withRequiredArg().ofType(String.class);
         ArgumentAcceptingOptionSpec<String> config = parser.accepts("config", "configurations").withRequiredArg().ofType(String.class);
-        ArgumentAcceptingOptionSpec<String> source = parser.accepts("source", "source level").withRequiredArg().ofType(String.class).defaultsTo(SOURCE_LEVEL_DEFAULT);
         ArgumentAcceptingOptionSpec<File> hintFile = parser.accepts("hint-file", "file with rules that should be performed").withRequiredArg().ofType(File.class);
+        ArgumentAcceptingOptionSpec<String> group = parser.accepts("group", "specify roots to process alongside with their classpath").withRequiredArg().ofType(String.class);
 
         parser.accepts("list", "list all known hints");
         parser.accepts("progress", "show progress");
@@ -196,10 +193,7 @@ public class Main {
             }
         }
 
-        ClassPath bootCP = createClassPath(parsed.has(bootclasspath) ? parsed.valuesOf(bootclasspath) : null, createDefaultBootClassPath());
-        ClassPath compileCP = createClassPath(parsed.has(classpath) ? parsed.valuesOf(classpath) : null, ClassPath.EMPTY);
-        final ClassPath sourceCP = createClassPath(parsed.has(sourcepath) ? parsed.valuesOf(sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
-        final ClassPath binaryCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP);
+        final RootConfiguration globalRootConfiguration = new RootConfiguration(parsed, globalGroupOptions);
 
         if (parsed.has("show-gui")) {
             if (parsed.has(configFile)) {
@@ -208,7 +202,7 @@ public class Main {
                     SwingUtilities.invokeAndWait(new Runnable() {
                         @Override public void run() {
                             try {
-                                showGUICustomizer(settingsFile, binaryCP, sourceCP);
+                                showGUICustomizer(settingsFile, globalRootConfiguration.binaryCP, globalRootConfiguration.sourceCP);
                             } catch (IOException ex) {
                                 Exceptions.printStackTrace(ex);
                             } catch (BackingStoreException ex) {
@@ -261,94 +255,40 @@ public class Main {
             org.netbeans.api.project.ui.OpenProjects.getDefault().getOpenProjects();
             RepositoryUpdater.getDefault().start(false);
 
-            if (roots.isEmpty() && !parsed.has("list")) {
-                System.err.println("no source roots to work on");
-                return 1;
-            }
-
-            Iterable<? extends HintDescription> hints;
-            
             if (parsed.has("list")) {
-                printHints(sourceCP, binaryCP);
+                printHints(globalRootConfiguration.sourceCP, globalRootConfiguration.binaryCP);
                 return 0;
             }
 
-            Preferences settingsFromConfigFile;
+            int totalGroups = parsed.valuesOf(group).size() + (!globalRootConfiguration.rootFolders.isEmpty() ? 1 : 0);
+
+            ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), ProgressHandleWrapper.prepareParts(totalGroups)) : new ProgressHandleWrapper(1);
+
             Preferences hintSettingsPreferences;
-            HintsSettings hintSettings;
             boolean apply;
+            boolean runDeclarative;
 
             if (parsed.has(configFile)) {
+                Preferences settingsFromConfigFile;
                 settingsFromConfigFile = XMLHintPreferences.from(parsed.valueOf(configFile));
-                hintSettings = HintsSettings.createPreferencesBasedHintsSettings(hintSettingsPreferences = settingsFromConfigFile.node("settings"), false, null);
+                hintSettingsPreferences = settingsFromConfigFile.node("settings");
                 apply = settingsFromConfigFile.getBoolean("apply", false);
-            } else {
-                settingsFromConfigFile = null;
-                hintSettings = HintsSettings.createPreferencesBasedHintsSettings(hintSettingsPreferences = NbPreferences.root().node("tempSettings"), false, null);
-                apply = false;
-            }
-
-            if (parsed.has(hint)) {
-                if (settingsFromConfigFile != null) {
+                runDeclarative = settingsFromConfigFile.getBoolean("runDeclarative", true);
+                if (parsed.has(hint)) {
                     System.err.println("cannot specify --hint and --config-file together");
                     return 1;
-                }
-                hints = findHints(sourceCP, binaryCP, parsed.valueOf(hint), hintSettings);
-            } else if (parsed.has(hintFile)) {
-                if (settingsFromConfigFile != null) {
+                } else if (parsed.has(hintFile)) {
                     System.err.println("cannot specify --hint-file and --config-file together");
                     return 1;
                 }
-                FileObject hintFileFO = FileUtil.toFileObject(parsed.valueOf(hintFile));
-                assert hintFileFO != null;
-                hints = PatternConvertor.create(hintFileFO.asText());
-                for (HintDescription hd : hints) {
-                    hintSettings.setEnabled(hd.getMetadata(), true);
-                }
             } else {
-                hints = readHints(sourceCP, binaryCP, hintSettings, hintSettingsPreferences, settingsFromConfigFile != null ? settingsFromConfigFile.getBoolean("runDeclarative", true) : true);
+                hintSettingsPreferences = null;
+                apply = false;
+                runDeclarative = true;
             }
 
             if (parsed.has(config) && !parsed.has(hint)) {
                 System.err.println("--config cannot specified when no hint is specified");
-                return 1;
-            }
-
-            if (parsed.has(config)) {
-                Iterator<? extends HintDescription> hit = hints.iterator();
-                HintDescription hd = hit.next();
-
-                if (hit.hasNext()) {
-                    System.err.println("--config cannot specified when more than one hint is specified");
-
-                    return 1;
-                }
-
-                Preferences prefs = hintSettings.getHintPreferences(hd.getMetadata());
-
-                boolean stop = false;
-
-                for (String c : parsed.valuesOf(config)) {
-                    int assign = c.indexOf('=');
-
-                    if (assign == (-1)) {
-                        System.err.println("configuration option is missing '=' (" + c + ")");
-                        stop = true;
-                        continue;
-                    }
-
-                    prefs.put(c.substring(0, assign), c.substring(assign + 1));
-                }
-
-                if (stop) {
-                    return 1;
-                }
-            }
-
-            String sourceLevel = parsed.valueOf(source);
-
-            if (!Pattern.compile(ACCEPTABLE_SOURCE_LEVEL_PATTERN).matcher(sourceLevel).matches()) {
-                System.err.println("unrecognized source level specification: " + sourceLevel);
                 return 1;
             }
 
@@ -357,45 +297,30 @@ public class Main {
             } else if (parsed.has(OPTION_APPLY)) {
                 apply = true;
             }
-            
-            if (apply && !hints.iterator().hasNext()) {
-                System.err.println("no hints specified");
+
+            GroupResult result = GroupResult.NOTHING_TO_DO;
+
+            try (Writer outS = parsed.has(out) ? new BufferedWriter(new OutputStreamWriter(new FileOutputStream(parsed.valueOf(out)))) : null) {
+                GlobalConfiguration globalConfig = new GlobalConfiguration(hintSettingsPreferences, apply, runDeclarative, parsed.valueOf(hint), parsed.valueOf(hintFile), outS, parsed.has(OPTION_FAIL_ON_WARNINGS));
+
+                result = result.join(handleGroup(parsed, globalGroupOptions, progress, globalConfig, parsed.valuesOf(config)));
+
+                for (String groupValue : parsed.valuesOf(group)) {
+                    OptionParser groupParser = new OptionParser();
+                    GroupOptions groupOptions = setupGroupParser(groupParser);
+                    OptionSet parsedGroup = groupParser.parse(splitGroupArg(groupValue));
+                    result = result.join(handleGroup(parsedGroup, groupOptions, progress, globalConfig, parsed.valuesOf(config)));
+                }
+            }
+
+            progress.finish();
+
+            if (result == GroupResult.NOTHING_TO_DO) {
+                System.err.println("no source roots to work on");
                 return 1;
             }
 
-            Object[] register2Lookup = new Object[] {
-                new ClassPathProviderImpl(bootCP, compileCP, sourceCP),
-                new JavaPathRecognizer(),
-                new SourceLevelQueryImpl(sourceCP, sourceLevel)
-            };
-
-            try {
-                for (Object toRegister : register2Lookup) {
-                    MainLookup.register(toRegister);
-                }
-
-                ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), 1) : new ProgressHandleWrapper(1);
-
-                if (apply) {
-                    apply(hints, rootFolders.toArray(new Folder[0]), progress, hintSettings, parsed.valueOf(out));
-
-                    return 0;
-                } else {
-                    WarningsAndErrors wae = new WarningsAndErrors();
-
-                    findOccurrences(hints, rootFolders.toArray(new Folder[0]), progress, hintSettings, wae);
-
-                    if (wae.errors != 0 || (wae.warnings != 0 && parsed.has(OPTION_FAIL_ON_WARNINGS))) {
-                        return 1;
-                    } else {
-                        return 0;
-                    }
-                }
-            } finally {
-                for (Object toUnRegister : register2Lookup) {
-                    MainLookup.unregister(toUnRegister);
-                }
-            }
+            return result == GroupResult.SUCCESS ? 0 : 1;
         } catch (Throwable e) {
             e.printStackTrace();
             throw new IllegalStateException(e);
@@ -411,6 +336,28 @@ public class Main {
         }
     }
 
+    private static GroupOptions setupGroupParser(OptionParser parser) {
+        return new GroupOptions(parser.accepts("classpath", "classpath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class),
+                                parser.accepts("bootclasspath", "bootclasspath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class),
+                                parser.accepts("sourcepath", "sourcepath").withRequiredArg().withValuesSeparatedBy(File.pathSeparatorChar).ofType(File.class),
+                                parser.accepts("source", "source level").withRequiredArg().ofType(String.class).defaultsTo(SOURCE_LEVEL_DEFAULT));
+    }
+
+    private static final class GroupOptions {
+        private final ArgumentAcceptingOptionSpec<File> classpath;
+        private final ArgumentAcceptingOptionSpec<File> bootclasspath;
+        private final ArgumentAcceptingOptionSpec<File> sourcepath;
+        private final ArgumentAcceptingOptionSpec<String> source;
+
+        public GroupOptions(ArgumentAcceptingOptionSpec<File> classpath, ArgumentAcceptingOptionSpec<File> bootclasspath, ArgumentAcceptingOptionSpec<File> sourcepath, ArgumentAcceptingOptionSpec<String> source) {
+            this.classpath = classpath;
+            this.bootclasspath = bootclasspath;
+            this.sourcepath = sourcepath;
+            this.source = source;
+        }
+
+    }
+
     private static Map<HintMetadata, Collection<? extends HintDescription>> listHints(ClassPath sourceFrom, ClassPath binaryFrom) {
         Map<HintMetadata, Collection<? extends HintDescription>> result = new HashMap<HintMetadata, Collection<? extends HintDescription>>();
 
@@ -419,6 +366,194 @@ public class Main {
         }
 
         return result;
+    }
+
+    private static GroupResult handleGroup(OptionSet parsed, GroupOptions groupOptions, ProgressHandleWrapper w, GlobalConfiguration globalConfig, List<String> config) throws IOException {
+        ProgressHandleWrapper progress = w.startNextPartWithEmbedding(1);
+        Iterable<? extends HintDescription> hints;
+
+        RootConfiguration rootConfiguration = new RootConfiguration(parsed, groupOptions);
+
+        if (rootConfiguration.rootFolders.isEmpty()) {
+            return GroupResult.NOTHING_TO_DO;
+        }
+
+        Preferences settings = globalConfig.configurationPreferences != null ? globalConfig.configurationPreferences : new MemoryPreferences();
+        HintsSettings hintSettings = HintsSettings.createPreferencesBasedHintsSettings(settings, false, null);
+
+        if (globalConfig.hint != null) {
+            hints = findHints(rootConfiguration.sourceCP, rootConfiguration.binaryCP, globalConfig.hint, hintSettings);
+        } else if (globalConfig.hintFile != null) {
+            FileObject hintFileFO = FileUtil.toFileObject(globalConfig.hintFile);
+            assert hintFileFO != null;
+            hints = PatternConvertor.create(hintFileFO.asText());
+            for (HintDescription hd : hints) {
+                hintSettings.setEnabled(hd.getMetadata(), true);
+            }
+        } else {
+            hints = readHints(rootConfiguration.sourceCP, rootConfiguration.binaryCP, hintSettings, settings, globalConfig.runDeclarative);
+        }
+
+        if (config != null && !config.isEmpty()) {
+            Iterator<? extends HintDescription> hit = hints.iterator();
+            HintDescription hd = hit.next();
+
+            if (hit.hasNext()) {
+                System.err.println("--config cannot specified when more than one hint is specified");
+
+                return GroupResult.FAILURE;
+            }
+
+            Preferences prefs = hintSettings.getHintPreferences(hd.getMetadata());
+
+            boolean stop = false;
+
+            for (String c : config) {
+                int assign = c.indexOf('=');
+
+                if (assign == (-1)) {
+                    System.err.println("configuration option is missing '=' (" + c + ")");
+                    stop = true;
+                    continue;
+                }
+
+                prefs.put(c.substring(0, assign), c.substring(assign + 1));
+            }
+
+            if (stop) {
+                return GroupResult.FAILURE;
+            }
+        }
+
+        String sourceLevel = parsed.valueOf(groupOptions.source);
+
+        if (!Pattern.compile(ACCEPTABLE_SOURCE_LEVEL_PATTERN).matcher(sourceLevel).matches()) {
+            System.err.println("unrecognized source level specification: " + sourceLevel);
+            return GroupResult.FAILURE;
+        }
+
+        if (globalConfig.apply && !hints.iterator().hasNext()) {
+            System.err.println("no hints specified");
+            return GroupResult.FAILURE;
+        }
+
+        Object[] register2Lookup = new Object[] {
+            new ClassPathProviderImpl(rootConfiguration.bootCP, rootConfiguration.compileCP, rootConfiguration.sourceCP),
+            new JavaPathRecognizer(),
+            new SourceLevelQueryImpl(rootConfiguration.sourceCP, sourceLevel)
+        };
+
+        try {
+            for (Object toRegister : register2Lookup) {
+                MainLookup.register(toRegister);
+            }
+
+            if (globalConfig.apply) {
+                apply(hints, rootConfiguration.rootFolders.toArray(new Folder[0]), progress, hintSettings, globalConfig.out);
+
+                return GroupResult.SUCCESS;
+            } else {
+                WarningsAndErrors wae = new WarningsAndErrors();
+
+                findOccurrences(hints, rootConfiguration.rootFolders.toArray(new Folder[0]), progress, hintSettings, wae);
+
+                if (wae.errors != 0 || (wae.warnings != 0 && globalConfig.failOnWarnings)) {
+                    return GroupResult.FAILURE;
+                } else {
+                    return GroupResult.SUCCESS;
+                }
+            }
+        } finally {
+            for (Object toUnRegister : register2Lookup) {
+                MainLookup.unregister(toUnRegister);
+            }
+        }
+    }
+
+    private static class MemoryPreferences extends AbstractPreferences {
+
+        private final Map<String, String> values = new HashMap<>();
+        private final Map<String, MemoryPreferences> nodes = new HashMap<>();
+
+        public MemoryPreferences() {
+            this(null, "");
+        }
+
+        public MemoryPreferences(MemoryPreferences parent, String name) {
+            super(parent, name);
+        }
+        @Override
+        protected void putSpi(String key, String value) {
+            values.put(key, value);
+        }
+
+        @Override
+        protected String getSpi(String key) {
+            return values.get(key);
+        }
+
+        @Override
+        protected void removeSpi(String key) {
+            values.remove(key);
+        }
+
+        @Override
+        protected void removeNodeSpi() throws BackingStoreException {
+            ((MemoryPreferences) parent()).nodes.remove(name());
+        }
+
+        @Override
+        protected String[] keysSpi() throws BackingStoreException {
+            return values.keySet().toArray(new String[0]);
+        }
+
+        @Override
+        protected String[] childrenNamesSpi() throws BackingStoreException {
+            return nodes.keySet().toArray(new String[0]);
+        }
+
+        @Override
+        protected AbstractPreferences childSpi(String name) {
+            MemoryPreferences result = nodes.get(name);
+
+            if (result == null) {
+                nodes.put(name, result = new MemoryPreferences(this, name));
+            }
+
+            return result;
+        }
+
+        @Override
+        protected void syncSpi() throws BackingStoreException {
+        }
+
+        @Override
+        protected void flushSpi() throws BackingStoreException {
+        }
+    }
+
+    private enum GroupResult {
+        NOTHING_TO_DO {
+            @Override
+            public GroupResult join(GroupResult other) {
+                return other;
+            }
+        },
+        SUCCESS {
+            @Override
+            public GroupResult join(GroupResult other) {
+                if (other == FAILURE) return other;
+                return this;
+            }
+        },
+        FAILURE {
+            @Override
+            public GroupResult join(GroupResult other) {
+                return this;
+            }
+        };
+
+        public abstract GroupResult join(GroupResult other);
     }
     
     private static Iterable<? extends HintDescription> findHints(ClassPath sourceFrom, ClassPath binaryFrom, String name, HintsSettings toEnableIn) {
@@ -480,7 +615,7 @@ public class Main {
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w, settings);
 
         List<MessageImpl> problems = new LinkedList<MessageImpl>();
-        BatchSearch.getVerifiedSpans(occurrences, progress, new VerifiedSpansCallBack() {
+        BatchSearch.getVerifiedSpans(occurrences, w, new VerifiedSpansCallBack() {
             @Override public void groupStarted() {}
             @Override public boolean spansVerified(CompilationController wc, Resource r, Collection<? extends ErrorDescription> hints) throws Exception {
                 for (ErrorDescription ed : hints) {
@@ -525,7 +660,7 @@ public class Main {
         System.out.println(b);
     }
 
-    private static void apply(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, File out) throws IOException {
+    private static void apply(Iterable<? extends HintDescription> descs, Folder[] sourceRoot, ProgressHandleWrapper progress, HintsSettings settings, Writer out) throws IOException {
         ProgressHandleWrapper w = progress.startNextPartWithEmbedding(1, 1);
         BatchResult occurrences = BatchSearch.findOccurrences(descs, Scopes.specifiedFoldersScope(sourceRoot), w, settings);
 
@@ -533,20 +668,8 @@ public class Main {
         Collection<ModificationResult> diffs = BatchUtilities.applyFixes(occurrences, w, new AtomicBoolean(), problems);
 
         if (out != null) {
-            Writer outS = null;
-
-            try {
-                outS = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(out)));
-
-                for (ModificationResult mr : diffs) {
-                    org.netbeans.modules.jackpot30.indexing.batch.BatchUtilities.exportDiff(mr, null, outS);
-                }
-            } finally {
-                try {
-                    outS.close();
-                } catch (IOException ex) {
-                    Logger.getLogger(Main.class.getName()).log(Level.SEVERE, null, ex);
-                }
+            for (ModificationResult mr : diffs) {
+                org.netbeans.modules.jackpot30.indexing.batch.BatchUtilities.exportDiff(mr, null, out);
             }
         } else {
             for (ModificationResult mr : diffs) {
@@ -642,9 +765,90 @@ public class Main {
         }
     }
 
+    static String[] splitGroupArg(String arg) {
+        List<String> result = new ArrayList<>();
+        StringBuilder currentPart = new StringBuilder();
+
+        for (int i = 0; i < arg.length(); i++) {
+            switch (arg.charAt(i)) {
+                case '\\':
+                    if (++i < arg.length()) {
+                        currentPart.append(arg.charAt(i));
+                    }
+                    break;
+                case ' ':
+                    if (currentPart.length() > 0) {
+                        result.add(currentPart.toString());
+                        currentPart.delete(0, currentPart.length());
+                    }
+                    break;
+                default:
+                    currentPart.append(arg.charAt(i));
+                    break;
+            }
+        }
+
+        if (currentPart.length() > 0) {
+            result.add(currentPart.toString());
+        }
+
+        return result.toArray(new String[0]);
+    }
+
     private static final class WarningsAndErrors {
         private int warnings;
         private int errors;
+    }
+
+    private static final class RootConfiguration {
+        private final List<Folder> rootFolders;
+        private final ClassPath bootCP;
+        private final ClassPath compileCP;
+        private final ClassPath sourceCP;
+        private final ClassPath binaryCP;
+
+        public RootConfiguration(OptionSet parsed, GroupOptions groupOptions) throws IOException {
+            this.rootFolders = new ArrayList<>();
+
+            List<FileObject> roots = new ArrayList<>();
+
+            for (String sr : parsed.nonOptionArguments()) {
+                File r = new File(sr);
+                FileObject root = FileUtil.toFileObject(r);
+
+                if (root != null) {
+                    roots.add(root);
+                    rootFolders.add(new Folder(root));
+                }
+            }
+
+            this.bootCP = createClassPath(parsed.has(groupOptions.bootclasspath) ? parsed.valuesOf(groupOptions.bootclasspath) : null, createDefaultBootClassPath());
+            this.compileCP = createClassPath(parsed.has(groupOptions.classpath) ? parsed.valuesOf(groupOptions.classpath) : null, ClassPath.EMPTY);
+            this.sourceCP = createClassPath(parsed.has(groupOptions.sourcepath) ? parsed.valuesOf(groupOptions.sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
+            this.binaryCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP);
+        }
+
+    }
+
+    private static final class GlobalConfiguration {
+        private final Preferences configurationPreferences;
+        private final boolean apply;
+        private final boolean runDeclarative;
+        private final String hint;
+        private final File hintFile;
+        private final Writer out;
+        private final boolean failOnWarnings;
+
+        public GlobalConfiguration(Preferences configurationPreferences, boolean apply, boolean runDeclarative, String hint, File hintFile, Writer out, boolean failOnWarnings) {
+            this.configurationPreferences = configurationPreferences;
+            this.apply = apply;
+            this.runDeclarative = runDeclarative;
+            this.hint = hint;
+            this.hintFile = hintFile;
+            this.out = out;
+            this.failOnWarnings = failOnWarnings;
+        }
+
     }
 
     @ServiceProvider(service=Lookup.class)

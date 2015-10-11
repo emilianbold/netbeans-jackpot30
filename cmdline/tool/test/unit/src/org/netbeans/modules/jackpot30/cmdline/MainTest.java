@@ -427,6 +427,48 @@ public class MainTest extends NbTestCase {
                       "--fail-on-warnings");
     }
 
+    public void testGroups() throws Exception {
+        doRunCompiler(null,
+                      "${workdir}/src1/test/Test.java:4: warning: [test] test\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "                     ^\n" +
+                      "${workdir}/src2/test/Test.java:5: warning: [test] test\n" +
+                      "        boolean b2 = c.size() != 0;\n" +
+                      "                     ^\n",
+                      null,
+                      "cp1/META-INF/upgrade/test.hint",
+                      "$coll.size() == 0 :: $coll instanceof java.util.Collection;;",
+                      "src1/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "        boolean b2 = c.size() != 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      "cp2/META-INF/upgrade/test.hint",
+                      "$coll.size() != 0 :: $coll instanceof java.util.Collection;;",
+                      "src2/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "        boolean b2 = c.size() != 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      null,
+                      DONT_APPEND_PATH,
+                      "--group",
+                      "--classpath ${workdir}/cp1 ${workdir}/src1",
+                      "--group",
+                      "--classpath ${workdir}/cp2 ${workdir}/src2");
+    }
+
+    public void testGroupsParamEscape() throws Exception {
+        assertEquals(Arrays.asList("a b", "a\\b"),
+                     Arrays.asList(Main.splitGroupArg("a\\ b a\\\\b")));
+    }
+
     private static final String DONT_APPEND_PATH = new String("DONT_APPEND_PATH");
 
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
@@ -482,7 +524,9 @@ public class MainTest extends NbTestCase {
 
         reallyRunCompiler(wd, exitcode, output, options.toArray(new String[0]));
 
-        assertEquals(golden, TestUtilities.copyFileToString(source));
+        if (golden != null) {
+            assertEquals(golden, TestUtilities.copyFileToString(source));
+        }
 
         if (stdOut != null) {
             assertEquals(stdOut, output[0].replaceAll(Pattern.quote(wd.getAbsolutePath()), Matcher.quoteReplacement("${workdir}")));
