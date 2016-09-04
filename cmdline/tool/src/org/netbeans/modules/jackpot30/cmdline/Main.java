@@ -281,8 +281,6 @@ public class Main {
                 if (!groupConfig.rootFolders.isEmpty()) totalGroups++;
             }
 
-            System.err.println("totalGroups=" + totalGroups);
-
             ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), ProgressHandleWrapper.prepareParts(totalGroups)) : new ProgressHandleWrapper(1);
 
             Preferences hintSettingsPreferences;
@@ -333,6 +331,11 @@ public class Main {
 
             if (result == GroupResult.NOTHING_TO_DO) {
                 System.err.println("no source roots to work on");
+                return 1;
+            }
+
+            if (result == GroupResult.NO_HINTS_FOUND) {
+                System.err.println("no hints specified");
                 return 1;
             }
 
@@ -458,8 +461,7 @@ public class Main {
         }
 
         if (globalConfig.apply && !hints.iterator().hasNext()) {
-            System.err.println("no hints specified");
-            return GroupResult.FAILURE;
+            return GroupResult.NO_HINTS_FOUND;
         }
 
         Object[] register2Lookup = new Object[] {
@@ -561,6 +563,13 @@ public class Main {
         NOTHING_TO_DO {
             @Override
             public GroupResult join(GroupResult other) {
+                return other;
+            }
+        },
+        NO_HINTS_FOUND {
+            @Override
+            public GroupResult join(GroupResult other) {
+                if (other == NOTHING_TO_DO) return this;
                 return other;
             }
         },

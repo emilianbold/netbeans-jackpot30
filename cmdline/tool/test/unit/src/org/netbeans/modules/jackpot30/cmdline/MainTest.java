@@ -491,6 +491,46 @@ public class MainTest extends NbTestCase {
                       "--list");
     }
 
+    public void testNoHintsFoundWithGroups() throws Exception {
+        doRunCompiler("package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.isEmpty();\n" +
+                      "        boolean b2 = c.size() != 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      "",
+                      null,
+                      "cp/META-INF/upgrade/test.hint",
+                      "$coll.size() == 0 :: $coll instanceof java.util.Collection\n" +
+                      "=>\n" +
+                      "$coll.isEmpty()\n" +
+                      ";;",
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "        boolean b2 = c.size() != 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      "src2/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test(java.util.Collection c) {\n" +
+                      "        boolean b1 = c.size() == 0;\n" +
+                      "        boolean b2 = c.size() != 0;\n" +
+                      "    }\n" +
+                      "}\n",
+                      null,
+                      DONT_APPEND_PATH,
+                      "--group",
+                      "--classpath ${workdir}/cp ${workdir}/src",
+                      "--group",
+                      "${workdir}/src2",
+                      "--apply");
+    }
+
     public void testGroupsParamEscape() throws Exception {
         assertEquals(Arrays.asList("a b", "a\\b"),
                      Arrays.asList(Main.splitGroupArg("a\\ b a\\\\b")));
