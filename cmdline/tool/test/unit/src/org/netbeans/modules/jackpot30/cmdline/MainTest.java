@@ -409,14 +409,16 @@ public class MainTest extends NbTestCase {
             "    }\n" +
             "}\n";
 
-        doRunCompiler(code,
-                      "${workdir}/src/test/Test.java:4: warning: [Usage_of_size_equals_0] Usage of .size() == 0 can be replaced with .isEmpty()\n" +
-                      "        boolean b1 = c.size() == 0;\n" +
-                      "                     ^\n" +
-                      "${workdir}/src/test/Test.java:5: warning: [Usage_of_size_equals_0] Usage of .size() == 0 can be replaced with .isEmpty()\n" +
-                      "\tboolean b2 = c.size() == 0;\n" +
-                      "\t             ^\n",
-                      null,
+        doRunCompiler(equivalentValidator(code),
+                      equivalentValidator(
+                          "${workdir}/src/test/Test.java:4: warning: [Usage_of_size_equals_0] Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                          "        boolean b1 = c.size() == 0;\n" +
+                          "                     ^\n" +
+                          "${workdir}/src/test/Test.java:5: warning: [Usage_of_size_equals_0] Usage of .size() == 0 can be replaced with .isEmpty()\n" +
+                          "\tboolean b2 = c.size() == 0;\n" +
+                          "\t             ^\n"
+                      ),
+                      equivalentValidator(null),
                       1,
                       "src/test/Test.java",
                       code,
@@ -464,6 +466,31 @@ public class MainTest extends NbTestCase {
                       "--classpath ${workdir}/cp2 ${workdir}/src2");
     }
 
+    public void testGroupsList() throws Exception {
+        doRunCompiler(null,
+                      new Validator() {
+                          @Override public void validate(String content) {
+                              assertTrue("Missing expected content, actual content: " + content, content.contains("test\n"));
+                          }
+                      },
+                      null,
+                      "cp1/META-INF/upgrade/test.hint",
+                      "$coll.size() == 0 :: $coll instanceof java.util.Collection;;",
+                      "src1/test/Test.java",
+                      "\n",
+                      "cp2/META-INF/upgrade/test.hint",
+                      "$coll.size() != 0 :: $coll instanceof java.util.Collection;;",
+                      "src2/test/Test.java",
+                      "\n",
+                      null,
+                      DONT_APPEND_PATH,
+                      "--group",
+                      "--classpath ${workdir}/cp1 ${workdir}/src1",
+                      "--group",
+                      "--classpath ${workdir}/cp2 ${workdir}/src2",
+                      "--list");
+    }
+
     public void testGroupsParamEscape() throws Exception {
         assertEquals(Arrays.asList("a b", "a\\b"),
                      Arrays.asList(Main.splitGroupArg("a\\ b a\\\\b")));
@@ -472,10 +499,14 @@ public class MainTest extends NbTestCase {
     private static final String DONT_APPEND_PATH = new String("DONT_APPEND_PATH");
 
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
-        doRunCompiler(golden, stdOut, stdErr, 0, fileContentAndExtraOptions);
+        doRunCompiler(equivalentValidator(golden), equivalentValidator(stdOut), equivalentValidator(stdErr), fileContentAndExtraOptions);
     }
 
-    private void doRunCompiler(String golden, String stdOut, String stdErr, int exitcode, String... fileContentAndExtraOptions) throws Exception {
+    private void doRunCompiler(Validator fileContentValidator, Validator stdOutValidator, Validator stdErrValidator, String... fileContentAndExtraOptions) throws Exception {
+        doRunCompiler(fileContentValidator, stdOutValidator, stdErrValidator, 0, fileContentAndExtraOptions);
+    }
+
+    private void doRunCompiler(Validator fileContentValidator, Validator stdOutValidator, Validator stdErrValidator, int exitcode, String... fileContentAndExtraOptions) throws Exception {
         List<String> fileAndContent = new LinkedList<String>();
         List<String> extraOptions = new LinkedList<String>();
         List<String> fileContentAndExtraOptionsList = Arrays.asList(fileContentAndExtraOptions);
@@ -524,16 +555,14 @@ public class MainTest extends NbTestCase {
 
         reallyRunCompiler(wd, exitcode, output, options.toArray(new String[0]));
 
-        if (golden != null) {
-            assertEquals(golden, TestUtilities.copyFileToString(source));
+        if (fileContentValidator != null) {
+            fileContentValidator.validate(TestUtilities.copyFileToString(source));
         }
-
-        if (stdOut != null) {
-            assertEquals(stdOut, output[0].replaceAll(Pattern.quote(wd.getAbsolutePath()), Matcher.quoteReplacement("${workdir}")));
+        if (stdOutValidator != null) {
+            stdOutValidator.validate(output[0].replaceAll(Pattern.quote(wd.getAbsolutePath()), Matcher.quoteReplacement("${workdir}")));
         }
-
-        if (stdErr != null) {
-            assertEquals(stdErr, output[1].replaceAll(Pattern.quote(wd.getAbsolutePath()), Matcher.quoteReplacement("${workdir}")));
+        if (stdErrValidator != null) {
+            stdErrValidator.validate(output[1].replaceAll(Pattern.quote(wd.getAbsolutePath()), Matcher.quoteReplacement("${workdir}")));
         }
     }
 
@@ -618,5 +647,19 @@ public class MainTest extends NbTestCase {
 
         assertEquals(1, testResult.getFailureCount());
         assertTrue(testResult.getFailures().toString(), testResult.getFailures().get(0).getDescription().getMethodName().endsWith("/h.test/neg"));
+    }
+
+    private static Validator equivalentValidator(final String expected) {
+        if (expected == null) return null;
+
+        return new Validator() {
+            @Override public void validate(String content) {
+                assertEquals(expected, content);
+            }
+        };
+    }
+
+    private static interface Validator {
+        public void validate(String content);
     }
 }

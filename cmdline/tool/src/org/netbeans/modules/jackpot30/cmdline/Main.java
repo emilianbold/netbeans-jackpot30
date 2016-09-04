@@ -55,6 +55,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -117,6 +118,7 @@ import org.openide.filesystems.FileStateInvalidException;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
+import org.openide.util.Pair;
 import org.openide.util.RequestProcessor;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ProxyLookup;
@@ -193,7 +195,17 @@ public class Main {
             }
         }
 
-        final RootConfiguration globalRootConfiguration = new RootConfiguration(parsed, globalGroupOptions);
+        final List<RootConfiguration> groups = new ArrayList<>();
+
+        groups.add(new RootConfiguration(parsed, globalGroupOptions));
+
+        for (String groupValue : parsed.valuesOf(group)) {
+            OptionParser groupParser = new OptionParser();
+            GroupOptions groupOptions = setupGroupParser(groupParser);
+            OptionSet parsedGroup = groupParser.parse(splitGroupArg(groupValue));
+
+            groups.add(new RootConfiguration(parsedGroup, groupOptions));
+        }
 
         if (parsed.has("show-gui")) {
             if (parsed.has(configFile)) {
@@ -202,7 +214,8 @@ public class Main {
                     SwingUtilities.invokeAndWait(new Runnable() {
                         @Override public void run() {
                             try {
-                                showGUICustomizer(settingsFile, globalRootConfiguration.binaryCP, globalRootConfiguration.sourceCP);
+                                Pair<ClassPath, ClassPath> sourceAndBinaryCP = jointSourceAndBinaryCP(groups);
+                                showGUICustomizer(settingsFile, sourceAndBinaryCP.second(), sourceAndBinaryCP.first());
                             } catch (IOException ex) {
                                 Exceptions.printStackTrace(ex);
                             } catch (BackingStoreException ex) {
@@ -256,11 +269,19 @@ public class Main {
             RepositoryUpdater.getDefault().start(false);
 
             if (parsed.has("list")) {
-                printHints(globalRootConfiguration.sourceCP, globalRootConfiguration.binaryCP);
+                Pair<ClassPath, ClassPath> sourceAndBinaryCP = jointSourceAndBinaryCP(groups);
+                printHints(sourceAndBinaryCP.first(),
+                           sourceAndBinaryCP.second());
                 return 0;
             }
 
-            int totalGroups = parsed.valuesOf(group).size() + (!globalRootConfiguration.rootFolders.isEmpty() ? 1 : 0);
+            int totalGroups = 0;
+
+            for (RootConfiguration groupConfig : groups) {
+                if (!groupConfig.rootFolders.isEmpty()) totalGroups++;
+            }
+
+            System.err.println("totalGroups=" + totalGroups);
 
             ProgressHandleWrapper progress = parsed.has("progress") ? new ProgressHandleWrapper(new ConsoleProgressHandleAbstraction(), ProgressHandleWrapper.prepareParts(totalGroups)) : new ProgressHandleWrapper(1);
 
@@ -303,13 +324,8 @@ public class Main {
             try (Writer outS = parsed.has(out) ? new BufferedWriter(new OutputStreamWriter(new FileOutputStream(parsed.valueOf(out)))) : null) {
                 GlobalConfiguration globalConfig = new GlobalConfiguration(hintSettingsPreferences, apply, runDeclarative, parsed.valueOf(hint), parsed.valueOf(hintFile), outS, parsed.has(OPTION_FAIL_ON_WARNINGS));
 
-                result = result.join(handleGroup(parsed, globalGroupOptions, progress, globalConfig, parsed.valuesOf(config)));
-
-                for (String groupValue : parsed.valuesOf(group)) {
-                    OptionParser groupParser = new OptionParser();
-                    GroupOptions groupOptions = setupGroupParser(groupParser);
-                    OptionSet parsedGroup = groupParser.parse(splitGroupArg(groupValue));
-                    result = result.join(handleGroup(parsedGroup, groupOptions, progress, globalConfig, parsed.valuesOf(config)));
+                for (RootConfiguration groupConfig : groups) {
+                    result = result.join(handleGroup(groupConfig, progress, globalConfig, parsed.valuesOf(config)));
                 }
             }
 
@@ -334,6 +350,17 @@ public class Main {
                 }
             }
         }
+    }
+
+    private static Pair<ClassPath, ClassPath> jointSourceAndBinaryCP(List<RootConfiguration> groups) {
+        Set<FileObject> sourceRoots = new HashSet<>();
+        Set<FileObject> binaryRoots = new HashSet<>();
+        for (RootConfiguration groupConfig : groups) {
+            sourceRoots.addAll(Arrays.asList(groupConfig.sourceCP.getRoots()));
+            binaryRoots.addAll(Arrays.asList(groupConfig.binaryCP.getRoots()));
+        }
+        return Pair.of(ClassPathSupport.createClassPath(sourceRoots.toArray(new FileObject[0])),
+                       ClassPathSupport.createClassPath(binaryRoots.toArray(new FileObject[0])));
     }
 
     private static GroupOptions setupGroupParser(OptionParser parser) {
@@ -368,16 +395,14 @@ public class Main {
         return result;
     }
 
-    private static GroupResult handleGroup(OptionSet parsed, GroupOptions groupOptions, ProgressHandleWrapper w, GlobalConfiguration globalConfig, List<String> config) throws IOException {
-        ProgressHandleWrapper progress = w.startNextPartWithEmbedding(1);
+    private static GroupResult handleGroup(RootConfiguration rootConfiguration, ProgressHandleWrapper w, GlobalConfiguration globalConfig, List<String> config) throws IOException {
         Iterable<? extends HintDescription> hints;
-
-        RootConfiguration rootConfiguration = new RootConfiguration(parsed, groupOptions);
 
         if (rootConfiguration.rootFolders.isEmpty()) {
             return GroupResult.NOTHING_TO_DO;
         }
 
+        ProgressHandleWrapper progress = w.startNextPartWithEmbedding(1);
         Preferences settings = globalConfig.configurationPreferences != null ? globalConfig.configurationPreferences : new MemoryPreferences();
         HintsSettings hintSettings = HintsSettings.createPreferencesBasedHintsSettings(settings, false, null);
 
@@ -425,7 +450,7 @@ public class Main {
             }
         }
 
-        String sourceLevel = parsed.valueOf(groupOptions.source);
+        String sourceLevel = rootConfiguration.sourceLevel;
 
         if (!Pattern.compile(ACCEPTABLE_SOURCE_LEVEL_PATTERN).matcher(sourceLevel).matches()) {
             System.err.println("unrecognized source level specification: " + sourceLevel);
@@ -806,6 +831,7 @@ public class Main {
         private final ClassPath compileCP;
         private final ClassPath sourceCP;
         private final ClassPath binaryCP;
+        private final String    sourceLevel;
 
         public RootConfiguration(OptionSet parsed, GroupOptions groupOptions) throws IOException {
             this.rootFolders = new ArrayList<>();
@@ -826,6 +852,7 @@ public class Main {
             this.compileCP = createClassPath(parsed.has(groupOptions.classpath) ? parsed.valuesOf(groupOptions.classpath) : null, ClassPath.EMPTY);
             this.sourceCP = createClassPath(parsed.has(groupOptions.sourcepath) ? parsed.valuesOf(groupOptions.sourcepath) : null, ClassPathSupport.createClassPath(roots.toArray(new FileObject[0])));
             this.binaryCP = ClassPathSupport.createProxyClassPath(bootCP, compileCP);
+            this.sourceLevel = parsed.valueOf(groupOptions.source);
         }
 
     }
@@ -914,7 +941,7 @@ public class Main {
 
     private static final class ConsoleProgressHandleAbstraction implements ProgressHandleAbstraction {
 
-        private final int width = 80;
+        private final int width = 80 - 2;
 
         private int total = -1;
         private int current = 0;
@@ -940,27 +967,33 @@ public class Main {
         }
 
         @Override
-        public void finish() {
-            System.out.println();
+        public synchronized void finish() {
+            current = total;
+            RequestProcessor.getDefault().post(new Runnable() {
+                @Override
+                public void run() {
+                    doUpdate(false);
+                    System.out.println();
+                }
+            });
         }
 
         private void update() {
             RequestProcessor.getDefault().post(new Runnable() {
-
                 @Override
                 public void run() {
-                    doUpdate();
+                    doUpdate(true);
                 }
             });
         }
 
         private int currentShownDone = -1;
 
-        private void doUpdate() {
+        private void doUpdate(boolean moveCaret) {
             int done;
 
             synchronized(this) {
-                done = (int) ((((double) width - 2) / total) * current);
+                done = (int) ((((double) width) / total) * current);
 
                 if (done == currentShownDone) {
                     return;
@@ -983,7 +1016,10 @@ public class Main {
                 pw.print(" ");
             }
 
-            pw.print("]\r");
+            pw.print("]");
+
+            if (moveCaret)
+                pw.print("\r");
         }
 
     }
