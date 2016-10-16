@@ -87,7 +87,7 @@ public class JavacCreatorImpl extends JavacCreator {
         //need to preregister the Messages here, because the getTask below requires Log instance:
         NBMessager.preRegister(context, null, DEV_NULL, DEV_NULL, DEV_NULL);
         JavacTaskImpl task = (JavacTaskImpl) JavacTool.create().getTask(out, fileManager, diagnosticListener, realOptions, classes, compilationUnits, context);
-        NBClassReader.preRegister(context, true);
+        NBClassReader.preRegister(context);
         NBAttr.preRegister(context);
         NBClassWriter.preRegister(context);
         NBParserFactory.preRegister(context);
