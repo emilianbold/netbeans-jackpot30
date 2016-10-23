@@ -40,6 +40,7 @@ package org.netbeans.api.java.source;
 
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.api.JavacTaskImplHack;
@@ -112,7 +113,16 @@ public class CompilationInfoHack extends WorkingCopy {
             Field javacTask = CompilationInfoImpl.class.getDeclaredField("javacTask");
 
             javacTask.setAccessible(true);
-            javacTask.set(this.impl, new JavacTaskImplHack(context));
+
+            JavacTask prevTask = context.get(JavacTask.class);
+
+            try {
+                context.put(JavacTask.class, (JavacTask) null);
+                javacTask.set(this.impl, new JavacTaskImplHack(context));
+            } finally {
+                context.put(JavacTask.class, (JavacTask) null);
+                context.put(JavacTask.class, prevTask);
+            }
 
             Method init = WorkingCopy.class.getDeclaredMethod("init");
 

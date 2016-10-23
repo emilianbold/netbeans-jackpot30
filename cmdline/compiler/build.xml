@@ -63,5 +63,10 @@
     <target name="netbeans-extra" depends="ant"/>
     
     <target name="test-build" depends="projectized-common.test-build,-prepare-scripted-tests" />
+    <target name="build-init" depends="harness.build-init">
+        <condition property="run.bootclasspath.prepend" value="${bootclasspath.prepend}${path.separator}${retouche.javac.impl}">
+            <istrue value="${requires.nb.javac}"/>
+        </condition>
+    </target>
     
 </project>

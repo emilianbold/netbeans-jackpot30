@@ -118,7 +118,7 @@ public class HintsAnnotationProcessingTestBase extends NbTestCase {
         options.add("-s");
         options.add(sourceOutput.getAbsolutePath());
         options.add("-source");
-        options.add("1.5");
+        options.add("1.7");
         options.add("-Xjcov");
 
         for (String eo : extraOptions) {

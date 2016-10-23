@@ -199,6 +199,7 @@ public abstract class CreateStandaloneJar extends NbTestCase {
             if (    clazz.getProtectionDomain().getCodeSource() == null
                 && !clazz.getName().startsWith("com.sun.source")
                 && !clazz.getName().startsWith("com.sun.javadoc")
+                && !clazz.getName().startsWith("com.sun.tools")
                 && !clazz.getName().startsWith("javax.tools")
                 && !clazz.getName().startsWith("javax.annotation.processing")
                 && !clazz.getName().startsWith("javax.lang.model")) {
