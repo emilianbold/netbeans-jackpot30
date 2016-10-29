@@ -4,7 +4,6 @@
 <!-- If you delete this file and reopen the project it will be recreated. -->
 <project name="org.netbeans.modules.jackpot30.compiler" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jackpot30.compiler.</description>
-    <property name="retouche.javac.impl" value="" />
     <import file="nbproject/build-impl.xml"/>
     <import file="${suite.dir}/../findbugs-import.xml"/>
 
@@ -65,7 +64,7 @@
     
     <target name="test-build" depends="projectized-common.test-build,-prepare-scripted-tests" />
     <target name="build-init" depends="harness.build-init">
-        <condition property="run.bootclasspath.prepend" value="${bootclasspath.prepend}${path.separator}${retouche.javac.impl}">
+        <condition property="run.bootclasspath.prepend" value="${bootclasspath.prepend}">
             <istrue value="${requires.nb.javac}"/>
         </condition>
     </target>
