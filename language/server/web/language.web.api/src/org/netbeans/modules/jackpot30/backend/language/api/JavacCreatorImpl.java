@@ -43,8 +43,8 @@ package org.netbeans.modules.jackpot30.backend.language.api;
 
 import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTool;
-import com.sun.tools.javac.main.JavaCompiler;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javadoc.JavadocClassFinder;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -95,6 +95,7 @@ public class JavacCreatorImpl extends JavacCreator {
         NBJavacTrees.preRegister(context);
         NBJavadocEnter.preRegister(context);
         NBJavadocMemberEnter.preRegister(context);
+        JavadocClassFinder.preRegister(context);
 
         return task;
     }
