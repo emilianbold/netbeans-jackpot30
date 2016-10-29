@@ -168,7 +168,7 @@ public class RemoteDuplicatesIndex {
                     Collection<String> dupes = hashResult.get(ri);
 
                     if (dupes == null) {
-                        hashResult.put(ri, dupes = new HashSet<String>());
+                        hashResult.put(ri, dupes = new LinkedHashSet<String>());
                     }
 
                     dupes.addAll(insideHash.getValue());

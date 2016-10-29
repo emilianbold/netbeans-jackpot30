@@ -118,7 +118,7 @@ public class RemoteDuplicatesIndexTest extends NbTestCase {
             }
         }
 
-        assertEquals(Arrays.asList("T2", "T1", "T4", "T3"), duplicatesReal);
+        assertEquals(Arrays.asList("T1", "T2", "T3", "T4"), duplicatesReal);
 
         //check local cache:
         duplicates = RemoteDuplicatesIndex.findDuplicates(hashes, source, new AtomicBoolean());
@@ -130,7 +130,7 @@ public class RemoteDuplicatesIndexTest extends NbTestCase {
             }
         }
 
-        assertEquals(Arrays.asList("T2", "T1", "T4", "T3"), duplicatesReal);
+        assertEquals(Arrays.asList("T1", "T2", "T3", "T4"), duplicatesReal);
     }
 
 }
