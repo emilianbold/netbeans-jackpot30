@@ -34,7 +34,7 @@ public class DownloadedIndexPatcherImpl implements DownloadedIndexPatcher {
     public boolean updateIndex(URL sourceRoot, URL indexFolder) {
         try {
             File cache = new File(indexFolder.toURI());
-            File checksums = new File(cache, "java/14/checksums.properties");
+            File checksums = new File(cache, "java/15/checksums.properties");
 
             if (!checksums.canRead()) return true; //nothing to fix
 
@@ -68,7 +68,7 @@ public class DownloadedIndexPatcherImpl implements DownloadedIndexPatcher {
             String newPrefix = srcFolderFO.toURL().toString();
 
             fixAbsolutePath(checksums, origPrefix, newPrefix);
-            fixAbsolutePath(new File(cache, "java/14/fqn2files.properties"), origPrefix, newPrefix);
+            fixAbsolutePath(new File(cache, "java/15/fqn2files.properties"), origPrefix, newPrefix);
 
             if (srcFolderFO != null) {
                 verifyAttributes(srcFolderFO, indexFolder, false);
@@ -155,7 +155,7 @@ public class DownloadedIndexPatcherImpl implements DownloadedIndexPatcher {
 
     public static boolean ensureAttributeValue(final URL root, final String attributeName, final String attributeValue, boolean checkOnly) throws IOException, URISyntaxException {
         File rootFile = new File(root.toURI());
-        File attributes = new File(rootFile, "java/14/attributes.properties");
+        File attributes = new File(rootFile, "java/15/attributes.properties");
         Properties p = loadProperties(attributes);
         final String current = p.getProperty(attributeName);
         if (current == null) {

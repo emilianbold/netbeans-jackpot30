@@ -66,6 +66,7 @@ import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.lexer.TokenSequence;
 import org.netbeans.modules.jackpot30.backend.base.CategoryStorage;
 import org.netbeans.modules.jackpot30.backend.base.SourceRoot;
+import org.netbeans.modules.java.source.indexing.JavaIndex;
 import org.openide.filesystems.FileObject;
 
 /**
@@ -146,7 +147,7 @@ public class ResolveService {
 
     private static String fileForFQN(CategoryStorage category, String code, String fqn) throws IOException {
         FileObject root = category.getEmbeddedJarRoot(code);
-        FileObject fqn2files = root != null ? root.getFileObject("java/14/fqn2files.properties") : null;
+        FileObject fqn2files = root != null ? root.getFileObject("java/" + JavaIndex.VERSION + "/fqn2files.properties") : null;
 
         if (fqn2files == null) return null;
 

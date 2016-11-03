@@ -78,6 +78,7 @@ import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.api.sendopts.CommandException;
 import org.netbeans.modules.jackpot30.backend.impl.spi.IndexAccessor;
 import org.netbeans.modules.jackpot30.backend.impl.spi.StatisticsGenerator;
+import org.netbeans.modules.java.source.indexing.JavaIndex;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.support.ant.PropertyUtils;
@@ -466,7 +467,7 @@ public class OptionProcessorImpl extends OptionProcessor {
             InputStream in = index.getInputStream();
 
             try {
-                if (baseURL != null && ("java/14/checksums.properties".contentEquals(relPath) || "java/14/fqn2files.properties".contentEquals(relPath))) {
+                if (baseURL != null && (("java/" + JavaIndex.VERSION + "/checksums.properties").contentEquals(relPath) || ("java/" + JavaIndex.VERSION + "/fqn2files.properties").contentEquals(relPath))) {
                     fixAbsolutePath(in, target, baseURL, "rel:/");
                 } else {
                     FileUtil.copy(in, target);

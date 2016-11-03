@@ -135,7 +135,7 @@ public class SourceRoot {
                     FileObject root = category.getEmbeddedJarRoot(entry);
 
                     if (!entry.endsWith(".jar")) {
-                        root = root.getFileObject("java/14/classes");
+                        root = root.getFileObject("java/15/classes");
                     }
 
                     if (root != null) {
