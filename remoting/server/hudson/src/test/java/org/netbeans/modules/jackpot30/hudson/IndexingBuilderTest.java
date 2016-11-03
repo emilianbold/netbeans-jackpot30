@@ -41,22 +41,28 @@ package org.netbeans.modules.jackpot30.hudson;
 
 import hudson.FilePath;
 import hudson.Launcher;
+import hudson.Launcher.ProcStarter;
+import hudson.Proc;
 import hudson.model.AbstractBuild;
 import hudson.model.BuildListener;
 import hudson.model.FreeStyleProject;
-import hudson.scm.SubversionSCM;
-import hudson.scm.SubversionSCM.ModuleLocation;
-import hudson.util.ArgumentListBuilder;
-import hudson.util.StreamTaskListener;
+import hudson.model.Hudson;
+import hudson.model.Result;
+import hudson.remoting.Channel;
+import hudson.scm.NullSCM;
+import hudson.scm.SCM;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.Set;
+import java.util.List;
+import java.util.Map;
 import org.jvnet.hudson.test.HudsonHomeLoader;
 import org.jvnet.hudson.test.HudsonTestCase;
-import static org.junit.Assert.*;
 import org.xml.sax.SAXException;
 
 /**
@@ -75,7 +81,7 @@ public class IndexingBuilderTest extends HudsonTestCase {
         super.setUp();
 
         checkoutDir = HudsonHomeLoader.NEW.allocate();
-        repositoryDir = HudsonHomeLoader.NEW.allocate();
+        toolDir = HudsonHomeLoader.NEW.allocate();
     }
 
     @Override
@@ -84,27 +90,28 @@ public class IndexingBuilderTest extends HudsonTestCase {
 
         //XXX: some of the working directories seems to be kept by the testing infra, workarounding:
         new FilePath(checkoutDir).deleteRecursive();
-        new FilePath(repositoryDir).deleteRecursive();
+        new FilePath(toolDir).deleteRecursive();
         hudson.getRootPath().deleteRecursive();
     }
 
     private File checkoutDir;
-    private File repositoryDir;
+    private File toolDir;
 
     public void testUpdate() throws Exception {
-        //setup svn repository:
-        String repositoryURL = repositoryDir.toURI().toURL().toExternalForm().replace("file:/", "file:///");
-        runSubversionAdmin("create", repositoryDir.getAbsolutePath());
-        runSubversion("checkout", repositoryURL, ".");
-        createFile("A.java");
-        createFile("B.java");
-        runSubversion("add", "A.java", "B.java");
-        runSubversion("commit", "-m", "initial");
-
-        FreeStyleProject p = createFreeStyleProject();
-        ModuleLocation mod1 = new ModuleLocation(repositoryURL, null);
-        SubversionSCM scm = new SubversionSCM(Collections.singletonList(mod1), true, null, "", "", "");
         IndexBuilderImpl indexer = new IndexBuilderImpl("test", "test");
+        File projectMarkers = new File(toolDir, "indexer/test-cluster/patterns/project-marker-test");
+        projectMarkers.getParentFile().mkdirs();
+        OutputStream out = new FileOutputStream(projectMarkers);
+        try {
+            out.write(("(.*)/nbproject/project.xml\n" +
+                       "(.*)/share/classes\n").getBytes("UTF-8"));
+        } finally {
+            out.close();
+        }
+        IndexingTool t = new IndexingTool("test", toolDir.getAbsolutePath(), NO_PROPERTIES);
+        Hudson.getInstance().getDescriptorByType(IndexingTool.DescriptorImpl.class).setInstallations(t);
+        FreeStyleProject p = createFreeStyleProject();
+        SCM scm = new ProjectSCM();
         p.setScm(scm);
         p.getBuildersList().add(indexer);
 
@@ -112,51 +119,10 @@ public class IndexingBuilderTest extends HudsonTestCase {
 
         assertTrue(indexer.called);
 
-        runSubversion("remove", "B.java");
-        createFile("C.java");
-        runSubversion("add", "C.java");
-        runSubversion("commit", "-m", "");
-
-        indexer.called = false;
-        doRunProject(p);
-
-        assertTrue(indexer.called);
-        assertEquals(Collections.singleton("C.java"), indexer.addedOrModified);
-        assertEquals(Collections.singleton("B.java"), indexer.removed);
-    }
-
-    public void DISABLEDtestCheckoutIntoSpecifiedDir() throws Exception {
-        //setup svn repository:
-        String repositoryURL = repositoryDir.toURI().toURL().toExternalForm().replace("file:/", "file:///");
-        runSubversionAdmin("create", repositoryDir.getAbsolutePath());
-        runSubversion("checkout", repositoryURL, ".");
-        createFile("A.java");
-        createFile("B.java");
-        runSubversion("add", "A.java", "B.java");
-        runSubversion("commit", "-m", "initial");
-
-        FreeStyleProject p = createFreeStyleProject();
-        ModuleLocation mod1 = new ModuleLocation(repositoryURL, "repo1");
-        SubversionSCM scm = new SubversionSCM(Collections.singletonList(mod1), true, null, "", "", "");
-        IndexBuilderImpl indexer = new IndexBuilderImpl("test", "test");
-        p.setScm(scm);
-        p.getBuildersList().add(indexer);
-
-        doRunProject(p);
-
-        assertTrue(indexer.called);
-
-        runSubversion("remove", "B.java");
-        createFile("C.java");
-        runSubversion("add", "C.java");
-        runSubversion("commit", "-m", "");
-
-        indexer.called = false;
-        doRunProject(p);
-
-        assertTrue(indexer.called);
-        assertEquals(Arrays.asList(""), indexer.addedOrModified);
-        assertEquals(Arrays.asList(""), indexer.removed);
+        assertEquals(new File(toolDir, "index.sh").getAbsolutePath(), indexer.commands.get(0));
+        assertEquals("test0", indexer.commands.get(1));
+        assertEquals("test", indexer.commands.get(2));
+        assertEquals(Arrays.asList("prj1", "src/prj2"), indexer.commands.subList(5, indexer.commands.size()));
     }
 
     private void doRunProject(FreeStyleProject p) throws SAXException, IOException, InterruptedException {
@@ -168,48 +134,79 @@ public class IndexingBuilderTest extends HudsonTestCase {
         while (p.isBuilding()) {
             Thread.sleep(100);
         }
+
+        assertEquals(p.getLastBuild().getLog(Integer.MAX_VALUE).toString(), Result.SUCCESS, p.getLastBuild().getResult());
     }
 
-    private void runSubversion(String... args) throws IOException, InterruptedException {
-        Launcher.LocalLauncher l = new Launcher.LocalLauncher(new StreamTaskListener(System.err));
-        l.launch().cmds(new ArgumentListBuilder().add("svn").add(args))
-                  .pwd(checkoutDir)
-                  .start()
-                  .join();
+    private static final class ProjectSCM extends NullSCM {
+
+        @Override
+        public boolean checkout(AbstractBuild<?, ?> build, Launcher launcher, FilePath remoteDir, BuildListener listener, File changeLogFile) throws IOException, InterruptedException {
+            writeFile(remoteDir, "prj1/nbproject/project.xml");
+            writeFile(remoteDir, "src/prj2/share/classes/");
+            writeFile(remoteDir, "prj3/nothing");
+            return true;
+        }
+
+        private void writeFile(FilePath remoteDir, String path) throws IOException, InterruptedException {
+            FilePath target = new FilePath(remoteDir, path);
+            target.getParent().mkdirs();
+            target.write("", "UTF-8");
+        }
     }
-
-    private void runSubversionAdmin(String... args) throws IOException, InterruptedException {
-        Launcher.LocalLauncher l = new Launcher.LocalLauncher(new StreamTaskListener(System.err));
-        l.launch().cmds(new ArgumentListBuilder().add("svnadmin").add(args))
-                  .pwd(repositoryDir)
-                  .start()
-                  .join();
-    }
-
-    private void createFile(String relativePath) throws IOException {
-        File toCreate = new File(checkoutDir, relativePath.replace('/', File.separatorChar));
-
-        toCreate.getParentFile().mkdirs();
-
-        new FileOutputStream(toCreate).close();
-    }
-
     private static final class IndexBuilderImpl extends IndexingBuilder {
 
         private boolean called;
-        private Set<String> addedOrModified;
-        private Set<String> removed;
+        private List<String> commands;
 
         public IndexBuilderImpl(String projectName, String toolName) {
-            super(projectName, toolName);
+            super(projectName, toolName, "", "");
         }
 
         @Override
-        protected boolean doIndex(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener, Set<String> addedOrModified, Set<String> removed) throws IOException, InterruptedException {
-            this.addedOrModified = addedOrModified;
-            this.removed = removed;
-            called = true;
-            return true;
+        public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
+            Launcher testLauncher = new Launcher(listener, launcher.getChannel()) {
+                @Override
+                public Proc launch(ProcStarter starter) throws IOException {
+                    called = true;
+                    commands = new ArrayList<String>(starter.cmds());
+                    return new Proc() {
+                        @Override
+                        public boolean isAlive() throws IOException, InterruptedException {
+                            return false;
+                        }
+                        @Override
+                        public void kill() throws IOException, InterruptedException {}
+                        @Override
+                        public int join() throws IOException, InterruptedException {
+                            return 0;
+                        }
+                        @Override
+                        public InputStream getStdout() {
+                            return new ByteArrayInputStream(new byte[0]);
+                        }
+                        @Override
+                        public InputStream getStderr() {
+                            return new ByteArrayInputStream(new byte[0]);
+                        }
+                        @Override
+                        public OutputStream getStdin() {
+                            return listener.getLogger(); //???
+                        }
+                    };
+                }
+
+                @Override
+                public Channel launchChannel(String[] cmd, OutputStream out, FilePath workDir, Map<String, String> envVars) throws IOException, InterruptedException {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void kill(Map<String, String> modelEnvVars) throws IOException, InterruptedException {
+                    throw new UnsupportedOperationException();
+                }
+            };
+            return super.perform(build, testLauncher, listener);
         }
 
     }

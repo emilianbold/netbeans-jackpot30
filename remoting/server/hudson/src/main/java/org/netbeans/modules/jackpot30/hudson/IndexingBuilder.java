@@ -131,12 +131,6 @@ public class IndexingBuilder extends Builder {
 
     @Override
     public boolean perform(AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws InterruptedException, IOException {
-        boolean success = doIndex(getDescriptor().getCacheDir(), build, launcher, listener);
-
-        return success;
-    }
-
-    protected/*tests*/ boolean doIndex(File cacheDir, AbstractBuild<?, ?> build, Launcher launcher, BuildListener listener) throws IOException, InterruptedException {
         IndexingTool t = findSelectedTool();
 
         if (t == null) {
@@ -183,19 +177,6 @@ public class IndexingBuilder extends Builder {
         }
 
         return true;
-    }
-
-    private void dumpToFile(File target, Set<String> files) throws IOException {
-        Writer out = new OutputStreamWriter(new FileOutputStream(target));
-
-        try {
-            for (String f : files) {
-                out.write(f);
-                out.write("\n");
-            }
-        } finally {
-            out.close();
-        }
     }
 
     public IndexingTool findSelectedTool() {
@@ -256,7 +237,7 @@ public class IndexingBuilder extends Builder {
     }
     
     @Extension // this marker indicates Hudson that this is an implementation of an extension point.
-    public static final class DescriptorImpl extends Descriptor<Builder> {
+    public static class DescriptorImpl extends Descriptor<Builder> { //non-final for tests
 
         private File cacheDir;
         private String webVMOptions;
