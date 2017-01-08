@@ -42,8 +42,11 @@ package org.netbeans.modules.jackpot30.cmdline;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.Arrays;
@@ -52,6 +55,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.tools.SimpleJavaFileObject;
+import javax.tools.ToolProvider;
 import org.junit.runner.Result;
 import org.netbeans.api.java.source.TestUtilities;
 import org.netbeans.junit.NbTestCase;
@@ -633,6 +638,19 @@ public class MainTest extends NbTestCase {
     }
 
     //verify that the DeclarativeHintsTestBase works:
+    private static final String CODE_RUN_DECLARATIVE =
+            "package org.netbeans.modules.jackpot30.cmdline.testtool;\n" +
+            "\n" +
+            "import junit.framework.TestSuite;\n" +
+            "import org.netbeans.modules.java.hints.declarative.test.api.DeclarativeHintsTestBase;\n" +
+            "\n" +
+            "public class DoRunTests extends DeclarativeHintsTestBase {\n" +
+            "\n" +
+            "    public static TestSuite suite() {\n" +
+            "        return suite(DoRunTests.class);\n" +
+            "    }\n" +
+            "\n" +
+            "}\n";
     public void testRunTest() throws Exception {
         clearWorkDir();
 
@@ -664,20 +682,27 @@ public class MainTest extends NbTestCase {
                       "}}\n";
         TestUtilities.copyStringToFile(new File(classes, "h.test"), test);
 
-        File runner = new File(classes, "org/netbeans/modules/jackpot30/cmdline/testtool/DoRunTests.class");
+        List<String> options = Arrays.asList("-d", classes.getAbsolutePath());
+        List<SourceFO> files = Arrays.asList(new SourceFO("DoRunTests.java", CODE_RUN_DECLARATIVE));
 
-        assertTrue(runner.getParentFile().mkdirs());
-
-        FileOutputStream os = new FileOutputStream(runner);
-        InputStream is = MainTest.class.getResourceAsStream("DoRunTests.classx");
-
-        assertNotNull(is);
-
-        FileUtil.copy(is, os);
-        os.close ();
-        is.close();
+        assertTrue(ToolProvider.getSystemJavaCompiler().getTask(null, null, null, options, null, files).call());
 
         runAndTest(classes);
+    }
+
+    private static final class SourceFO extends SimpleJavaFileObject {
+
+        private final String code;
+        private SourceFO(String name, String code) throws URISyntaxException {
+            super(new URI("mem:///" + name), Kind.SOURCE);
+            this.code = code;
+        }
+
+        @Override
+        public CharSequence getCharContent(boolean ignoreEncodingErrors) throws IOException {
+            return code;
+        }
+
     }
 
     protected void runAndTest(File classes) throws Exception {
