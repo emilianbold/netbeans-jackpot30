@@ -1,6 +1,0 @@
-%%example=lambda-candidate
-new $type() {
-    $mods$ $resultType $methodName($args$) {
-        $statements$;
-    }
-}

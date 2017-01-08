@@ -1,5 +1,0 @@
-%%example=new-string,verify
-new String($orig) :: $orig instanceof String && !matchesAny($orig, "$o.substring($s)", "$o.substring($s, $e)");;
-%%example=new-string,verify,fix
-new String($orig) :: $orig instanceof String && !matchesAny($orig, "$o.substring($s)", "$o.substring($s, $e)")
-=> $orig;;

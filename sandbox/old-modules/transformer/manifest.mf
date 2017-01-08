@@ -1,7 +1,0 @@
-Manifest-Version: 1.0
-AutoUpdate-Show-In-Client: false
-OpenIDE-Module: org.netbeans.modules.jackpot30.transformers
-OpenIDE-Module-Layer: org/netbeans/modules/jackpot30/transformers/resources/layer.xml
-OpenIDE-Module-Localizing-Bundle: org/netbeans/modules/jackpot30/transformers/resources/Bundle.properties
-OpenIDE-Module-Specification-Version: 1.16
-
