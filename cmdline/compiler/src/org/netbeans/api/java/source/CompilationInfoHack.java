@@ -43,7 +43,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
-import com.sun.tools.javac.api.JavacTaskImplHack;
+import com.sun.tools.javac.api.JavacTaskImpl;
 import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Source;
 import com.sun.tools.javac.model.JavacElements;
@@ -118,7 +118,7 @@ public class CompilationInfoHack extends WorkingCopy {
 
             try {
                 context.put(JavacTask.class, (JavacTask) null);
-                javacTask.set(this.impl, new JavacTaskImplHack(context));
+                javacTask.set(this.impl, new JavacTaskImpl(context) {});
             } finally {
                 context.put(JavacTask.class, (JavacTask) null);
                 context.put(JavacTask.class, prevTask);

@@ -49,7 +49,9 @@ import hudson.tools.DownloadFromUrlInstaller;
 import hudson.tools.InstallSourceProperty;
 import hudson.tools.ToolInstallation;
 import hudson.tools.ToolProperty;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Arrays;
 import org.kohsuke.stapler.DataBoundConstructor;
 
@@ -84,12 +86,21 @@ public class InstallIndexingTool extends DownloadFromUrlInstaller {
 
     }
 
+    private static final String INSTALLER_DESCRIPTION =
+            "{\"list\": [{\"id\": \"main\", \"name\": \"main\", \"url\": \"http://deadlock.netbeans.org/hudson/job/jackpot30/lastSuccessfulBuild/artifact/remoting/build/indexing-backend.zip\"}]}";
+
     //XXX:
     @Initializer(after=InitMilestone.JOB_LOADED)
     public static void prepareUpdates() throws IOException, InterruptedException {
         FilePath update = new FilePath(new FilePath(Hudson.getInstance().getRootPath(), "updates"), "org.netbeans.modules.jackpot30.hudson.InstallIndexingTool");
 
-        update.copyFrom(InstallIndexingTool.class.getResource("org.netbeans.modules.jackpot30.hudson.InstallIndexingTool"));
+        InputStream in = new ByteArrayInputStream(INSTALLER_DESCRIPTION.getBytes());
+
+        try {
+            update.copyFrom(in);
+        } finally {
+            in.close();
+        }
 
         //preinstall main tool if it does not exist:
         IndexingTool[] tools = Hudson.getInstance().getDescriptorByType(IndexingTool.DescriptorImpl.class).getInstallations();

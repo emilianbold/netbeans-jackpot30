@@ -1,5 +1,0 @@
-#!/bin/bash
-
-. `dirname $0`/nb-jackpot-lib
-
-convert $NETBEANS $JACKPOT
