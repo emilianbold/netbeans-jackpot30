@@ -536,12 +536,210 @@ public class MainTest extends NbTestCase {
                       "--apply");
     }
 
+    public void testAutomaticTestRun() throws Exception {
+        class Config {
+            private final String commandLineOption;
+            private final int result;
+            private final Validator validator;
+
+            public Config(String commandLineOption, int result, Validator validator) {
+                this.commandLineOption = commandLineOption;
+                this.result = result;
+                this.validator = validator;
+            }
+
+        }
+        Validator testValidator =
+                equivalentValidator("${workdir}/src/META-INF/upgrade/test.test:15: error: [test_failure] Actual results did not match the expected test results. Actual results: []\n" +
+                                    "%%TestCase pos-neg\n" +
+                                    "^\n" +
+                                    "${workdir}/src/META-INF/upgrade/test.test:29: error: [test_failure] Actual results did not match the expected test results. Actual results: [package test;\n" +
+                                    "public class Test {{\n" +
+                                    "    private void test(java.util.Collection c) {\n" +
+                                    "        boolean b1 = c.isEmpty();\n" +
+                                    "    }\n" +
+                                    "}}\n" +
+                                    "]\n" +
+                                    "%%TestCase neg-neg\n" +
+                                    "^\n" +
+                                    "${workdir}/src/test/Test.java:4: warning: [test] test\n" +
+                                    "        boolean b1 = c.size() == 0;\n" +
+                                    "                     ^\n");
+        List<? extends Config> options =
+                Arrays.asList(new Config("--run-tests", 1, testValidator),
+                              new Config(IGNORE, 0, equivalentValidator("${workdir}/src/test/Test.java:4: warning: [test] test\n" +
+                                                                        "        boolean b1 = c.size() == 0;\n" +
+                                                                        "                     ^\n")));
+        for (Config testConfig : options) {
+            doRunCompiler(equivalentValidator("package test;\n" +
+                                              "public class Test {\n" +
+                                              "    private void test(java.util.Collection c) {\n" +
+                                              "        boolean b1 = c.size() == 0;\n" +
+                                              "        boolean b2 = c.size() != 0;\n" +
+                                              "    }\n" +
+                                              "}\n"),
+                          testConfig.validator,
+                          equivalentValidator(""),
+                          testConfig.result,
+                          "src/META-INF/upgrade/test.hint",
+                          "$coll.size() == 0 :: $coll instanceof java.util.Collection\n" +
+                          "=>\n" +
+                          "$coll.isEmpty()\n" +
+                          ";;",
+                          "src/META-INF/upgrade/test.test",
+                          "%%TestCase pos-pos\n" +
+                          "package test;\n" +
+                          "public class Test {{\n" +
+                          "    private void test(java.util.Collection c) {\n" +
+                          "        boolean b1 = c.size() == 0;\n" +
+                          "    }\n" +
+                          "}}\n" +
+                          "%%=>\n" +
+                          "package test;\n" +
+                          "public class Test {{\n" +
+                          "    private void test(java.util.Collection c) {\n" +
+                          "        boolean b1 = c.isEmpty();\n" +
+                          "    }\n" +
+                          "}}\n" +
+                          "%%TestCase pos-neg\n" +
+                          "package test;\n" +
+                          "public class Test {{\n" +
+                          "    private void test(java.util.Collection c) {\n" +
+                          "        boolean b1 = c.size() == 0;\n" +
+                          "    }\n" +
+                          "}}\n" +
+                          "%%TestCase neg-pos\n" +
+                          "package test;\n" +
+                          "public class Test {{\n" +
+                          "    private void test(java.util.Collection c) {\n" +
+                          "        boolean b1 = c.size() != 0;\n" +
+                          "    }\n" +
+                          "}}\n" +
+                          "%%TestCase neg-neg\n" +
+                          "package test;\n" +
+                          "public class Test {{\n" +
+                          "    private void test(java.util.Collection c) {\n" +
+                          "        boolean b1 = c.size() != 0;\n" +
+                          "    }\n" +
+                          "}}\n" +
+                          "%%=>\n" +
+                          "package test;\n" +
+                          "public class Test {{\n" +
+                          "    private void test(java.util.Collection c) {\n" +
+                          "        boolean b1 = c.isEmpty();\n" +
+                          "    }\n" +
+                          "}}\n",
+                          "src/test/Test.java",
+                          "package test;\n" +
+                          "public class Test {\n" +
+                          "    private void test(java.util.Collection c) {\n" +
+                          "        boolean b1 = c.size() == 0;\n" +
+                          "        boolean b2 = c.size() != 0;\n" +
+                          "    }\n" +
+                          "}\n",
+                          null,
+                          testConfig.commandLineOption,
+                          "--sourcepath", "${workdir}/src");
+        }
+    }
+
+    public void testLambda() throws Exception {
+        doRunCompiler(null,
+                      equivalentValidator("${workdir}/src/test/Test.java:4: warning: [test] test\n" +
+                                          "        Runnable r = () -> {};\n" +
+                                          "                     ^\n" +
+                                          "${workdir}/src/test/Test.java:5: warning: [test] test\n" +
+                                          "        I1 i1 = (str1, str2) -> {};\n" +
+                                          "                ^\n" +
+                                          "${workdir}/src/test/Test.java:6: warning: [test] test\n" +
+                                          "        I2 i2 = (str1, str2) -> str1;\n" +
+                                          "                ^\n" +
+                                          "${workdir}/src/test/Test.java:7: warning: [test] test\n" +
+                                          "        I3 i3 = str -> { return str; };\n" +
+                                          "                ^\n"),
+                      equivalentValidator(""),
+                      "src/META-INF/upgrade/test.hint",
+                      "($args$) -> $expr" +
+                      ";;",
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test() {\n" +
+                      "        Runnable r = () -> {};\n" +
+                      "        I1 i1 = (str1, str2) -> {};\n" +
+                      "        I2 i2 = (str1, str2) -> str1;\n" +
+                      "        I3 i3 = str -> { return str; };\n" +
+                      "    }\n" +
+                      "    interface I1 {\n" +
+                      "        public void test(String str1, String str2);\n" +
+                      "    }\n" +
+                      "    interface I2 {\n" +
+                      "        public String test(String str1, String str2);\n" +
+                      "    }\n" +
+                      "    interface I3 {\n" +
+                      "        public String test(String str);\n" +
+                      "    }\n" +
+                      "}\n",
+                      null,
+                      "-source", "8",
+                      "--sourcepath", "${workdir}/src");
+    }
+
+    public void testMethodRef() throws Exception {
+        doRunCompiler(null,
+                      equivalentValidator("${workdir}/src/test/Test.java:8: warning: [test] test\n" +
+                                          "        I3 i3b = String::new;\n" +
+                                          "                 ^\n" +
+                                          "${workdir}/src/test/Test.java:4: warning: [test] test\n" +
+                                          "        Runnable r = Test::m1;\n" +
+                                          "                     ^\n" +
+                                          "${workdir}/src/test/Test.java:5: warning: [test] test\n" +
+                                          "        I1 i1 = this::m2;\n" +
+                                          "                ^\n" +
+                                          "${workdir}/src/test/Test.java:6: warning: [test] test\n" +
+                                          "        I2 i2 = String::replace;\n" +
+                                          "                ^\n" +
+                                          "${workdir}/src/test/Test.java:7: warning: [test] test\n" +
+                                          "        I3 i3a = String::toLowerCase;\n" +
+                                          "                 ^\n"),
+                      equivalentValidator(""),
+                      "src/META-INF/upgrade/test.hint",
+                      "$clazz \\u003a\\u003a $member;;" +
+                      "$clazz \\u003a\\u003a new;;",
+                      "src/test/Test.java",
+                      "package test;\n" +
+                      "public class Test {\n" +
+                      "    private void test() {\n" +
+                      "        Runnable r = Test::m1;\n" +
+                      "        I1 i1 = this::m2;\n" +
+                      "        I2 i2 = String::replace;\n" +
+                      "        I3 i3a = String::toLowerCase;\n" +
+                      "        I3 i3b = String::new;\n" +
+                      "    }\n" +
+                      "    interface I1 {\n" +
+                      "        public void test(String str1, String str2);\n" +
+                      "    }\n" +
+                      "    interface I2 {\n" +
+                      "        public String test(String str1, String str2);\n" +
+                      "    }\n" +
+                      "    interface I3 {\n" +
+                      "        public String test(String str);\n" +
+                      "    }\n" +
+                      "    private static void m1() { }\n" +
+                      "    private void m2(String str1, String str2) { }\n" +
+                      "}\n",
+                      null,
+                      "-source", "8",
+                      "--sourcepath", "${workdir}/src");
+    }
+
     public void testGroupsParamEscape() throws Exception {
         assertEquals(Arrays.asList("a b", "a\\b"),
                      Arrays.asList(Main.splitGroupArg("a\\ b a\\\\b")));
     }
 
     private static final String DONT_APPEND_PATH = new String("DONT_APPEND_PATH");
+    private static final String IGNORE = new String("IGNORE");
 
     private void doRunCompiler(String golden, String stdOut, String stdErr, String... fileContentAndExtraOptions) throws Exception {
         doRunCompiler(equivalentValidator(golden), equivalentValidator(stdOut), equivalentValidator(stdErr), fileContentAndExtraOptions);
@@ -588,6 +786,9 @@ public class MainTest extends NbTestCase {
         for (String extraOption : extraOptions) {
             if (extraOption == DONT_APPEND_PATH) {
                 appendPath = false;
+                continue;
+            }
+            if (extraOption == IGNORE) {
                 continue;
             }
             options.add(extraOption.replace("${workdir}", wd.getAbsolutePath()));

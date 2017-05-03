@@ -54,6 +54,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -87,6 +88,10 @@ import org.netbeans.api.java.source.ModificationResult;
 import org.netbeans.core.startup.MainLookup;
 import org.netbeans.modules.jackpot30.cmdline.lib.Utils;
 import org.netbeans.modules.jackpot30.ui.settings.XMLHintPreferences;
+import org.netbeans.modules.java.hints.declarative.DeclarativeHintRegistry;
+import org.netbeans.modules.java.hints.declarative.test.TestParser;
+import org.netbeans.modules.java.hints.declarative.test.TestParser.TestCase;
+import org.netbeans.modules.java.hints.declarative.test.TestPerformer;
 import org.netbeans.modules.java.hints.jackpot.spi.PatternConvertor;
 import org.netbeans.modules.java.hints.providers.spi.HintDescription;
 import org.netbeans.modules.java.hints.providers.spi.HintMetadata;
@@ -108,6 +113,8 @@ import org.netbeans.modules.java.source.parsing.JavaPathRecognizer;
 import org.netbeans.modules.parsing.impl.indexing.CacheFolder;
 import org.netbeans.modules.parsing.impl.indexing.RepositoryUpdater;
 import org.netbeans.spi.editor.hints.ErrorDescription;
+import org.netbeans.spi.editor.hints.ErrorDescriptionFactory;
+import org.netbeans.spi.editor.hints.Fix;
 import org.netbeans.spi.editor.hints.Severity;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -133,6 +140,7 @@ public class Main {
     private static final String OPTION_APPLY = "apply";
     private static final String OPTION_NO_APPLY = "no-apply";
     private static final String OPTION_FAIL_ON_WARNINGS = "fail-on-warnings";
+    private static final String RUN_TESTS = "run-tests";
     private static final String SOURCE_LEVEL_DEFAULT = "1.7";
     private static final String ACCEPTABLE_SOURCE_LEVEL_PATTERN = "(1\\.)?[2-9][0-9]*";
     
@@ -162,6 +170,7 @@ public class Main {
         parser.accepts(OPTION_APPLY, "apply changes");
         parser.accepts("show-gui", "show configuration dialog");
         parser.accepts(OPTION_FAIL_ON_WARNINGS, "fail when warnings are detected");
+        parser.accepts(RUN_TESTS, "run tests for declarative rules that were used");
 
         OptionSet parsed;
 
@@ -286,6 +295,7 @@ public class Main {
             Preferences hintSettingsPreferences;
             boolean apply;
             boolean runDeclarative;
+            boolean runDeclarativeTests;
 
             if (parsed.has(configFile)) {
                 Preferences settingsFromConfigFile;
@@ -293,6 +303,7 @@ public class Main {
                 hintSettingsPreferences = settingsFromConfigFile.node("settings");
                 apply = settingsFromConfigFile.getBoolean("apply", false);
                 runDeclarative = settingsFromConfigFile.getBoolean("runDeclarative", true);
+                runDeclarativeTests = settingsFromConfigFile.getBoolean("runDeclarativeTests", false);
                 if (parsed.has(hint)) {
                     System.err.println("cannot specify --hint and --config-file together");
                     return 1;
@@ -304,6 +315,7 @@ public class Main {
                 hintSettingsPreferences = null;
                 apply = false;
                 runDeclarative = true;
+                runDeclarativeTests = parsed.has(RUN_TESTS);
             }
 
             if (parsed.has(config) && !parsed.has(hint)) {
@@ -320,7 +332,7 @@ public class Main {
             GroupResult result = GroupResult.NOTHING_TO_DO;
 
             try (Writer outS = parsed.has(out) ? new BufferedWriter(new OutputStreamWriter(new FileOutputStream(parsed.valueOf(out)))) : null) {
-                GlobalConfiguration globalConfig = new GlobalConfiguration(hintSettingsPreferences, apply, runDeclarative, parsed.valueOf(hint), parsed.valueOf(hintFile), outS, parsed.has(OPTION_FAIL_ON_WARNINGS));
+                GlobalConfiguration globalConfig = new GlobalConfiguration(hintSettingsPreferences, apply, runDeclarative, runDeclarativeTests, parsed.valueOf(hint), parsed.valueOf(hintFile), outS, parsed.has(OPTION_FAIL_ON_WARNINGS));
 
                 for (RootConfiguration groupConfig : groups) {
                     result = result.join(handleGroup(groupConfig, progress, globalConfig, parsed.valuesOf(config)));
@@ -405,6 +417,8 @@ public class Main {
             return GroupResult.NOTHING_TO_DO;
         }
 
+        WarningsAndErrors wae = new WarningsAndErrors();
+
         ProgressHandleWrapper progress = w.startNextPartWithEmbedding(1);
         Preferences settings = globalConfig.configurationPreferences != null ? globalConfig.configurationPreferences : new MemoryPreferences();
         HintsSettings hintSettings = HintsSettings.createPreferencesBasedHintsSettings(settings, false, null);
@@ -420,6 +434,46 @@ public class Main {
             }
         } else {
             hints = readHints(rootConfiguration.sourceCP, rootConfiguration.binaryCP, hintSettings, settings, globalConfig.runDeclarative);
+            if (globalConfig.runDeclarativeTests) {
+                Set<String> enabledHints = new HashSet<>();
+                for (HintDescription desc : hints) {
+                    enabledHints.add(desc.getMetadata().id);
+                }
+                ClassPath combined = ClassPathSupport.createProxyClassPath(rootConfiguration.sourceCP, rootConfiguration.binaryCP);
+                Map<FileObject, FileObject> testFiles = new HashMap<>();
+                for (FileObject upgrade : combined.findAllResources("META-INF/upgrade")) {
+                    for (FileObject c : upgrade.getChildren()) {
+                        if (c.getExt().equals("test")) {
+                            FileObject hintFile = FileUtil.findBrother(c, "hint");
+
+                            for (HintMetadata hm : DeclarativeHintRegistry.parseHintFile(hintFile).keySet()) {
+                                if (enabledHints.contains(hm.id)) {
+                                    testFiles.put(c, hintFile);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+                for (Entry<FileObject, FileObject> e : testFiles.entrySet()) {
+                    TestCase[] testCases = TestParser.parse(e.getKey().asText()); //XXX: encoding
+                    try {
+                        Map<TestCase, Collection<String>> testResult = TestPerformer.performTest(e.getValue(), e.getKey(), testCases, new AtomicBoolean());
+                        for (TestCase tc : testCases) {
+                            List<String> expected = Arrays.asList(tc.getResults());
+                            List<String> actual = new ArrayList<>(testResult.get(tc));
+                            if (!expected.equals(actual)) {
+                                int pos = tc.getTestCaseStart();
+                                String id = "test-failure";
+                                ErrorDescription ed = ErrorDescriptionFactory.createErrorDescription(id, Severity.ERROR, "Actual results did not match the expected test results. Actual results: " + expected, null, ErrorDescriptionFactory.lazyListForFixes(Collections.<Fix>emptyList()), e.getKey(), pos, pos);
+                                print(ed, wae, Collections.singletonMap(id, id));
+                            }
+                        }
+                    } catch (Exception ex) {
+                        ex.printStackTrace();
+                    }
+                }
+            }
         }
 
         if (config != null && !config.isEmpty()) {
@@ -478,10 +532,8 @@ public class Main {
             if (globalConfig.apply) {
                 apply(hints, rootConfiguration.rootFolders.toArray(new Folder[0]), progress, hintSettings, globalConfig.out);
 
-                return GroupResult.SUCCESS;
+                return GroupResult.SUCCESS; //TODO: WarningsAndErrors?
             } else {
-                WarningsAndErrors wae = new WarningsAndErrors();
-
                 findOccurrences(hints, rootConfiguration.rootFolders.toArray(new Folder[0]), progress, hintSettings, wae);
 
                 if (wae.errors != 0 || (wae.warnings != 0 && globalConfig.failOnWarnings)) {
@@ -870,15 +922,17 @@ public class Main {
         private final Preferences configurationPreferences;
         private final boolean apply;
         private final boolean runDeclarative;
+        private final boolean runDeclarativeTests;
         private final String hint;
         private final File hintFile;
         private final Writer out;
         private final boolean failOnWarnings;
 
-        public GlobalConfiguration(Preferences configurationPreferences, boolean apply, boolean runDeclarative, String hint, File hintFile, Writer out, boolean failOnWarnings) {
+        public GlobalConfiguration(Preferences configurationPreferences, boolean apply, boolean runDeclarative, boolean runDeclarativeTests, String hint, File hintFile, Writer out, boolean failOnWarnings) {
             this.configurationPreferences = configurationPreferences;
             this.apply = apply;
             this.runDeclarative = runDeclarative;
+            this.runDeclarativeTests = runDeclarativeTests;
             this.hint = hint;
             this.hintFile = hintFile;
             this.out = out;
